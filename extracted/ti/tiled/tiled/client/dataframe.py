@@ -1,12 +1,12 @@
 import concurrent.futures
 import functools
 import warnings
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlparse
 
 import dask
 import dask.dataframe
-import httpx
+import httpx2 as httpx
 
 from ..serialization.table import deserialize_arrow, serialize_arrow
 from ..utils import APACHE_ARROW_FILE_MIME_TYPE, UNCHANGED
@@ -166,10 +166,18 @@ class _DaskDataFrameClient(BaseClient):
         # This builds a single-partition dask dataframe from one delayed object,
         # so `divisions` must have length len(dfs) + 1 == 2 regardless of how many
         # partitions the full dataset has.
+        #
+        # The pandas dtypes in `meta` come from the Arrow schema recorded when
+        # the table was written, and may differ from those of the data the
+        # server sends: in particular, string columns are `object` in the
+        # schema but may arrive as `string` depending on how the server reads
+        # its storage. So the partition is not checked against `meta`, as in
+        # `read`.
         return dask.dataframe.from_delayed(
             [dask.delayed(self._get_partition)(partition, columns)],
             meta=meta,
             divisions=(None, None),
+            verify_meta=False,
         )
 
     def read(self, columns=None):
@@ -246,7 +254,7 @@ class _DaskDataFrameClient(BaseClient):
         # The order of arguments has changed; check that the user input is correct
         if not isinstance(partition, int):
             warnings.warn(
-                "The order of arguments has changed: please use write_partition(partition, dataframe).",  # noqa: E501
+                "The order of arguments has changed: please use write_partition(partition, dataframe).",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -268,7 +276,7 @@ class _DaskDataFrameClient(BaseClient):
         # The order of arguments has changed; check that the user input is correct
         if not isinstance(partition, int):
             warnings.warn(
-                "The order of arguments has changed: please use append_partition(partition, dataframe).",  # noqa: E501
+                "The order of arguments has changed: please use append_partition(partition, dataframe).",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -321,7 +329,7 @@ class _DaskDataFrameClient(BaseClient):
 
     def subscribe(
         self,
-        executor: Optional[concurrent.futures.Executor] = None,
+        executor: concurrent.futures.Executor | None = None,
     ) -> "TableSubscription":
         """
         Subscribe to streaming updates about this table.
@@ -362,7 +370,10 @@ class DataFrameClient(_DaskDataFrameClient):
         """
         Access one partition of the DataFrame. Optionally select a subset of the columns.
         """
-        return super().read_partition(partition, columns).compute()
+        npartitions = self.structure().npartitions
+        if not (0 <= partition < npartitions):
+            raise IndexError(f"partition {partition} out of range")
+        return self._get_partition(partition, columns)
 
     def read(self, columns=None):
         """

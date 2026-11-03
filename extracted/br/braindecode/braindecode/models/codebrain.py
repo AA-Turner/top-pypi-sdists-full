@@ -7,15 +7,21 @@
 import math
 import re
 from collections import OrderedDict
-from typing import Optional
+from typing import Dict, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
-from einops import rearrange
 from torch import nn
 from torch.nn.utils.parametrizations import weight_norm
 
+from braindecode.functional import _real_dft, spectral_input
+from braindecode.functional.attention import _hpu_lazy
+from braindecode.functional.functions import _next_fast_len
 from braindecode.models.base import EEGModuleMixin
+
+# Cache of one-sided DFT cosine/sine bases keyed by (device, n_fft): the TUEG
+# geometry reuses one basis for every block, forward and backward.
+_REAL_DFT_BASIS: Dict[Tuple[str, int], Tuple[torch.Tensor, torch.Tensor]] = {}
 
 
 class CodeBrain(EEGModuleMixin, nn.Module):
@@ -116,6 +122,10 @@ class CodeBrain(EEGModuleMixin, nn.Module):
        https://arxiv.org/abs/2506.09110
     """
 
+    _channel_target = (
+        "Fp1 Fp2 F7 F3 Fz F4 F8 T7 C3 Cz C4 T8 P7 P3 Pz P4 P8 O1 O2".split()
+    )
+
     def __init__(
         self,
         n_outputs=None,
@@ -148,6 +158,8 @@ class CodeBrain(EEGModuleMixin, nn.Module):
         codebook_size_f: int = 4096,
         pretrain_mode: bool = False,
         activation: type[nn.Module] = nn.ReLU,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
         super().__init__(
             n_outputs=n_outputs,
@@ -156,6 +168,8 @@ class CodeBrain(EEGModuleMixin, nn.Module):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
 
         # ========== Parameters ==========
@@ -249,7 +263,16 @@ class CodeBrain(EEGModuleMixin, nn.Module):
             remapped[new_key] = value
         return super().load_state_dict(remapped, *args, **kwargs)
 
-    def forward(self, inputs, mask=None, return_features=False):
+    def forward(
+        self,
+        inputs: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        return_features: bool = False,
+    ) -> Union[
+        torch.Tensor,
+        Dict[str, Optional[torch.Tensor]],
+        Tuple[torch.Tensor, torch.Tensor],
+    ]:
         # inputs: (batch, n_chans, n_times)
         batch, n_chans, n_times = inputs.shape
         patch_size = self.patch_size
@@ -266,9 +289,7 @@ class CodeBrain(EEGModuleMixin, nn.Module):
 
         # Flatten channel and patch dims for 1-D convolution backbone
         # (batch, emb_dim, n_chans * seq_len)
-        x = rearrange(
-            x, "batch n_chans seq_len emb_dim -> batch emb_dim (n_chans seq_len)"
-        )
+        x = x.permute(0, 3, 1, 2).flatten(2)
         # (batch, res_channels, n_chans * seq_len)
         x = self.init_conv(x)
         # Residual SSM + attention blocks → aggregated skip connections
@@ -279,16 +300,12 @@ class CodeBrain(EEGModuleMixin, nn.Module):
 
         # Restore channel and patch dims
         # (batch, n_chans, seq_len, out_channels)
-        x = rearrange(
-            x,
-            "batch out_channels (n_chans seq_len) -> batch n_chans seq_len out_channels",
-            n_chans=n_chans,
-            seq_len=seq_len,
-        )
+        x = x.unflatten(2, (n_chans, seq_len)).permute(0, 2, 3, 1)
         x = self.norm(x)
 
         if return_features:
-            return {"features": x, "cls_token": None}
+            out: Dict[str, Optional[torch.Tensor]] = {"features": x, "cls_token": None}
+            return out
         if self.pretrain_mode:
             if mask is not None:
                 x = x[mask == 1]
@@ -458,7 +475,9 @@ class _GConv(nn.Module):
             )
             self.output_linear = nn.Linear(self.d_model * self.channels, self.d_model)
 
-    def forward(self, x, return_kernel=False):
+    def forward(
+        self, x: torch.Tensor, return_kernel: bool = False
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # x: (batch, d_model, seq_len) if transposed, else (batch, seq_len, d_model)
         if not self.transposed:
             x = x.transpose(-1, -2)
@@ -471,24 +490,26 @@ class _GConv(nn.Module):
         multiplier = self.multiplier  # (1, d_model, 1)
 
         if "cat" in self.mode:
-            for i in range(self.num_scales):
+            for i, sub_kernel in enumerate(self.kernel_list):
                 kernel = F.interpolate(
-                    self.kernel_list[i],
-                    scale_factor=2 ** (max(0, i - 1) + self.init_scale),
+                    sub_kernel,
+                    scale_factor=float(2 ** (max(0, i - 1) + self.init_scale)),
                     mode=interpolate_mode,
                 ) * multiplier ** (self.num_scales - i - 1)
                 kernel_list.append(kernel)
             # kernel: (channels, d_model, kernel_len)
             kernel = torch.cat(kernel_list, dim=-1)
         else:
-            raise ValueError(f"Unknown mode {self.mode}")
+            raise ValueError("Unknown mode {}".format(self.mode))
 
         # Lazy-init kernel normalisation on first forward pass
+        # In place, so a first forward under torch.inference_mode() does not
+        # leave inference tensors in the buffers for a later training step.
         if not self.kernel_norm_initialized:
-            self.kernel_norm = kernel.norm(dim=-1, keepdim=True).detach()
-            self.kernel_norm_initialized = torch.tensor(
-                1, dtype=torch.bool, device=kernel.device
+            self.kernel_norm.copy_(
+                torch.linalg.vector_norm(kernel, 2, dim=-1, keepdim=True).detach()
             )
+            self.kernel_norm_initialized.fill_(True)
 
         # Pad or truncate kernel to match seq_len
         if kernel.size(-1) > seq_len:
@@ -500,39 +521,50 @@ class _GConv(nn.Module):
         kernel = kernel / self.kernel_norm
 
         if self.bidirectional:
-            k_fwd, k_bwd = rearrange(
-                kernel,
-                "(s channels) d_model seq_len -> s channels d_model seq_len",
-                s=2,
-            )
+            # (2 * channels, d_model, seq_len) -> 2 x (channels, d_model, seq_len)
+            k_fwd, k_bwd = kernel.unflatten(0, (2, -1)).unbind(0)
             # Combine forward and time-reversed backward kernels
             kernel = F.pad(k_fwd, (0, seq_len)) + F.pad(k_bwd.flip(-1), (seq_len, 0))
 
         # FFT-based convolution: O(N log N)
-        # kernel_freq: (channels, d_model, freq_bins)
-        kernel_freq = torch.fft.rfft(kernel.float(), n=2 * seq_len)
-        # x_freq: (batch, d_model, freq_bins)
-        x_freq = torch.fft.rfft(x.float(), n=2 * seq_len)
-        # out_freq: (batch, channels, d_model, freq_bins)
-        out_freq = torch.einsum("bhl,chl->bchl", x_freq, kernel_freq)
-        # out: (batch, channels, d_model, seq_len)
-        out = torch.fft.irfft(out_freq, n=2 * seq_len)[..., :seq_len]
+        # The bidirectional kernel is circular (lags 0..L-1, then -L..-1).
+        # Rolled to lags -L..L-1 it is a linear convolution read from lag 0,
+        # so any FFT length >= 2 * seq_len works: take a 5-smooth (fast) one.
+        start = seq_len if self.bidirectional else 0
+        n_fft = 2 * _next_fast_len(seq_len)
+        if not torch.jit.is_scripting() and _real_dft.needs_real_dft(x):
+            # Intel Gaudi (HPU) has no complex tensors: the torch.fft path
+            # below is offloaded to the host (~120 ms/block/step in copies).
+            # The real-valued equivalent runs the DFT as MME matmuls on the
+            # device (~32 ms/block). CPU/CUDA keep the torch.fft path.
+            out = self._forward_real_dft(x, kernel, start, n_fft).to(x.dtype)
+        else:
+            # kernel_freq: (channels, d_model, freq_bins)
+            # spectral_input(x) dtype: x's, at least float32 (the reference's .float()).
+            x_in = spectral_input(x)
+            kernel_freq = torch.fft.rfft(kernel.roll(start, -1).to(x_in), n=n_fft)
+            # x_freq: (batch, d_model, freq_bins)
+            x_freq = torch.fft.rfft(x_in, n=n_fft)
+            # out_freq: (batch, channels, d_model, freq_bins)
+            out_freq = torch.einsum("bhl,chl->bchl", x_freq, kernel_freq)
+            # out: (batch, channels, d_model, seq_len)
+            out = torch.fft.irfft(out_freq, n=n_fft)[..., start : start + seq_len].to(x)
 
         # Skip connection via learnable D matrix
         # (batch, channels, d_model, seq_len)
         out = out + torch.einsum("bhl,ch->bchl", x, self.skip_weight)
         # Merge channels and d_model: (batch, channels * d_model, seq_len)
-        out = rearrange(out, "... c h l -> ... (c h) l")
+        out = out.flatten(-3, -2)
 
         if not self.linear:
             out = self.dropout(self.activation(out))
             # (batch, seq_len, channels * d_model)
-            out = rearrange(out, "b c l -> b l c")
+            out = out.transpose(1, 2)
             out = self.norm(out)
             # (batch, seq_len, d_model)
             out = self.output_linear(out)
             # (batch, d_model, seq_len)
-            out = rearrange(out, "b l c -> b c l")
+            out = out.transpose(1, 2)
 
         if not self.transposed:
             out = out.transpose(-1, -2)
@@ -540,6 +572,59 @@ class _GConv(nn.Module):
         if return_kernel:
             return out, kernel
         return out, None
+
+    @torch.jit.unused
+    @_real_dft.fp32_island
+    def _forward_real_dft(self, x, kernel, start, n_fft):
+        # Real-valued equivalent of the torch.fft spectral section above, for
+        # devices without complex tensors (Intel Gaudi / HPU), in float32 with
+        # autocast disabled. The kernel is rolled to lags -L..L-1 exactly as
+        # above, so the bins match torch.fft.rfft(..., n=n_fft); the product
+        # is the complex multiplication as 4 real broadcast elementwise ops;
+        # the inverse is _real_dft.real_irfft and the [start:start+seq_len]
+        # read matches the torch path's window. ``torch.jit.unused`` keeps
+        # this branch out of the scripted graph: CPU/CUDA never take it, and
+        # HPU does not run under torch.jit.script. The cosine/sine basis is
+        # cached per (device, n_fft): one basis serves every block.
+        key = (str(x.device), n_fft)
+        basis = _REAL_DFT_BASIS.get(key)
+        if basis is None:
+            cosine, sine = _real_dft.real_dft_basis(
+                n_fft, device=x.device, dtype=torch.float32
+            )
+            basis = (cosine, sine)
+            _REAL_DFT_BASIS[key] = basis
+        cosine, sine = basis
+        seq_len = x.size(-1)
+        k_rolled = kernel.roll(start, -1)
+        # Re/Im of rfft(kernel, n=n_fft): pad/crop rows to n_fft, matmul.
+        # NOTE: after the bidirectional combine the kernel length is
+        # 2 * seq_len, not seq_len, so pad by its own length (torch.fft
+        # with n=n_fft pads/crops the same way).
+        k_len = k_rolled.size(-1)
+        if k_len < n_fft:
+            k_pad = F.pad(k_rolled.float(), (0, n_fft - k_len))
+        elif k_len > n_fft:
+            k_pad = k_rolled[..., :n_fft].float()
+        else:
+            k_pad = k_rolled.float()
+        k_re = k_pad @ cosine.transpose(0, 1)
+        k_im = -(k_pad @ sine.transpose(0, 1))
+        # Re/Im of rfft(x, n=n_fft) (x already padded below via the same op).
+        x_pad = F.pad(x.float(), (0, n_fft - seq_len))
+        x_re = x_pad @ cosine.transpose(0, 1)
+        x_im = -(x_pad @ sine.transpose(0, 1))
+        # Complex product as 4 real broadcast elementwise ops.
+        out_re = x_re.unsqueeze(1) * k_re.unsqueeze(0) - x_im.unsqueeze(
+            1
+        ) * k_im.unsqueeze(0)
+        out_im = x_re.unsqueeze(1) * k_im.unsqueeze(0) + x_im.unsqueeze(
+            1
+        ) * k_re.unsqueeze(0)
+        out = _real_dft.real_irfft(out_re, out_im, n=n_fft)[
+            ..., start : start + seq_len
+        ]
+        return out
 
 
 class _Conv(nn.Module):
@@ -585,7 +670,7 @@ class _RMSNorm(nn.Module):
         self.scale = nn.Parameter(torch.ones(1, dim, 1))
 
     def forward(self, x):
-        norm = x.norm(dim=1, keepdim=True)
+        norm = torch.linalg.vector_norm(x, 2, dim=1, keepdim=True)
         rms = norm / (x.shape[1] ** 0.5)
         x_normed = x / (rms + self.eps)
         return self.scale * x_normed
@@ -641,20 +726,27 @@ class _ResidualBlock(nn.Module):
         )
         nn.init.kaiming_normal_(self.skip_conv.parametrizations.weight.original1)
 
-    def generate_local_window_mask(self, seq_len, window_size):
+    def generate_local_window_mask(
+        self,
+        seq_len: int,
+        window_size: int,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> torch.Tensor:
         if window_size % 2 != 1:
             raise ValueError(
-                f"window_size must be odd (e.g. 7, 9, 11), got {window_size}"
+                "window_size must be odd (e.g. 7, 9, 11), got {}".format(window_size)
             )
 
         half_window = window_size // 2
-        idx = torch.arange(seq_len)
+        idx = torch.arange(seq_len, device=device)
         dist = (idx.unsqueeze(0) - idx.unsqueeze(1)).abs()
-        return torch.where(
-            dist <= half_window, torch.zeros(1), torch.full((1,), float("-inf"))
-        )
+        mask = torch.zeros(seq_len, seq_len, device=device, dtype=dtype)
+        return mask.masked_fill(dist > half_window, float("-inf"))
 
-    def forward(self, input_data):
+    def forward(
+        self, input_data: Tuple[torch.Tensor, torch.Tensor]
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         x, original = input_data
         # x, original: (batch, res_channels, seq_len)
         hidden = x
@@ -675,13 +767,45 @@ class _ResidualBlock(nn.Module):
 
         # Sliding-window attention branch
         # (batch, 2*res_channels, seq_len) -> (batch, seq_len, 2*res_channels)
-        h_attn = rearrange(h_ssm, "b c l -> b l c")
-        swa_mask = self.generate_local_window_mask(seq_len, self.swa_window_size).to(
-            x.device
-        )
-        h_attn, _ = self.attention(h_attn, h_attn, h_attn, attn_mask=swa_mask)
+        h_attn = h_ssm.transpose(1, 2)
+        if self.swa_window_size == 1 and h_attn.device.type == "cpu":
+            # A one-wide window keeps only the diagonal: the softmax weights are
+            # exactly 1 and 0, so the attention returns its value projection,
+            # times the weights' dropout in training (the same (batch * heads,
+            # L, L) mask nn.MultiheadAttention draws, of which only the
+            # diagonal reaches the output). Same projection calls as
+            # nn.MultiheadAttention (on its (seq, batch, embed) view), so
+            # outputs and gradients are unchanged bit for bit, and so is the
+            # RNG stream. (On Gaudi the full attention was faster.)
+            # ponytail: the unused query/key projections are computed too, to
+            # keep the rounding; in_proj_weight[2E:] alone is ~2x less GEMM.
+            embed_dim = self.attention.embed_dim
+            seq_first = h_attn.transpose(0, 1)
+            value = F.linear(
+                seq_first, self.attention.in_proj_weight, self.attention.in_proj_bias
+            )[..., 2 * embed_dim :]
+            p = self.attention.dropout
+            if self.training and p > 0.0:
+                n_rows = seq_first.shape[1] * self.attention.num_heads
+                keep = (
+                    value.new_empty(n_rows, seq_len, seq_len)
+                    .bernoulli_(1 - p)
+                    .diagonal(dim1=1, dim2=2)
+                    .div(1 - p)
+                )
+                value = value.reshape(seq_len, n_rows, -1) * keep.t().unsqueeze(-1)
+            h_attn = (
+                self.attention.out_proj(value.reshape(-1, embed_dim))
+                .view(seq_first.shape)
+                .transpose(0, 1)
+            )
+        else:
+            swa_mask = self.generate_local_window_mask(
+                seq_len, self.swa_window_size, x.device, x.dtype
+            )
+            h_attn, _ = self.attention(h_attn, h_attn, h_attn, attn_mask=swa_mask)
         # (batch, seq_len, 2*res_channels) -> (batch, 2*res_channels, seq_len)
-        h_attn = rearrange(h_attn, "b l c -> b c l")
+        h_attn = h_attn.transpose(1, 2)
 
         # Combine SSM and attention
         # combined: (batch, 2*res_channels, seq_len)
@@ -769,13 +893,23 @@ class _ResidualGroup(nn.Module):
                 )
             )
 
-    def forward(self, input_data):
+    def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         noise = input_data
         h = noise
-        skip = 0
-        for n in range(self.num_res_layers):
-            h, skip_n = self.residual_blocks[n]((h, noise))
-            skip = skip_n + skip
+        if not torch.jit.is_scripting() and h.device.type == "hpu" and _hpu_lazy():
+            # Gaudi's lazy-mode graph compiler fails on the backward of the
+            # sequential skip sum (one skip_conv dedw node lands in two
+            # pipeline bundles); one n-ary stack-sum reduction compiles.
+            skip_list = []
+            for block in self.residual_blocks:
+                h, skip_n = block((h, noise))
+                skip_list.append(skip_n)
+            skip = torch.stack(skip_list, dim=0).sum(dim=0)
+        else:
+            skip = torch.zeros((), dtype=h.dtype, device=h.device)
+            for block in self.residual_blocks:
+                h, skip_n = block((h, noise))
+                skip = skip_n + skip
 
         return skip * math.sqrt(1.0 / self.num_res_layers)
 
@@ -915,7 +1049,9 @@ class _PatchEmbedding(nn.Module):
             ),
         )
 
-    def forward(self, x, mask=None):
+    def forward(
+        self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         batch, n_chans, seq_len, patch_size = x.shape
         if mask is None:
             mask_x = x
@@ -932,46 +1068,28 @@ class _PatchEmbedding(nn.Module):
 
         # Restore channel and patch dims, flatten conv channels into embedding dim
         # (batch, n_chans, seq_len, conv_ch * emb) = (batch, n_chans, seq_len, emb_dim)
-        patch_emb = rearrange(
-            patch_emb,
-            "batch conv_ch (n_chans seq_len) emb -> batch n_chans seq_len (conv_ch emb)",
-            n_chans=n_chans,
-            seq_len=seq_len,
+        patch_emb = (
+            patch_emb.unflatten(2, (n_chans, seq_len)).permute(0, 2, 3, 1, 4).flatten(3)
         )
 
         # Flatten masked patches for FFT: (batch * n_chans * seq_len, patch_size)
-        patches_flat = rearrange(
-            mask_x,
-            "batch n_chans seq_len patch_size -> (batch n_chans seq_len) patch_size",
-        )
+        patches_flat = mask_x.flatten(0, 2)
 
         # Spectral projection: rfft gives (batch * n_chans * seq_len, patch_size // 2 + 1)
         spectral = torch.abs(
-            torch.fft.rfft(patches_flat.float(), dim=-1, norm="forward")
-        )
+            torch.fft.rfft(spectral_input(patches_flat), dim=-1, norm="forward")
+        ).to(patches_flat)
 
         # Restore batch/channel/patch dims: (batch, n_chans, seq_len, freq_bins)
-        spectral = rearrange(
-            spectral,
-            "(batch n_chans seq_len) freq -> batch n_chans seq_len freq",
-            batch=batch,
-            n_chans=n_chans,
-            seq_len=seq_len,
-        )
+        spectral = spectral.unflatten(0, (batch, n_chans, seq_len))
 
         # Project frequency features to emb_dim and add to temporal embedding
         spectral_emb = self.spectral_proj(spectral)
         patch_emb = patch_emb + spectral_emb
 
         # Positional encoding expects (batch, emb_dim, n_chans, seq_len)
-        patch_emb = patch_emb + rearrange(
-            self.positional_encoding(
-                rearrange(
-                    patch_emb,
-                    "batch n_chans seq_len emb_dim -> batch emb_dim n_chans seq_len",
-                )
-            ),
-            "batch emb_dim n_chans seq_len -> batch n_chans seq_len emb_dim",
-        )
+        patch_emb = patch_emb + self.positional_encoding(
+            patch_emb.permute(0, 3, 1, 2)
+        ).permute(0, 2, 3, 1)
 
         return patch_emb

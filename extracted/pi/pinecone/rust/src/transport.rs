@@ -1,6 +1,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use base64::prelude::{Engine as _, BASE64_STANDARD};
+use http::header::HeaderValue;
 use hyper_util::client::legacy::connect::{proxy::Tunnel, HttpConnector};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
@@ -14,6 +16,96 @@ use crate::retry::{retry_on_transient_request, RetryConfig, ThrottleCallback};
 
 /// Maximum gRPC message size for both send and receive (128 MB).
 const MAX_MESSAGE_SIZE: usize = 128 * 1024 * 1024;
+
+fn redact_url_userinfo(url: &str) -> String {
+    let start = scheme_prefix_len(url);
+    match url[start..].rfind('@') {
+        Some(at) => format!("{}***{}", &url[..start], &url[start + at..]),
+        None => url.to_string(),
+    }
+}
+
+/// Length of a leading `scheme://`, or 0 when the URL does not start with one.
+fn scheme_prefix_len(url: &str) -> usize {
+    url.find("://")
+        .filter(|&i| {
+            let mut scheme = url[..i].chars();
+            scheme.next().is_some_and(|c| c.is_ascii_alphabetic())
+                && scheme.all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '.' | '-'))
+        })
+        .map_or(0, |i| i + 3)
+}
+
+/// `proxy_url` fit for an error message, matching the Python validator's rule.
+///
+/// A URL that did not parse may hide its password anywhere, and one that parsed
+/// without userinfo may still carry an encoded or look-alike `@` (`%40`, or any
+/// non-ASCII character); both show only their scheme.
+fn redact_proxy_url(url: &str, parsed: Option<&http::Uri>) -> String {
+    let prefix = &url[..scheme_prefix_len(url)];
+    let Some(uri) = parsed else {
+        return format!("{prefix}***");
+    };
+    if let Some((_, host_port)) = uri.authority().and_then(|a| a.as_str().rsplit_once('@')) {
+        return format!("{prefix}***@{host_port}");
+    }
+    if url.contains("%40") || !url.is_ascii() {
+        return format!("{prefix}***");
+    }
+    redact_url_userinfo(url)
+}
+
+const GRPC_PROXY_REMEDY: &str =
+    "use an http:// proxy URL (traffic inside the tunnel is still TLS) \
+     or use REST (grpc=False), which also supports https:// and SOCKS proxies";
+
+/// `Basic` credentials for the CONNECT request, decoded from the proxy URL's
+/// userinfo. `None` when the URL has no userinfo.
+fn proxy_basic_auth(proxy_dst: &http::Uri) -> Option<HeaderValue> {
+    let (userinfo, _) = proxy_dst.authority()?.as_str().rsplit_once('@')?;
+    let (user, password) = userinfo.split_once(':').unwrap_or((userinfo, ""));
+    let mut credentials: Vec<u8> = percent_encoding::percent_decode_str(user).collect();
+    credentials.push(b':');
+    credentials.extend(percent_encoding::percent_decode_str(password));
+    HeaderValue::from_str(&format!("Basic {}", BASE64_STANDARD.encode(credentials))).ok()
+}
+
+/// Parse `proxy_url` for the CONNECT tunnel. Only `http` is accepted: the
+/// tunnel always dials the proxy in plaintext, so any other scheme would send
+/// the credentials unprotected or not as the user asked.
+fn parse_proxy_url(proxy_url: &str) -> Result<http::Uri, String> {
+    let Ok(proxy_dst) = proxy_url.parse::<http::Uri>() else {
+        let redacted = redact_proxy_url(proxy_url, None);
+        return Err(format!(
+            "Invalid proxy URL '{redacted}': it could not be parsed; percent-encode \
+             reserved characters and spaces in the username and password"
+        ));
+    };
+    // Python's validate_proxy_url(..., grpc=True) runs first; this is the
+    // last-line guard at the code that sends the credentials.
+    if !proxy_dst
+        .scheme_str()
+        .is_some_and(|s| s.eq_ignore_ascii_case("http"))
+    {
+        let redacted = redact_proxy_url(proxy_url, Some(&proxy_dst));
+        return Err(format!(
+            "gRPC supports only http:// proxies; got '{redacted}'; {GRPC_PROXY_REMEDY}"
+        ));
+    }
+    Ok(proxy_dst)
+}
+
+/// CONNECT tunnel through `proxy_dst`, sending any credentials in its userinfo.
+fn proxy_tunnel(proxy_dst: http::Uri) -> Tunnel<HttpConnector> {
+    let auth = proxy_basic_auth(&proxy_dst);
+    let mut http_connector = HttpConnector::new();
+    http_connector.enforce_http(false);
+    let mut tunnel = Tunnel::new(proxy_dst, http_connector);
+    if let Some(auth) = auth {
+        tunnel = tunnel.with_auth(auth);
+    }
+    tunnel
+}
 
 /// Normalize a source tag string.
 ///
@@ -598,6 +690,8 @@ impl GrpcChannel {
     ///     source_tag: Optional source tag appended to the User-Agent string.
     ///     proxy_url: Optional HTTP proxy URL (e.g. "http://proxy.example.com:8080").
     ///                When set, gRPC traffic is tunnelled through the proxy via HTTP CONNECT.
+    ///                Percent-encoded userinfo ("http://user:pass@host:port") is sent as
+    ///                `Proxy-Authorization: Basic ...`.
     ///     on_throttle: Optional Python callable invoked with the host string on every
     ///                  retryable error. Signature: ``(host: str) -> None``. Used by the
     ///                  SDK's adaptive concurrency limiter to self-tune bulk-operation
@@ -658,13 +752,9 @@ impl GrpcChannel {
         let channel = {
             let _guard = runtime.enter();
             if let Some(proxy_url_str) = proxy_url {
-                let proxy_dst: http::Uri = proxy_url_str.parse().map_err(|e| {
-                    pinecone_value_error(py, &format!("Invalid proxy URL '{proxy_url_str}': {e}"))
-                })?;
-                let mut http_connector = HttpConnector::new();
-                http_connector.enforce_http(false);
-                let tunnel_connector = Tunnel::new(proxy_dst, http_connector);
-                endpoint_builder.connect_with_connector_lazy(tunnel_connector)
+                let proxy_dst =
+                    parse_proxy_url(proxy_url_str).map_err(|msg| pinecone_value_error(py, &msg))?;
+                endpoint_builder.connect_with_connector_lazy(proxy_tunnel(proxy_dst))
             } else {
                 endpoint_builder.connect_lazy()
             }
@@ -1532,6 +1622,95 @@ mod tests {
     use std::time::Duration;
     use tonic::service::Interceptor;
 
+    #[test]
+    fn redact_url_userinfo_masks_credentials() {
+        assert_eq!(
+            redact_url_userinfo("http://user:SENTINEL-SECRET-1234@proxy:8080/path"),
+            "http://***@proxy:8080/path"
+        );
+        assert_eq!(redact_url_userinfo("http://proxy:8080/a@b"), "http://***@b");
+        assert_eq!(
+            redact_url_userinfo("http://proxy:8080"),
+            "http://proxy:8080"
+        );
+    }
+
+    #[test]
+    fn parse_proxy_url_accepts_only_http() {
+        for url in [
+            "http://proxy:8080",
+            "HTTP://user:pass@proxy:8080",
+            "Http://[::1]:8080",
+        ] {
+            assert!(parse_proxy_url(url).is_ok(), "input: {url}");
+        }
+        for url in [
+            "https://user:SENTINEL-SECRET-1234@proxy:443",
+            "socks5://user:SENTINEL-SECRET-1234@proxy:1080",
+            "socks5h://proxy:1080",
+            "ftp://user:SENTINEL-SECRET-1234@proxy:21",
+            "user:SENTINEL-SECRET-1234@proxy:8080",
+            "proxy:8080",
+        ] {
+            let err = parse_proxy_url(url).expect_err(url);
+            assert!(
+                err.starts_with("gRPC supports only http:// proxies; got '"),
+                "{err}"
+            );
+            assert!(!err.contains("SENTINEL-SECRET-1234"), "{err}");
+        }
+    }
+
+    #[test]
+    fn redact_proxy_url_hides_unparsed_and_encoded_separators() {
+        for url in [
+            "http://u:SENTINEL-SECRET-1234%40proxy:3128",
+            "http://u:SENTINEL-SECRET-1234\u{ff20}proxy:3128",
+            "http://u:SENTINEL SECRET/x@proxy:3128",
+        ] {
+            let parsed = url.parse::<http::Uri>().ok();
+            let redacted = redact_proxy_url(url, parsed.as_ref());
+            assert_eq!(redacted, "http://***", "input: {url}");
+        }
+        let url = "https://u:SENTINEL-SECRET-1234@proxy:443";
+        let parsed = url.parse::<http::Uri>().ok();
+        assert_eq!(
+            redact_proxy_url(url, parsed.as_ref()),
+            "https://***@proxy:443"
+        );
+        let err = parse_proxy_url(url).unwrap_err();
+        assert!(!err.contains("SENTINEL"), "{err}");
+        assert!(err.ends_with(GRPC_PROXY_REMEDY), "{err}");
+    }
+
+    #[test]
+    fn redact_url_userinfo_edge_cases() {
+        for (url, expected) in [
+            ("http://user:pa#ss@proxy:8080", "http://***@proxy:8080"),
+            ("http://user:pa/ss@proxy:8080", "http://***@proxy:8080"),
+            ("http://user:pa?ss@proxy:8080", "http://***@proxy:8080"),
+            ("http://user:pa ss/x@proxy:8080", "http://***@proxy:8080"),
+            (
+                "user:pass@proxy:8080/?next=http://x",
+                "***@proxy:8080/?next=http://x",
+            ),
+            ("http://user:p@ss@proxy:8080", "http://***@proxy:8080"),
+            ("http://user:p%40ss@proxy:8080", "http://***@proxy:8080"),
+            ("http://user@proxy:8080", "http://***@proxy:8080"),
+            ("user:pass@proxy:8080", "***@proxy:8080"),
+            ("http://user:pass@[::1]:8080", "http://***@[::1]:8080"),
+            (
+                "http://user:pass@[fe80::1%25en0]:8080",
+                "http://***@[fe80::1%25en0]:8080",
+            ),
+            ("HTTP://user:pass@proxy:8080", "HTTP://***@proxy:8080"),
+            ("socks5://user:pass@proxy:1080", "socks5://***@proxy:1080"),
+            ("http://[::1]:8080", "http://[::1]:8080"),
+        ] {
+            assert_eq!(redact_url_userinfo(url), expected, "input: {url}");
+        }
+    }
+
     fn size_bytes_through_converter(size_bytes: u64) -> u64 {
         Python::initialize();
         Python::attach(|py| {
@@ -2038,6 +2217,100 @@ mod tests {
         http_connector.enforce_http(false);
         // Constructing the Tunnel connector must not panic or error.
         let _tunnel = Tunnel::new(proxy_dst, http_connector);
+    }
+
+    fn basic_auth(proxy_url: &str) -> Option<String> {
+        proxy_basic_auth(&proxy_url.parse().unwrap()).map(|v| v.to_str().unwrap().to_string())
+    }
+
+    #[test]
+    fn proxy_basic_auth_decodes_userinfo() {
+        // base64("proxyuser:s3cret")
+        assert_eq!(
+            basic_auth("http://proxyuser:s3cret@proxy:8080").as_deref(),
+            Some("Basic cHJveHl1c2VyOnMzY3JldA==")
+        );
+        // base64("us@r:p:ss w") — percent-decoded, split on the first ':'
+        assert_eq!(
+            basic_auth("http://us%40r:p%3Ass%20w@proxy:8080").as_deref(),
+            Some("Basic dXNAcjpwOnNzIHc=")
+        );
+        // base64("proxyuser:")
+        assert_eq!(
+            basic_auth("http://proxyuser@proxy:8080").as_deref(),
+            Some("Basic cHJveHl1c2VyOg==")
+        );
+        assert_eq!(basic_auth("http://proxy:8080"), None);
+    }
+
+    /// Open a tunnel through a one-shot fake proxy and return the CONNECT request it saw.
+    async fn captured_connect(proxy_userinfo: &str) -> String {
+        use std::io::{BufRead, BufReader, Write};
+        use tonic::codegen::Service;
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let proxy = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(stream);
+            let mut request = String::new();
+            loop {
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                if line == "\r\n" || line.is_empty() {
+                    break;
+                }
+                request.push_str(&line);
+            }
+            reader
+                .get_mut()
+                .write_all(b"HTTP/1.1 200 Connection established\r\n\r\n")
+                .unwrap();
+            request
+        });
+
+        let proxy_dst = format!("http://{proxy_userinfo}127.0.0.1:{port}")
+            .parse()
+            .unwrap();
+        let mut tunnel = proxy_tunnel(proxy_dst);
+        tunnel
+            .call("http://idx.svc.example.test:443".parse().unwrap())
+            .await
+            .expect("tunnel established");
+        proxy.join().unwrap()
+    }
+
+    fn proxy_authorization(request: &str) -> Vec<&str> {
+        request
+            .lines()
+            .filter_map(|line| {
+                let (name, value) = line.split_once(": ")?;
+                name.eq_ignore_ascii_case("proxy-authorization")
+                    .then_some(value)
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn tunnel_sends_basic_auth_from_proxy_url() {
+        let request = captured_connect("proxyuser:s3cret@").await;
+        assert!(request.starts_with("CONNECT idx.svc.example.test:443 HTTP/1.1\r\n"));
+        assert_eq!(
+            proxy_authorization(&request),
+            ["Basic cHJveHl1c2VyOnMzY3JldA=="]
+        );
+    }
+
+    #[tokio::test]
+    async fn tunnel_decodes_percent_encoded_credentials() {
+        let request = captured_connect("us%40r:p%3Ass%20w@").await;
+        assert_eq!(proxy_authorization(&request), ["Basic dXNAcjpwOnNzIHc="]);
+    }
+
+    #[tokio::test]
+    async fn tunnel_without_userinfo_sends_no_auth() {
+        let request = captured_connect("").await;
+        assert!(proxy_authorization(&request).is_empty(), "{request}");
     }
 
     #[test]

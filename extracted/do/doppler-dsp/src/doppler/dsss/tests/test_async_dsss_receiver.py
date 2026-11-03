@@ -94,7 +94,11 @@ def _new_receiver(cn0_dbhz, **kwargs):
     kwargs.setdefault("segments", 4)
     kwargs.setdefault("sps", 8)
     return AsyncDsssReceiver(
-        CODE, chip_rate=CHIP_RATE, symbol_rate=SYM_RATE, spc=SPC, **kwargs
+        CODE,
+        chip_rate=CHIP_RATE,
+        symbol_rate=SYM_RATE,
+        sample_rate=FS,
+        **kwargs,
     )
 
 
@@ -230,7 +234,7 @@ def test_lifecycle_walks_every_state():
 
 
 def test_reacquire_returns_to_searching_never_lost():
-    # The parallel design's release (async-dsss-parallel.md section 3): the
+    # The pool's release (async-dsss-receiver.md section 10): the
     # emitter gone past the interval, the receiver searches again by
     # itself, with no reset(). The behavior's own test is the C one; this
     # is the keyword reaching it.
@@ -510,11 +514,12 @@ def test_give_up_cap_never_stalls():
 @pytest.mark.parametrize("refine_n_fft", [1, 2])
 def test_a_refine_block_below_three_does_not_abort(refine_n_fft):
     """refine_n_fft is the carrier estimator's block. At 1 or 2 it floored
-    at 2, whose symmetric Hann window is all zeros: PSD refuses that window,
-    the estimator's create returned NULL, and this receiver -- which builds
-    the estimator under dp_xnn at its first refine -- aborted the process
-    (#1959). The block is floored at 3 now, so the refine runs; capped at a
-    few blocks it gives up into tracking with a finite carrier estimate."""
+    at 2, whose Hann window was then the symmetric [0, 0]: PSD refused that
+    window, the estimator's create returned NULL, and this receiver -- which
+    builds the estimator under dp_xnn at its first refine -- aborted the
+    process (#1959). The block is floored at 3 now (and PSD's periodic Hann
+    is [0, 1] at 2, #2053), so the refine runs; capped at a few blocks it
+    gives up into tracking with a finite carrier estimate."""
     cn0_dbhz = 70.0
     x, _data = _make_ramp_signal(cn0_dbhz, seed=9)
     rx = _new_receiver(
@@ -539,7 +544,7 @@ def test_a_non_finite_symbol_rate_is_refused(rate):
             CODE,
             chip_rate=CHIP_RATE,
             symbol_rate=rate,
-            spc=SPC,
+            sample_rate=FS,
             cn0_dbhz=70.0,
         )
 

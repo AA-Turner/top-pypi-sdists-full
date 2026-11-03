@@ -12,7 +12,10 @@ license = { workspace = true }
 readme = "README.md"
 
 [dependencies]
+ty_static = { workspace = true }
+
 argfile = { workspace = true }
+clap = { workspace = true }
 
 [lints]
 workspace = true

@@ -24283,15 +24283,22 @@ def show_totpa():
             if query in [None,]:
                 return
             cta=len(query)
-            for num, i in enumerate(query):
-                if custom:
-                    totp=pyotp.TOTP(i.secret_code)
+            while True:
+                for num, i in enumerate(query):
+                    if custom:
+                        totp=pyotp.TOTP(i.secret_code)
+                    else:
+                        totp=pyotp.TOTP(i.secret_code,interval=i.interval,digits=i.digits_integer,issuer=i.issuer,name=i.name,digest=i.algorithm_digest)
+                    msg=f""" {Fore.light_steel_blue}Time_Left_Seconds='{Fore.light_cyan}{totp.interval-(int(datetime.now().timestamp())%totp.interval)}' {Fore.light_red}NAME{Fore.cyan}={Fore.light_green}"{i.name}" {Fore.light_red}ISSUER{Fore.cyan}={Fore.light_green}"{i.issuer}" {Fore.light_red}OTP{Fore.cyan}={Fore.light_green}"{totp.now()}" DLMTD="{Entry.cfmt(Entry,totp.now())} {Fore.light_slate_grey}OTP_Easy{Fore.cyan}='{Fore.light_green} {totp.now()} '"""
+                    print(std_colorize(msg,num,cta))
+                
+                again=Control(ptext="Re-Run?",helpText="yes or no",data="boolean")
+                if again in BooleanAnswers.NONE:
+                    return
+                elif again in ['d',True]:
+                    continue
                 else:
-                    totp=pyotp.TOTP(i.secret_code,interval=i.interval,digits=i.digits_integer,issuer=i.issuer,name=i.name,digest=i.algorithm_digest)
-                msg=f"""
-{Fore.light_steel_blue}Time_Left_Seconds='{Fore.light_cyan}{totp.interval-(int(datetime.now().timestamp())%totp.interval)}' {Fore.light_red}NAME{Fore.cyan}={Fore.light_green}"{i.name}" {Fore.light_red}ISSUER{Fore.cyan}={Fore.light_green}"{i.issuer}" {Fore.light_red}OTP{Fore.cyan}={Fore.light_green}"{totp.now()}" DLMTD="{Entry.cfmt(Entry,totp.now())}"""
-                print(std_colorize(msg,num,cta))
-
+                    return
     except Exception as e:
         print(e)
 
@@ -24334,8 +24341,7 @@ def show_cotpa():
                     totp=pyotp.HOTP(i.secret_code)
                 else:
                     totp=pyotp.HOTP(i.secret_code,initial_count=i.counter,digits=i.digits_integer,issuer=i.issuer,name=i.name,digest=i.algorithm_digest)
-                msg=f"""
-{Fore.light_red}NAME{Fore.cyan}={Fore.light_green}"{i.name}" {Fore.light_red}ISSUER{Fore.cyan}={Fore.light_green}"{i.issuer}" {Fore.light_red}OTP{Fore.cyan}={Fore.light_green}"{totp.at(i.counter)}" DLMTD="{Entry.cfmt(Entry,totp.at(i.counter))} {Fore.medium_violet_red}Counter={Fore.sea_green_1a}{i.counter}{Style.reset}"""
+                msg=f""" {Fore.light_red}NAME{Fore.cyan}={Fore.light_green}"{i.name}" {Fore.light_red}ISSUER{Fore.cyan}={Fore.light_green}"{i.issuer}" {Fore.light_red}OTP{Fore.cyan}={Fore.light_green}"{totp.at(i.counter)}" DLMTD="{Entry.cfmt(Entry,totp.at(i.counter))} {Fore.medium_violet_red}Counter={Fore.sea_green_1a}{i.counter}{Style.reset} {Fore.light_slate_grey}OTP_Easy{Fore.cyan}='{Fore.light_green} {totp.at(i.counter)} '"""
                 print(std_colorize(msg,num,cta))
                 increment=Control(ptext="increment counter",helpText="make the counter increase by 1",data="boolean")
                 if increment in BooleanAnswers.NONE:

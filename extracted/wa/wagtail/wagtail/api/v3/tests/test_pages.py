@@ -246,20 +246,12 @@ class TestV3PageListingFilters(TestV3PageListingBase, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.get_page_id_list(content), [4])
 
-    def test_ancestor_of_unknown_page_gives_error(self):
+    def test_ancestor_of_unknown_page(self):
         response = self.get_response(ancestor_of=1000)
-        self.assert_problem_response(
-            response,
-            status_code=422,
-            detail_contains="Validation failed",
-            errors=[
-                {
-                    "type": "does_not_exist",
-                    "loc": ["ancestor_of"],
-                    "msg": f"No {self.page_name} matches the given ancestor_of value.",
-                }
-            ],
-        )
+        content = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.get_page_id_list(content), [])
 
     def test_ancestor_of_not_positive_integer_gives_error(self):
         response = self.get_response(ancestor_of="abc")
@@ -277,12 +269,21 @@ class TestV3PageListingFilters(TestV3PageListingBase, TestCase):
         )
 
     def test_ancestor_of_home_page_ignores_root(self):
-        # Root page is not in any site, so pretend it doesn't exist
         response = self.get_response(ancestor_of=2)
         content = response.json()
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.get_page_id_list(content), [])
+
+    def test_ancestor_of_draft_page_returns_live_ancestors(self):
+        page = models.BlogEntryPage.objects.get(id=16)
+        page.unpublish()
+
+        response = self.get_response(ancestor_of=16)
+        content = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.get_page_id_list(content), [2, 5])
 
     def test_child_of_filter(self):
         response = self.get_response(child_of=5)
@@ -296,7 +297,7 @@ class TestV3PageListingFilters(TestV3PageListingBase, TestCase):
         content = response.json()
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(self.get_page_id_list(content), [4, 5, 6, 12, 20])
+        self.assertEqual(self.get_page_id_list(content), [4, 5, 6, 20, 12])
 
     def test_child_of_with_type(self):
         response = self.get_response(type="demosite.EventPage", child_of=5)
@@ -305,20 +306,21 @@ class TestV3PageListingFilters(TestV3PageListingBase, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.get_page_id_list(content), [])
 
-    def test_child_of_unknown_page_gives_error(self):
+    def test_child_of_draft_parent_returns_live_children(self):
+        parent = models.BlogIndexPage.objects.get(id=5)
+        parent.unpublish()
+
+        response = self.get_response(child_of=5)
+        content = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.get_page_id_list(content), [16, 18, 19])
+
+    def test_child_of_unknown_page(self):
         response = self.get_response(child_of=1000)
-        self.assert_problem_response(
-            response,
-            status_code=422,
-            detail_contains="Validation failed",
-            errors=[
-                {
-                    "type": "does_not_exist",
-                    "loc": ["child_of"],
-                    "msg": f"No {self.page_name} matches the given child_of value.",
-                }
-            ],
-        )
+        content = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.get_page_id_list(content), [])
 
     def test_child_of_not_positive_integer_gives_error(self):
         response = self.get_response(child_of="abc")
@@ -356,21 +358,12 @@ class TestV3PageListingFilters(TestV3PageListingBase, TestCase):
             ],
         )
 
-    def test_child_of_page_thats_not_in_same_site_gives_error(self):
-        # Root page is not in any site, so pretend it doesn't exist
+    def test_child_of_global_root_page(self):
         response = self.get_response(child_of=1)
-        self.assert_problem_response(
-            response,
-            status_code=422,
-            detail_contains="Validation failed",
-            errors=[
-                {
-                    "type": "does_not_exist",
-                    "loc": ["child_of"],
-                    "msg": f"No {self.page_name} matches the given child_of value.",
-                }
-            ],
-        )
+        content = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.get_page_id_list(content), [2])
 
     def test_descendant_of_filter(self):
         response = self.get_response(descendant_of=6)
@@ -388,7 +381,7 @@ class TestV3PageListingFilters(TestV3PageListingBase, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             self.get_page_id_list(content),
-            [4, 5, 6, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+            [4, 8, 9, 5, 16, 18, 19, 6, 10, 15, 17, 21, 22, 23, 20, 13, 14, 12],
         )
 
     def test_descendant_of_with_type(self):
@@ -398,20 +391,22 @@ class TestV3PageListingFilters(TestV3PageListingBase, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.get_page_id_list(content), [4])
 
-    def test_descendant_of_unknown_page_gives_error(self):
+    def test_descendant_of_draft_parent_returns_live_descendants(self):
+        parent = models.BlogIndexPage.objects.get(id=5)
+        parent.unpublish()
+
+        response = self.get_response(descendant_of=5)
+        content = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.get_page_id_list(content), [16, 18, 19])
+
+    def test_descendant_of_unknown_page(self):
         response = self.get_response(descendant_of=1000)
-        self.assert_problem_response(
-            response,
-            status_code=422,
-            detail_contains="Validation failed",
-            errors=[
-                {
-                    "type": "does_not_exist",
-                    "loc": ["descendant_of"],
-                    "msg": f"No {self.page_name} matches the given descendant_of value.",
-                }
-            ],
-        )
+        content = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.get_page_id_list(content), [])
 
     def test_descendant_of_not_positive_integer_gives_error(self):
         response = self.get_response(descendant_of="abc")
@@ -433,20 +428,14 @@ class TestV3PageListingFilters(TestV3PageListingBase, TestCase):
             ],
         )
 
-    def test_descendant_of_page_thats_not_in_same_site_gives_error(self):
-        # Root page is not in any site, so pretend it doesn't exist
+    def test_descendant_of_global_root_page(self):
         response = self.get_response(descendant_of=1)
-        self.assert_problem_response(
-            response,
-            status_code=422,
-            detail_contains="Validation failed",
-            errors=[
-                {
-                    "type": "does_not_exist",
-                    "loc": ["descendant_of"],
-                    "msg": f"No {self.page_name} matches the given descendant_of value.",
-                }
-            ],
+        content = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            self.get_page_id_list(content),
+            [2, 4, 8, 9, 5, 16, 18, 19, 6, 10, 15, 17, 21, 22, 23, 20, 13, 14, 12],
         )
 
     def test_descendant_of_when_filtering_by_child_of_gives_error(self):
@@ -476,6 +465,20 @@ class TestV3PageListingFilters(TestV3PageListingBase, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.get_page_id_list(content), [french_homepage.id])
 
+    @override_settings(WAGTAIL_I18N_ENABLED=True)
+    def test_translation_of_draft_page_returns_live_translations(self):
+        french = Locale.objects.create(language_code="fr")
+        homepage = Page.objects.get(id=2)
+        french_homepage = homepage.copy_for_translation(french)
+        french_homepage.get_latest_revision().publish()
+        homepage.unpublish()
+
+        response = self.get_response(translation_of=homepage.id)
+        content = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.get_page_id_list(content), [french_homepage.id])
+
     def test_translation_of_root(self):
         response = self.get_response(translation_of="root")
         content = response.json()
@@ -483,20 +486,12 @@ class TestV3PageListingFilters(TestV3PageListingBase, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.get_page_id_list(content), [])
 
-    def test_translation_of_unknown_page_gives_error(self):
+    def test_translation_of_unknown_page(self):
         response = self.get_response(translation_of=1000)
-        self.assert_problem_response(
-            response,
-            status_code=422,
-            detail_contains="Validation failed",
-            errors=[
-                {
-                    "type": "does_not_exist",
-                    "loc": ["translation_of"],
-                    "msg": f"No {self.page_name} matches the given translation_of value.",
-                }
-            ],
-        )
+        content = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.get_page_id_list(content), [])
 
     @override_settings(WAGTAIL_I18N_ENABLED=True)
     def test_locale_filter(self):
@@ -542,11 +537,10 @@ class TestV3PageListingOrdering(TestV3PageListingBase, TestCase):
         content = response.json()
 
         self.assertEqual(response.status_code, 200)
-        # v3 orders by id rather than treebeard path (v2 parity does not
-        # apply to ordering here).
+        # Pages are in the page tree order by default, like v2.
         self.assertEqual(
             self.get_page_id_list(content),
-            [2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+            [2, 4, 8, 9, 5, 16, 18, 19, 6, 10, 15, 17, 21, 22, 23, 20, 13, 14, 12],
         )
 
     def test_ordering_by_title(self):
@@ -714,7 +708,7 @@ class TestV3PageListingFieldFilter(TestV3PageListingBase, TestCase):
         content = response.json()
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(self.get_page_id_list(content), [8, 9, 16, 17, 18, 19])
+        self.assertEqual(self.get_page_id_list(content), [8, 9, 16, 18, 19, 17])
 
     def test_filtering_doesnt_work_on_specific_fields_without_type(self):
         # Unlike v2, filtering by a field not recognised for the current

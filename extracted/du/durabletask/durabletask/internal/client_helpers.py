@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Sequence
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from google.protobuf import duration_pb2, wrappers_pb2
@@ -103,6 +103,7 @@ def build_query_instances_req(
             runtimeStatus=[status.value for status in orchestration_query.runtime_status] if orchestration_query.runtime_status else None,
             createdTimeFrom=helpers.new_timestamp(orchestration_query.created_time_from) if orchestration_query.created_time_from else None,
             createdTimeTo=helpers.new_timestamp(orchestration_query.created_time_to) if orchestration_query.created_time_to else None,
+            taskHubNames=[wrappers_pb2.StringValue(value=name) for name in orchestration_query.task_hub_names] if orchestration_query.task_hub_names else None,
             instanceIdPrefix=helpers.get_string_value(orchestration_query.instance_id_prefix),
             maxInstanceCount=orchestration_query.max_instance_count,
             fetchInputsAndOutputs=orchestration_query.fetch_inputs_and_outputs,
@@ -227,5 +228,5 @@ def build_signal_entity_req(
         requestId=str(uuid.uuid4()),
         scheduledTime=scheduled_time,
         parentTraceContext=None,
-        requestTime=helpers.new_timestamp(datetime.now(timezone.utc))
+        requestTime=helpers.new_timestamp(datetime.now(UTC))
     )

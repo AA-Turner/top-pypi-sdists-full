@@ -9,7 +9,8 @@ import time
 
 import pytest
 
-from dol import FileLock, atomic_write, file_lock
+from dol import FileLock, LockedAppender, atomic_write, file_lock
+from dol.atomic import TEMP_NAME_PATTERN, _NAME_MAX_BYTES
 
 posix_only = pytest.mark.skipif(sys.platform == "win32", reason="POSIX only")
 
@@ -31,6 +32,13 @@ def test_creates_sidecar_and_reports_held(tmp_path):
     assert (tmp_path / "f.lock").exists()
     with pytest.raises(ValueError):
         FileLock(p, sidecar="")
+
+
+def test_bytes_path(tmp_path):
+    with file_lock(os.fsencode(tmp_path / "f")) as held:
+        assert held is True
+    assert (tmp_path / "f.lock").exists()
+    assert FileLock(os.fsencode(tmp_path / "g"), sidecar=b".lk").path.endswith("g.lk")
 
 
 def test_processes_exclude_each_other(tmp_path):
@@ -151,3 +159,413 @@ def test_close_inside_the_block_raises(tmp_path):
         with pytest.raises(RuntimeError, match="close"):
             lock.close()
     lock.close()
+
+
+# ---------------------------------------------------------------------------
+# LockedAppender (#165)
+
+
+# a kept handle on Windows makes replacing or deleting the file fail (documented)
+kept_handle_posix_only = pytest.param(True, marks=posix_only)
+
+
+@pytest.mark.parametrize("keep_handle", [kept_handle_posix_only, False])
+def test_appender_follows_a_replaced_file(tmp_path, keep_handle):
+    p = tmp_path / "log"
+    with LockedAppender(p, keep_handle=keep_handle) as log:
+        log.append(b"a\n")
+        with log.lock:
+            atomic_write(p, b"compacted\n")
+        log.append(b"b\n")
+    assert p.read_bytes() == b"compacted\nb\n"
+
+
+@posix_only
+def test_appender_recreates_a_deleted_file(tmp_path):
+    p = tmp_path / "log"
+    with LockedAppender(p, keep_handle=True) as log:
+        log.append(b"a")
+        with log.lock:
+            os.unlink(p)
+        log.append(b"b")
+    assert p.read_bytes() == b"b"
+
+
+def test_appender_keeps_the_handle_only_when_asked(tmp_path):
+    p = tmp_path / "log"
+    with LockedAppender(p, keep_handle=True) as log:
+        log.append(b"a")
+        assert log._fd is not None
+    assert log._fd is None
+    with LockedAppender(p, keep_handle=False) as log:
+        log.append(b"b")
+        assert log._fd is None
+    assert p.read_bytes() == b"ab"
+
+
+@pytest.mark.parametrize(
+    "existing, expected",
+    [
+        (b"", b"x\n"),
+        (b"ok\n", b"ok\nx\n"),
+        (b"torn", b"torn\nx\n"),
+    ],
+)
+def test_line_end_heals_a_torn_last_record(tmp_path, existing, expected):
+    p = tmp_path / "log"
+    p.write_bytes(existing)
+    with LockedAppender(p, line_end=b"\n") as log:
+        log.append(b"x\n")
+    assert p.read_bytes() == expected
+
+
+@pytest.mark.parametrize(
+    "existing, expected",
+    [
+        (b"x", b"x\r\nr\r\n"),  # shorter than line_end
+        (b"ab\r", b"ab\r\nr\r\n"),  # a torn terminator is completed, not doubled
+        (b"ab\r\n", b"ab\r\nr\r\n"),
+    ],
+)
+def test_multibyte_line_end(tmp_path, existing, expected):
+    p = tmp_path / "log"
+    p.write_bytes(existing)
+    with LockedAppender(p, line_end=b"\r\n") as log:
+        log.append(b"r\r\n")
+    assert p.read_bytes() == expected
+
+
+def test_a_kept_handle_heals_a_tail_torn_by_another_writer(tmp_path):
+    p = tmp_path / "log"
+    with LockedAppender(p, line_end=b"\n", keep_handle=True) as a:
+        a.append(b"a\n")
+        with LockedAppender(p) as b:  # no line_end: leaves a torn record
+            b.append(b"torn")
+        a.append(b"x\n")
+    assert p.read_bytes() == b"a\ntorn\nx\n"
+
+
+@pytest.mark.parametrize("keep_handle", [True, False])
+def test_a_failed_write_does_not_wedge_the_appender(tmp_path, monkeypatch, keep_handle):
+    import errno
+
+    p = tmp_path / "log"
+    real_write = os.write
+    fail = [True]
+
+    def write(fd, data):
+        if fail[0]:  # a short write, then the disk fills up
+            fail[0] = False
+            real_write(fd, bytes(data[:2]))
+            raise OSError(errno.ENOSPC, "No space left on device")
+        return real_write(fd, data)
+
+    with LockedAppender(p, line_end=b"\n", keep_handle=keep_handle) as log:
+        log.append(b"a\n")
+        monkeypatch.setattr(os, "write", write)
+        with pytest.raises(OSError):
+            log.append(b"12345\n")
+        assert log._fd is None  # dropped: the next append reopens
+        log.append(b"next\n")
+    assert p.read_bytes() == b"a\n12\nnext\n"  # nothing pending lands later
+
+
+def test_without_line_end_bytes_are_appended_as_given(tmp_path):
+    p = tmp_path / "log"
+    p.write_bytes(b"torn")
+    with LockedAppender(p) as log:
+        log.append(b"x")
+    assert p.read_bytes() == b"tornx"
+
+
+def test_appender_uses_the_injected_lock(tmp_path):
+    p = tmp_path / "log"
+    lock = FileLock(p, sidecar=".mylock")
+    with LockedAppender(p, lock=lock) as log:
+        assert log.lock is lock
+        log.append(b"a")
+    assert (tmp_path / "log.mylock").exists()
+    assert not (tmp_path / "log.lock").exists()
+
+
+def test_append_waits_for_the_lock(tmp_path):
+    p = tmp_path / "log"
+    log = LockedAppender(p)
+    done = []
+    with file_lock(p):  # a separate FileLock: another writer, e.g. a compaction
+        t = threading.Thread(target=lambda: (log.append(b"a"), done.append(1)))
+        t.start()
+        time.sleep(0.2)
+        assert done == [] and not p.exists()
+    t.join(10)
+    log.close()
+    assert done == [1] and p.read_bytes() == b"a"
+
+
+def _append_n(path, n, start):
+    start.wait()
+    with LockedAppender(path, line_end=b"\n") as log:
+        for i in range(n):
+            log.append(b"%d\n" % i)
+
+
+def _compact_n(path, n, start):
+    start.wait()
+    for _ in range(n):
+        with file_lock(path):
+            lines = open(path, "rb").read().splitlines(keepends=True)
+            atomic_write(path, b"".join(lines))  # same content, new file
+
+
+def test_no_append_is_lost_across_concurrent_compactions(tmp_path):
+    p = str(tmp_path / "log")
+    open(p, "wb").close()
+    start = mp.Barrier(4)  # all start together, so appends and compactions overlap
+    procs = [mp.Process(target=_append_n, args=(p, 100, start)) for _ in range(3)]
+    procs.append(mp.Process(target=_compact_n, args=(p, 30, start)))
+    [pr.start() for pr in procs]
+    [pr.join(60) for pr in procs]
+    assert all(pr.exitcode == 0 for pr in procs)
+    lines = open(p, "rb").read().splitlines()
+    assert sorted(lines) == sorted([b"%d" % i for i in range(100)] * 3)
+
+
+def test_an_unclosed_appender_releases_its_fd(tmp_path):
+    import gc
+
+    log = LockedAppender(tmp_path / "log", keep_handle=True)
+    log.append(b"a")
+    fd = log._fd
+    del log
+    gc.collect()
+    with pytest.raises(OSError):
+        os.fstat(fd)
+
+
+def test_typed_memoryview_is_written_whole(tmp_path):
+    from array import array
+
+    p = tmp_path / "log"
+    data = array("i", range(4))
+    with LockedAppender(p) as log:
+        log.append(memoryview(data))
+    assert p.read_bytes() == data.tobytes()
+
+
+def test_without_line_end_a_write_only_file_is_enough(tmp_path):
+    p = tmp_path / "log"
+    p.write_bytes(b"a")
+    os.chmod(p, 0o200)  # write-only
+    try:
+        with LockedAppender(p) as log:
+            log.append(b"b")
+    finally:
+        os.chmod(p, 0o600)
+    assert p.read_bytes() == b"ab"
+
+
+# ---------------------------------------------------------------------------
+# long names (#182)
+
+
+@pytest.mark.parametrize("name", ["n" * 255, "文" * 85])  # both 255 bytes
+def test_a_long_name_gets_a_short_shared_lock_file(tmp_path, name):
+    target = tmp_path / name
+    a, b = FileLock(target), FileLock(target)
+    assert a.path == b.path  # every process derives the same lock file
+    lock_name = os.path.basename(a.path)
+    assert len(os.fsencode(lock_name)) <= _NAME_MAX_BYTES
+    assert lock_name.startswith(".") and lock_name.endswith(".lock")
+    assert os.path.dirname(a.path) == str(tmp_path)
+    with file_lock(target) as held:
+        assert held
+        atomic_write(target, b"x")
+    assert os.path.exists(a.path) and target.read_bytes() == b"x"
+
+
+def test_long_names_that_differ_get_different_lock_files(tmp_path):
+    a = FileLock(tmp_path / ("n" * 254 + "a"))
+    b = FileLock(tmp_path / ("n" * 254 + "b"))
+    assert a.path != b.path
+
+
+def test_short_names_keep_the_plain_sidecar(tmp_path):
+    name = "n" * (_NAME_MAX_BYTES - len(".lock"))  # exactly at the limit
+    assert FileLock(tmp_path / name).path == str(tmp_path / name) + ".lock"
+
+
+@pytest.mark.parametrize("name", ["n" * 255, "short"])
+def test_a_sidecar_too_long_for_any_name_is_refused_up_front(tmp_path, name):
+    with pytest.raises(ValueError, match="no room"):
+        FileLock(tmp_path / name, sidecar="." + "s" * 250)
+
+
+@pytest.mark.parametrize(
+    "a, b",
+    [
+        ("\u00e9" * 124, "e\u0301" * 124),  # NFC 248 bytes, NFD 372: one file on APFS
+        ("\u00e9" * 126, "e\u0301" * 126),
+        ("N" * 252, "n" * 252),  # one file on a case-insensitive filesystem
+        ("\u023a" * 125, "\u2c65" * 125),  # 250 bytes, its casefold 375
+    ],
+)
+def test_every_spelling_of_a_long_name_shares_one_lock(tmp_path, a, b):
+    assert FileLock(tmp_path / a).path == FileLock(tmp_path / b).path
+
+
+@pytest.mark.parametrize("name", ["e\u0301" * 84, "\u212a" * 84])  # NFC is shorter
+def test_the_lock_name_always_fits(tmp_path, name):
+    assert len(os.fsencode(os.path.basename(FileLock(tmp_path / name).path))) <= 255
+
+
+def test_a_hashed_lock_name_never_looks_like_a_temp(tmp_path):
+    lock = FileLock(tmp_path / ("n" * 255), sidecar=".tmp")
+    assert not TEMP_NAME_PATTERN.fullmatch(os.path.basename(lock.path))
+
+
+@posix_only
+def test_a_hashed_lock_excludes_another_holder(tmp_path):
+    import fcntl
+
+    target = tmp_path / ("n" * 255)
+    with file_lock(target) as held:
+        assert held
+        (lock_file,) = [p for p in os.listdir(tmp_path) if p.endswith(".lock")]
+        with open(tmp_path / lock_file, "rb") as other:  # another descriptor
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(other.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+# ---------------------------------------------------------------------------
+# a second lock on a path this thread holds (#185)
+
+
+def _outcome_isolated(code: str, folder) -> str:
+    """Run ``code`` (with ``P`` = a path in ``folder``) in a fresh interpreter and
+    return the name of what it raised ("ok" if nothing): a deadlock fails the test
+    on the timeout instead of hanging the whole suite."""
+    import subprocess
+
+    script = (
+        "import contextlib, os, sys\n"
+        "from dol import file_lock, update_json\n"
+        f"P = {str(folder)!r}\n"
+        "try:\n"
+        + "".join(f"    {line}\n" for line in code.splitlines())
+        + "    print('ok')\n"
+        "except Exception as e:\n"
+        "    print(type(e).__name__)\n"
+    )
+    r = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, timeout=20
+    )
+    return r.stdout.strip() or r.stderr.strip()
+
+
+def test_nested_file_lock_on_one_path_raises_instead_of_deadlocking(tmp_path):
+    code = "with file_lock(os.path.join(P, 'f')):\n    with file_lock(os.path.join(P, 'f')):\n        pass"
+    assert _outcome_isolated(code, tmp_path) == "RuntimeError"
+    with file_lock(tmp_path / "f") as held:  # and nothing was left locked
+        assert held
+
+
+def test_another_spelling_of_the_same_file_is_caught(tmp_path):
+    (tmp_path / "sub").mkdir()
+    code = (
+        "with file_lock(os.path.join(P, 'f')):\n"
+        "    with file_lock(os.path.join(P, 'sub', '..', 'f')):\n"
+        "        pass"
+    )
+    assert _outcome_isolated(code, tmp_path) == "RuntimeError"
+
+
+def test_update_json_inside_file_lock_raises_and_nullcontext_works(tmp_path):
+    code = (
+        "p = os.path.join(P, 'm.json')\n"
+        "with file_lock(p):\n"
+        "    update_json(p, lambda m: m.update(a=1))"
+    )
+    assert _outcome_isolated(code, tmp_path) == "RuntimeError"
+    code = (
+        "p = os.path.join(P, 'm.json')\n"
+        "with file_lock(p):\n"
+        "    update_json(p, lambda m: m.update(a=1), lock=contextlib.nullcontext())"
+    )
+    assert _outcome_isolated(code, tmp_path) == "ok"
+    assert (tmp_path / "m.json").read_text() == '{"a": 1}'
+
+
+def test_a_lock_dropped_without_exit_leaves_no_false_alarm(tmp_path):
+    import gc
+
+    lock = FileLock(tmp_path / "f")
+    lock.__enter__()  # never exited
+    del lock
+    gc.collect()
+    with file_lock(tmp_path / "f") as held:  # the OS released it; so must we
+        assert held
+
+
+def test_an_unheld_lock_registers_nothing(tmp_path, monkeypatch):
+    from dol import atomic
+
+    monkeypatch.setattr(FileLock, "_try_lock", lambda self: False)
+    with file_lock(tmp_path / "f") as outer:
+        with file_lock(tmp_path / "f") as inner:  # no lock, so no deadlock to fear
+            assert (outer, inner) == (False, False)
+    assert atomic._holder_of_file == {}
+
+
+@posix_only
+def test_a_forked_child_starts_with_no_holders(tmp_path):
+    from dol import atomic
+
+    with file_lock(tmp_path / "f"):
+        r, w = os.pipe()
+        pid = os.fork()
+        if pid == 0:
+            try:
+                os.write(w, str(len(atomic._holder_of_file)).encode())
+            finally:
+                os._exit(0)
+        n = int(os.read(r, 8))
+        os.waitpid(pid, 0)
+    assert n == 0
+
+
+def test_other_threads_still_wait_their_turn(tmp_path):
+    p = tmp_path / "f"
+    order = []
+    with file_lock(p):
+        t = threading.Thread(target=lambda: _hold_and_note(p, order))
+        t.start()
+        time.sleep(0.2)
+        order.append("main")
+    t.join(10)
+    assert order == ["main", "thread"]
+    with file_lock(p):  # the registry was cleared on release
+        pass
+
+
+def _hold_and_note(p, order):
+    with file_lock(p):
+        order.append("thread")
+
+
+def test_a_different_sidecar_is_a_different_lock(tmp_path):
+    p = tmp_path / "f"
+    with file_lock(p):
+        with file_lock(p, sidecar=".other") as held:
+            assert held
+
+
+def test_a_case_variant_on_a_case_insensitive_filesystem_is_caught(tmp_path):
+    (tmp_path / "data").write_bytes(b"")
+    if not (tmp_path / "DATA").exists():
+        pytest.skip("case-sensitive filesystem: two different files")
+    code = (
+        "with file_lock(os.path.join(P, 'data')):\n"
+        "    with file_lock(os.path.join(P, 'DATA')):\n"
+        "        pass"
+    )
+    assert _outcome_isolated(code, tmp_path) == "RuntimeError"

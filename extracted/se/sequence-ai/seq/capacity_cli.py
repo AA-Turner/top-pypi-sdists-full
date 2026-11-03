@@ -18,10 +18,10 @@ from __future__ import annotations
 import math
 from typing import Any, Callable, Optional
 
-from sequence_ai._core.capacity import LOAD_MAX, count, held
+from sequence_ai._core.capacity import LOAD_MAX, count, held, wait_said
 
 from seq.clock import stamp
-from sequence_ai._core.money import as_shown, money, per_hour, whole
+from sequence_ai._core.money import money, per_hour, whole
 from seq.deployments_cli import _call
 from sequence_ai._core.names import segment
 
@@ -48,6 +48,26 @@ DEATH = {
                          "group — `seq policy logs <name>` shows which machine and why",
     "load_failed": "loading the policy raised while its worker started — `seq policy logs <name>` shows the error and "
                    "the lines it raised in",
+}
+
+
+
+SERVED_NOT = {
+    "image_failed": "its image could not be built or pulled — `seq policy logs <name>` shows the lines its build ended "
+                    "with",
+    "fetch_failed": "its files could not be downloaded — the next connect starts another machine",
+    "gpu_failed": "its machine could not reach its GPU — the next connect starts another machine",
+}
+
+
+
+
+NEVER_UP = {
+    "no_card": "no card of its kind was free where it was placed",
+    "quota": "the platform's limit of its card where it was placed was reached",
+    "boot_timeout": "its machine did not come up in time",
+    "start_error": "its machine could not be created",
+    "taken_back": "its machine was taken back",
 }
 
 
@@ -103,7 +123,7 @@ WHY = {
     "error": "ended after an error",
 
 
-    "resume-no-card": "started new: its stopped worker could not start again, no card free where it was",
+    "resume-no-card": "started new: its stopped worker could not start again, no card available where it was",
     "resume-failed": "started new: its stopped worker could not start again",
 
     "stopped-expired": "ended: kept stopped for a fast start, unused for the days one is kept",
@@ -124,7 +144,11 @@ def why(reason: Any, name: str) -> str | None:
     if not isinstance(reason, str):
         return None
     base, _, cause = reason.partition(" (")
-    text = DEATH.get(cause.rstrip(")")) or DEATH.get(base) or WHY.get(base)
+    cause = cause.rstrip(")")
+    if base == "gone-while-starting" and cause in NEVER_UP:
+        return f"{WHY[base]}: {NEVER_UP[cause]}"
+    said = {**DEATH, **SERVED_NOT}
+    text = said.get(cause) or said.get(base) or WHY.get(base)
     return text.replace("<name>", name) if text else None
 
 
@@ -174,6 +198,8 @@ def show_gpus(prices: dict, echo: Echo) -> None:
                                             else "")
         echo(f"{str(g.get('gpu')):{w}}{vram:>7}  {_usd(g.get('usd_per_hour'), per_hour):>10}  "
              f"{_yes(g.get('policy')):8}{bench:15}{_yes(g.get('rt_core')):9}{_yes(g.get('nvenc'))}")
+        if g.get("regions"):
+            echo(f"{'':{w}}runs in {', '.join(g['regions'])}")
     if not rows:
         echo("(no cards are offered right now)")
     cpu_rates, mem_rates = prices.get("cpu") or {}, prices.get("memory") or {}
@@ -218,7 +244,7 @@ def show_gpus(prices: dict, echo: Echo) -> None:
 
 
 def _account_id(base_url: str | None) -> str | None:
-    """The account's id as `seq account delete --confirm` takes it, read as you (GET /v1/account/person) when you are
+    """The account's id - the one the console's Account page asks for to delete it - read as you (GET /v1/account/person) when you are
     signed in on this machine; None with a key alone - the id is the person's to read - or when it could not be read."""
     from sequence_ai._core import login as signin
 
@@ -235,7 +261,7 @@ def _account_id(base_url: str | None) -> str | None:
 def account(*, base_url: str | None = None, echo: Echo = _silent) -> dict:
     """The account's balance, its GPUs (limit, held by serving, by evals and by build checks, available, the evals
     waiting for GPUs), usage and limits - or, with a robot key, the one deployment it is for (show_deployment); signed
-    in, headed by the account's id, the one `seq account delete --confirm` takes.
+    in, headed by the account's id, the one the console's Account page asks for to delete it.
 """
     out = _call("GET", "/v1/account", base_url)
     acct = _account_id(base_url)
@@ -299,23 +325,7 @@ def show_account(out: dict, echo: Echo) -> None:
     bal = out.get("balance") or {}
     overrides, plan = out.get("limit_overrides"), out.get("plan")
     show_plan(plan, bal.get("free_credit"), echo, overrides)
-    if bal:
-        on_hold = bal.get("held_usd") if isinstance(bal.get("held_usd"), (int, float)) and bal["held_usd"] > 0 else None
-        if on_hold is None or not isinstance(bal.get("balance"), (int, float)):
-            line = f"balance   {_usd(bal.get('balance'))}"
-        else:
-
-
-
-
-
-
-            avail, hold = as_shown(bal["balance"]), as_shown(on_hold)
-            line = (f"balance   {_usd(avail + hold)} · {_usd(hold)} held for running workers and evals until they "
-                    f"stop · {_usd(avail)} available now")
-        if bal.get("credit_limit_usd"):
-            line += f" (spendable {_usd(bal.get('spendable'))} with your credit line)"
-        echo(line)
+    show_spend(bal, echo)
     g = out["gpus"]
     in_use = g.get("in_use") or {}
     echo(f"GPUs      limit {count(g.get('limit'))} · in use {count(in_use.get('total'))} ({held(in_use)}) · "
@@ -339,6 +349,39 @@ def show_account(out: dict, echo: Echo) -> None:
         echo("limits    " + ", ".join(f"{LIMITS.get(k, k.removeprefix('max_').replace('_', ' '))} "
                                      f"{'none' if v is None else v}{own(k, v, overrides, plan)}"
                                      for k, v in limits.items()))
+
+
+def show_spend(bal: Any, echo: Echo) -> None:
+    """The month as billing reads it, postpaid (GET /v1/account's balance): what this month has spent, how much of the
+    plan's monthly limit is left, what running workers and evals hold until they stop - and the payment method its bill
+    goes to, or, with none on the account, that usage stops at the monthly credit. Nothing when the platform did not
+    say what was spent. The limit and the credit are a plan's, in whole dollars, as its fee is (money.whole).
+    
+
+"""
+    if not isinstance(bal, dict) or not _amount(bal.get("period_spent_usd")):
+        return
+    line = f"spent     {_usd(bal['period_spent_usd'])} this month"
+    if _amount(bal.get("month_left_usd")) and _amount(bal.get("month_limit_usd")):
+        line += f" · {_usd(bal['month_left_usd'])} of your {_usd(bal['month_limit_usd'], whole)} monthly limit left"
+    held = bal.get("held_usd")
+    if _amount(held) and held > 0:
+
+        line += f" · {_usd(held)} held for running workers and evals until they stop"
+    echo(line)
+    card = bal.get("payment_method")
+    if isinstance(card, dict):
+        month, year = card.get("exp_month"), card.get("exp_year")
+        echo(f"payment   {card.get('brand') or 'card'} ending {card.get('last4') or '····'}"
+             + (f", expires {int(month):02d}/{int(year)}" if _amount(month) and _amount(year) else ""))
+    elif "payment_method" in bal:
+        credit = f"your {_usd(bal['credit_usd'], whole)} " if _amount(bal.get("credit_usd")) else "the "
+        echo(f"payment   none: usage stops at {credit}monthly credit - add a payment method on the console's Billing "
+             "page")
+
+
+def _amount(v: Any) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
 
 
 def show_storage(st: Any, echo: Echo) -> None:
@@ -400,13 +443,14 @@ def every_words(seconds: float) -> str:
 
 
 def fleet(name: str, *, base_url: str | None = None, echo: Echo = _silent, version: int | None = None,
-          dependencies: bool = False) -> dict:
+          deploying: bool = False) -> dict:
     """A deployment's workers (state, card, copies, seats, sessions, why one died), the robots waiting for a slot, and
     the limits they run under. `version`: the version whose price, capacity and
-    measurements it gives (the platform says which in `priced_version`); the serving one's without it. `dependencies`:
-    that version's own copy in your storage too (`dependencies`, what `seq deploy` says once it is ready)."""
+    measurements it gives (the platform says which in `priced_version`); the serving one's without it. `deploying`:
+    the read is `seq deploy`'s, after its build, so the platform's word on where its workers run names the region it
+    was deployed to (its query's `dependencies=true`, the platform's name for that read)."""
     query = "&".join(q for q in (f"version={int(version)}" if version else "",
-                                 "dependencies=true" if dependencies else "") if q)
+                                 "dependencies=true" if deploying else "") if q)
     out = _call("GET", f"/v1/deployments/{segment(name)}/fleet" + (f"?{query}" if query else ""), base_url)
     show_fleet(name, out, echo)
     return out
@@ -475,7 +519,13 @@ def show_fleet(name: str, f: dict, echo: Echo) -> None:
     members = f.get("planner")
     seats = f.get("max") if f.get("max") is not None else "—"
     echo(f"fleet: {len(live)} worker(s) holding {cards} GPU(s) · {cap} · plans for {', '.join(members)}" if members else
-         f"fleet: {len(live)} worker(s) holding {cards} GPU(s) · {cap} · {full} · robots per worker: {seats}")
+         f"fleet: {len(live)} worker(s) holding {cards} GPU(s) · {cap} · {full} · robots per worker: {seats}"
+         f"{wait_said(f)}")
+
+
+    for w in f.get("waits") or ():
+        echo(f"  {w.get('robot') or 'a robot'} waited p50 {w.get('p50_ms', 0):.0f} ms, p95 {w.get('p95_ms', 0):.0f} ms "
+             f"for an answer ({w.get('acts')} acts)")
     now = now_line(f)
     if now:
         echo(now)
@@ -520,6 +570,7 @@ def show_fleet(name: str, f: dict, echo: Echo) -> None:
     show_gpu(f.get("gpus"), f["scaling"]["start_wait_s"], echo)
     show_capacity(f.get("capacity"), echo, f.get("measured"))
     show_batching(f.get("measured"), echo)
+    show_cuda_graphs(f.get("measured"), echo)
 
     show_hints(f.get("hints"), "workers", echo)
 
@@ -791,10 +842,10 @@ def show_gpu(g: dict | None, start_wait_s: Any, echo: Echo) -> None:
     if g.get("region"):
 
 
-        echo(f"  region {g['region']}: every worker runs there, and a start waits there for a free {card.split(':')[0]}")
+        echo(f"  region {g['region']}: every worker runs there, and a start waits there for an available {card.split(':')[0]}")
     if isinstance(start_wait_s, (int, float)) and start_wait_s > 0:
 
-        echo(f"  a start waits up to {every_words(float(start_wait_s))} for a free {card.split(':')[0]}")
+        echo(f"  a start waits up to {every_words(float(start_wait_s))} for an available {card.split(':')[0]}")
     caps = [x for x in (g.get("max_gpus"), g.get("account_gpus")) if x]
     if caps:
 
@@ -879,6 +930,21 @@ def show_capacity(cap: dict | None, echo: Echo, measured: dict | None = None) ->
     echo(line[0].upper() + line[1:] + ("" if line.endswith(".") else "."))
 
 
+def show_cuda_graphs(measured: dict | None, echo: Echo) -> None:
+    """What its version's check found of CUDA graphs
+: on, and how much faster its acts are; or off, and why.
+    Nothing for a version that asked for none.
+"""
+    graphs = (measured or {}).get("cuda_graphs")
+    if not isinstance(graphs, dict):
+        return
+    if not graphs.get("on"):
+        echo(f"CUDA graphs: off - {graphs.get('why') or 'its check left them off'}")
+        return
+    faster = graphs.get("speedup")
+    echo("CUDA graphs: on" + (f" (acts {float(faster):.2f}× faster)" if isinstance(faster, (int, float)) else ""))
+
+
 def show_batching(measured: dict | None, echo: Echo) -> None:
     """How a deployment that declares `@seq.concurrent` batches: a copy seats as many robots as the largest batch size
     it lists whose batch answers within the time its robots can wait for an answer (@seq.policy(hz=,
@@ -896,7 +962,8 @@ def show_batching(measured: dict | None, echo: Echo) -> None:
          "its robots can wait for an answer (the steps from action_chunk_replan_at to action_chunk_valid_len, at hz), "
          f"as long as their batches fill at most {LOAD_MAX:.0%} of the time between a robot's asks "
          "(action_chunk_replan_at steps at hz) - one robot a copy when it asks at its last valid step or declares no "
-         "action_chunk_valid_len; an eval's copy runs its acts in batches of those sizes")
+         "action_chunk_valid_len; where it sets max_wait_for_batch, within that wait in place of those steps; an "
+         "eval's copy runs its acts in batches of those sizes")
 
 
 def show_sample(measured: dict | None, echo: Echo) -> None:
@@ -1035,13 +1102,9 @@ def print_worker_price(resources: Any, base_url: str | None, name: str | None = 
     f: dict = {}
     if name:
         try:
-            f = fleet(name, base_url=base_url, version=version, dependencies=True)
+            f = fleet(name, base_url=base_url, version=version, deploying=True)
         except Exception:
             f = {}
-    from seq import deps_cost
-
-
-    kept = deps_cost.kept_line(f.get("dependencies")) if version is None or f.get("priced_version") == version else None
 
     mine = version is None or f.get("priced_version") == version
     if f.get("price") and mine:
@@ -1054,8 +1117,6 @@ def print_worker_price(resources: Any, base_url: str | None, name: str | None = 
         show_sample(f.get("measured"), print)
         show_hints(f.get("hints"), "build", print)
         show_ceiling(name, f.get("ceiling"), print, capped=bool(f.get("max_gpus")) or not holds_gpus(f))
-        if kept:
-            print(kept)
         return
     try:
         price = worker_price(resources, _call("GET", "/v1/pricing", base_url))
@@ -1063,8 +1124,6 @@ def print_worker_price(resources: Any, base_url: str | None, name: str | None = 
         price = None
     if price is not None:
         show_price(price, print)
-    if kept:
-        print(kept)
     if name and mine:
         show_measured(f.get("measured"), print)
         show_sample(f.get("measured"), print)

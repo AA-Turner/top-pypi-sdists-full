@@ -522,7 +522,7 @@ class VariableManager:
         delegated_vars = {}
         delegated_host_name = ...  # sentinel value distinct from empty/None, which are errors
 
-        if task.delegate_to:
+        if task.delegate_to is not None:
             try:
                 delegated_host_name = templar.template(task.delegate_to)
             except AnsibleValueOmittedError:
@@ -580,8 +580,8 @@ class VariableManager:
         try:
             host_cache = self._fact_cache.get(host)
         except KeyError:
-            # We get to set this as new
-            host_cache = facts
+            # We get to set this as new. Copy to ensure shared facts from run_once can be updated individually.
+            host_cache = dict(facts)
         else:
             if not isinstance(host_cache, MutableMapping):
                 raise TypeError('The object retrieved for {0} must be a MutableMapping but was'

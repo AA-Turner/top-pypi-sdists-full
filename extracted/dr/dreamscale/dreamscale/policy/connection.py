@@ -12,6 +12,8 @@ a billed session that nobody is using.
 
 from __future__ import annotations
 
+import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -115,6 +117,13 @@ RETRY_DELAYS_S: tuple[float, ...] = (0.0, 2.0, 5.0)
 MAX_OPEN_ATTEMPTS = len(RETRY_DELAYS_S)
 # A server Retry-After longer than this is not honoured: the caller is still waiting.
 MAX_RETRY_DELAY_S = 30.0
+# A 429 says wait, not that the server is gone: it spends no open attempt. A robot waits this long
+# in all, then raises rate_limited; each wait is Retry-After (up to the cap, or a default when the
+# server names none) plus up to half again, so a fleet doesn't come back together.
+RATE_LIMITED_GIVE_UP_S = 600.0
+MAX_RATE_LIMITED_DELAY_S = 120.0
+DEFAULT_RATE_LIMITED_DELAY_S = 10.0
+RATE_LIMITED_JITTER = 0.5
 # Minimum spacing between two session creations by one policy.
 CREATE_FLOOR_S = 6.0
 # A caller with less than this left on its own deadline does not open a session.
@@ -167,6 +176,14 @@ class ConnectionMachine:
     @property
     def is_closed(self) -> bool:
         return self.state is State.CLOSED
+
+
+def rate_limited_delay_s(
+    retry_after_s: float | None, *, rng: Callable[[], float] = random.random
+) -> float:
+    """The wait after a 429, jittered."""
+    base = DEFAULT_RATE_LIMITED_DELAY_S if retry_after_s is None else float(retry_after_s)
+    return min(max(base, 1.0), MAX_RATE_LIMITED_DELAY_S) * (1.0 + RATE_LIMITED_JITTER * rng())
 
 
 def retry_delay_s(attempt: int, *, retry_after_s: float | None = None) -> float:

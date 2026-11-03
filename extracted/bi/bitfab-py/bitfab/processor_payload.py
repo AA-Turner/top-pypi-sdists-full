@@ -1,7 +1,7 @@
 """Shared payload finalization for the framework tracing processors.
 
-The OpenAI-Agents, LangGraph, and Claude Agent SDK processors each build an
-external span/trace payload that must be made JSON-safe before it is sent.
+The OpenAI-Agents, LangGraph, and Claude Agent SDK processors each build a
+span/trace payload that must be made JSON-safe before it is sent.
 
 Doing that with a bare ``json.dumps`` drops the whole span/trace on a single
 non-serializable value; doing it silently with ``to_json_safe`` hides a lossy
@@ -18,6 +18,7 @@ import logging
 from typing import Any
 
 from bitfab.serialize import to_json_safe_report
+from bitfab.trace_payload import RAW_TRACE_KEY, raw_trace_key_of
 
 SERIALIZATION_DEGRADED_STEP = "serialization_degraded"
 
@@ -93,13 +94,14 @@ def finalize_trace_payload(
     safe, dropped = to_json_safe_report(payload)
     collapsed = not isinstance(safe, dict)
     if collapsed:
-        safe = _rebuild_envelope(payload, "externalTrace", safe)
+        trace_key = (
+            raw_trace_key_of(payload) if isinstance(payload, dict) else RAW_TRACE_KEY
+        )
+        safe = _rebuild_envelope(payload, trace_key, safe)
     if dropped or collapsed:
-        external_trace = safe.get("externalTrace")
+        raw_trace = safe.get(raw_trace_key_of(safe))
         trace_id = (
-            external_trace.get("id", "unknown")
-            if isinstance(external_trace, dict)
-            else "unknown"
+            raw_trace.get("id", "unknown") if isinstance(raw_trace, dict) else "unknown"
         )
         names = (
             ", ".join(sorted(set(dropped))) if dropped else type(payload).__qualname__

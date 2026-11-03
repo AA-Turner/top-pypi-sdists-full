@@ -5,12 +5,14 @@ import os
 import sys
 from contextlib import suppress
 from dataclasses import dataclass
+from itertools import tee
+from os.path import basename
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 from ._compat import fs_path_id
 from ._py_info import PythonInfo
-from ._py_spec import PythonSpec
+from ._py_spec import KNOWN_IMPLEMENTATIONS, PythonSpec
 from ._specifier import DC_KW, SimpleVersion
 
 if TYPE_CHECKING:
@@ -41,14 +43,14 @@ def get_interpreter(
         (``>=3.10``). When a sequence is given each entry is tried in order.
     :param try_first_with: executables to probe before the normal discovery search.
     :param cache: interpreter metadata cache; when ``None`` results are not cached.
-    :param env: environment mapping for ``PATH`` lookup; defaults to :data:`os.environ`.
+    :param env: environment mapping for ``PATH`` and uv store lookup; defaults to :data:`os.environ`.
     :param predicate: optional callback applied after an interpreter matches the spec. Return ``True`` to accept the
         interpreter, ``False`` to skip it and continue searching.
     :return: the first matching interpreter, or ``None`` if no match is found.
     """
     specs = [key] if isinstance(key, str) else key
-    for spec_str in specs:
-        if result := _find_interpreter(spec_str, try_first_with or (), cache, env, predicate):
+    for spec_str, preferred_paths in zip(specs, tee(try_first_with or (), len(specs))):
+        if result := _find_interpreter(spec_str, preferred_paths, cache, env, predicate):
             return result
     return None
 
@@ -73,7 +75,7 @@ def iter_interpreters(
     :param try_first_with: executables to probe before the normal discovery search.
     :param cache: interpreter metadata cache; when ``None`` results are not cached. Strongly recommended for
         enumeration, which interrogates every candidate as a subprocess on a cold cache.
-    :param env: environment mapping for ``PATH`` lookup; defaults to :data:`os.environ`.
+    :param env: environment mapping for ``PATH`` and uv store lookup; defaults to :data:`os.environ`.
     :param predicate: optional filter applied after the spec match; return ``True`` to include the interpreter.
     """
     if key is None:
@@ -185,7 +187,7 @@ def propose_interpreters(
     :param spec: the parsed interpreter specification to match against.
     :param try_first_with: executable paths to probe before the standard search.
     :param cache: interpreter metadata cache; when ``None`` results are not cached.
-    :param env: environment mapping for ``PATH`` lookup; defaults to :data:`os.environ`.
+    :param env: environment mapping for ``PATH`` and uv store lookup; defaults to :data:`os.environ`.
     :param all_implementations: when ``True`` and *spec* does not constrain the implementation, also surface
         non-CPython binaries on ``PATH`` and under UV's install directory. Used by enumeration APIs.
     """
@@ -211,11 +213,12 @@ def _propose_explicit(
     tested_exes: set[str],
 ) -> Generator[tuple[PythonInfo | None, bool], None, None]:
     for py_exe in try_first_with:
-        if exe_raw := _check_exe(str(Path(py_exe).resolve()), tested_exes):
+        if Path(py_exe).exists() and (exe_raw := _check_exe(py_exe, tested_exes)):
             yield PythonInfo.from_exe(exe_raw, cache, env=env), True
 
     if spec.path is not None:
-        if exe_raw := _check_exe(spec.path, tested_exes):  # pragma: no branch
+        # Unparsed bare names reach spec.path; only an explicit directory should search the working directory.
+        if os.path.dirname(spec.path) and (exe_raw := _check_exe(spec.path, tested_exes)):
             yield PythonInfo.from_exe(exe_raw, cache, env=env), True
     else:
         yield from _propose_current_and_windows(spec, cache, env, tested_exes)
@@ -287,24 +290,28 @@ def _uv_python_roots(env: Mapping[str, str]) -> Generator[Path, None, None]:
         yield Path(install_dir).expanduser()
         return
     for state_dir in _uv_state_dirs(env):
-        yield state_dir / "python"
+        if state_dir.is_absolute():  # a relative profile path would search the caller's working directory
+            yield state_dir / "python"
 
 
 def _uv_state_dirs(env: Mapping[str, str]) -> Generator[Path, None, None]:
     """Yield uv's legacy state directory then its current one, the order uv prefers them in."""
-    windows = sys.platform == "win32"
-    home = Path(env.get("USERPROFILE" if windows else "HOME") or "~").expanduser()
+    windows: Final = sys.platform == "win32"
+    home: Final = Path(profile) if (profile := env.get("USERPROFILE" if windows else "HOME")) else None
     if windows:
-        app_data = Path(env["APPDATA"]) if "APPDATA" in env else home / "AppData" / "Roaming"
-        yield app_data / "uv" / "data"
-        yield app_data / "uv"
+        app_data = Path(roaming) if (roaming := env.get("APPDATA")) else None
+        if app_data is None or not app_data.is_absolute():
+            app_data = home / "AppData" / "Roaming" if home is not None else None
+        if app_data is not None:
+            yield app_data / "uv" / "data"
+            yield app_data / "uv"
         return
-    if sys.platform == "darwin":
+    if sys.platform == "darwin" and home is not None:
         yield home / "Library" / "Application Support" / "uv"
     # uv ignores a relative XDG_DATA_HOME, as the XDG specification requires
     if (xdg_data_home := env.get("XDG_DATA_HOME")) and (xdg := Path(xdg_data_home)).is_absolute():
         yield xdg / "uv"
-    else:
+    elif home is not None:
         yield home / ".local" / "share" / "uv"
 
 
@@ -376,8 +383,24 @@ def _uv_version_matches(key: _UvKey, spec: PythonSpec) -> bool:
     # GraalPy keys carry the GraalVM version in older uv releases, so only CPython and PyPy state a Python version
     if key.implementation not in {"cpython", "pypy"}:
         return True
-    if spec.version_specifier is not None and not spec.version_specifier.contains(str(key.version)):
-        return False
+    if spec.version_specifier is not None:
+        for specifier in spec.version_specifier:
+            if specifier.version is None:
+                return False
+            # Match at the requested precision, as PythonInfo.satisfies does after probing.
+            numeric_version = specifier.version_str
+            for prefix in ("rc", "b", "a"):
+                if prefix in numeric_version:
+                    numeric_version = numeric_version.split(prefix)[0]
+                    break
+            precision = numeric_version.count(".") + 1
+            release = ".".join(str(part) for part in key.version.release[:precision])
+            if key.version.pre_type is not None and (
+                precision == 3 or specifier.version.pre_type is not None  # ruff:ignore[magic-value-comparison]
+            ):
+                release = f"{release}{key.version.pre_type}{key.version.pre_num}"
+            if not specifier.contains(release):
+                return False
     return all(req is None or our == req for our, req in zip(key.version.release, (spec.major, spec.minor, spec.micro)))
 
 
@@ -425,14 +448,10 @@ def get_paths(env: Mapping[str, str]) -> Generator[Path, None, None]:
         except (AttributeError, ValueError):  # pragma: no cover # Windows only (no confstr)
             path = os.defpath
     if path:
-        # An empty component (a leading/trailing/doubled separator) means "the current directory", the
-        # same footgun a shell has when PATH is misconfigured - Path("") resolves to it. Since every
-        # yielded path here is later searched for interpreters to execute and interrogate, silently
-        # including the caller's CWD would let whatever directory virtualenv happens to run from smuggle
-        # in a candidate binary.
+        # Relative entries can execute an interpreter supplied by the working directory.
         for entry in map(Path, filter(None, path.split(os.pathsep))):
             with suppress(OSError):
-                if entry.is_dir() and next(entry.iterdir(), None):
+                if entry.is_absolute() and entry.is_dir() and next(entry.iterdir(), None):
                     yield entry
 
 
@@ -471,18 +490,19 @@ def path_exe_finder(
     """Given a spec, return a function that can be called on a path to find all matching files in it."""
     pat = spec.generate_re(windows=sys.platform == "win32", all_implementations=all_implementations)
     direct = spec.str_spec
+    implementation = spec.implementation.lower() if spec.implementation is not None else None
+    impl_must_match = implementation in KNOWN_IMPLEMENTATIONS and implementation != "python"
     if sys.platform == "win32":  # pragma: win32 cover
         direct = f"{direct}.exe"
 
     def path_exes(path: Path) -> Generator[tuple[Path, bool], None, None]:
         direct_path = path / direct
         if direct_path.exists():
-            yield direct_path, False
+            yield direct_path, impl_must_match
 
         for exe in path.iterdir():
-            match = pat.fullmatch(exe.name)
-            if match:
-                yield exe.absolute(), match["impl"] == "python"
+            if pat.fullmatch(exe.name):
+                yield exe.absolute(), impl_must_match
 
     return path_exes
 
@@ -508,6 +528,9 @@ _VERSION_MANAGER_LAYOUTS: list[tuple[str, tuple[str, ...]]] = [
 
 def _resolve_shim_to_binary(exe_name: str, versions_dir: str, env: Mapping[str, str]) -> str | None:
     for version in _active_versions(env):
+        if version in {"", ".", ".."} or basename(version) != version:
+            _LOGGER.debug("ignoring invalid version name %r", version)
+            continue
         resolved = os.path.join(versions_dir, version, "bin", exe_name)
         if Path(resolved).is_file() and os.access(resolved, os.X_OK):
             return resolved
@@ -548,7 +571,13 @@ def _versions_in_file(path: str | Path) -> list[str]:
     try:
         # pyenv reads raw bytes, so a byte that is not UTF-8 (a Latin-1 comment, say) must not hide the versions
         with Path(path).open(encoding="utf-8", errors="replace") as fh:
-            return [v for line in fh if (v := line.strip()) and not v.startswith("#")]
+            # Version files can sit in shared parent directories; bound the in-process read.
+            max_chars = 4096
+            content = fh.read(max_chars + 1)
+            if len(content) > max_chars:
+                _LOGGER.debug("ignored oversized version file %s", path)
+                return []
+            return [v for line in content.split("\n") if (v := line.strip()) and not v.startswith("#")]
     except OSError:  # skip a file we cannot read, the same as one that names no version
         _LOGGER.debug("failed to read %s", path, exc_info=True)
         return []

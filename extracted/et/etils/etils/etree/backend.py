@@ -102,7 +102,7 @@ class Jax(Backend):
   """`jax.tree_util` backend."""
 
   def import_module(self):
-    import jax  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
+    import jax  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-import]
 
     return jax.tree_util
 
@@ -134,7 +134,7 @@ class Optree(Jax):
   """`optree` backend."""
 
   def import_module(self):
-    import optree  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
+    import optree  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-import]
 
     return optree
 
@@ -172,7 +172,7 @@ class Nest(Backend):
   """`tf.nest` backend."""
 
   def import_module(self):
-    import tensorflow as tf  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
+    import tensorflow as tf  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-source-for-stubs]
 
     return tf.nest
 
@@ -229,7 +229,7 @@ class Python(Backend):
         new_tree.update(new_items)
         return new_tree
       else:
-        return type(tree0)(new_items)
+        return type(tree0)(new_items)  # pyrefly: ignore[bad-argument-count]
     else:  # leaf
       return map_fn(*trees)
 
@@ -275,7 +275,7 @@ class Python(Backend):
         new_tree.update(new_items)
         return new_tree
       else:
-        return type(structure)(new_items)
+        return type(structure)(new_items)  # pyrefly: ignore[bad-argument-count]
     else:  # leaf
       return next(flat_iter)
 
@@ -308,11 +308,11 @@ class Python(Backend):
           epy.reraise(e, prefix=f'In {i}: ')
     elif isinstance(tree0, _MAPPING_TYPES):
       k0 = sorted(tree0)
-      k1 = sorted(tree1)
+      k1 = sorted(tree1)  # pyrefly: ignore[bad-specialization]
       if k0 != k1:
         raise ValueError(f'dict keys do not match: {k0} != {k1}')
       # Flatten sort the keys, so reconstruct the ordered sorted
-      for k, (v0, v1) in epy.zip_dict(tree0, tree1):
+      for k, (v0, v1) in epy.zip_dict(tree0, tree1):  # pyrefly: ignore[bad-argument-type]
         try:
           self._assert_same_structure(v0, v1)
         except Exception as e:  # pylint: disable=broad-except

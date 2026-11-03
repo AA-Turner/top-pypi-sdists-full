@@ -57,6 +57,10 @@ class Event(StrEnum):
     #: (Richard 2026-09-29). `recorder`: where it went; `outcome`: `RecorderOutcome`, refusals
     #: included.
     WIZARD_RECORDER_CHANGED = "wizard.recorder_changed"
+    #: Session transcripts were switched on or off (`probe capture`, the wizard row, the app,
+    #: `--no-capture`): `state` (`on`/`off`), `by` (`SwitchedBy`: person/agent/app), `agents`,
+    #: `outcome` (`done`/`failed`/`cancelled`). A chosen off, so nobody reads it as a fault.
+    CAPTURE_SWITCHED = "capture.switched"
 
     # --- Past sessions and import jobs ---
     #: The past-sessions lane's verdict; not `backfill.summary`, whose properties are folder-shaped
@@ -126,6 +130,16 @@ class Event(StrEnum):
     SERVICE_STATE = "service.state"
     SERVICE_STOPPED = "service.stopped"
     LIFEBOAT_ACTED = "lifeboat.acted"
+
+    # --- Updates ---
+    #: An update found no `uv`, or only an older copy of Probe's own (a raised pinned version), and
+    #: tried to install the pinned one (`probe.service.updater.uv.ensure_uv`): `outcome`
+    #: (`PrivateUvOutcome`: installed | failed), `reason` when failed (`PrivateUvReason`, a closed
+    #: set, never a host, path or URL: unsupported_machine, no_wheel, no_hash, unpinned,
+    #: index_hash_not_pinned, download_hash_mismatch, bad_index_url, too_large, http_4xx, http_5xx,
+    #: network, extract_failed, bad_version, toml_unreadable, other), `uv_version`, `index` (pypi |
+    #: configured). At most one try per 6 h per machine. Confirms the zero-touch fix per machine.
+    UPDATES_PRIVATE_UV = "updates.private_uv"
 
     # --- Hosted MCP ---
     #: The hosted MCP's per-tool accounting event (`probe.mcp.delivery.accounting`, its own sender).

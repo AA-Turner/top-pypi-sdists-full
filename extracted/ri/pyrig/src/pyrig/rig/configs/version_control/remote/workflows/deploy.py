@@ -1,6 +1,6 @@
 """Deployment workflow configuration."""
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from types import MethodType
 from typing import Any, override
 
@@ -25,13 +25,16 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         return False
 
     @override
-    def jobs(self) -> dict[str, Any]:
-        """Build the top-level jobs configuration.
+    def jobs(self) -> tuple[Callable[[], dict[str, Any]], ...]:
+        """Return the deployment job builders.
 
         Returns:
-            Dict containing the repository and documentation jobs.
+            Tuple containing the repository and documentation job builders.
         """
-        return {**self.job_repository(), **self.job_documentation()}
+        return (
+            self.job_repository,
+            self.job_documentation,
+        )
 
     @override
     def stem(self) -> str:
@@ -84,7 +87,7 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
                 effective when `uses` is not set. Defaults to `TIMEOUT_MINUTES_DEFAULT`.
 
         Returns:
-            A single job configuration keyed by its derived job ID.
+            Deployment job configuration with the requested settings and environment.
         """
         environment = environment or self.job_id_from_method(method)
         return super().job(
@@ -104,20 +107,12 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
     def job_documentation(self) -> dict[str, Any]:
         """Build the job that builds and deploys the documentation site.
 
-        Requests `contents: read` to check out the repository, plus
-        `pages: write` and `id-token: write` permissions at the job level,
-        required by the GitHub Pages deployment API.
-
         Returns:
-            Dict mapping the derived job ID to its configuration.
+            Job configuration for building and deploying the documentation site.
         """
         return self.job(
             self.job_documentation,
-            permissions={
-                **self.permission_contents(),
-                **self.permission_id_token(write=True),
-                **self.permission_pages(write=True),
-            },
+            permissions=self.job_documentation_permissions(),
             steps=self.steps_documentation(),
             timeout_minutes=60,
         )
@@ -125,19 +120,43 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
     def job_repository(self) -> dict[str, Any]:
         """Build the job that applies repository-level configuration.
 
+        Returns:
+            Job configuration for applying repository-level settings.
+        """
+        return self.job(
+            self.job_repository,
+            permissions=self.job_repository_permissions(),
+            steps=self.steps_repository(),
+            timeout_minutes=10,
+        )
+
+    def job_documentation_permissions(self) -> dict[str, Any]:
+        """Return the permissions for the documentation job.
+
+        Requests `contents: read` to check out the repository, plus
+        `pages: write` and `id-token: write`, required by the GitHub Pages
+        deployment API.
+
+        Returns:
+            Permissions mapping for the documentation job.
+        """
+        return {
+            **self.permission_contents(),
+            **self.permission_id_token(write=True),
+            **self.permission_pages(write=True),
+        }
+
+    def job_repository_permissions(self) -> dict[str, Any]:
+        """Return the permissions for the repository job.
+
         Requests `contents: read` to check out the repository; the
         configuration step itself authenticates separately via `REPO_TOKEN`,
         not `GITHUB_TOKEN`.
 
         Returns:
-            Dict mapping the derived job ID to its configuration.
+            Permissions mapping for the repository job.
         """
-        return self.job(
-            self.job_repository,
-            permissions=self.permission_contents(),
-            steps=self.steps_repository(),
-            timeout_minutes=10,
-        )
+        return self.permission_contents()
 
     def steps_documentation(self) -> list[dict[str, Any]]:
         """Build the ordered steps for the documentation job.

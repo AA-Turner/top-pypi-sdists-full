@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: paradime-io
-Version: 6.10.0
+Version: 6.11.0
 Summary: Paradime - Python SDK
 Author-email: Bhuvan Singla <bhuvan@paradime.io>, Maximilian Mitchell <max@paradime.io>
 License-File: LICENSE
@@ -22,7 +22,7 @@ Requires-Dist: numpy>=1.26.0
 Requires-Dist: packaging>=22.0
 Requires-Dist: polars<0.21.0,>=0.20.0
 Requires-Dist: prompt-toolkit<4.0.0,>=3.0.40
-Requires-Dist: pyarrow<19.0.0,>=18.0.0
+Requires-Dist: pyarrow<27.0.0,>=18.0.0
 Requires-Dist: pydantic<3.0.0,>=1.10.14
 Requires-Dist: python-dotenv<2.0.0,>=1.0.1
 Requires-Dist: pyyaml<7.0.0,>=6.0.1

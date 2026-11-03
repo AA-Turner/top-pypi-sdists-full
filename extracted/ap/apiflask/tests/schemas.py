@@ -2,12 +2,7 @@ from marshmallow import EXCLUDE
 from marshmallow.validate import Range
 
 from apiflask import Schema
-from apiflask.fields import Decimal
-from apiflask.fields import DelimitedList
-from apiflask.fields import File
-from apiflask.fields import Integer
-from apiflask.fields import List
-from apiflask.fields import String
+from apiflask.fields import Decimal, DelimitedList, File, Integer, List, String
 from apiflask.validators import OneOf
 
 
@@ -103,3 +98,7 @@ class ResponseHeader(Schema):
 
 class DelimitedListQuery(Schema):
     tags = DelimitedList(String)
+
+
+class NullableFieldSchema(Schema):
+    name = String(allow_none=True)

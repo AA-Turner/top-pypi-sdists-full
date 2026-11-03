@@ -6,18 +6,23 @@ import hashlib
 import json
 import operator
 import os
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 
 import sympy
 
-from .losses import LossInputs, LossObjective, _input_array, _input_columns
+from .losses import (
+    LossInputs,
+    LossObjective,
+    _input_array,
+    _input_columns,
+)
 
 import numpy as np
 import torch
 from torch.utils import _pytree
 from torch._subclasses.fake_tensor import FakeTensorMode
 
-LOSS_NAME = "loss_graph_v1"
 GRAPH_KEY = "__river_loss_graph_v1"
 COLUMN_PREFIX = "__river_loss_column_"
 POSITION_KEY = "__river_loss_position"
@@ -39,12 +44,16 @@ if hasattr(os, "register_at_fork"):
 
 
 def encode_custom_loss_batch(
-    data: list[dict],
+    data: Sequence[dict],
     *,
     inputs: LossInputs,
     graph: bytes,
-) -> list[dict]:
-    """Validate batch columns and attach a captured graph."""
+) -> Sequence[dict]:
+    """Validate batch columns and attach a captured graph.
+
+    A list is validated and converted now. Another sequence, whose datums are
+    built on access, is converted, and validated, as each datum is read.
+    """
 
     if not data:
         raise ValueError("custom loss requires a nonempty batch")
@@ -54,94 +63,113 @@ def encode_custom_loss_batch(
     schemas = _input_columns(inputs)
     if names != [c["name"] for c in schemas]:
         raise ValueError("loss_data does not match the declared custom-loss inputs")
-    prepared = []
-    for index, datum in enumerate(data):
-        if set(datum) - {
-            "input_ids",
-            "model_input",
-            "attention_mask",
-            "loss_data",
-            "expert_routing_handle",
-        }:
-            raise ValueError(
-                "custom loss accepts text input_ids or model_input chunks, attention_mask, loss_data, and expert_routing_handle"
-            )
-        if ("input_ids" in datum) == ("model_input" in datum):
-            raise ValueError(
-                "custom loss requires exactly one of input_ids or model_input"
-            )
-        if "model_input" in datum:
-            chunks = datum["model_input"]
-            if not isinstance(chunks, list) or not chunks:
-                raise ValueError("model_input must be a nonempty list of chunks")
-            length = 0
-            for chunk in chunks:
-                if chunk["type"] == "text":
-                    tokens = np.asarray(chunk["tokens"])
-                    if tokens.ndim != 1 or (
-                        tokens.size and tokens.dtype.kind not in "iu"
-                    ):
-                        raise ValueError("text chunk tokens must be an integer vector")
-                    length += len(tokens)
-                elif chunk["type"] == "image":
-                    expected = chunk["expected_tokens"]
-                    if not isinstance(expected, (int, np.integer)) or expected <= 0:
-                        raise ValueError(
-                            "image expected_tokens must be a positive integer"
-                        )
-                    length += int(expected)
-                else:
-                    raise ValueError("model_input only supports text and image chunks")
-            if not length:
-                raise ValueError("model_input must expand to a nonempty sequence")
-            encoded = {"model_input": chunks}
-        else:
-            ids = np.asarray(datum["input_ids"], dtype=np.int64)
-            if ids.ndim != 1 or not len(ids):
-                raise ValueError(f"data[{index}]: input_ids must be a nonempty vector")
-            length = len(ids)
-            encoded = {"input_ids": ids}
-        if sorted(datum.get("loss_data", {})) != names:
-            raise ValueError(
-                f"data[{index}]: loss_data schema differs from the first datum"
-            )
-        if "expert_routing_handle" in datum:
-            handle = datum["expert_routing_handle"]
-            if isinstance(handle, str):
-                handle = handle.encode("utf-8")
-            if not isinstance(handle, bytes) or not 0 < len(handle) <= 4096:
-                raise ValueError(
-                    "expert_routing_handle must be a nonempty string or bytes, at most 4096 bytes"
-                )
-            handle.decode("utf-8")
-            encoded["expert_routing_handle"] = np.frombuffer(
-                handle, dtype=np.uint8
-            ).copy()
-        for column_index, name in enumerate(names):
-            schema = schemas[column_index]
-            array = _input_array(datum["loss_data"][name], schema)
-            expected = (length,) + ((schema["width"],) if "width" in schema else ())
-            if array.shape != expected or not np.isfinite(array).all():
-                raise ValueError(
-                    f"data[{index}].loss_data[{name!r}]: expected finite shape {expected}"
-                )
-            encoded[COLUMN_PREFIX + str(column_index)] = array
-        encoded[POSITION_KEY] = np.ones(length, dtype=np.int64)
-        mask = (
-            np.asarray(datum["attention_mask"], dtype=np.int64)
-            if "attention_mask" in datum
-            else np.ones(length, dtype=np.int64)
-        )
-        if mask.shape != (length,) or not np.all(mask == 1):
-            raise ValueError(
-                "custom loss requires unpadded inputs with an all-one attention_mask"
-            )
-        encoded["attention_mask"] = mask
-        prepared.append(encoded)
     envelope = np.frombuffer(graph, dtype=np.uint8).copy()
-    for datum in prepared:
-        datum[GRAPH_KEY] = envelope
-    return prepared
+
+    def encode(index, datum):
+        encoded = _encode_custom_datum(index, datum, names, schemas)
+        encoded[GRAPH_KEY] = envelope
+        return encoded
+
+    if isinstance(data, list):
+        return [encode(index, datum) for index, datum in enumerate(data)]
+    return _Mapped(data, encode)
+
+
+class _Mapped(Sequence):
+    """``data`` with ``encode(index, datum)`` applied to each datum on access."""
+
+    def __init__(self, data, encode, start=0):
+        self._data, self._encode, self._start = data, encode, start
+
+    def __len__(self):
+        return len(self._data)
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            start = range(len(self._data))[index]
+            return _Mapped(self._data[index], self._encode, self._start + start.start)
+        return self._encode(self._start + index, self._data[index])
+
+    def __iter__(self):
+        for index, datum in enumerate(self._data, self._start):
+            yield self._encode(index, datum)
+
+
+def _encode_custom_datum(index, datum, names, schemas):
+    if set(datum) - {
+        "input_ids",
+        "model_input",
+        "attention_mask",
+        "loss_data",
+        "expert_routing_handle",
+    }:
+        raise ValueError(
+            "custom loss accepts text input_ids or model_input chunks, attention_mask, loss_data, and expert_routing_handle"
+        )
+    if ("input_ids" in datum) == ("model_input" in datum):
+        raise ValueError("custom loss requires exactly one of input_ids or model_input")
+    if "model_input" in datum:
+        chunks = datum["model_input"]
+        if not isinstance(chunks, list) or not chunks:
+            raise ValueError("model_input must be a nonempty list of chunks")
+        length = 0
+        for chunk in chunks:
+            if chunk["type"] == "text":
+                tokens = np.asarray(chunk["tokens"])
+                if tokens.ndim != 1 or (tokens.size and tokens.dtype.kind not in "iu"):
+                    raise ValueError("text chunk tokens must be an integer vector")
+                length += len(tokens)
+            elif chunk["type"] == "image":
+                expected = chunk["expected_tokens"]
+                if not isinstance(expected, (int, np.integer)) or expected <= 0:
+                    raise ValueError("image expected_tokens must be a positive integer")
+                length += int(expected)
+            else:
+                raise ValueError("model_input only supports text and image chunks")
+        if not length:
+            raise ValueError("model_input must expand to a nonempty sequence")
+        encoded = {"model_input": chunks}
+    else:
+        ids = np.asarray(datum["input_ids"], dtype=np.int64)
+        if ids.ndim != 1 or not len(ids):
+            raise ValueError(f"data[{index}]: input_ids must be a nonempty vector")
+        length = len(ids)
+        encoded = {"input_ids": ids}
+    if sorted(datum.get("loss_data", {})) != names:
+        raise ValueError(
+            f"data[{index}]: loss_data schema differs from the first datum"
+        )
+    if "expert_routing_handle" in datum:
+        handle = datum["expert_routing_handle"]
+        if isinstance(handle, str):
+            handle = handle.encode("utf-8")
+        if not isinstance(handle, bytes) or not 0 < len(handle) <= 4096:
+            raise ValueError(
+                "expert_routing_handle must be a nonempty string or bytes, at most 4096 bytes"
+            )
+        handle.decode("utf-8")
+        encoded["expert_routing_handle"] = np.frombuffer(handle, dtype=np.uint8).copy()
+    for column_index, name in enumerate(names):
+        schema = schemas[column_index]
+        array = _input_array(datum["loss_data"][name], schema)
+        expected = (length,) + ((schema["width"],) if "width" in schema else ())
+        if array.shape != expected or not np.isfinite(array).all():
+            raise ValueError(
+                f"data[{index}].loss_data[{name!r}]: expected finite shape {expected}"
+            )
+        encoded[COLUMN_PREFIX + str(column_index)] = array
+    encoded[POSITION_KEY] = np.ones(length, dtype=np.int64)
+    mask = (
+        np.asarray(datum["attention_mask"], dtype=np.int64)
+        if "attention_mask" in datum
+        else np.ones(length, dtype=np.int64)
+    )
+    if mask.shape != (length,) or not np.all(mask == 1):
+        raise ValueError(
+            "custom loss requires unpadded inputs with an all-one attention_mask"
+        )
+    encoded["attention_mask"] = mask
+    return encoded
 
 
 def capture_loss_graph(objective: LossObjective, inputs: LossInputs) -> bytes:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optimizely-sdk
-Version: 5.7.0
+Version: 5.8.0
 Summary: Python SDK for Optimizely Feature Experimentation, Optimizely Full Stack (legacy), and Optimizely Rollouts.
 Home-page: https://github.com/optimizely/python-sdk
 Author: Optimizely
@@ -25,16 +25,16 @@ Requires-Dist: idna>=2.10
 Requires-Dist: rpds-py<0.20.0; python_version < "3.11"
 Provides-Extra: test
 Requires-Dist: funcsigs>=0.4; extra == "test"
+Requires-Dist: python-coveralls; extra == "test"
+Requires-Dist: requests>=2.21; extra == "test"
+Requires-Dist: pytest>=6.2.0; extra == "test"
+Requires-Dist: jsonschema>=3.2.0; extra == "test"
+Requires-Dist: rpds-py<0.20.0; python_version < "3.11" and extra == "test"
 Requires-Dist: idna>=2.10; extra == "test"
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: ruff>=0.15.0; extra == "test"
 Requires-Dist: pyrsistent>=0.16.0; extra == "test"
-Requires-Dist: rpds-py<0.20.0; python_version < "3.11" and extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: requests>=2.21; extra == "test"
-Requires-Dist: coverage; extra == "test"
-Requires-Dist: python-coveralls; extra == "test"
-Requires-Dist: jsonschema>=3.2.0; extra == "test"
-Requires-Dist: pytest>=6.2.0; extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -303,6 +303,22 @@ idna (BSD 3-Clause License https://github.com/kjd/idna/blob/master/LICENSE.md)
 
 - Swift - https://github.com/optimizely/swift-sdk
 # Optimizely Python SDK Changelog
+
+## 5.8.0
+October 30th, 2026
+
+### Changed
+
+**Local Holdouts: rule evaluation continues after a holdout hit**: 
+When a user matches a local holdout on a rule, the SDK now excludes the user from that rule only 
+and continues evaluating the remaining rules, instead of returning the holdout variation and skipping 
+the rest of the flag. Each local holdout hit sends its own holdout impression event (using the 
+existing event format), regardless of `sendFlagDecisions`. Global holdouts are unchanged.
+
+- Continue rule evaluation after local holdout hit ([#525](https://github.com/optimizely/python-sdk/pull/525))
+- Remove dead Python 3.7 typing guards ([#526](https://github.com/optimizely/python-sdk/pull/526))
+
+---
 
 ## 5.7.0
 September 2nd, 2026

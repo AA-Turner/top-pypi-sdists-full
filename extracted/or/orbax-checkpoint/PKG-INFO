@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orbax-checkpoint
-Version: 0.12.8
+Version: 0.12.9
 Summary: Orbax Checkpoint
 Keywords: JAX machine learning,checkpoint,training
 Author-email: Orbax Authors <orbax-dev@google.com>
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 License-File: LICENSE
 Requires-Dist: absl-py
-Requires-Dist: etils[epath, epy]
+Requires-Dist: etils[epath, epath-gcs, epy] >= 1.15.0
 Requires-Dist: typing_extensions
 Requires-Dist: msgpack
 Requires-Dist: jax >= 0.6.0

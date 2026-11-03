@@ -34,8 +34,6 @@
 %include "reg_sizes.asm"
 %include "gf_vect_gfni.inc"
 
-%if AS_FEATURE_LEVEL >= 10
-
 %ifidn __OUTPUT_FORMAT__, elf64
  %define arg0   rdi
  %define arg1   rsi
@@ -150,11 +148,11 @@ func(gf_2vect_mad_avx512_gfni)
 	FUNC_SAVE
 
 	xor	pos, pos
-	shl	vec_i, 3		;Multiply by 8
-	shl	vec, 3
+	shl	vec_i, 5		;Multiply by 32
+	shl	vec, 5
 	lea	tmp, [mul_array + vec_i]
-        vbroadcastf32x2 xgft1, [tmp]
-        vbroadcastf32x2 xgft2, [tmp + vec]
+        vpbroadcastq xgft1, [tmp]
+        vpbroadcastq xgft2, [tmp + vec]
 	mov	dest2, [dest1 + 8]	; reuse mul_array
 	mov	dest1, [dest1]
 
@@ -186,4 +184,3 @@ func(gf_2vect_mad_avx512_gfni)
 	ret
 
 endproc_frame
-%endif  ; if AS_FEATURE_LEVEL >= 10

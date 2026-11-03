@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "erasure_code.h"
+#include "test.h"
 
 #define TEST_SIZE (128 * 1024)
 
@@ -39,7 +40,8 @@ int
 main(int argc, char *argv[])
 {
         int i, ret = -1;
-        u8 *buff1 = NULL, *buff2 = NULL, *buff3 = NULL, gf_const_tbl[64], a = 2;
+        u8 *buff1 = NULL, *buff2 = NULL, *buff3 = NULL, gf_const_tbl[64], gf_const_tbl_base[64],
+           a = 2;
         int tsize;
         int align, size;
         unsigned char *efence_buff1;
@@ -50,11 +52,9 @@ main(int argc, char *argv[])
 
         gf_vect_mul_init(a, gf_const_tbl);
 
-        buff1 = (u8 *) malloc(TEST_SIZE);
-        buff2 = (u8 *) malloc(TEST_SIZE);
-        buff3 = (u8 *) malloc(TEST_SIZE);
-
-        if (NULL == buff1 || NULL == buff2 || NULL == buff3) {
+        if (posix_memalign((void **) &buff1, 32, TEST_SIZE) ||
+            posix_memalign((void **) &buff2, 32, TEST_SIZE) ||
+            posix_memalign((void **) &buff3, 32, TEST_SIZE)) {
                 printf("buffer alloc error\n");
                 goto exit;
         }
@@ -75,7 +75,9 @@ main(int argc, char *argv[])
                 }
         }
 
-        if (gf_vect_mul_base(TEST_SIZE, gf_const_tbl, buff1, buff3) != 0) {
+        gf_vect_mul_init_base(a, gf_const_tbl_base);
+
+        if (gf_vect_mul_base(TEST_SIZE, gf_const_tbl_base, buff1, buff3) != 0) {
                 printf("fail fill with rand data\n");
                 goto exit;
         }
@@ -102,7 +104,7 @@ main(int argc, char *argv[])
                 for (i = 0; i < TEST_SIZE; i++)
                         if (gf_mul(a, buff1[i]) != buff2[i]) {
                                 printf("fail at %d, 0x%x x %d = 0x%x (0x%x)\n", i, a, buff1[i],
-                                       buff2[i], gf_mul(2, buff1[i]));
+                                       buff2[i], gf_mul(a, buff1[i]));
                                 goto exit;
                         }
 #ifdef TEST_VERBOSE
@@ -138,13 +140,17 @@ main(int argc, char *argv[])
         a = 2;
 
         gf_vect_mul_init(a, gf_const_tbl);
+        gf_vect_mul_init_base(a, gf_const_tbl_base);
         for (size = 0; size < TEST_SIZE; size += align) {
                 // Line up TEST_SIZE from end
                 efence_buff1 = buff1 + size;
                 efence_buff2 = buff2 + size;
                 efence_buff3 = buff3 + size;
 
-                gf_vect_mul(TEST_SIZE - size, gf_const_tbl, efence_buff1, efence_buff2);
+                if (gf_vect_mul(TEST_SIZE - size, gf_const_tbl, efence_buff1, efence_buff2) != 0) {
+                        printf("fail creating efence_buff2 (len %d)\n", tsize);
+                        goto exit;
+                }
 
                 for (i = 0; i < TEST_SIZE - size; i++)
                         if (gf_mul(a, efence_buff1[i]) != efence_buff2[i]) {
@@ -153,8 +159,8 @@ main(int argc, char *argv[])
                                 goto exit;
                         }
 
-                if (gf_vect_mul_base(TEST_SIZE - size, gf_const_tbl, efence_buff1, efence_buff3) !=
-                    0) {
+                if (gf_vect_mul_base(TEST_SIZE - size, gf_const_tbl_base, efence_buff1,
+                                     efence_buff3) != 0) {
                         printf("fail line up TEST_SIZE from end\n");
                         goto exit;
                 }
@@ -186,9 +192,9 @@ main(int argc, char *argv[])
         ret = 0;
 exit:
 
-        free(buff1);
-        free(buff2);
-        free(buff3);
+        aligned_free(buff1);
+        aligned_free(buff2);
+        aligned_free(buff3);
 
         return ret;
 }

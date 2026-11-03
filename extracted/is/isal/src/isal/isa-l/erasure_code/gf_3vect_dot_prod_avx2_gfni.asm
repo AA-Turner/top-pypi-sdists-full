@@ -35,8 +35,6 @@
 %include "gf_vect_gfni.inc"
 %include "memcpy.asm"
 
-%if AS_FEATURE_LEVEL >= 10
-
 %ifidn __OUTPUT_FORMAT__, elf64
  %define arg0  rdi
  %define arg1  rsi
@@ -202,10 +200,10 @@ section .text
     XLDR    x0h, [ptr + pos + 32]   ;; Get next source vector high 32 bytes
     add     vec_i, 8
 
-    vbroadcastsd xgft1, [tmp]
-    vbroadcastsd xgft2, [tmp + vec]
-    vbroadcastsd xgft3, [tmp + vec*2]
-    add     tmp, 8
+    vmovdqu xgft1, [tmp]
+    vmovdqu xgft2, [tmp + vec*4]
+    vmovdqu xgft3, [tmp + vec*8]
+    add     tmp, 32
 
     GF_MUL_XOR VEX, x0l, xgft1, xtmp1, xp1l, xgft2, xtmp2, xp2l, xgft3, xtmp3, xp3l
     GF_MUL_XOR VEX, x0h, xgft1, xgft1, xp1h, xgft2, xgft2, xp2h, xgft3, xgft3, xp3h
@@ -236,10 +234,10 @@ section .text
     XLDR    x0, [ptr + pos]     ;Get next source vector (32 bytes)
     add	    vec_i, 8
 
-    vbroadcastsd xgft1, [tmp]
-    vbroadcastsd xgft2, [tmp + vec]
-    vbroadcastsd xgft3, [tmp + vec*2]
-    add     tmp, 8
+    vmovdqu xgft1, [tmp]
+    vmovdqu xgft2, [tmp + vec*4]
+    vmovdqu xgft3, [tmp + vec*8]
+    add     tmp, 32
 
     GF_MUL_XOR VEX, x0, xgft1, xgft1, xp1, xgft2, xgft2, xp2, xgft3, xgft3, xp3
 
@@ -267,10 +265,10 @@ section .text
     simd_load_avx2 x0, ptr + pos, %%LEN, tmp, tmp6 ;Get next source vector
     add     vec_i, 8
 
-    vbroadcastsd xgft1, [mul_array]
-    vbroadcastsd xgft2, [mul_array + vec]
-    vbroadcastsd xgft3, [mul_array + vec*2]
-    add     mul_array, 8
+    vmovdqu xgft1, [mul_array]
+    vmovdqu xgft2, [mul_array + vec*4]
+    vmovdqu xgft3, [mul_array + vec*8]
+    add     mul_array, 32
 
     GF_MUL_XOR VEX, x0, xgft1, xgft1, xp1, xgft2, xgft2, xp2, xgft3, xgft3, xp3
 
@@ -320,8 +318,8 @@ func(gf_3vect_dot_prod_avx2_gfni)
     sub     len, 32
 
 .len_lt_32:
-    cmp     len, 0
-    jle     .exit
+    or     len, len
+    jz     .exit
 
     ENCODE_LT_32B_3 len
 
@@ -332,4 +330,3 @@ func(gf_3vect_dot_prod_avx2_gfni)
     ret
 
 endproc_frame
-%endif  ; if AS_FEATURE_LEVEL >= 10

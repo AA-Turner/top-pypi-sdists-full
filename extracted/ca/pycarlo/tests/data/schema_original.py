@@ -7910,8 +7910,8 @@ class QueryResultType(sgqlc.types.Enum):
 class QueryType(sgqlc.types.Enum):
     """Enumeration Choices:
 
-    * `read`: Filter for reads on the table
-    * `write`: Filter for writes to the table
+    * `read`: Filter for reads
+    * `write`: Filter for writes
     """
 
     __schema__ = schema
@@ -40707,6 +40707,31 @@ class DomainsForMconsResponse(sgqlc.types.Type):
     """Input MCONs that resolved to a table but are not assigned to any
     domain
     """
+
+
+class DownstreamAgent(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("mcon", "agent_name")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+    """MCON of the trace table or platform agent that, with the agent
+    name, identifies the agent.
+    """
+
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Name of the agent"""
+
+
+class DownstreamAgents(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("agents", "has_more")
+    agents = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DownstreamAgent))),
+        graphql_name="agents",
+    )
+    """Agents downstream of the tables, ordered by agent name"""
+
+    has_more = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasMore")
+    """Whether more downstream agents exist than were returned"""
 
 
 class DownstreamBI(sgqlc.types.Type):
@@ -84022,6 +84047,7 @@ class Query(sgqlc.types.Type):
         "get_comparison_monitor_segment_label_count",
         "get_downstream_bi",
         "get_downstream_impact_radius_summary",
+        "get_downstream_agents",
         "get_downstream_reports",
         "get_downstream_report_owners",
         "get_downstream_report_types",
@@ -92451,24 +92477,21 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(DateTime), graphql_name="endTime", default=None
                     ),
                 ),
-                (
-                    "query_type",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(QueryType), graphql_name="queryType", default=None
-                    ),
-                ),
+                ("query_type", sgqlc.types.Arg(QueryType, graphql_name="queryType", default=None)),
             )
         ),
     )
     """Arguments:
 
-    * `mcon` (`String!`): Mcon for table to get query dimensions for
+    * `mcon` (`String!`): Mcon of the table or job to get query
+      dimensions for
     * `start_time` (`DateTime!`): Filter for queries on or after this
       date
     * `end_time` (`DateTime!`): Filter for queries on or before this
       date
-    * `query_type` (`QueryType!`): Filter for reads or writes to the
-      table
+    * `query_type` (`QueryType`): Filter for reads or writes. Required
+      for a table. Optional for a job: omit it for every query the job
+      ran.
     """
 
     get_query_text = sgqlc.types.Field(
@@ -104281,6 +104304,31 @@ class Query(sgqlc.types.Type):
       a table whose downstream reports are being queried.
     """
 
+    get_downstream_agents = sgqlc.types.Field(
+        DownstreamAgents,
+        graphql_name="getDownstreamAgents",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Gets the agents downstream of a list of tables, up
+    to 25. Tables the user can't read lineage on are skipped.
+
+    Arguments:
+
+    * `mcons` (`[String!]!`): List of MCONs where each MCON identifies
+      a table whose downstream agents are being queried.
+    """
+
     get_downstream_reports = sgqlc.types.Field(
         DownstreamReports,
         graphql_name="getDownstreamReports",
@@ -104737,12 +104785,7 @@ class Query(sgqlc.types.Type):
         graphql_name="getQueryList",
         args=sgqlc.types.ArgDict(
             (
-                (
-                    "query_type",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="queryType", default=None
-                    ),
-                ),
+                ("query_type", sgqlc.types.Arg(String, graphql_name="queryType", default=None)),
                 (
                     "mcon",
                     sgqlc.types.Arg(
@@ -104785,13 +104828,14 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """Gets the queries on this table according to query type
+    """Gets the queries on a table, or the queries a job ran
 
     Arguments:
 
-    * `query_type` (`String!`): source (reads on the table) or
-      destination (writes on this table)
-    * `mcon` (`String!`): Monte Carlo object name
+    * `query_type` (`String`): source (reads) or destination (writes).
+      Required for a table. Optional for a job: omit it for every
+      query the job ran.
+    * `mcon` (`String!`): Monte Carlo object name of a table or job
     * `start_time` (`DateTime!`): Filter for queries newer than this
     * `end_time` (`DateTime!`): Filter for queries older than this
     * `user_name` (`String`): [DEPRECATED] Filter by user name
@@ -110280,6 +110324,9 @@ class QueryListObject(sgqlc.types.Type):
         "rows_deleted_float",
         "bytes_deleted_float",
         "status",
+        "job_run_id",
+        "etl_job_run",
+        "etl_task",
     )
     query_id = sgqlc.types.Field(String, graphql_name="queryId")
 
@@ -110336,6 +110383,21 @@ class QueryListObject(sgqlc.types.Type):
     bytes_deleted_float = sgqlc.types.Field(Float, graphql_name="bytesDeletedFloat")
 
     status = sgqlc.types.Field(String, graphql_name="status")
+
+    job_run_id = sgqlc.types.Field(String, graphql_name="jobRunId")
+    """Source id of the job run that issued the query. Set only when
+    listing a job's queries.
+    """
+
+    etl_job_run = sgqlc.types.Field(EtlJobRunV3, graphql_name="etlJobRun")
+    """The job run that issued the query. Null until Monte Carlo ingests
+    the run, and outside a job's queries.
+    """
+
+    etl_task = sgqlc.types.Field(EtlTaskV3, graphql_name="etlTask")
+    """The job task that issued the query. Null until Monte Carlo ingests
+    its run, and outside a job's queries.
+    """
 
 
 class QueryListResponse(sgqlc.types.Type):

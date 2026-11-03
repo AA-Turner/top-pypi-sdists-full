@@ -132,7 +132,8 @@ EVAL_STATES = ("pending", "queued", "running", "completed", "failed", "canceled"
 
 _OVERVIEW = """\
 Deploy robot policies and benchmarks to the platform, and evaluate one on the other, with the adapter between them
-when their I/O differs. Everything runs on the platform; nothing is built, run or stored on this machine.
+when their I/O differs. They are built and run on the platform; this machine imports a folder's class to deploy it,
+and runs `seq adapter check` and `seq port` itself.
 
 the core flow:
   init <template> [dir]     start from a template: a policy, a benchmark or an adapter (seq init --list)
@@ -142,28 +143,30 @@ the core flow:
   eval run <policy> --benchmark <name> [--adapter <name>@vN]
                             evaluate a deployed policy on a registered benchmark
 
-policy      ls status logs doctor versions source freeze upgrade rollback stop start rename rm
+policy      ls status logs doctor versions source upgrade rollback stop start rename rm
             set settings fork data
-robot       add list status revoke                        (each robot's own key to a policy, a robot now)
+robot       add set list status revoke                    (each robot's own key to a policy, a robot now)
 planner     ls status key add list revoke                 (the planners' tree, one planner, its members' keys)
 prod        promote                                       (a dev policy made a production one)
 key         list add set revoke                           (your dev and production keys: you, signed in)
-benchmark   ls tasks versions source freeze logs status upgrade cancel rm
+benchmark   ls tasks versions source logs status upgrade cancel rm
 adapter     ls versions source rm check
 eval        run status cancel rm report episodes replay ls logs
 storage     storage · volume put|ls|show|files|get|rm · secret set|ls|rm
-account     login · logout · audit · models · gpus · account [set|delete] · usage
-billing     top-up redeem credits plan invoices details    (the console's Billing page; you signed in)
+account     login · logout · profile · audit · models · gpus · account [set|delete] · usage
+billing     top-up redeem credits plan invoices details card    (the console's Billing page; you signed in)
 port        export check-model scaffold compare convert   (a CPU MuJoCo or SAPIEN benchmark to the GPU)
 
-A [folder] is uploaded whole (`.` by default, less what a .seqignore leaves out). `seq <command> --help` tells more.
+A [folder] is uploaded whole (`.` by default), less version control and caches, a virtualenv or build output at its
+root, .env files and what a .seqignore leaves out. `seq <command> --help` tells more.
 """
 
 
 def _target_args(p: argparse.ArgumentParser, what: str) -> None:
     """The file or module `seq adapter check` acts on: `adapter.py`, `adapter.py:Class`, `-m pkg.mod[:Class]`."""
-    p.add_argument("target", nargs="?", help=f"the {what}: a file (path/to/policy.py), file.py:Class, or "
-                                             "pkg.module:Class")
+    p.add_argument("target", nargs="?", help=f"the {what}: a file (path/to/adapter.py), file.py:Class, or "
+                                             "pkg.module:Class - a registered one's file is downloaded and imported "
+                                             "here, running its code")
     p.add_argument("-m", dest="module", default=None, metavar="MODULE",
                    help="a module instead of a file: -m pkg.module[:Class]")
 
@@ -232,10 +235,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--name", default=None,
                    help="which class of the folder to deploy, by its name= (or class name) when it holds several; "
                         "with one, the deployment's name (default: the decorator's name=, else the class name)")
-    p.add_argument("--freeze", action="store_true",
-                   help="freeze this version: its base and everything its build installs kept in your storage, so it "
-                        "can be built again exactly as it is, billed by the GB-month (@seq.policy(freeze=True) freezes "
-                        "every version of the class)")
     p.add_argument("--override", action="store_true",
                    help="replace the version that serves (a benchmark's: the one evals run): it goes on until this "
                         "one has passed its check and serves, then it is deleted for good once its workers and evals "
@@ -246,39 +245,27 @@ def build_parser() -> argparse.ArgumentParser:
                    help="check it here and on the platform without building anything: the request and the files it "
                         "uploads, what the platform says of it, and a policy's price per hour, day and month "
                         "(without an API key or a connection: the checks here alone)")
-    p.add_argument("--hours-per-day", type=_hours_arg, default=8.0,
-                   help="with --dry-run, a policy: the hours a day robots use it, 0-24 (default 8), for its price")
-    p.add_argument("--starts-per-day", type=_starts_arg, default=1, metavar="N",
-                   help="with --dry-run, a policy: the times a day its robots start using it (default 1) - each start "
-                        "billed from its GPU (a CPU worker's from when it starts), its load included, and after each "
-                        "use its worker idles for its idle timeout before it stops, billed")
-    p.add_argument("--robots", type=_robots_arg, default=1, metavar="N",
-                   help="with --dry-run, a policy: the robots that use it at once (default 1) - priced at the "
-                        "workers they take, the robots each seats and the spares beside them")
-    p.add_argument("--max-gpus", type=_gpu_count_arg, default=None, metavar="N",
-                   help="the most GPUs (cards, not workers) the deployment may hold at once, over the decorator's "
-                        "max_gpus=; a GPU policy must name one, at most your account's limit (`seq account`)")
     p.add_argument("--region", default=None, metavar="REGION",
                    help="where a policy's machines run, over the decorator's region=: auto (the default - the "
-                        "region nearest each robot, else wherever a card is free), us-west or us-east (there "
-                        "alone: a robot waits while it has no card free)")
+                        "region nearest each robot, else wherever a card is available), or one of the platform's "
+                        "regions its card runs in (`seq gpus` lists them) - there alone, a robot waiting while no card "
+                        "is available there")
     p.add_argument("--no-wait", dest="wait", action="store_false", default=True,
-                   help="return once the build has started (follow it with `seq policy status <name> --wait`)")
-    p.add_argument("--timeout", type=float, default=None,
-                   help="seconds to wait for the build (default: a policy's timeouts.startup, 1800 at least; a "
-                        "benchmark's 3600, and up to 3 hours while its build log still moves)")
+                   help="return once the build has started (follow it with `seq policy status <name> --wait`, a "
+                        "benchmark's with `seq benchmark status <name> --wait`)")
 
 
     esub = _group(ap, sub, "eval", "Evaluate a deployed policy on a registered benchmark, on the platform; read the "
                                    "reports.")
     p_run = esub.add_parser("run", help="evaluate a deployed policy on a registered benchmark",
                             description="Evaluate a deployed policy on a registered benchmark, on the platform. You "
-                                        "lay it out: policy machines and their card, benchmark machines and their "
-                                        "card - and the platform builds each benchmark machine's worlds. It holds "
+                                        "lay it out: policy machines and their card, and benchmark machines, each on "
+                                        "the card the benchmark was registered on - and the platform builds each "
+                                        "benchmark machine's worlds. It holds "
                                         "policy machines × their cards + benchmark machines × theirs at once, counted "
                                         "with serving against your account's GPU limit; when they are not free the "
-                                        "whole eval waits in line, up to 10 minutes, then is cancelled. --dry-run "
-                                        "says which, before anything starts.")
+                                        "whole eval waits in line, up to 10 minutes, then fails (queue_timeout). "
+                                        "--dry-run says which, before anything starts.")
     p_run.add_argument("policy", metavar="POLICY", help="the deployed policy (see `seq policy ls`), or a planner: the "
                                                         "eval runs the policy it plans for, the planner beside it, "
                                                         "planning each episode on the robot's clock")
@@ -302,8 +289,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_run.add_argument("--policy-machines", type=int, default=1, metavar="N",
                        help="policy machines: copies of the policy, each on its own machine (default 1)")
-    p_run.add_argument("--policy-gpu", default=None, help="the card each policy machine runs on (default: the "
-                                                          "deployment's)")
     p_run.add_argument("--benchmark-machines", type=int, default=1, metavar="N",
                        help="benchmark machines per arm, each on the card the benchmark was registered on "
                             "(default 1)")
@@ -313,7 +298,6 @@ def build_parser() -> argparse.ArgumentParser:
                             "flags that run it; start nothing")
     p_run.add_argument("--no-wait", dest="wait", action="store_false", default=True,
                        help="return once the eval has started (read it with `seq eval report <id> --wait`)")
-    p_run.add_argument("--timeout", type=float, default=None, help="seconds to wait for the report (default 7200)")
     p_cancel = esub.add_parser("cancel", help="stop a running eval: what ran is billed and reported")
     p_cancel.add_argument("eval_id", help="the eval id `seq eval run` printed")
 
@@ -330,10 +314,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--every", type=float, default=5.0, help="seconds between reads with --watch (default 5)")
     p_report = esub.add_parser("report", help="read an eval's report")
     p_report.add_argument("eval_id", help="the eval id `seq eval run` printed")
-    p_report.add_argument("--wait", action="store_true", help="wait until the eval completes or fails")
+    p_report.add_argument("--wait", action="store_true",
+                          help="wait until the eval ends: completed, failed or canceled")
     p_report.add_argument("--timeout", type=float, default=None, help="seconds to wait with --wait (default 7200)")
-    p_report.add_argument("--videos", default=None, metavar="DIR",
-                          help="save the report's recordings into DIR as mp4 files")
     from seq import eval_cli
 
     eval_cli.add_arguments(p_run, p_report)
@@ -344,7 +327,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--episode", type=int, default=None, metavar="N", help="the episode to open first")
     p.add_argument("--no-browser", action="store_true", help="print the page's link, open no browser")
     p = esub.add_parser("ls", help="a deployed policy's evals over time; or with --benchmark, every eval on that "
-                                   "benchmark - a page at a time either way")
+                                   "benchmark - a page at a time either way; with --adapter, the newest 200 that ran "
+                                   "it, at once")
     p.add_argument("name", nargs="?", default=None, help="the deployed policy")
     p.add_argument("--benchmark", default=None,
                    help="every eval on this benchmark of yours, across your policies (only the named policy's if one "
@@ -363,9 +347,9 @@ def build_parser() -> argparse.ArgumentParser:
                                          "as they have reported)")
     p.add_argument("eval_id", help="the eval id `seq eval run` printed")
     p.add_argument("--task", action="append", default=None, help="only this task's episodes (repeatable)")
-    p.add_argument("--outcome", default=None, choices=("success", "failure", "error", "truncated", "timed_out"),
-                   help="only the episodes that ended so; success and failure as the benchmark's step said of "
-                        "each episode")
+    p.add_argument("--outcome", default=None, choices=("success", "failure", "error"),
+                   help="only the episodes of this result; success and failure as the benchmark's step said of each, "
+                        "a run at its time limit counted a failure and a platform timeout an error")
     p.add_argument("--arm", type=int, default=None, help="only this arm's episodes")
     p.add_argument("--csv", action="store_true",
                    help="every episode these filters take, not a page, as the CSV file the console downloads: on "
@@ -373,7 +357,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--out", default=None, metavar="PATH", help="with --csv: the file to write it to")
     _page_args(p)
     p = esub.add_parser("logs", help="an eval's logs: its benchmark machines' output and its policy machines' lines "
-                                     "(kept 7 days); --follow until it ends")
+                                     "(acts and prints kept 7 days, refused requests 14, the rest 30); --follow until "
+                                     "it ends")
     p.add_argument("eval_id", help="the eval id `seq eval run` printed")
     p.add_argument("--side", choices=("benchmark", "policy"), default=None, help="only the benchmark's or the policy's")
     p.add_argument("--arm", type=int, default=None, help="only this arm's benchmark machines")
@@ -418,30 +403,28 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--build", action="store_true",
                    help="the newest version's build (NAME@vN: that version's): its steps and its log, kept as long as "
                         "its version is")
-    p = psub.add_parser("doctor", help="probe a deployment's direct-connect chain, segment by segment")
+    p = psub.add_parser("doctor", help="check a deployment on the platform, segment by segment, starting nothing: its "
+                                       "state and serving version, its capacity, its last start and a running "
+                                       "worker's /ping")
     p.add_argument("name", help="deployment name")
-    said = ("a deployment's versions - building, serving, every earlier one kept until you delete it - each with its "
-            "build: how long it took, "
-            "why it was built, where a failed one stopped - each build's log kept as long as its version is")
+    said = ("a deployment's versions - building, serving, every earlier one kept until you delete it or a deploy "
+            "--override replaces it, and the newest 3 failed builds a later deploy replaced, for 7 days - each with "
+            "its build: how long it took, why it was built, where a failed one stopped - each build's log kept as long "
+            "as its version is")
     p = psub.add_parser("versions", help=said)
     p.add_argument("name", help="deployment name")
-    p = psub.add_parser("freeze", help="freeze a version: its base and everything its build installed kept in your "
-                                       "storage, so it can be built again exactly as it is, billed by the GB-month; "
-                                       "--off unfreezes it")
-    p.add_argument("name", metavar="NAME[@vN]", help="the deployment, or NAME@vN for that version (default: the one "
-                                                     "serving)")
-    p.add_argument("--off", action="store_true", help="unfreeze it: what it kept is deleted within a day, unless "
-                                                      "another version uses it, and billed until then")
     p = psub.add_parser("source", help="the code a version runs, as it deployed it: downloaded into a new folder")
     p.add_argument("name", help="deployment name, or NAME@vN for that version (default: the one serving)")
     p.add_argument("-o", "--out", default=None, metavar="PATH",
                    help="where to write it: a new or empty folder (default: ./<name>-v<N>)")
     p = psub.add_parser("upgrade", help="move a deployment made from a template to the template's newer version: built "
-                                        "beside the one serving, your changes and its scaling kept")
+                                        "beside the one serving, what you set differently (weights, resources, "
+                                        "concurrency, timeouts) and its scaling kept; one whose code you changed is "
+                                        "refused - deploy the new code")
     _upgrade_args(p, "deployment")
     p = psub.add_parser("rollback", help="serve a kept earlier version again: it serves from now on, nothing rebuilt; "
                                           "robots move at their next episode, after a cold start when none of its "
-                                          "workers runs")
+                                          "workers runs; a version still building is dropped")
     p.add_argument("name", metavar="NAME[@vN]",
                    help="the deployment, or NAME@vN for that kept version as `seq policy versions` lists it (default: "
                         "the version before the one serving)")
@@ -454,13 +437,14 @@ def build_parser() -> argparse.ArgumentParser:
              "still building finishes, and serves once it is started."),
             ("start", "let robots connect to a stopped deployment again",
              "Start a stopped deployment again: robots can connect, and the first to connect starts a worker - not "
-             "while this month's spend is at its budget (raise or clear it with `seq policy set <name> "
-             "budget.monthly_usd=USD`).")):
+             "while this month's spend is at its budget (raise it with `seq policy set <name> "
+             "budget.monthly_usd=USD`, or clear it with `budget.monthly_usd=`).")):
         psub.add_parser(verb, help=text, description=said).add_argument("name", help="deployment name")
     p = psub.add_parser("rm", help="delete a deployment for good, listing first what goes with it: its workers end now, "
-                                   "its robot keys and what it stores go, and its name and quota slot are free; nothing "
-                                   "can bring it back (refused while robots are connected or evals run on it, unless "
-                                   "--force)")
+                                   "its robot keys, versions and weights copy go - its captured data stays as a "
+                                   "dataset, and the evals that ran it keep their reports - and its name and quota "
+                                   "slot are free; nothing can bring it back (refused while robots are connected or "
+                                   "evals run on it, unless --force)")
     p.add_argument("name", metavar="NAME[@vN]", help="deployment name, or NAME@vN to delete that version alone for good: "
                                                      "the policy and its other versions stay, and a version goes once "
                                                      "its workers have ended (the one serving cannot be)")
@@ -472,8 +456,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("new", help="the new name")
 
 
-    p = psub.add_parser("set", help="change a deployment's settings now, without a redeploy: KEY=VALUE ...; KEY= puts "
-                                    "one back to what the code says (`seq policy settings` lists them)")
+    p = psub.add_parser("set", help="change a deployment's settings without a redeploy, each said with when it takes "
+                                    "effect - a machine one (gpu, weights, cpu, memory) builds a new version from the "
+                                    "same code: KEY=VALUE ...; KEY= puts one back to what the code says (`seq policy "
+                                    "settings` lists them)")
     p.add_argument("name", help="deployment name")
     p.add_argument("pairs", nargs="+", metavar="KEY=VALUE", help="e.g. min_workers=1 timeouts.request=60")
     psub.add_parser("settings", help="a deployment's every setting: its value, where it comes from, how far its last "
@@ -546,7 +532,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("key", help="the key's id, or its last four")
 
     prsub = _group(ap, sub, "prod", "Production policies: promote a dev policy to one, run with a production key.")
-    prsub.add_parser("promote", help="make a dev policy a production one").add_argument("name", help="the dev policy")
+
+
+
+    prsub.add_parser("promote", help="make a dev policy a production one",
+                     description="Make a dev policy a production one: the policy itself becomes production, not a copy "
+                                 "of it. To keep one in dev, fork it first - `seq policy fork <name> <new>` copies its "
+                                 "code, settings and weights.").add_argument("name", help="the dev policy")
 
 
     kysub = _group(ap, sub, "key", "Your dev and production keys: list them, add one, set its expiry or limit, revoke "
@@ -565,9 +557,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", default=None, metavar="USD|none", help="what it may spend in all; none removes the limit")
     kysub.add_parser("revoke", help="revoke a key: it opens nothing from now on").add_argument(
         "key", help="the key's id, the first characters of it, or its last four")
-    bsub = _group(ap, sub, "benchmark", "Your registered benchmarks (register one with `seq deploy <file>`).")
+    bsub = _group(ap, sub, "benchmark", "Your registered benchmarks (register one with `seq deploy <folder>`).")
     p = bsub.add_parser("upgrade", help="move a benchmark registered from a template to the template's newer version "
-                                        "(or back to an earlier one with --to), your changes kept")
+                                        "(or back to an earlier one with --to), what you set differently kept; one "
+                                        "whose code you changed is refused - register the new code")
     _upgrade_args(p, "benchmark")
     p = bsub.add_parser("ls", help="your benchmarks, newest first: version, status, template, card, worlds, latest "
                                    "eval")
@@ -575,13 +568,6 @@ def build_parser() -> argparse.ArgumentParser:
     p = bsub.add_parser("versions", help="a benchmark's versions, newest first - each one's build: its state, how long "
                                          "it took, where a failed one stopped - and the one new evals run")
     p.add_argument("name", help="the benchmark name")
-    p = bsub.add_parser("freeze", help="freeze a version: its base and everything its build installed kept in your "
-                                       "storage, so it can be built again exactly as it is, billed by the GB-month; "
-                                       "--off unfreezes it")
-    p.add_argument("name", metavar="NAME[@vN]", help="the benchmark, or NAME@vN for that version (default: the one new "
-                                                     "evals run)")
-    p.add_argument("--off", action="store_true", help="unfreeze it: what it kept is deleted within a day, unless "
-                                                      "another version uses it, and billed until then")
     p = bsub.add_parser("source", help="the code a version runs, as it was registered: downloaded into a new folder")
     p.add_argument("name", metavar="NAME[@vN]",
                    help="the benchmark, or NAME@vN for that version (default: the one new evals run)")
@@ -599,8 +585,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="the lines since then: 30m, 2h, 1d back, or an ISO time (2026-10-18T12:00:00Z), every one "
                         "of them, each run read back a page at a time")
     p.add_argument("--before", default=None, metavar="WHEN|SEQ",
-                   help="each run's lines before this point: a time, in --since's forms (the one the last line names "
-                        "to read on back), or a line's number; with --since, every line between the two")
+                   help="each run's lines before this point: a line's number (the one the last line names to read on "
+                        "back) or a time, in --since's forms; with --since, every line between the two")
     p.add_argument("--build", action="store_true",
                    help="the latest version's build (NAME@vN: that version's): its phases, its check and its log")
     p = bsub.add_parser("tasks", help="a benchmark's tasks - each one's description, seeds, episodes and time limit - "
@@ -668,8 +654,9 @@ def build_parser() -> argparse.ArgumentParser:
                         description="Upload a local directory as a volume. Run it again after changing files and only "
                                     "those are sent, as a new version that replaces the one in use - which is billed no "
                                     "more; with none changed it says the volume is already up to date and makes no "
-                                    "version. Run again after an interruption, it resumes where it stopped. Each file is "
-                                    "checked by md5 once it lands. Deploy an uploaded checkpoint with "
+                                    "version. Run again after an interruption, it resumes where it stopped. Each "
+                                    "file's size and md5 are checked when the upload completes. Deploy an uploaded "
+                                    "checkpoint with "
                                     "weights=seq.Volume.from_name(\"<name>\").")
     p.add_argument("name", help="volume name, e.g. pi05-ft")
     p.add_argument("path", help="local directory to upload")
@@ -692,18 +679,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("name", help="volume name, an eval's recordings (eval:<id>) or a deleted deployment's captured data "
                                 "(capture:<name>-<id8>)")
     p.add_argument("path", nargs="?", default=None,
-                   help="a file or folder inside the volume to delete; omit to delete the whole volume. Deleting a file "
-                        "leaves a new version without it; refused while a deployment or benchmark uses the volume")
-    p.add_argument("--yes", action="store_true",
-                   help="delete your version dependencies (deps) even though versions hold their own copies in them")
+                   help="a file or folder inside a volume you uploaded to delete (an eval's recordings and captured "
+                        "data go whole); omit to delete the whole volume. Deleting a file leaves a new version without "
+                        "it; refused while a deployment or benchmark uses the volume")
 
-    p = vsub.add_parser("files", help="list the files of a volume, their paths and sizes, a page at a time",
-                        description="The files of a volume you uploaded - a checkpoint or a dataset - each by its path "
-                                    "and size, a page at a time; a PATH narrows them to a folder. Also a deployment's "
+    p = vsub.add_parser("files", help="list every file of a volume, its path and size",
+                        description="Every file of a volume you uploaded - a checkpoint or a dataset - each by its "
+                                    "path and size, all of them at once; a PATH narrows them to a folder. Also a "
+                                    "deployment's "
                                     "captured data (capture:<name>-<id8>) and an eval's recordings (eval:<id>).")
     p.add_argument("name", help="volume name, as `seq volume ls` prints it")
     p.add_argument("path", nargs="?", default=None, help="a folder to narrow the listing to, e.g. params")
-    _page_args(p)
     p = vsub.add_parser("get", help="download a volume's files to a local directory (resumable)",
                         description="Download a volume's files into --out, keeping each file's path under it: one file "
                                     "(PATH names a file), a folder (PATH names a folder), or the whole volume (no PATH). "
@@ -731,13 +717,25 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 
-    sub.add_parser("login", description="Sign in on this machine as you, as on the console: a code you confirm on the "
-                                         "console's page, opened in your browser (or printed, to open anywhere). Then "
-                                         "a command with no SEQUENCES_API_KEY runs as you; keys, payments and the "
-                                         "account itself need you signed in.")
+    p = sub.add_parser("login", description="Sign in on this machine as you, as on the console: a code you confirm on "
+                                             "the console's page, opened in your browser (or printed, to open "
+                                             "anywhere). Then a command with no SEQUENCES_API_KEY runs as you; keys, "
+                                             "payments and the account itself need you signed in.")
+    p.add_argument("--profile", metavar="NAME", help="sign in under this name and make it the active profile (seq "
+                                                     "profile list): one person's sign-in kept apart from another's")
     p = sub.add_parser("logout", description="Sign out on this machine; with an id from seq account, end that sign-in "
                                              "wherever it is - another machine, a lost one.")
     p.add_argument("id", nargs="?", default=None, help="a sign-in's id, or its first characters, as seq account lists it")
+    p.add_argument("--profile", metavar="NAME", help="sign out of this profile (the active one by default)")
+
+
+    psub = _group(ap, sub, "profile", "The profiles your sign-ins are kept under on this machine: list them, make one "
+                                      "active, or say which is. SEQUENCES_PROFILE picks one for a "
+                                      "single process.")
+    psub.add_parser("list", help="each profile, who is signed in under it at which platform, the active one starred")
+    psub.add_parser("activate", help="make a profile the one seq signs in as from now on").add_argument(
+        "name", help="the profile's name, as seq profile list shows it")
+    psub.add_parser("current", help="the profile seq signs in as now")
     p = sub.add_parser("audit", description="Who did what to your account, newest first, a page at a time.")
     p.add_argument("--limit", type=int, default=50, help="events per page (1-200)")
     p.add_argument("--before", type=int, default=None, help="continue below this event id (the last one shown)")
@@ -748,9 +746,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--endpoint", choices=["chat", "decide"], default=None,
                    help="only the models answering on it (a planner's brain: --endpoint chat)")
     sub.add_parser("gpus", description="The cards gpu= can name: memory, price per hour, whether a policy and a "
-                                       "benchmark may use it, RT cores, video encoding; and what a CPU core and a GiB "
-                                       "of memory cost.")
-    acct = sub.add_parser("account", description="Your balance, and your GPUs: the limit, how many serving, evals and "
+                                       "benchmark may use it, the regions a policy on it runs in, RT cores, video "
+                                       "encoding; and what a CPU core and a GiB of memory cost.")
+    acct = sub.add_parser("account", description="What this month has spent under your plan's monthly limit and "
+                                                 "the payment method its bill goes to, and your GPUs: the limit, how "
+                                                 "many serving, evals and "
                                                  "build checks hold now, how many are left, and the evals waiting for "
                                                  "GPUs. `set` and `delete` change the account as the console's Account "
                                                  "page does - they need you signed in (seq login).")
@@ -769,17 +769,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--storage-limit", metavar="SIZE|plan",
                    help="everything you keep counts toward it: 500GB, 2TB or a number of GB, with no ceiling of ours "
                         "(storage is billed by the GB); plan for your plan's own")
-    asub.add_parser("delete", help="delete the account: type its id as `seq account` shows it").add_argument(
-        "--confirm", required=True, metavar="ACCOUNT_ID", help="the account's id, as `seq account` shows it")
+    asub.add_parser("delete", help="delete the account on the console's Account page, where you confirm it: the page, "
+                                   "opened in your browser - nothing is deleted from here")
 
     bsub = _group(ap, sub, "billing", "Your money as the console's Billing page shows it: a top-up's payment page and "
                                       "the wait for its credit, the credits added, the plan and a move to another, the "
                                       "invoices and the details they print. Each needs you signed in (seq login); a "
                                       "card is typed on the payment page, never here.")
-    p = bsub.add_parser("top-up", help="add credit: the payment page's link, opened in your browser, then the wait for "
-                                       "the credit to land")
+    p = bsub.add_parser("top-up", help="add credit ahead of the month's bill, which it is spent before (billing is "
+                                       "postpaid: usage is billed at the month's end): the payment page's link, "
+                                       "opened in your browser, then the wait for the credit to land")
     p.add_argument("amount", type=float, metavar="USD", help="how much, $5 at least")
     p.add_argument("--no-wait", action="store_true", help="say the link and return, without waiting for the credit")
+
+    bsub.add_parser("card", help="the payment method your month's bill goes to (billing is postpaid): the page where "
+                                 "it is added or made the default, opened in your browser")
 
     bsub.add_parser("redeem", help="redeem a promotion code from our team: its free credit added to your balance, once "
                                    "per account").add_argument("code", help="the promotion code, as you were given it")
@@ -824,58 +828,9 @@ def build_parser() -> argparse.ArgumentParser:
     from seq.port import cli as port_cli
 
     psub = _group(ap, sub, "port", "Move a CPU MuJoCo or SAPIEN benchmark to the GPU: export its scenes, check the "
-                                   "GPU engine builds them the same, scaffold the GPU benchmark, compare its motion "
-                                   "(convert: the first three in one go).")
+                                   "GPU engine builds them the same, scaffold the GPU benchmark, compare its motion - "
+                                   "a MuJoCo one's; a SAPIEN port is compared by an eval (convert: the first three in "
+                                   "one go).")
     port_cli.add_parsers(psub)
     return ap
 
-
-def _hours_arg(text: str) -> float:
-    """`--hours-per-day H`: the hours of a day, 0 to 24 - 30 priced a 30-hour day, and a negative one priced none, with
-    no word."""
-    try:
-        h = float(text)
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"{text!r} is not a number of hours") from None
-    if not 0 <= h <= 24:
-        raise argparse.ArgumentTypeError(f"the hours of a day are 0 to 24; got {h:g}")
-    return h
-
-
-def _starts_arg(text: str) -> int:
-    """`--starts-per-day N`: how many times a day robots start using a deployment, 0 to 1440 (once a minute)."""
-    try:
-        n = int(text)
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"{text!r} is not a number of starts") from None
-    if not 0 <= n <= 1440:
-        raise argparse.ArgumentTypeError(f"the starts a day are 0 to 1440; got {n}")
-    return n
-
-
-def _robots_arg(text: str) -> int:
-    """`--robots N`: how many robots use a deployment at once, 1 to 100 000."""
-    try:
-        n = int(text)
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"{text!r} is not a number of robots") from None
-    if not 1 <= n <= 100_000:
-        raise argparse.ArgumentTypeError(f"the robots at once are 1 to 100000; got {n}")
-    return n
-
-
-def _gpu_count_arg(text: str) -> int:
-    """`--max-gpus N`: a whole number of GPUs, at least 1. Its real ceiling is the account's limit, which the platform
-    holds it to and names when it refuses more: the CLI cannot know
-    it offline, so the local check keeps only the contract's own bounds (1 to 256, sequence-base Autoscaler.max_gpus) and
-    says the real rule. Before, it said "1 to 256 GPUs", and a Starter account set 100
- 
-. A GPU deployment's own cap can be changed, never removed."""
-    try:
-        n = int(text)
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"{text!r} is not a number of GPUs") from None
-    if not 1 <= n <= 256:
-        raise argparse.ArgumentTypeError(f"--max-gpus is a whole number of GPUs from 1 up to your account's limit "
-                                         f"(`seq account` shows it); got {n}")
-    return n

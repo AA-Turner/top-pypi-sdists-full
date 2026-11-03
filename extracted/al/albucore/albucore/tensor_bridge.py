@@ -10,7 +10,7 @@ import torch
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from albucore.utils import TensorLayout
+from albucore._types import TensorLayout
 
 __all__ = ["TensorLayout"]
 
@@ -63,14 +63,12 @@ def dispatch_tensor_image(
     image: torch.Tensor,
     layout: TensorLayout | None,
     numpy_router: Callable[..., Any],
+    /,
     *args: Any,
     **kwargs: Any,
 ) -> torch.Tensor:
     """Call an existing channel-last router and restore an image result to the input layout."""
     image_view = tensor_to_numpy_channel_last(image, layout)
-    router_kwargs = kwargs.copy()
-    if kwargs.get("inplace") is True and not image_view.flags.c_contiguous:
-        router_kwargs["inplace"] = False
     if layout in ("NCHW", "NCDHW"):
         batch_sources = []
         batch_results = []
@@ -90,7 +88,7 @@ def dispatch_tensor_image(
                 and value.ndim == image_view.ndim
                 and value.shape[0] == image_view.shape[0]
                 else value
-                for name, value in router_kwargs.items()
+                for name, value in kwargs.items()
             }
             item_result = numpy_router(image_item, *item_args, **item_kwargs)
             batch_results.append(item_result)
@@ -117,7 +115,7 @@ def dispatch_tensor_image(
             raise TypeError(msg)
         result = np.stack(batch_results)
     else:
-        result = numpy_router(image_view, *args, **router_kwargs)
+        result = numpy_router(image_view, *args, **kwargs)
     if result is image_view:
         return image
     if not isinstance(result, np.ndarray):

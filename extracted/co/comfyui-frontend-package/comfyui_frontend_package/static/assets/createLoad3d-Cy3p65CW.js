@@ -1,0 +1,1 @@
+import{t as e}from"./createLoad3d-DG-LclNu.js";export{e as createLoad3d};

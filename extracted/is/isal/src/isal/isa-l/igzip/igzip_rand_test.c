@@ -113,12 +113,12 @@ enum IGZIP_TEST_ERROR_CODES {
         RESULT_ERROR
 };
 
-static const int hdr_bytes = 300;
+static const uint32_t hdr_bytes = 300;
 
 static const uint32_t gzip_trl_bytes = 8;
 static const uint32_t zlib_trl_bytes = 4;
-static const int gzip_extra_bytes = 18; /* gzip_hdr_bytes + gzip_trl_bytes */
-static const int zlib_extra_bytes = 6;  /* zlib_hdr_bytes + zlib_trl_bytes */
+static const uint32_t gzip_extra_bytes = 18; /* gzip_hdr_bytes + gzip_trl_bytes */
+static const uint32_t zlib_extra_bytes = 6;  /* zlib_hdr_bytes + zlib_trl_bytes */
 
 int inflate_type = 0;
 
@@ -160,7 +160,7 @@ usage(void)
                         "  -r <iter>   number of randoms for each test\n"
                         "  -s <seed>   set rand() test seed\n"
                         "  -v          enable verbose test log\n");
-        exit(0);
+        exit(1);
 }
 
 size_t
@@ -220,7 +220,7 @@ create_rand_repeat_data(uint8_t *data, int size)
                 0x10000000, 0x20000000, 0x40000000, 0x00000000
         };
 
-        uint32_t power = rand() % sizeof(power_of_2_array) / sizeof(uint32_t);
+        uint32_t power = (uint32_t) (rand() % (sizeof(power_of_2_array) / sizeof(uint32_t)));
 
         if (symbol_count > 128) {
                 memset(symbols, 1, sizeof(symbols));
@@ -265,13 +265,12 @@ create_rand_repeat_data(uint8_t *data, int size)
                         size--;
                 } else {
                         length = (rand() % 256) + MIN_LENGTH;
-                        if (length > size)
+                        if (length > (uint32_t) size)
                                 length = (rand() % (size - 2)) + MIN_LENGTH;
 
                         distance = (rand() % HISTORY_SIZE) + MIN_DIST;
-                        if (distance > data - data_start)
-                                distance = (rand() % (data - data_start)) + MIN_DIST;
-
+                        if (distance > (uint32_t) (data - data_start))
+                                distance = (rand() % (uint32_t) (data - data_start)) + MIN_DIST;
                         size -= length;
                         if (distance <= length) {
                                 while (length-- > 0) {
@@ -479,8 +478,8 @@ uint32_t
 check_gzip_trl(uint64_t gzip_trl, uint32_t inflate_crc, uint8_t *uncompress_buf,
                uint32_t uncompress_len)
 {
-        uint64_t trl, ret = 0;
-        uint32_t crc;
+        uint64_t trl;
+        uint32_t crc, ret = 0;
 
         crc = crc32_gzip_refl_ref(0, uncompress_buf, uncompress_len);
         trl = ((uint64_t) uncompress_len << 32) | crc;
@@ -519,7 +518,7 @@ inflate_stateless_pass(uint8_t *compress_buf, uint64_t compress_len, uint8_t *un
         struct isal_zlib_header z_hdr;
 
         state.next_in = compress_buf;
-        state.avail_in = compress_len;
+        state.avail_in = (uint32_t) compress_len;
         state.next_out = uncompress_buf;
         state.avail_out = *uncompress_len;
 
@@ -589,14 +588,17 @@ inflate_state_valid_check(struct inflate_state *state, uint8_t *in_buf, uint32_t
 {
         uint32_t in_buffer_size, total_out, out_buffer_size;
 
-        in_buffer_size = (in_size == 0) ? 0 : state->next_in - in_buf + state->avail_in;
+        in_buffer_size =
+                (in_size == 0) ? 0 : (uint32_t) (state->next_in - in_buf) + state->avail_in;
 
         /* Check for a consistent amount of data processed */
         if (in_buffer_size != in_size)
                 return INFLATE_INPUT_STREAM_INTEGRITY_ERROR;
 
-        total_out = (out_size == 0) ? out_processed : out_processed + (state->next_out - out_buf);
-        out_buffer_size = (out_size == 0) ? 0 : state->next_out - out_buf + state->avail_out;
+        total_out = (out_size == 0) ? out_processed
+                                    : out_processed + (uint32_t) (state->next_out - out_buf);
+        out_buffer_size =
+                (out_size == 0) ? 0 : (uint32_t) (state->next_out - out_buf) + state->avail_out;
 
         /* Check for a consistent amount of data compressed */
         if (total_out != state->total_out || out_buffer_size != out_size)
@@ -657,7 +659,7 @@ inflate_multi_pass(uint8_t *compress_buf, uint64_t compress_len, uint8_t *uncomp
         state = malloc(sizeof(struct inflate_state));
         if (state == NULL) {
                 printf("Failed to allocate memory\n");
-                exit(0);
+                exit(1);
         }
 
         create_rand_repeat_data((uint8_t *) state, sizeof(*state));
@@ -699,7 +701,7 @@ inflate_multi_pass(uint8_t *compress_buf, uint64_t compress_len, uint8_t *uncomp
                         comp_tmp_size = rand() % (compress_len + 1);
 
                         if (comp_tmp_size >= compress_len - comp_processed)
-                                comp_tmp_size = compress_len - comp_processed;
+                                comp_tmp_size = (uint32_t) (compress_len - comp_processed);
 
                         if (comp_tmp_size != 0) {
                                 if (comp_tmp != NULL)
@@ -764,8 +766,8 @@ inflate_multi_pass(uint8_t *compress_buf, uint64_t compress_len, uint8_t *uncomp
                           *uncompress_len, uncomp_processed, uncomp_tmp_size, state->avail_out,
                           state->total_out);
 
-                ret = isal_inflate_with_checks(state, compress_len, *uncompress_len, comp_tmp,
-                                               comp_tmp_size, comp_processed, uncomp_tmp,
+                ret = isal_inflate_with_checks(state, (uint32_t) compress_len, *uncompress_len,
+                                               comp_tmp, comp_tmp_size, comp_processed, uncomp_tmp,
                                                uncomp_tmp_size, uncomp_processed);
 
                 log_print("Post inflate\n");
@@ -891,7 +893,7 @@ inflate_check(uint8_t *z_buf, uint32_t z_size, uint8_t *in_buf, uint32_t in_size
                 mem_result = memcmp(in_buf, test_buf, in_size);
 
         if (options.verbose && mem_result) {
-                int i;
+                uint32_t i;
                 for (i = 0; i < in_size; i++) {
                         if (in_buf[i] != test_buf[i]) {
                                 log_print("First incorrect data at 0x%x of 0x%x, 0x%x != 0x%x\n", i,
@@ -974,16 +976,20 @@ stream_valid_check(struct isal_zstream *stream, uint8_t *in_buf, uint32_t in_siz
 {
         uint32_t total_in, in_buffer_size, total_out, out_buffer_size;
 
-        total_in = (in_size == 0) ? in_processed
-                                  : (in_processed - in_size) + (stream->next_in - in_buf);
-        in_buffer_size = (in_size == 0) ? 0 : stream->next_in - in_buf + stream->avail_in;
+        total_in = (in_size == 0)
+                           ? in_processed
+                           : (in_processed - in_size) + (uint32_t) (stream->next_in - in_buf);
+        in_buffer_size =
+                (in_size == 0) ? 0 : (uint32_t) (stream->next_in - in_buf) + stream->avail_in;
 
         /* Check for a consistent amount of data processed */
         if (total_in != stream->total_in || in_buffer_size != in_size)
                 return COMPRESS_INPUT_STREAM_INTEGRITY_ERROR;
 
-        total_out = (out_size == 0) ? out_processed : out_processed + (stream->next_out - out_buf);
-        out_buffer_size = (out_size == 0) ? 0 : stream->next_out - out_buf + stream->avail_out;
+        total_out = (out_size == 0) ? out_processed
+                                    : out_processed + (uint32_t) (stream->next_out - out_buf);
+        out_buffer_size =
+                (out_size == 0) ? 0 : (uint32_t) (stream->next_out - out_buf) + stream->avail_out;
 
         /* Check for a consistent amount of data compressed */
         if (total_out != stream->total_out || out_buffer_size != out_size) {
@@ -1426,7 +1432,7 @@ compress_ver_rep_buf(uint8_t *data, uint32_t data_size, uint64_t data_rep_size,
                         if (stream.avail_in == 0) {
                                 stream.avail_in = data_size;
                                 if (data_size >= data_remaining) {
-                                        stream.avail_in = data_remaining;
+                                        stream.avail_in = (uint32_t) data_remaining;
                                         stream.end_of_stream = 1;
                                 }
 
@@ -1436,8 +1442,11 @@ compress_ver_rep_buf(uint8_t *data, uint32_t data_size, uint64_t data_rep_size,
 
                         ret = isal_deflate(&stream);
 
-                        if (ret)
+                        if (ret) {
+                                if (level_buf != NULL)
+                                        free(level_buf);
                                 return COMPRESS_GENERAL_ERROR;
+                        }
                 }
 
                 /* Verify the compressed buffer */
@@ -1453,13 +1462,16 @@ compress_ver_rep_buf(uint8_t *data, uint32_t data_size, uint64_t data_rep_size,
 
                         /* Force decoding to stop when avail_out rolls over */
                         if ((1ULL << 32) - state.total_out < decomp_buf_size)
-                                state.avail_out = (1ULL << 32) - state.total_out;
+                                state.avail_out = (uint32_t) ((1ULL << 32) - state.total_out);
 
                         avail_out_start = state.avail_out;
 
                         ret = isal_inflate(&state);
-                        if (ret)
+                        if (ret) {
+                                if (level_buf != NULL)
+                                        free(level_buf);
                                 return inflate_ret_to_code(ret);
+                        }
 
                         /* Check data accuracy */
                         index = data_verified % data_size;
@@ -1471,8 +1483,11 @@ compress_ver_rep_buf(uint8_t *data, uint32_t data_size, uint64_t data_rep_size,
                         ret |= memcmp(decomp_buf + data_size - index, data, cmp_size);
                         out_size -= cmp_size;
                         ret |= memcmp(decomp_buf, decomp_buf + data_size, out_size);
-                        if (ret)
+                        if (ret) {
+                                if (level_buf != NULL)
+                                        free(level_buf);
                                 return RESULT_ERROR;
+                        }
 
                         data_verified += avail_out_start - state.avail_out;
                 }
@@ -1703,8 +1718,8 @@ compress_stateless_full_flush(uint8_t *data, uint32_t data_size, uint8_t *compre
                         break;
 
                 /* Verify that blocks are independent */
-                ret = inflate_check(out_buf, stream.next_out - out_buf, in_buf, in_size, 0, NULL, 0,
-                                    hist_bits);
+                ret = inflate_check(out_buf, (uint32_t) (stream.next_out - out_buf), in_buf,
+                                    in_size, 0, NULL, 0, hist_bits);
 
                 if (ret == INFLATE_INVALID_LOOK_BACK_DISTANCE) {
                         break;
@@ -1837,8 +1852,8 @@ compress_full_flush(uint8_t *data, uint32_t data_size, uint8_t *compressed_buf,
 
                 /* Verify that blocks are independent */
                 if (state->state == ZSTATE_NEW_HDR || state->state == ZSTATE_END) {
-                        ret = inflate_check(out_buf, stream.next_out - out_buf, in_buf, in_size, 0,
-                                            NULL, 0, 0);
+                        ret = inflate_check(out_buf, (uint32_t) (stream.next_out - out_buf), in_buf,
+                                            in_size, 0, NULL, 0, 0);
 
                         if (ret == INFLATE_INVALID_LOOK_BACK_DISTANCE)
                                 break;
@@ -2633,17 +2648,31 @@ int
 test_compress_file(char *file_name)
 {
         int ret = IGZIP_COMP_OK;
-        uint64_t in_size;
+        uint32_t in_size;
         uint8_t *in_buf = NULL;
         FILE *in_file = NULL;
 
+#ifdef _WIN32
+        if (fopen_s(&in_file, file_name, "rb") != 0)
+                in_file = NULL;
+#else
         in_file = fopen(file_name, "rb");
+#endif
         if (!in_file) {
                 printf("Failed to open file %s\n", file_name);
                 return FILE_READ_FAILED;
         }
 
-        in_size = get_filesize(in_file);
+        in_size = (uint32_t) (get_filesize(in_file));
+        if (in_size == 0) {
+                /* Check if it's a real error or just an empty file */
+                if (fseek(in_file, 0, SEEK_END) != 0 || ftell(in_file) < 0)
+                        printf("Failed to get file size for %s\n", file_name);
+                else
+                        printf("File %s has zero length\n", file_name);
+                ret = FILE_READ_FAILED;
+                goto exit_comp_file;
+        }
         if (in_size > MAX_FILE_SIZE)
                 in_size = MAX_FILE_SIZE;
 
@@ -2687,12 +2716,13 @@ exit_comp_file:
 }
 
 int
-create_custom_hufftables(struct isal_hufftables *hufftables_custom, int file_count, char *files[])
+create_custom_hufftables(struct isal_hufftables *hufftables_custom, size_t file_count,
+                         char *files[])
 {
         long int file_length;
         struct isal_huff_histogram histogram;
         FILE *file;
-        int i;
+        size_t i;
 
         memset(&histogram, 0, sizeof(histogram));
 
@@ -2700,15 +2730,39 @@ create_custom_hufftables(struct isal_hufftables *hufftables_custom, int file_cou
                 uint8_t *stream = NULL;
 
                 printf("Processing %s\n", files[i]);
+#ifdef _WIN32
+                if (fopen_s(&file, files[i], "r") != 0)
+                        file = NULL;
+#else
                 file = fopen(files[i], "r");
+#endif
                 if (file == NULL) {
                         printf("Error opening file\n");
                         return 1;
                 }
-                fseek(file, 0, SEEK_END);
+                if (fseek(file, 0, SEEK_END) != 0) {
+                        printf("Error seeking to end of file\n");
+                        fclose(file);
+                        return 1;
+                }
                 file_length = ftell(file);
-                fseek(file, 0, SEEK_SET);
-                file_length -= ftell(file);
+                if (file_length < 0) {
+                        printf("Error getting file position\n");
+                        fclose(file);
+                        return 1;
+                }
+                if (fseek(file, 0, SEEK_SET) != 0) {
+                        printf("Error seeking to start of file\n");
+                        fclose(file);
+                        return 1;
+                }
+                long int start_pos = ftell(file);
+                if (start_pos < 0) {
+                        printf("Error getting file position\n");
+                        fclose(file);
+                        return 1;
+                }
+                file_length -= start_pos;
 
                 if (file_length > 0) {
                         stream = malloc(file_length);
@@ -2747,7 +2801,8 @@ create_custom_hufftables(struct isal_hufftables *hufftables_custom, int file_cou
 int
 main(int argc, char *argv[])
 {
-        int i = 0, j = 0, ret = 0, fin_ret = IGZIP_COMP_OK;
+        int ret = 0, fin_ret = IGZIP_COMP_OK;
+        size_t i = 0, j = 0;
         uint32_t in_size = 0, offset = 0;
         uint8_t *in_buf = NULL;
         struct isal_hufftables hufftables_custom, hufftables_sub;
@@ -2762,7 +2817,7 @@ main(int argc, char *argv[])
         file_count = argc - argv_index;
 
         if (options.verbose) {
-                setbuf(stdout, NULL);
+                setvbuf(stdout, NULL, _IONBF, 0);
 
                 printf("Window Size: %d K\n", IGZIP_HIST_SIZE / 1024);
                 printf("Test Seed  : %d\n", options.test_seed);

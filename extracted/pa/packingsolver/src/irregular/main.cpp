@@ -97,11 +97,12 @@ int main(int argc, char *argv[])
             ("use-column-generation,", po::value<bool>(), "enable column-generation")
             ("use-benders-decomposition,", po::value<bool>(), "enable Benders decomposition algorithm")
             ("benders-decomposition-use-tree-search-relative-positions,", po::value<bool>(), "use the tree search on relative positions in the subproblems of the Benders decomposition algorithm")
-            ("use-tree-search-relative-positions,", po::value<bool>(), "use the tree search on relative positions (Feasibility objective with a single bin)")
+            ("use-tree-search-relative-positions,", po::value<bool>(), "use the tree search on relative positions (Feasibility objective with a single bin, open dimension objectives)")
             ("use-dichotomic-search,", po::value<bool>(), "enable dichotomic search")
             ("reduce,", po::value<bool>(), "enable/disable instance reduction (preprocessing)")
             ("initial-maximum-approximation-ratio,", po::value<double>(), "initial maximum approximation ratio")
             ("maximum-approximation-ratio-factor,", po::value<double>(), "decrease factor for the maximum approximation ratio")
+            ("minimum-maximum-approximation-ratio,", po::value<double>(), "minimum value of the maximum approximation ratio when it decreases")
             ("sequential-value-correction-subproblem-tree-search-queue-size,", po::value<NodeId>(), "set sequential value correction subproblem queue size")
             ("anytime-sequential-value-correction-growing-queue-maximum-number-of-iterations,", po::value<Counter>(), "")
             ("sequential-value-correction-restrict-bin-types,", po::value<bool>(), "")
@@ -218,6 +219,8 @@ int main(int argc, char *argv[])
             parameters.initial_maximum_approximation_ratio = vm["initial-maximum-approximation-ratio"].as<double>();
         if (vm.count("maximum-approximation-ratio-factor"))
             parameters.maximum_approximation_ratio_factor = vm["maximum-approximation-ratio-factor"].as<double>();
+        if (vm.count("minimum-maximum-approximation-ratio"))
+            parameters.minimum_maximum_approximation_ratio = vm["minimum-maximum-approximation-ratio"].as<double>();
         if (vm.count("sequential-value-correction-subproblem-tree-search-queue-size"))
             parameters.sequential_value_correction_subproblem_tree_search_queue_size = vm["sequential-value-correction-subproblem-tree-search-queue-size"].as<NodeId>();
         if (vm.count("anytime-sequential-value-correction-growing-queue-maximum-number-of-iterations"))

@@ -5,13 +5,30 @@ from __future__ import annotations
 
 import math
 import warnings
+from functools import partial
 from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from braindecode.functional import init_weights_, scaled_dot_product_attention
 from braindecode.models.base import EEGModuleMixin
+
+# Weight initialization of the reference implementation.
+_init_weights = partial(
+    init_weights_,
+    weights={
+        nn.Linear: partial(nn.init.normal_, mean=0.0, std=0.02),
+        nn.Embedding: partial(nn.init.normal_, mean=0.0, std=0.002),
+    },
+    norms=(),
+)
+_init_encoder_weights = partial(
+    init_weights_,
+    weights={nn.Linear: partial(nn.init.normal_, mean=0.0, std=0.02)},
+    norms=(),
+)
 
 
 class PBT(EEGModuleMixin, nn.Module):
@@ -261,17 +278,11 @@ class PBT(EEGModuleMixin, nn.Module):
         )
 
         # initialize weights
-        self.apply(self._init_weights)
+        self._init_parameters()
 
-    @staticmethod
-    def _init_weights(module: nn.Module) -> None:
-        """Weight initialization following the original implementation."""
-        if isinstance(module, nn.Linear):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-            if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
-        elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.002)
+    def _init_parameters(self) -> None:
+        """Model-specific initialization (see ``reset_parameters``)."""
+        self.apply(_init_weights)
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         """The implementation follows the original code logic
@@ -296,7 +307,6 @@ class PBT(EEGModuleMixin, nn.Module):
         tokens = self.patching_projection(X)
 
         cls_token = self.cls_token.expand(X.size(0), 1, -1)
-        cls_idx = torch.zeros((X.size(0), 1), dtype=torch.long, device=X.device)
 
         tokens = torch.cat([cls_token, tokens], dim=1)
         pos_emb = self.pos_embedding(int_pos)
@@ -412,13 +422,8 @@ class _MHSA(nn.Module):
         k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
         v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
 
-        y = torch.nn.functional.scaled_dot_product_attention(
-            q,
-            k,
-            v,
-            attn_mask=None,
-            dropout_p=self.drop_prob if self.training else 0.0,
-            is_causal=False,
+        y = scaled_dot_product_attention(
+            q, k, v, dropout_p=self.drop_prob if self.training else 0.0
         )
 
         # re-assemble heads -> (B, T, C)
@@ -575,17 +580,22 @@ class _TransformerEncoder(nn.Module):
         )
 
         # GPT2-like initialization for linear layers
-        self.apply(self._init_weights)
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Initialize this block's weights (GPT-2 scheme, as upstream).
+
+        Inside :class:`PBT`, whose own initialization runs after this one, the
+        ``proj`` weights are redrawn with std 0.02, as in the reference
+        implementation; the scaled draw is kept so the random stream, and thus
+        the initial weights, match it.
+        """
+        self.apply(_init_encoder_weights)
         for pn, p in self.named_parameters():
             if pn.endswith("proj.weight"):
-                torch.nn.init.normal_(p, mean=0.0, std=0.02 / math.sqrt(2 * num_layers))
-
-    @staticmethod
-    def _init_weights(module: nn.Module) -> None:
-        if isinstance(module, nn.Linear):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-            if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
+                torch.nn.init.normal_(
+                    p, mean=0.0, std=0.02 / math.sqrt(2 * len(self.encoder_block))
+                )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward through all encoder blocks sequentially."""

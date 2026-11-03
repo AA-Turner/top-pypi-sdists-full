@@ -28,7 +28,7 @@ _RUN_BUSY_RECHECK_SECONDS = 5.0
 class DrainSettleMixin:
     """Part of DrainPass: its methods run with `self` the DrainPass; fold_parts() copies them into DrainPass."""
 
-    def _record_in_progress(self, progress: OpInProgress, lane: Any) -> None:
+    def _record_in_progress(self, progress: OpInProgress, lane: Any, op: dict | None = None) -> None:
         """Plan (g): the long op moved (or waits on the server) and saved where it is;
         nothing failed, so no attempt is charged."""
         if progress.retry_after is not None:
@@ -42,6 +42,7 @@ class DrainSettleMixin:
             # another lane's backoff after it); the next pass takes the next slice.
             self.report.in_progress += 1
             self.report.progressed_runs.add(lane)
+            self.report.note_run_progress(op, delivered=False)
             if lane is not None:
                 self.held_runs.add(lane)
 
@@ -51,6 +52,7 @@ class DrainSettleMixin:
         if self.drain_hold.let_go != went_away and not path.exists():
             report.delivered += 1  # it landed; another drain settled its file
             report.progressed_runs.add(lane)
+            report.note_run_progress(op, delivered=True)
             return
         path.unlink(missing_ok=True)
         # fsync so a post-delivery crash cannot resurrect the op file and replay a write
@@ -60,6 +62,7 @@ class DrainSettleMixin:
         self.count_delivered(op)
         report.delivered += 1
         report.progressed_runs.add(lane)
+        report.note_run_progress(op, delivered=True)
         self.notify_delivered(op)
         self.settled_upload = self.settled_upload or op.get("kind") == "upload"
 
@@ -134,6 +137,7 @@ class DrainSettleMixin:
                     pass
             for _, landed_op in landed:
                 report.delivered += 1
+                report.note_run_progress(landed_op, delivered=True)
                 self.notify_delivered(landed_op)
                 landed_fp = _stamp_fingerprint(landed_op)
                 if landed_fp is not None:
@@ -176,6 +180,7 @@ class DrainSettleMixin:
             self.count_delivered(landed_op)
             report.delivered += 1
             report.progressed_runs.add(_lane_of(landed_op))
+            report.note_run_progress(landed_op, delivered=True)
             self.notify_delivered(landed_op)
             landed_fp = _stamp_fingerprint(landed_op)
             if landed_fp is not None:
@@ -249,6 +254,7 @@ class DrainSettleMixin:
         fsync_directory(path.parent)
         self.report.superseded.add(op)
         self.report.progressed_runs.add(lane)
+        self.report.note_run_progress(op, delivered=False)
         self.settled_upload = self.settled_upload or op.get("kind") == "upload"
         return "continue"
 
@@ -267,6 +273,7 @@ class DrainSettleMixin:
         self.count_delivered(op)
         self.report.delivered += 1
         self.report.progressed_runs.add(lane)
+        self.report.note_run_progress(op, delivered=True)
         self.notify_delivered(op)
         self.settled_upload = self.settled_upload or op.get("kind") == "upload"
         return "continue"
@@ -280,6 +287,8 @@ class DrainSettleMixin:
             # every op fails alike until a person runs `probe workspace limit`, so none may
             # run out of patience meanwhile. Ordinary lane backoff, never a hot loop.
             and not isinstance(exc, errors.WorkspaceLimitError)
+            # A write the stall rule set aside goes back to held/, never to failed/ (R9).
+            and not was_held(op)
             and _failing_for_seconds(op, time.time()) >= _transient_budget_seconds()
             and op["attempts"] >= MIN_TRANSIENT_ATTEMPTS
         ):
@@ -378,6 +387,7 @@ class DrainSettleMixin:
         fsync_directory(path.parent)
         report.dead_lettered += 1
         report.progressed_runs.add(lane)
+        report.note_run_progress(op, delivered=False)
         report.errors.append(op["last_error"])
         report.dead_letter_records.append(
             {
@@ -392,6 +402,31 @@ class DrainSettleMixin:
         )
         self.settled_upload = self.settled_upload or op.get("kind") == "upload"
         return "continue"
+
+    def _set_best_effort_aside(self, path: Path, op: dict, lane: Any) -> bool:
+        with holding_run_lock(self.journal, lane) as locked:
+            if not locked:
+                return False
+            if hold_op(path, op, cause=HeldCause.STALLED, retry_seconds=best_effort_retry(op)) is None:
+                return False
+        self.report.note_run_progress(op, delivered=False)
+        return True
+
+    def _hold_again(self, path: Path, op: dict, lane: Any) -> bool:
+        """Set a write let out of held/ aside again: a metric, step or upload alone (the rest of
+        its run goes on), anything else by holding its run's lane, so nothing passes it."""
+        if not is_set_aside_alone(op):
+            if lane is None or not hold_lane(
+                self.journal.dir, lane, path, run_ref=op.get("run_ref"), error=op.get("last_error")
+            ):
+                return False
+            self.held_lanes.add(lane)
+            return True
+        with holding_run_lock(self.journal, lane) as locked:
+            if not locked or hold_op(path, op, cause=HeldCause.STALLED) is None:
+                return False
+        self.report.note_run_progress(op, delivered=False)
+        return True
 
     def _record_fallback_row(self, op: dict) -> None:
         """A permanently rejected UPLOAD must still leave a record. The sync path degrades
@@ -448,7 +483,24 @@ class DrainSettleMixin:
             if self.lost_responses >= 2:
                 report.unreachable = True
                 return "break"
-        self.stalled[lane] = LaneStall(op["last_error"], retry_after, getattr(exc, "status", None))
+        if (
+            self.options.set_best_effort_aside
+            and is_best_effort(op)
+            and not self.journal.receipt_enabled
+            and self._set_best_effort_aside(path, op, lane)
+        ):
+            # Best-effort (lineage, captured outputs, the exit span): never holds its run's line,
+            # its close included. Aside at once, tried again in a minute, doubling (R9).
+            report.held_again += 1
+            return "continue"
+        if was_held(op) and not self.journal.receipt_enabled and self._hold_again(path, op, lane):
+            # Let out of held/ and still failing: straight back for another hour, not another
+            # stall window (R9).
+            report.held_again += 1
+            return "continue"
+        self.stalled[lane] = LaneStall(
+            op["last_error"], retry_after, getattr(exc, "status", None), failing=True, path=path
+        )
         return "continue"
 from probe.sdk.delivery.outbox.drain.adoption import AdoptedRouteRefused  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.report import CredentialNotHere  # noqa: E402 -- pieces need each other; the front door loads this one first
@@ -470,3 +522,13 @@ from probe.sdk.delivery.ops.classify import _transient_budget_seconds  # noqa: E
 from probe.sdk.delivery.ops.classify import classify  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.journal.journal import log  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.op_handler import multipart_storage  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.outbox.held import (  # noqa: E402 -- pieces need each other; the front door loads this one first
+    HeldCause,
+    best_effort_retry,
+    hold_lane,
+    hold_op,
+    is_best_effort,
+    is_set_aside_alone,
+    was_held,
+)
+from probe.sdk.delivery.outbox.drain.lock import holding_run_lock  # noqa: E402 -- pieces need each other; the front door loads this one first

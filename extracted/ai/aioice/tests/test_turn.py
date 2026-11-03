@@ -1,20 +1,24 @@
 import asyncio
 import ssl
 import unittest
-from typing import Any, Optional
+from typing import Any
 from unittest import mock
 
 from aioice import stun, turn
 
 from .echoserver import run_echo_server
-from .turnserver import run_turn_server
+from .turnserver import get_tls_credentials, run_turn_server
 from .utils import asynctest, read_message
 
 
 class DummyClientProtocol(asyncio.DatagramProtocol):
     def __init__(self) -> None:
+        self.closed = asyncio.Event()
         self.errors: list[Exception] = []
         self.received: list[tuple[bytes, tuple[str, int]]] = []
+
+    def connection_lost(self, exc: Exception | None) -> None:
+        self.closed.set()
 
     def error_received(self, exc: Exception) -> None:
         self.errors.append(exc)
@@ -61,7 +65,7 @@ class TurnClientUdpProtocolTest(unittest.TestCase):
         )
 
     def _data_indication(
-        self, peer_address: Optional[tuple[str, int]], data: Optional[bytes]
+        self, peer_address: tuple[str, int] | None, data: bytes | None
     ) -> bytes:
         message = stun.Message(
             message_method=stun.Method.DATA, message_class=stun.Class.INDICATION
@@ -129,9 +133,9 @@ class TurnTest(unittest.TestCase):
 
     @asynctest
     async def test_tls_transport(self) -> None:
+        certificate_pem, _ = get_tls_credentials()
         ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_CLIENT)
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
+        ssl_context.load_verify_locations(cadata=certificate_pem)
 
         await self._test_transport("tcp", "tls_address", ssl=ssl_context)
 
@@ -143,7 +147,7 @@ class TurnTest(unittest.TestCase):
         self,
         transport: str,
         server_addr_attr: str,
-        ssl: Optional[ssl.SSLContext] = None,
+        ssl: ssl.SSLContext | None = None,
     ) -> None:
         await self._test_transport_ok(
             transport=transport, server_addr_attr=server_addr_attr, ssl=ssl
@@ -168,7 +172,7 @@ class TurnTest(unittest.TestCase):
         )
 
     async def _test_transport_ok(
-        self, *, transport: str, server_addr_attr: str, ssl: Optional[ssl.SSLContext]
+        self, *, transport: str, server_addr_attr: str, ssl: ssl.SSLContext | None
     ) -> None:
         async with run_turn_server(users={"foo": "bar"}) as turn_server:
             turn_transport, protocol = await turn.create_turn_endpoint(
@@ -182,33 +186,39 @@ class TurnTest(unittest.TestCase):
                 transport=transport,
             )
             self.assertIsNone(turn_transport.get_extra_info("peername"))
-            self.assertIsNotNone(turn_transport.get_extra_info("sockname"))
+            relayed_address = turn_transport.get_extra_info("sockname")
+            self.assertIsNotNone(relayed_address)
 
             async with run_echo_server() as echo_server:
-                # bind channel, send ping, expect pong
+                # Bind a channel, send ping, expect pong.
                 turn_transport.sendto(b"ping", echo_server.udp_address)
                 await asyncio.sleep(1)
                 self.assertEqual(
                     protocol.received, [(b"ping", echo_server.udp_address)]
                 )
 
-                # wait some more to allow allocation refresh
+                # Wait some more to allow allocation refresh.
                 protocol.received.clear()
                 await asyncio.sleep(5)
 
-                # refresh channel, send ping, expect pong
+                # Refresh the channel, send ping, expect pong.
                 turn_transport.sendto(b"ping", echo_server.udp_address)
                 await asyncio.sleep(1)
                 self.assertEqual(
                     protocol.received, [(b"ping", echo_server.udp_address)]
                 )
 
-            # close
-            turn_transport.close()
-            await asyncio.sleep(0)
+            # Close the transport.
+            with self.assertLogs("aioice.turn", level="INFO") as logs:
+                turn_transport.close()
+                await asyncio.wait_for(protocol.closed.wait(), timeout=5)
+            self.assertEqual(
+                logs.output,
+                [f"INFO:aioice.turn:TURN allocation deleted {relayed_address}"],
+            )
 
     async def _test_transport_ok_multi(
-        self, *, transport: str, server_addr_attr: str, ssl: Optional[ssl.SSLContext]
+        self, *, transport: str, server_addr_attr: str, ssl: ssl.SSLContext | None
     ) -> None:
         async with run_turn_server(users={"foo": "bar"}) as turn_server:
             turn_transport, protocol = await turn.create_turn_endpoint(
@@ -226,13 +236,13 @@ class TurnTest(unittest.TestCase):
 
             # Bind channel, send ping, expect pong.
             #
-            # We use different lengths to trigger both padded an unpadded
+            # We use different lengths to trigger both padded and unpadded
             # ChannelData messages over TCP.
             async with run_echo_server() as echo_server1:
                 async with run_echo_server() as echo_server2:
                     turn_transport.sendto(
                         b"ping", echo_server1.udp_address
-                    )  # never padded
+                    )  # Never padded.
                     turn_transport.sendto(b"ping11", echo_server1.udp_address)
                     turn_transport.sendto(b"ping20", echo_server2.udp_address)
                     turn_transport.sendto(b"ping21", echo_server2.udp_address)
@@ -247,12 +257,12 @@ class TurnTest(unittest.TestCase):
                         ],
                     )
 
-            # close
+            # Close the transport.
             turn_transport.close()
-            await asyncio.sleep(0)
+            await asyncio.wait_for(protocol.closed.wait(), timeout=5)
 
     async def _test_transport_data_indication(
-        self, *, transport: str, server_addr_attr: str, ssl: Optional[ssl.SSLContext]
+        self, *, transport: str, server_addr_attr: str, ssl: ssl.SSLContext | None
     ) -> None:
         async with run_turn_server(users={"foo": "bar"}) as turn_server:
             turn_transport, protocol = await turn.create_turn_endpoint(
@@ -283,12 +293,12 @@ class TurnTest(unittest.TestCase):
                         ],
                     )
 
-            # close
+            # Close the transport.
             turn_transport.close()
-            await asyncio.sleep(0)
+            await asyncio.wait_for(protocol.closed.wait(), timeout=5)
 
     async def _test_transport_allocate_failure(
-        self, *, transport: str, server_addr_attr: str, ssl: Optional[ssl.SSLContext]
+        self, *, transport: str, server_addr_attr: str, ssl: ssl.SSLContext | None
     ) -> None:
         async with run_turn_server(users={"foo": "bar"}) as turn_server:
             # Invalid username.
@@ -336,7 +346,7 @@ class TurnTest(unittest.TestCase):
             )
 
     async def _test_transport_delete_failure(
-        self, *, transport: str, server_addr_attr: str, ssl: Optional[ssl.SSLContext]
+        self, *, transport: str, server_addr_attr: str, ssl: ssl.SSLContext | None
     ) -> None:
         async with run_turn_server(users={"foo": "bar"}) as turn_server:
             turn_transport, protocol = await turn.create_turn_endpoint(
@@ -348,17 +358,26 @@ class TurnTest(unittest.TestCase):
                 transport=transport,
             )
             self.assertIsNone(turn_transport.get_extra_info("peername"))
-            self.assertIsNotNone(turn_transport.get_extra_info("sockname"))
+            relayed_address = turn_transport.get_extra_info("sockname")
+            self.assertIsNotNone(relayed_address)
 
-            # make the server reject the final REFRESH request
+            # Make the server reject the final REFRESH request.
             turn_server.simulated_failure = (403, "Forbidden")
 
-            # close client
-            turn_transport.close()
-            await asyncio.sleep(0)
+            # The transport still closes once the deletion has failed.
+            with self.assertLogs("aioice.turn", level="INFO") as logs:
+                turn_transport.close()
+                await asyncio.wait_for(protocol.closed.wait(), timeout=5)
+            self.assertEqual(
+                logs.output,
+                [
+                    "INFO:aioice.turn:TURN allocation deletion failed "
+                    f"{relayed_address}: STUN transaction failed (403 - Forbidden)"
+                ],
+            )
 
     async def _test_transport_channel_bind_failure(
-        self, *, transport: str, server_addr_attr: str, ssl: Optional[ssl.SSLContext]
+        self, *, transport: str, server_addr_attr: str, ssl: ssl.SSLContext | None
     ) -> None:
         async with run_turn_server(users={"foo": "bar"}) as turn_server:
             turn_transport, protocol = await turn.create_turn_endpoint(
@@ -399,12 +418,12 @@ class TurnTest(unittest.TestCase):
                     [{0x4000: echo_server.udp_address}],
                 )
 
-            # close
+            # Close the transport.
             turn_transport.close()
-            await asyncio.sleep(0)
+            await asyncio.wait_for(protocol.closed.wait(), timeout=5)
 
     async def _test_transport_close_pending_send(
-        self, *, transport: str, server_addr_attr: str, ssl: Optional[ssl.SSLContext]
+        self, *, transport: str, server_addr_attr: str, ssl: ssl.SSLContext | None
     ) -> None:
         async with run_turn_server(users={"foo": "bar"}) as turn_server:
             turn_transport, protocol = await turn.create_turn_endpoint(
@@ -479,7 +498,7 @@ class TurnTest(unittest.TestCase):
         when ICE candidate gathering times out and cancels the relay task),
         the underlying transport must be closed rather than leaked.
         """
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         real_create_datagram_endpoint = loop.create_datagram_endpoint
         captured: dict[str, asyncio.BaseTransport] = {}
 
@@ -517,3 +536,105 @@ class TurnTest(unittest.TestCase):
 
         self.assertIn("transport", captured)
         self.assertTrue(captured["transport"].is_closing())
+
+    def test_udp_transport_close_at_shutdown(self) -> None:
+        """
+        If the event loop shuts down while the allocation is being deleted,
+        the underlying transport must be closed rather than leaked.
+        """
+        captured: dict[str, asyncio.BaseTransport] = {}
+
+        async def run() -> None:
+            loop = asyncio.get_running_loop()
+            real_create_datagram_endpoint = loop.create_datagram_endpoint
+
+            async def spy_create_datagram_endpoint(
+                *args: Any, **kwargs: Any
+            ) -> tuple[asyncio.BaseTransport, asyncio.BaseProtocol]:
+                transport, protocol = await real_create_datagram_endpoint(
+                    *args, **kwargs
+                )
+                # Ignore the relay transport later created by the server.
+                captured.setdefault("transport", transport)
+                return transport, protocol
+
+            async with run_turn_server(users={"foo": "bar"}) as turn_server:
+                with mock.patch.object(
+                    loop, "create_datagram_endpoint", spy_create_datagram_endpoint
+                ):
+                    turn_transport, _ = await turn.create_turn_endpoint(
+                        DummyClientProtocol,
+                        server_addr=turn_server.udp_address,
+                        username="foo",
+                        password="bar",
+                        transport="udp",
+                    )
+
+            # The server is gone, so the deletion is still pending when the
+            # event loop shuts down and cancels it.
+            turn_transport.close()
+
+        asyncio.run(run())
+
+        self.assertIn("transport", captured)
+        self.assertTrue(captured["transport"].is_closing())
+
+    @asynctest
+    async def test_udp_transport_related_address(self) -> None:
+        """
+        The related address is the mapped address in the Allocate response.
+        """
+        async with run_turn_server(users={"foo": "bar"}) as turn_server:
+            (
+                turn_transport,
+                protocol,
+            ) = await self._create_turn_endpoint_with_mapped_address(
+                turn_server.udp_address, ("1.2.3.4", 1234)
+            )
+            self.assertEqual(
+                turn_transport.get_extra_info("related_address"), ("1.2.3.4", 1234)
+            )
+
+            # Close the transport.
+            turn_transport.close()
+            await asyncio.wait_for(protocol.closed.wait(), timeout=5)
+
+    @asynctest
+    async def test_udp_transport_related_address_missing(self) -> None:
+        """
+        Without a mapped address in the Allocate response, the allocation fails.
+        """
+        async with run_turn_server(users={"foo": "bar"}) as turn_server:
+            with self.assertRaises(KeyError):
+                await self._create_turn_endpoint_with_mapped_address(
+                    turn_server.udp_address, None
+                )
+
+    async def _create_turn_endpoint_with_mapped_address(
+        self, server_addr: tuple[str, int], mapped_address: tuple[str, int] | None
+    ) -> tuple[turn.TurnTransport, DummyClientProtocol]:
+        """
+        Create a TURN endpoint, replacing the mapped address in the Allocate
+        response, or removing it if `mapped_address` is `None`.
+        """
+        real_request_with_retry = turn.TurnClientMixin.request_with_retry
+
+        async def request_with_retry(
+            self: turn.TurnClientMixin, request: stun.Message
+        ) -> tuple[stun.Message, tuple[str, int]]:
+            response, addr = await real_request_with_retry(self, request)
+            if request.message_method == stun.Method.ALLOCATE:
+                del response.attributes["XOR-MAPPED-ADDRESS"]
+                if mapped_address is not None:
+                    response.attributes["XOR-MAPPED-ADDRESS"] = mapped_address
+            return response, addr
+
+        with mock.patch.object(
+            turn.TurnClientMixin, "request_with_retry", request_with_retry
+        ):
+            return await turn.create_turn_endpoint(
+                DummyClientProtocol,
+                server_addr=server_addr,
+                username="foo",
+                password="bar",
+            )

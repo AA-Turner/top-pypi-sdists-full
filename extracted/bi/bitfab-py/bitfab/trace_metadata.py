@@ -5,6 +5,7 @@ import threading
 from dataclasses import dataclass, field
 from typing import Any
 
+from bitfab.trace_payload import raw_trace_key_of
 from bitfab.warn_once import warn
 
 RETAINED_COMPLETED_TRACES = 128
@@ -71,13 +72,14 @@ def retire_trace_metadata(trace_id: str) -> None:
 def merge_caller_metadata_into_trace_payload(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    external_trace = payload.get("externalTrace")
-    if not isinstance(external_trace, dict):
+    trace_key = raw_trace_key_of(payload)
+    raw_trace = payload.get(trace_key)
+    if not isinstance(raw_trace, dict):
         return payload
-    trace_id = payload.get("id") or external_trace.get("id")
+    trace_id = payload.get("id") or raw_trace.get("id")
     if not isinstance(trace_id, str) or not trace_id:
         return payload
-    exported = external_trace.get("metadata")
+    exported = raw_trace.get("metadata")
     with _lock:
         record = _find_record(trace_id)
         if record is None or not record.caller:
@@ -99,7 +101,7 @@ def merge_caller_metadata_into_trace_payload(
             "were set both by the caller and by an integration's own trace "
             "export; the caller's value is the one kept on the trace."
         )
-    return {**payload, "externalTrace": {**external_trace, "metadata": resolved}}
+    return {**payload, trace_key: {**raw_trace, "metadata": resolved}}
 
 
 def _reset_trace_metadata() -> None:

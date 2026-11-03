@@ -27,7 +27,6 @@ class SkillDefinition(BaseModel):
     )
     compatibility: str | None = Field(
         default=None,
-        max_length=500,
         description="Environment requirements for the skill.",
     )
     metadata: dict[str, JsonValue] = Field(

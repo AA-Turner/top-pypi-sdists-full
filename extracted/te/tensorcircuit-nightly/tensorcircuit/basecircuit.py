@@ -744,7 +744,7 @@ class BaseCircuit(AbstractCircuit):
     def _walk_detector_trajectory_qir(
         self,
         merged_qir: Sequence[Dict[str, Any]],
-        on_channel: Optional[Callable[[Dict[str, Any], str, int], None]] = None,
+        on_channel: Optional[Callable[[Dict[str, Any], str], None]] = None,
         on_gate: Optional[Callable[[Dict[str, Any]], None]] = None,
         on_measure: Optional[Callable[[Dict[str, Any], int], None]] = None,
         on_mr: Optional[Callable[[Dict[str, Any], int], None]] = None,
@@ -755,13 +755,12 @@ class BaseCircuit(AbstractCircuit):
         for d in merged_qir:
             name = str(d.get("name", "")).upper()
             if d.get("is_channel", False):
-                q = int(d["index"][0])
-                if not active[q]:
+                if any(not active[int(i)] for i in d["index"]):
                     raise NotImplementedError(
                         "Noise after measure requires reset first."
                     )
                 if on_channel is not None:
-                    on_channel(d, name, q)
+                    on_channel(d, name)
                 continue
 
             if not d.get("instruction", False):
@@ -844,14 +843,18 @@ class BaseCircuit(AbstractCircuit):
             status_i += 1
             return s
 
-        def on_channel(d: Dict[str, Any], name: str, q: int) -> None:
+        def on_channel(d: Dict[str, Any], name: str) -> None:
+            # TODO(@refraction-ray): inject status into every channel and count each one
+            # in `_count_detector_random_events`; other channels still draw implicit
+            # randomness, so seed/status do not control them.
             if name in ["DEPOLARIZING", "PAULI"]:
-                params = d.get("channel_parameters", {})
-                px = float(params.get("px", 0.0))
-                py = float(params.get("py", 0.0))
-                pz = float(params.get("pz", 0.0))
-                c.depolarizing(q, px=px, py=py, pz=pz, status=next_status())  # type: ignore
-                return
+                d = {
+                    **d,
+                    "channel_parameters": {
+                        **d.get("channel_parameters", {}),
+                        "status": next_status(),
+                    },
+                }
             self._apply_qir(c, [d], allow_channel=True)  # type: ignore[arg-type]
 
         def on_gate(d: Dict[str, Any]) -> None:
@@ -1215,7 +1218,8 @@ class BaseCircuit(AbstractCircuit):
             the tensor network, defaults to False.
         :type allow_state: bool, optional
         :param status: Random numbers in [0, 1] used for sampling, defaults to None.
-            If allow_state is True, shape should be [shots] or [shots, 1];
+            If allow_state is True, shape should be [shots], [shots, 1] or [shots, 2]
+            (see ``backend.probability_sample`` for the two-number form);
             if allow_state is False, shape should be [shots, num_detectors].
         :type status: Optional[Tensor], optional
         :param seed: Random seed for sampling, defaults to None.
@@ -1242,30 +1246,26 @@ class BaseCircuit(AbstractCircuit):
 
         if allow_state:
             status_state: Optional[Tensor] = None
+            g = None
             if status is not None:
                 status_state = backend.cast(
                     backend.convert_to_tensor(status), rdtypestr
                 )
                 ss = backend.shape_tuple(status_state)
-                if len(ss) == 2:
-                    if int(ss[1]) != 1:
-                        raise ValueError(
-                            "allow_state=True expects status shape [shots] or [shots, 1]."
-                        )
+                if len(ss) == 2 and int(ss[1]) == 1:
                     status_state = backend.reshape(status_state, [int(ss[0])])
                     ss = backend.shape_tuple(status_state)
-                if len(ss) != 1 or int(ss[0]) != shots:
+                if (
+                    not (len(ss) == 1 or (len(ss) == 2 and int(ss[1]) == 2))
+                    or int(ss[0]) != shots
+                ):
                     raise ValueError(
-                        "allow_state=True expects status shape [shots] or [shots, 1]."
+                        "allow_state=True expects status shape [shots], [shots, 1] or [shots, 2]."
                     )
-            else:
-                if seed is not None:
-                    g = backend.get_random_state(seed)
-                    status_state = backend.cast(
-                        backend.stateful_randu(g, shape=[shots]), rdtypestr
-                    )
+            elif seed is not None:
+                g = backend.get_random_state(seed)
             p = backend.reshape(self.detector_probabilities(), [-1])
-            sample_int = backend.probability_sample(shots, p, status_state)
+            sample_int = backend.probability_sample(shots, p, status_state, g)
             sample_bin = sample_int2bin(sample_int, num_detectors, dim=2)
             return backend.cast(sample_bin, "bool")
 
@@ -1441,7 +1441,8 @@ class BaseCircuit(AbstractCircuit):
         :param random_generator: random generator,  defaults to None
         :type random_generator: Optional[Any], optional
         :param status: external randomness given by tensor uniformly from [0, 1],
-            if set, can overwrite random_generator, shape [batch] for `allow_state=True`
+            if set, can overwrite random_generator, shape [batch] or [batch, 2] for `allow_state=True`
+            (see ``backend.probability_sample`` for the two-number form)
             and shape [batch, nqubits] for `allow_state=False` using perfect sampling implementation
         :type status: Optional[Tensor]
         :param jittable: when converting to count, whether keep the full size. if false, may be conflict

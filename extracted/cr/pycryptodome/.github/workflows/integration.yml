@@ -7,18 +7,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest ]
+        os: [ ubuntu-24.04 ]
         python-version: [ 3.9, "3.10", "3.11", "3.12", "3.13", "3.14", "3.15", "3.15t" ]
         cffi: [ yes, no ]
         include:
-          - os: ubuntu-latest
-            python-version: pypy3.9
-            cffi: yes
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             python-version: pypy3.10
             cffi: yes
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             python-version: pypy3.11
+            cffi: yes
+          - os: ubuntu-24.04
+            python-version: pypy3.12
             cffi: yes
     env:
       CFLAGS: "-Wconversion"
@@ -115,6 +115,9 @@ jobs:
         PYCRYPTODOME_REQUIRE_SHA_NI: ${{ matrix.os == 'windows-latest' && '1' || '' }}
         # Likewise for AVX2, BMI2 and ADX, when built with clang-cl
         PYCRYPTODOME_REQUIRE_AVX2_BMI2: ${{ matrix.os == 'windows-latest' && '1' || '' }}
+        # The Windows ARM64 runners support the SHA-512 instructions of ARMv8.2:
+        # fail if they are not used (module not built, or CPU feature not detected)
+        PYCRYPTODOME_REQUIRE_SHA512_ARMV8: ${{ matrix.os == 'windows-11-arm' && '1' || '' }}
       run: |
         python -m Crypto.SelfTest
 
@@ -156,7 +159,7 @@ jobs:
         python -m Crypto.SelfTest
 
   ruff:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v7
     - name: Set up Python
@@ -174,7 +177,7 @@ jobs:
         ruff format --check .
 
   mypy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v7
     - name: Set up Python
@@ -189,7 +192,7 @@ jobs:
         mypy lib/
 
   test_c_linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         sse: [0, 1]
@@ -216,6 +219,24 @@ jobs:
         GCC_M32_TOOLCHAIN=${{ github.workspace }}/.github/workflows/gcc_m32_toolchain.txt
         EXTRA=$([ ${{ matrix.arch }} = x32 ] && echo "-DCMAKE_TOOLCHAIN_FILE=$GCC_M32_TOOLCHAIN" || true)
         cmake -B build -DSSE=${{ matrix.sse }} $EXTRA
+        make -C build all test
+
+  test_c_linux_arm:
+    runs-on: ubuntu-24.04-arm
+    steps:
+    - uses: actions/checkout@v7
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        # Valgrind: without it, the constant-time tests (*_ct) are skipped
+        sudo apt-get install libubsan1 valgrind
+    - name: Test Linux ARM64
+      env:
+        PYTHON: python3
+      run: |
+        cd src/test
+        mkdir build
+        cmake -B build
         make -C build all test
 
   test_c_windows:

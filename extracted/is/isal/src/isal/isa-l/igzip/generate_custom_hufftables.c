@@ -62,6 +62,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include <stdlib.h>
+#include <getopt.h>
 #include "igzip_lib.h"
 
 #include "huff_codes.h"
@@ -346,11 +347,20 @@ isal_update_histogram_dict(uint8_t *start_stream, int dict_length, int length,
         return;
 }
 
+static void
+print_usage(const char *prog)
+{
+        printf("Usage: %s [options] <input_file> [<input_file> ...]\n", prog);
+        printf("  -d <dict_file>   Dictionary file\n");
+        printf("  -h <hist_file>   Histogram file (read/write)\n");
+        printf("  -?               Show this help\n");
+}
+
 int
 main(int argc, char *argv[])
 {
         long int file_length;
-        int argi = 1;
+        int opt;
         uint8_t *stream = NULL;
         struct isal_hufftables hufftables;
         struct isal_huff_histogram histogram;
@@ -361,16 +371,36 @@ main(int argc, char *argv[])
         long int dict_file_length = 0;
         long int hist_file_length = 0;
         uint8_t *dict_stream = NULL;
+        const char *dict_path = NULL;
+        const char *hist_path = NULL;
 
-        if (argc == 1) {
+        while ((opt = getopt(argc, argv, "d:h:?")) != -1) {
+                switch (opt) {
+                case 'd':
+                        dict_path = optarg;
+                        break;
+                case 'h':
+                        hist_path = optarg;
+                        break;
+                case '?':
+                        print_usage(argv[0]);
+                        return 0;
+                default:
+                        print_usage(argv[0]);
+                        return 1;
+                }
+        }
+
+        if (optind >= argc) {
                 printf("Error, no input file.\n");
+                print_usage(argv[0]);
                 return 1;
         }
 
-        if (argc > 3 && argv[1][0] == '-' && argv[1][1] == 'd') {
-                dict_file = fopen(argv[2], "r");
+        if (dict_path) {
+                dict_file = fopen(dict_path, "r");
                 if (dict_file == NULL) {
-                        printf("File \"%s\" open error!\n", argv[2]);
+                        printf("File \"%s\" open error!\n", dict_path);
                         return 1;
                 }
 
@@ -392,43 +422,48 @@ main(int argc, char *argv[])
                 }
                 isal_update_histogram(dict_stream, dict_file_length, &histogram);
 
-                printf("Read %ld bytes of dictionary file %s\n", dict_file_length, argv[2]);
-                argi += 2;
+                printf("Read %ld bytes of dictionary file %s\n", dict_file_length, dict_path);
                 fclose(dict_file);
-                free(dict_stream);
         }
 
-        if ((argc > argi + 1) && argv[argi][0] == '-' && argv[argi][1] == 'h') {
-                hist_file = fopen(argv[argi + 1], "r+");
+        if (hist_path) {
+                hist_file = fopen(hist_path, "r+");
                 if (hist_file == NULL) {
-                        printf("File \"%s\" open error!\n", argv[argi + 1]);
+                        printf("File \"%s\" open error!\n", hist_path);
+                        free(dict_stream);
                         return 1;
                 }
                 fseek(hist_file, 0, SEEK_END);
                 hist_file_length = ftell(hist_file);
                 fseek(hist_file, 0, SEEK_SET);
                 hist_file_length -= ftell(hist_file);
-                if (hist_file_length > sizeof(histogram)) {
+                if (hist_file_length > (long int) sizeof(histogram)) {
                         printf("Histogram file too long\n");
+                        fclose(hist_file);
+                        free(dict_stream);
                         return 1;
                 }
                 if (fread(&histogram, 1, hist_file_length, hist_file) != hist_file_length) {
-                        printf("Error occurred when reading history file");
+                        printf("Error occurred when reading history file\n");
                         fclose(hist_file);
+                        free(dict_stream);
                         return 1;
                 }
                 fseek(hist_file, 0, SEEK_SET);
 
-                printf("Read %ld bytes of history file %s\n", hist_file_length, argv[argi + 1]);
-                argi += 2;
-        } else
+                printf("Read %ld bytes of history file %s\n", hist_file_length, hist_path);
+        } else {
                 memset(&histogram, 0, sizeof(histogram)); /* Initialize histograms. */
+        }
 
-        while (argi < argc) {
-                printf("Processing %s\n", argv[argi]);
-                file = fopen(argv[argi], "r");
+        while (optind < argc) {
+                printf("Processing %s\n", argv[optind]);
+                file = fopen(argv[optind], "r");
                 if (file == NULL) {
                         printf("Error opening file\n");
+                        if (hist_file)
+                                fclose(hist_file);
+                        free(dict_stream);
                         return 1;
                 }
                 fseek(file, 0, SEEK_END);
@@ -439,6 +474,9 @@ main(int argc, char *argv[])
                 if (stream == NULL) {
                         printf("Failed to allocate memory to read in file\n");
                         fclose(file);
+                        if (hist_file)
+                                fclose(hist_file);
+                        free(dict_stream);
                         return 1;
                 }
                 if (dict_file_length > 0)
@@ -448,6 +486,9 @@ main(int argc, char *argv[])
                         printf("Error occurred when reading file");
                         fclose(file);
                         free(stream);
+                        if (hist_file)
+                                fclose(hist_file);
+                        free(dict_stream);
                         return 1;
                 }
 
@@ -461,7 +502,7 @@ main(int argc, char *argv[])
 
                 fclose(file);
                 free(stream);
-                argi++;
+                optind++;
         }
 
         isal_create_hufftables(&hufftables, &histogram);
@@ -469,6 +510,9 @@ main(int argc, char *argv[])
         file = fopen("hufftables_c.c", "w");
         if (file == NULL) {
                 printf("Error creating file hufftables_c.c\n");
+                if (hist_file)
+                        fclose(hist_file);
+                free(dict_stream);
                 return 1;
         }
 
@@ -491,5 +535,6 @@ main(int argc, char *argv[])
                 printf("wrote %d bytes of histogram file\n", len);
                 fclose(hist_file);
         }
+        free(dict_stream);
         return 0;
 }

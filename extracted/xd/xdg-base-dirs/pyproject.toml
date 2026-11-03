@@ -1,8 +1,8 @@
 [project]
 name = "xdg-base-dirs"
-version = "6.0.3"
+version = "6.1.0"
 description = "Variables defined by the XDG Base Directory Specification"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 readme = "README.md"
 license = "ISC"
 license-files = ["LICENSE"]
@@ -38,11 +38,11 @@ dev = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.7.19,<0.13"]
+requires = ["uv_build>=0.7.19,<0.14"]
 build-backend = "uv_build"
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -50,7 +50,10 @@ skip-magic-trailing-comma = true
 
 [tool.ruff.lint]
 select = ["ALL"]
-ignore = ["COM812"]
+ignore = [
+    "COM812",
+    "CPY001",
+]
 
 [tool.ruff.lint.isort]
 split-on-trailing-comma = false
@@ -67,3 +70,4 @@ convention = "google"
 
 [tool.ty.rules]
 all = "error"
+truthiness-test-of-none-union = "ignore"

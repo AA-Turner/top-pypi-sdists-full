@@ -230,6 +230,9 @@ bootstrap_remote_alpine()
         && break
         retry_or_fail
     done
+
+    # Allow root to use sudo to facilitate become testing as is done in other test environments.
+    echo "root ALL=(ALL) ALL" > /etc/sudoers.d/root
 }
 
 bootstrap_remote_fedora()
@@ -297,12 +300,12 @@ bootstrap_remote_freebsd()
         # Declare platform/python version combinations which do not have supporting OS packages available.
         # For these combinations ansible-test will use pip to install the requirements instead.
         case "${platform_version}/${python_version}" in
-            "14.4/3.14")
+            "14.5/3.14")
                 jinja2_pkg=""  # not available
                 cryptography_pkg=""  # not available
                 pyyaml_pkg=""  # not available
                 ;;
-            "15.0/3.12")
+            "15.1/3.14")
                 jinja2_pkg=""  # not available
                 cryptography_pkg=""  # not available
                 pyyaml_pkg=""  # not available
@@ -426,22 +429,26 @@ bootstrap_remote_rhel_10()
 {
     optimize_dnf
 
-    py_pkg_prefix="python3"
+    if [ "${python_version}" = "3.12" ]; then
+        py_pkg_prefix="python3"
+    else
+        py_pkg_prefix="python${python_version}"
+    fi
 
     packages="
         gcc
+        python3-packaging
         ${py_pkg_prefix}-devel
         ${py_pkg_prefix}-pip
         "
 
+    # Jinja2, packaging and resolvelib are missing for controller supported Python versions, so we just
+    # skip them and let ansible-test install them from PyPI.
     if [ "${controller}" ]; then
         packages="
             ${packages}
             ${py_pkg_prefix}-cryptography
-            ${py_pkg_prefix}-jinja2
-            ${py_pkg_prefix}-packaging
             ${py_pkg_prefix}-pyyaml
-            ${py_pkg_prefix}-resolvelib
             "
     fi
 

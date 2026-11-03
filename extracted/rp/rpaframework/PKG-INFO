@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: rpaframework
-Version: 34.0.0
+Version: 34.0.1
 Summary: A collection of tools and libraries for RPA
 Project-URL: homepage, https://rpaframework.org/
 Project-URL: documentation, https://rpaframework.org/
@@ -70,7 +70,7 @@ Requires-Dist: selenium<5.0.0,>=4.16.0
 Requires-Dist: simple-salesforce>=1.0.0
 Requires-Dist: smartsheet-python-sdk==3.0.2
 Requires-Dist: tenacity>=8.0.1
-Requires-Dist: tweepy>=3.8.0
+Requires-Dist: tweepy>=4.14.0
 Requires-Dist: tzlocal>=4.2
 Requires-Dist: validators>=0.34.0
 Requires-Dist: wrapt>=1.14.0

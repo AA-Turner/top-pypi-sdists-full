@@ -38,23 +38,19 @@ namespace ntgcalls::media {
         if (description_->sample_rate == sample_rate) {
             std::memcpy(new_frame.get(), converted_data.get(), pre_sample_size);
         } else {
-            auto& resampler = resamplers_[ssrc];
-            if (!resampler) {
-                resampler = std::make_unique<webrtc::Resampler>();
-            }
-            resampler->ResetIfNeeded(sample_rate, static_cast<int>(description_->sample_rate), description_->channel_count);
-            size_t new_frame_size = 0;
-            const auto resampled = resampler->Push(
-                reinterpret_cast<const int16_t*>(converted_data.get()),
-                pre_sample_size / sizeof(int16_t),
-                reinterpret_cast<int16_t*>(new_frame.get()),
-                new_size / sizeof(int16_t),
-                new_frame_size
-            );
-            if (resampled != 0) {
-                RTC_LOG(LS_ERROR) << "Failed to resample audio frame";
+            const size_t src_samples_per_channel = pre_sample_size / sizeof(int16_t) / description_->channel_count;
+            if (src_samples_per_channel != static_cast<size_t>(sample_rate / 100)) {
+                RTC_LOG(LS_ERROR) << "Unsupported audio frame duration: " << src_samples_per_channel << " samples at " << sample_rate << "Hz";
                 throw InvalidParams("Failed to resample audio frame");
             }
+            auto& resampler = resamplers_[ssrc];
+            if (!resampler) {
+                resampler = std::make_unique<webrtc::PushResampler<int16_t>>();
+            }
+            resampler->Resample(
+                webrtc::InterleavedView<const int16_t>(reinterpret_cast<const int16_t*>(converted_data.get()), src_samples_per_channel, description_->channel_count),
+                webrtc::InterleavedView<int16_t>(reinterpret_cast<int16_t*>(new_frame.get()), new_size / sizeof(int16_t) / description_->channel_count, description_->channel_count)
+            );
         }
         return std::move(new_frame);
     }
@@ -82,7 +78,7 @@ namespace ntgcalls::media {
         return std::move(stereo_data);
     }
 
-    void AudioReceiver::on_frames(const std::function<void(const std::map<uint32_t, std::pair<bytes::unique_binary, size_t>>&)>& callback) {
+    void AudioReceiver::on_frames(const std::function<void(const std::map<uint32_t, std::pair<bytes::unique_binary, size_t>>&, const std::map<uint32_t, int64_t>&)>& callback) {
         frames_callback_ = callback;
     }
 
@@ -96,6 +92,7 @@ namespace ntgcalls::media {
             }
             const std::lock_guard lock(mutex_);
             std::map<uint32_t, std::pair<bytes::unique_binary, size_t>> processed_frames;
+            std::map<uint32_t, int64_t> timestamps;
             for (const auto& frame : samples) {
                 try {
                     bytes::unique_binary data = bytes::make_unique_binary(frame->size);
@@ -113,12 +110,13 @@ namespace ntgcalls::media {
                             frame_size()
                         }
                     );
+                    timestamps[frame->ssrc] = frame->absolute_capture_timestamp_ms;
                 } catch (const InvalidParams& e) {
                     RTC_LOG(LS_ERROR) << "Failed to adapt audio frame: " << e.what();
                 }
             }
             frames_++;
-            (void) frames_callback_(processed_frames);
+            (void) frames_callback_(processed_frames, timestamps);
         });
         weak_sink_ = sink_;
     }

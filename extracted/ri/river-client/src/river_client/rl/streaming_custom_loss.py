@@ -3,6 +3,7 @@
 import json
 import math
 from functools import cache
+from itertools import chain
 
 import numpy as np
 
@@ -80,14 +81,18 @@ class StreamingCustomLoss:
         self.dtypes = {c["name"]: c["dtype"] for c in columns}
 
     def finish(self, data, chunks, results, advantage_scale):
-        streamed = [datum for chunk in chunks for datum in chunk]
-        if len(data) != len(streamed):
+        if len(data) != sum(map(len, chunks)):
             raise ValueError(
                 "streamed custom inputs changed before the optimizer update"
             )
-        for datum, partial in zip(data, streamed, strict=True):
-            if self.custom_loss_inputs is None:
-                continue
+        # Only an input adapter can change inputs between the streamed and
+        # complete preparations. Datums are built one at a time.
+        pairs = (
+            zip(data, chain.from_iterable(chunks), strict=True)
+            if self.custom_loss_inputs is not None
+            else ()
+        )
+        for datum, partial in pairs:
             final = custom_batch([datum], self.loss, self.custom_loss_inputs)[0]
             if not _same_inputs(
                 {k: v for k, v in final.items() if k != "loss_data"},

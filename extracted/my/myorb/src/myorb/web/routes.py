@@ -155,7 +155,10 @@ async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]
             "header_panels": [(p, panel) for p, panel in panels if panel.placement == "header"],
             "name": await user_name(request, db),
             # Answers read aloud by Azure Speech when it is set up, else by the browser.
-            "voice_azure": (await load_voice(request, db)).azure,
+            # Ask's answers: by the browser's voice in the public demo, whose Azure reads only
+            # its brief (voice.py).
+            "voice_azure": (await load_voice(request, db)).azure
+            and not request.app.state.settings.public_demo,
             "slots": widget_slots(request),
             # Everything typed under the orb goes to Claude when it is connected.
             "can_ask": claude is not None,

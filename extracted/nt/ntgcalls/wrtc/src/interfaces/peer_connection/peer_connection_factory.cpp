@@ -25,33 +25,27 @@ extern "C" {
 namespace wrtc::interfaces::peer_connection {
     std::mutex PeerConnectionFactory::mutex_{};
     bool PeerConnectionFactory::initialized_ = false;
-    std::unique_ptr<PeerConnectionFactory> PeerConnectionFactory::default_ = nullptr;
+    std::unique_ptr<PeerConnectionFactory, void (*)(PeerConnectionFactory*)> PeerConnectionFactory::default_{nullptr, &PeerConnectionFactory::destroy_default};
 
     PeerConnectionFactory::PeerConnectionFactory() {
         av_log_set_level(AV_LOG_QUIET);
         network_thread_ = utils::SafeThread::CreateWithSocketServer();
         network_thread_->SetName("ntg-net", nullptr);
         network_thread_->Start();
-        worker_thread_ = utils::SafeThread::Create();
-        worker_thread_->SetName("ntg-work", nullptr);
-        worker_thread_->Start();
         signaling_thread_ = utils::SafeThread::Create();
         signaling_thread_->SetName("ntg-media", nullptr);
         signaling_thread_->Start();
 
-        signaling_thread_->AllowInvokesToThread(*worker_thread_);
         signaling_thread_->AllowInvokesToThread(*network_thread_);
-        worker_thread_->AllowInvokesToThread(*network_thread_);
 
         webrtc::PeerConnectionFactoryDependencies dependencies;
         auto env = environment();
         dependencies.network_thread = *network_thread_;
-        dependencies.worker_thread = *worker_thread_;
         dependencies.signaling_thread = *signaling_thread_;
         dependencies.env = env;
         dependencies.event_log_factory = std::make_unique<webrtc::RtcEventLogFactory>();
         jni_env_ = utils::get_jni_env();
-        dependencies.adm = worker_thread_->BlockingCall([&] {
+        dependencies.adm = network_thread_->BlockingCall([&] {
             if (!audio_device_module_)
                 audio_device_module_ = webrtc::make_ref_counted<media::AudioDeviceModule>();
             return audio_device_module_;
@@ -76,13 +70,12 @@ namespace wrtc::interfaces::peer_connection {
 
     PeerConnectionFactory::~PeerConnectionFactory() {
         if (audio_device_module_) {
-            worker_thread_->BlockingCall([this] {
+            network_thread_->BlockingCall([this] {
                 if (audio_device_module_)
                     audio_device_module_ = nullptr;
             });
         }
         factory_ = nullptr;
-        worker_thread_->Stop();
         signaling_thread_->Stop();
         network_thread_->Stop();
     }
@@ -97,10 +90,6 @@ namespace wrtc::interfaces::peer_connection {
 
     utils::SafeThread& PeerConnectionFactory::signaling_thread() const {
         return *signaling_thread_;
-    }
-
-    utils::SafeThread& PeerConnectionFactory::worker_thread() const {
-        return *worker_thread_;
     }
 
     webrtc::NetworkManager* PeerConnectionFactory::network_manager() const {
@@ -150,8 +139,14 @@ namespace wrtc::interfaces::peer_connection {
             webrtc::InitializeSSL();
 #endif
             initialized_ = true;
-            default_ = std::make_unique<PeerConnectionFactory>();
+            default_.reset(new PeerConnectionFactory());
         }
         return default_.get();
+    }
+
+    void PeerConnectionFactory::destroy_default([[maybe_unused]] PeerConnectionFactory* factory) {
+#ifndef IS_WINDOWS
+        delete factory;
+#endif
     }
 } // wrtc::interfaces::peer_connection

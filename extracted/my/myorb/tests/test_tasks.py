@@ -208,6 +208,16 @@ def test_widget_shows_open_tasks_with_actions(client: TestClient):
     assert 'data-tags="open overdue"' in text and 'data-tags="open someday"' in text
 
 
+def test_widget_counts_tasks_to_do_now_and_lists_later_ones_last(client: TestClient):
+    client.post("/tasks", data={"text": "Next year 1.1.2099"})
+    client.post("/tasks", data={"text": "Water plants"})
+    text = client.get("/welcome/widgets").text
+    assert '<span class="node-value">1</span>' in text
+    assert "open · 1 later" in text
+    assert text.index("Water plants") < text.index("Next year")
+    assert 'data-tags="upcoming"' in text
+
+
 def test_widget_can_undo_tasks_done_today(client: TestClient):
     client.post("/tasks", data={"text": "Water plants"})
     client.post("/tasks/1/done")

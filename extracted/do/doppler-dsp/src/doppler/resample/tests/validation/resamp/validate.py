@@ -8,7 +8,7 @@ re-derived without re-running the measurement.
 Three phases, in order: **characterise -> review -> limits**.
 
 This is a C library, so nothing here is where a claim is first tested.
-``native/tests/test_resamp_core.c`` §1-§20 is the evidence; this file
+``native/tests/resamp/test_resamp_core.c`` §1-§20 is the evidence; this file
 characterises the same properties **through the Python binding**, which is
 a genuinely different surface — it certifies that the binding delivers what
 the C proves, and produces the plots the C cannot. Every section names the
@@ -174,7 +174,8 @@ def section_summary() -> None:
         "claim"
     )
     R.md(
-        "- `native/tests/test_resamp_core.c` — §1-§20, where every claim "
+        "- `native/tests/resamp/test_resamp_core.c` — §1-§20, where every "
+        "claim "
         "below is actually certified"
     )
     R.md("- [Resampler design](../../../../../../docs/design/RESAMPLER.md)")
@@ -504,7 +505,8 @@ def characterise() -> Data:
         "matching `execute_ctrl_push`'s scalar and the `double` the base "
         "rate is configured in. It was `complex64`, so half of every "
         "element was read and discarded with no error and no warning "
-        "(F2). Anything numpy can safely widen to float64 is accepted; "
+        f"({R.ref('ctrl_port_typed_complex')}). Anything numpy can safely "
+        "widen to float64 is accepted; "
         "**`complex64` is now a `TypeError`**, because discarding an "
         "imaginary part is exactly the silent narrowing this removed and "
         "numpy will not make that cast on a caller's behalf."
@@ -617,7 +619,7 @@ def review(d: Data) -> None:
     R.md()
 
     R.find(
-        "F1",
+        "ctrl_observable_unbound",
         "FIXED",
         "The control port's only observable had no Python binding. "
         "`dp_resamp_get_ctrl_acc` is, in the header's words, 'the only way "
@@ -632,7 +634,7 @@ def review(d: Data) -> None:
         "leaving a caller to discover a permanent 0.0.",
     )
     R.find(
-        "F2",
+        "ctrl_port_typed_complex",
         "FIXED",
         "The block control port was typed `complex64` while its own "
         "streaming twin took a `double`, so half of every ctrl array was "
@@ -647,7 +649,7 @@ def review(d: Data) -> None:
         "that cast is gone.",
     )
     R.find(
-        "F3",
+        "ctrl_acc_doc_wrong_structure",
         "FIXED",
         "`dp_resamp_get_ctrl_acc`'s docblock described the wrong structure. "
         "It said `mu` named 'the arm the last output read' and closed by "
@@ -663,7 +665,7 @@ def review(d: Data) -> None:
         "every rate and why, and drops the spurious `rate <= 1` carve-out.",
     )
     R.find(
-        "F4",
+        "docblock_stated_slip_unit_output",
         "FIXED",
         "The same docblock stated the slip unit as output periods: 'one "
         "cycle of wrap is one output period of slip'. A wrap buys one "
@@ -672,7 +674,7 @@ def review(d: Data) -> None:
         "presumably where the sentence was checked. Corrected in the header.",
     )
     R.find(
-        "F5",
+        "ctrl_differs_by_delay",
         "BY DESIGN",
         "`execute` and `execute_ctrl` differ below unity by GROUP DELAY, "
         "not quality (§2.6). The raw difference is order unity against a "
@@ -684,14 +686,14 @@ def review(d: Data) -> None:
         "extra argument.",
     )
     R.find(
-        "F6",
+        "db_output_nyquist_folding_rule",
         "BY DESIGN",
         "The -6 dB at the output Nyquist (§2.4) is the folding rule at "
         "its own edge, not a stopband failure: the passband and its first "
         "image meet there and each contributes half.",
     )
     R.find(
-        "F7",
+        "unity_window",
         "FIXED",
         "The unity window. A private `(uint32_t)(frac * 2^32 + 0.5)` in "
         "`dp_resamp_execute_ctrl_push` rounded past 2^32 into the undefined "
@@ -702,7 +704,7 @@ def review(d: Data) -> None:
         "`make lint-phase-conversion`.",
     )
     R.find(
-        "F8",
+        "dp_resamp_dc_gain_named",
         "FIXED",
         "`dp_resamp_dc_gain` named arm 0's tap sum without saying so, but the "
         "realised DC gain "
@@ -713,7 +715,7 @@ def review(d: Data) -> None:
         "and tabulates the measured arm average beside it.",
     )
     R.find(
-        "F9",
+        "interp_inputs_doc_understated",
         "FIXED",
         "`dp_resamp_interp_inputs_needed`'s docblock UNDERSTATED its own "
         "guarantee. It scopes exactness to an integer interpolation factor "
@@ -920,7 +922,8 @@ def build(write: bool = True) -> Report:
             "**`mu` is the diagnostic for a closed timing loop**, and it is "
             "now bound: steady `mu` means settled, a slewing or wrapping `mu` "
             "is a residual RATE error, and one wrap is one INPUT interval of "
-            "slip (§2.5, F4). Poll it before believing a lock statistic.",
+            f"slip (§2.5, {R.ref('docblock_stated_slip_unit_output')}). Poll "
+            "it before believing a lock statistic.",
             "**The -6 dB at the output Nyquist is the folding rule at its own "
             "edge, not a stopband failure** (§2.4). Judge the filter inside "
             "the band you asked for, not at the seam.",
@@ -930,7 +933,7 @@ def build(write: bool = True) -> Report:
             "**Rate 1.0 was a trap and is fixed.** A private rounding cast "
             "reached past 2^32 and stalled the interpolator for a window just "
             "above unity — and zero Doppler IS rate 1.0, so any ramp through "
-            "closest approach crossed it (F7).",
+            f"closest approach crossed it ({R.ref('unity_window')}).",
         ],
     )
     if write:

@@ -53,6 +53,7 @@ class LibraryDoc:
         self.inits = ()
         self.keywords = ()
         self.type_docs = ()
+        self._from_spec = False
 
     @setter
     def doc_format(self, format):
@@ -93,11 +94,9 @@ class LibraryDoc:
             LibdocWriter(format, theme, lang).write(self, outfile)
 
     def convert_docs_to_html(self):
-        formatter = DocFormatter(
-            self.keywords,
-            self.doc,
-            self.doc_format,
-        )
+        if self._from_spec and self.doc_format == "HTML":
+            return
+        formatter = DocFormatter(self.keywords, self.doc, self.doc_format)
         self.doc = formatter.html(self.doc)
         for item in self.inits + self.keywords:
             # If 'short_doc' is not set, it is generated automatically based on 'doc'
@@ -109,9 +108,16 @@ class LibraryDoc:
             item.args.return_doc = formatter.html(item.args.return_doc)
             for name, doc in item.args.raises.items():
                 item.args.raises[name] = formatter.html(doc)
-        for type_doc in self.type_docs:
-            type_doc.doc = formatter.html(type_doc.doc)
+            formatter.reset()
+        self._convert_type_docs_to_html(formatter, self.doc_format)
         self.doc_format = "HTML"
+
+    def _convert_type_docs_to_html(self, user_formatter, doc_format):
+        std_doc_format = "ROBOT" if doc_format in ("TEXT", "HTML") else doc_format
+        std_formatter = DocFormatter([], "", std_doc_format)
+        for td in self.type_docs:
+            formatter = std_formatter if td.type == td.STANDARD else user_formatter
+            td.doc = formatter.html(td.doc)
 
     def to_dictionary(self, include_private=False, theme=None, lang=None):
         data = {

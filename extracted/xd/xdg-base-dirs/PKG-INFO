@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xdg-base-dirs
-Version: 6.0.3
+Version: 6.1.0
 Summary: Variables defined by the XDG Base Directory Specification
 Keywords: xdg,base,directory,specification
 Author: Scott Stevenson
@@ -12,7 +12,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: Unix
 Classifier: Operating System :: Microsoft :: Windows
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Project-URL: Homepage, https://github.com/srstevenson/xdg-base-dirs
 Project-URL: Repository, https://github.com/srstevenson/xdg-base-dirs
 Project-URL: Issues, https://github.com/srstevenson/xdg-base-dirs/issues
@@ -38,7 +38,7 @@ xdg-base-dirs currently implements version 0.8 of the specification, released on
 
 ## Installation
 
-xdg-base-dirs requires Python 3.10 or later. To add xdg-base-dirs as a
+xdg-base-dirs requires Python 3.11 or later. To add xdg-base-dirs as a
 dependency to a project managed with [uv], use:
 
 ```bash

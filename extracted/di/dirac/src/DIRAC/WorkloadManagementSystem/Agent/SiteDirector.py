@@ -222,7 +222,7 @@ class SiteDirector(AgentModule):
             self.log.error("Can not get the status of computing elements: ", result["Message"])
             return result
         # Try to get CEs which have been probed and those unprobed (vO='all').
-        ceMaskList = [ceName for ceName in result["Value"] if result["Value"][ceName]["all"] in ("Active", "Degraded")]
+        ceMaskList = [ceName for ceName in result["Value"] if result["Value"][ceName]["all"] == "Active"]
 
         # Filter the unusable queues
         for queueName in list(self.queueDict.keys()):
@@ -748,8 +748,8 @@ class SiteDirector(AgentModule):
         if callable(getattr(ce, "cleanupPilots", None)):
             ce.cleanupPilots()
 
-        # Select pilots in a transient states
-        result = self.pilotAgentsDB.selectPilots(
+        # Get the information of the pilots in a transient state
+        result = self.pilotAgentsDB.getPilotInfoForSelection(
             {
                 "DestinationSite": ceName,
                 "Queue": queueName,
@@ -760,18 +760,12 @@ class SiteDirector(AgentModule):
             }
         )
         if not result["OK"]:
-            self.log.error("Failed to select pilots", f": {result['Message']}")
-            return result
-        pilotRefs = result["Value"]
-        if not pilotRefs:
-            return S_OK()
-
-        # Get their information
-        result = self.pilotAgentsDB.getPilotInfo(pilotRefs)
-        if not result["OK"]:
             self.log.error("Failed to get pilots info from DB", result["Message"])
             return result
         pilotDict = result["Value"]
+        if not pilotDict:
+            return S_OK()
+        pilotRefs = list(pilotDict)
 
         # The proxy is used for checking the pilot status and renewals
         # We really need at least a few hours otherwise the renewed
@@ -799,7 +793,7 @@ class SiteDirector(AgentModule):
 
         # Check if the accounting is to be sent
         if self.sendAccounting:
-            result = self.pilotAgentsDB.selectPilots(
+            result = self.pilotAgentsDB.getPilotInfoForSelection(
                 {
                     "DestinationSite": ceName,
                     "Queue": queueName,
@@ -810,19 +804,13 @@ class SiteDirector(AgentModule):
                 }
             )
             if not result["OK"]:
-                self.log.error("Failed to select pilots", result["Message"])
-                return result
-
-            pilotRefs = result["Value"]
-            if not pilotRefs:
-                return S_OK()
-
-            result = self.pilotAgentsDB.getPilotInfo(pilotRefs)
-            if not result["OK"]:
                 self.log.error("Failed to get pilots info from DB", result["Message"])
                 return result
 
             pilotDict = result["Value"]
+            if not pilotDict:
+                return S_OK()
+
             result = self._sendPilotAccounting(pilotDict)
             if not result["OK"]:
                 self.log.error("Failed to send pilot agent accounting")

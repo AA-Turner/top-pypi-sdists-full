@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 import mne
 import numpy as np
 import pandas as pd
@@ -80,13 +82,18 @@ def create_from_mne_raw(
         base_datasets = [RawDataset(raw) for raw in raws]
 
     base_datasets = BaseConcatDataset(base_datasets)
+    # Map the bool here: passing drop_last_window on would emit a deprecation
+    # warning that callers of this function cannot act on.
+    on_last_window: Literal["overlap", "drop"] | None = None
+    if drop_last_window is not None:
+        on_last_window = "drop" if drop_last_window else "overlap"
     windows_datasets = create_windows_from_events(
         base_datasets,
         trial_start_offset_samples=trial_start_offset_samples,
         trial_stop_offset_samples=trial_stop_offset_samples,
         window_size_samples=window_size_samples,
         window_stride_samples=window_stride_samples,
-        drop_last_window=drop_last_window,
+        on_last_window=on_last_window,
         mapping=mapping,
         drop_bad_windows=drop_bad_windows,
         preload=preload,
@@ -159,6 +166,11 @@ def create_from_mne_epochs(
 
     list_of_windows_ds = []
     for i, epochs in enumerate(list_of_epochs):
+        # drop rejected epochs first (on a copy) so that iterating over the
+        # epochs stays aligned with ``epochs.events``; preloaded epochs have
+        # already dropped them, so skip copying their data
+        if not epochs.preload:
+            epochs = epochs.copy().drop_bad()
         event_descriptions = epochs.events[:, 2]
         original_trial_starts = epochs.events[:, 0]
         stop = len(epochs.times) - window_size_samples

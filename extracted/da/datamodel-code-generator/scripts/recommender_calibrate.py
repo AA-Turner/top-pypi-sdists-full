@@ -660,12 +660,11 @@ def _effective_values(settings: Settings, kind: str, names: Iterable[str]) -> di
         InputFileType,
         PythonVersion,
     )
-    from datamodel_code_generator._recommend._rules import (  # ruff: ignore[import-outside-top-level, import-private-name]
-        toml_value,
-    )
+    from datamodel_code_generator._option_names import toml_value  # ruff: ignore[import-outside-top-level, import-private-name]
     from datamodel_code_generator.base_config import BaseGenerateConfig  # ruff: ignore[import-outside-top-level]
     from datamodel_code_generator.preset import (  # ruff: ignore[import-outside-top-level]
         PresetContext,
+        _pyproject_values,  # ruff: ignore[import-private-name]
         resolve_preset_config_updates,
     )
 
@@ -677,7 +676,7 @@ def _effective_values(settings: Settings, kind: str, names: Iterable[str]) -> di
     resolved = resolve_preset_config_updates(
         settings.preset, context=context, use_annotated=False, explicit_fields=set()
     )
-    preset = {item.field_name: item.pyproject_value for item in resolved.items}
+    preset = _pyproject_values(resolved.items)
     fields = BaseGenerateConfig.model_fields
     return {
         name: preset[name]
@@ -690,6 +689,11 @@ def _effective_values(settings: Settings, kind: str, names: Iterable[str]) -> di
 
 
 def _option(name: str, value: Any) -> list[str]:
+    """Return the options that set a grid value.
+
+    False is always the --no- option, so that argparse rejects a grid point no option can express instead of running
+    the preset's value under its label.
+    """
     flag = name.replace("_", "-")
     if value is True:
         return [f"--{flag}"]

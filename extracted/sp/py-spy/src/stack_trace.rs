@@ -140,25 +140,39 @@ where
         }
     };
 
+    let mut visited = 0;
     while !frame_ptr.is_null() {
+        visited += 1;
+        if visited > 4096 {
+            return Err(format_err!("Max frame recursion depth reached"));
+        }
+
         let frame = process
             .copy_pointer(frame_ptr)
             .context("Failed to copy PyFrameObject")?;
+
+        if !frame.is_python_frame() {
+            frame_ptr = frame.back();
+            set_last_frame_as_shim_entry(&mut frames);
+            continue;
+        }
 
         let code = process
             .copy_pointer(frame.code())
             .context("Failed to copy PyCodeObject")?;
 
         let filename = copy_string(code.filename(), process).context("Failed to copy filename");
-        let name = copy_string(code.name(), process).context("Failed to copy function name");
 
-        // just skip processing the current frame if we can't load the filename or function name.
-        // this can happen in python 3.13+ since the f_executable isn't guaranteed to be
-        // a PyCodeObject. We could check the type (and mimic the logic of PyCode_Check here)
-        // but that would require extra overhead of reading the ob_type per frame - and we
-        // would also have to figure out what the address of PyCode_Type is (which will be
-        // easier if something like https://github.com/python/cpython/issues/100987#issuecomment-1487227139
-        // is merged )
+        // Try to get qualname first (available in Python 3.11+), fall back to name
+        let name = match code.qualname() {
+            Some(qualname_ptr) => {
+                copy_string(qualname_ptr, process).or_else(|_| copy_string(code.name(), process))
+            }
+            None => copy_string(code.name(), process),
+        }
+        .context("Failed to copy function name");
+
+        // Guards against torn reads while sampling without pausing the process.
         if filename.is_err() || name.is_err() {
             frame_ptr = frame.back();
             set_last_frame_as_shim_entry(&mut frames);
@@ -167,7 +181,7 @@ where
         let filename = filename?;
         let name = name?;
 
-        // skip <shim> entries in python 3.12+
+        // skip <shim> entries in python 3.13+
         // Unset file/function name in py3.13 means this is a shim.
         if filename.is_empty() || filename == "<shim>" {
             frame_ptr = frame.back();
@@ -215,9 +229,6 @@ where
             is_entry,
             is_shim_entry: false,
         });
-        if frames.len() > 4096 {
-            return Err(format_err!("Max frame recursion depth reached"));
-        }
 
         frame_ptr = frame.back();
     }

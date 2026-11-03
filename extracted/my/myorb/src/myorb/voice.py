@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from myorb.brief.models import Brief
 from myorb.brief.writer import READ_LANGUAGES, BriefError
 from myorb.connections import store
 from myorb.connections.providers import ProviderError, request_json, status_error
@@ -77,7 +78,27 @@ class VoiceSettings:
 
 
 async def load_voice(request: Request, db: AsyncSession) -> VoiceSettings:
-    return await voice_settings(db, request.app.state.secret_box)
+    return await app_voice(request.app, db)
+
+
+async def app_voice(app: FastAPI, db: AsyncSession) -> VoiceSettings:
+    if app.state.settings.public_demo:
+        return demo_voice(app.state.settings)
+    return await voice_settings(db, app.state.secret_box)
+
+
+def demo_voice(settings: Any) -> VoiceSettings:
+    """The public demo's voice: its own Azure Speech from the environment, when it has one."""
+    key, region = settings.demo_azure_speech_key, settings.demo_azure_speech_region
+    if key and region and REGION.match(region):
+        return VoiceSettings(provider="azure", azure_key=key, azure_region=region)
+    return VoiceSettings()
+
+
+def _brief_audio_name(app: FastAPI, brief_id: int) -> str:
+    # The public demo's brief says the same every day, though it is written anew each morning:
+    # read once under one name, it is never read again.
+    return "demo-brief" if app.state.settings.public_demo else f"brief-{brief_id}"
 
 
 async def voice_settings(db: AsyncSession, box: Any) -> VoiceSettings:
@@ -263,7 +284,7 @@ async def preload_brief(app: FastAPI, brief_id: int, brief_language: str) -> Non
     """Read a new brief in advance, in its own language and the ones chosen to preload
     (translated by Claude first). A failure only means waiting when it is played."""
     async with app.state.sessionmaker() as db:
-        settings = await voice_settings(db, app.state.secret_box)
+        settings = await app_voice(app, db)
     if not settings.azure:
         return
     languages = [brief_language] + [
@@ -272,7 +293,8 @@ async def preload_brief(app: FastAPI, brief_id: int, brief_language: str) -> Non
     for language in languages:
         try:
             paragraphs = await app.state.brief.translation(brief_id, language)
-            await speech_file(app, settings, language, "\n\n".join(paragraphs), f"brief-{brief_id}")
+            text = "\n\n".join(paragraphs)
+            await speech_file(app, settings, language, text, _brief_audio_name(app, brief_id))
         except (BriefError, ProviderError) as error:
             logger.warning(
                 "Reading brief %s in %s in advance failed: %s", brief_id, language, error
@@ -285,7 +307,9 @@ async def preload_brief(app: FastAPI, brief_id: int, brief_language: str) -> Non
 async def sample(request: Request, db: Db, language: str, voice: str = "") -> Response:
     """A short sentence in a voice, to try it in the settings before saving."""
     settings = await load_voice(request, db)
-    if language not in READ_LANGUAGES or not settings.azure:
+    # Not in the public demo, which reads nothing but its brief.
+    public = request.app.state.settings.public_demo
+    if language not in READ_LANGUAGES or not settings.azure or public:
         raise HTTPException(status_code=404)
     if voice:
         if not VOICE_NAME.match(voice) or not voice.startswith(f"{language}-"):
@@ -303,11 +327,16 @@ async def brief_audio(request: Request, db: Db, brief_id: int, language: str) ->
     settings = await load_voice(request, db)
     if language not in READ_LANGUAGES or not settings.azure:
         raise HTTPException(status_code=404)
+    if request.app.state.settings.public_demo:
+        # Only in the brief's own language: the demo translates nothing (no Claude), and so
+        # what Azure reads there is one known text.
+        brief = await db.get(Brief, brief_id)
+        if brief is None or language != brief.language:
+            raise HTTPException(status_code=404)
     try:
         paragraphs = await request.app.state.brief.translation(brief_id, language)
-        return await _speech(
-            request, settings, language, "\n\n".join(paragraphs), f"brief-{brief_id}"
-        )
+        name = _brief_audio_name(request.app, brief_id)
+        return await _speech(request, settings, language, "\n\n".join(paragraphs), name)
     except (BriefError, ProviderError) as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
 
@@ -323,7 +352,9 @@ async def speech(request: Request, db: Db) -> Response:
     text = str(body.get("text", "")).strip()[:MAX_SPOKEN]
     language = str(body.get("language", ""))[:2].lower()
     settings = await load_voice(request, db)
-    if not settings.azure or language not in READ_LANGUAGES or not text:
+    # Any text: never in the public demo, which would read whatever a visitor sends.
+    public = request.app.state.settings.public_demo
+    if not settings.azure or language not in READ_LANGUAGES or not text or public:
         raise HTTPException(status_code=404)
     try:
         return await _speech(request, settings, language, text, "ask")

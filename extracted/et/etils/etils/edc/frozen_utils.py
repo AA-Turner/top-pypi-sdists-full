@@ -40,8 +40,8 @@ def add_unfrozen(cls: _Cls) -> _Cls:
   if cls_frozen is not None or cls_unfrozen is not None:
     raise ValueError(f'{cls} already define `frozen` or `unfrozen`')
 
-  cls.frozen = frozen
-  cls.unfrozen = unfrozen
+  cls.frozen = frozen  # pyrefly: ignore[missing-attribute]
+  cls.unfrozen = unfrozen  # pyrefly: ignore[missing-attribute]
 
   return cls
 
@@ -62,7 +62,7 @@ def unfrozen(self: _T) -> _T:
     _is_tree_registered = True
 
   impl = _MutableProxyImpl(obj=self, common=_Common(), is_root=True)
-  return impl.public_api
+  return impl.public_api  # pyrefly: ignore[bad-return]
 
 
 # Limitations: Compatibility of _MutableProxy with jax.tree_utils, chex,...
@@ -99,7 +99,7 @@ class _MutableProxy(Generic[_T]):
 
   def tree_flatten(self) -> tuple[list[Any], Any]:
     """`jax.tree_utils` support."""
-    import jax  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
+    import jax  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-import]
 
     obj = self._edc_impl.resolve()
     # Not if the wrapped object do not support tree_map, then it will be
@@ -113,7 +113,7 @@ class _MutableProxy(Generic[_T]):
       flattened: list[Any],
   ) -> Any:
     """`jax.tree_utils` support."""
-    import jax  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
+    import jax  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-import]
 
     return jax.tree_util.tree_unflatten(metadata, flattened)
 
@@ -172,7 +172,7 @@ class _MutableProxyImpl(Generic[_T]):
   @functools.cached_property
   def _fields(self) -> dict[str, dataclasses.Field[Any]]:
     # Could also filter only init=True fields
-    return {f.name: f for f in dataclasses.fields(self.obj)}
+    return {f.name: f for f in dataclasses.fields(self.obj)}  # pyrefly: ignore[bad-argument-type]
 
   def _is_dataclass_field(self, name: str) -> bool:
     """Returns True if the field is a dataclass attribute."""
@@ -255,7 +255,7 @@ class _MutableProxyImpl(Generic[_T]):
       if not new_vals:  # Object wasn't mutated
         resolved = self.obj
       else:
-        resolved = dataclasses.replace(self.obj, **new_vals)
+        resolved = dataclasses.replace(self.obj, **new_vals)  # pyrefly: ignore[bad-specialization]
 
       self.common.resolved[id_] = resolved
     return self.common.resolved[id_]

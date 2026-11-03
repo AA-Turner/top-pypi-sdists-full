@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-Authlib
-Version: 1.8.0.20260911
+Version: 1.8.0.20261102
 Summary: Typing stubs for Authlib
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -15,15 +15,18 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cryptography
 Provides-Extra: all
-Requires-Dist: requests; extra == "all"
-Requires-Dist: httpx2; extra == "all"
 Requires-Dist: Flask>=2.0.0; extra == "all"
-Provides-Extra: requests
-Requires-Dist: requests; extra == "requests"
-Provides-Extra: httpx2
-Requires-Dist: httpx2; extra == "httpx2"
+Requires-Dist: httpx2; extra == "all"
+Requires-Dist: requests; extra == "all"
+Requires-Dist: types-oauthlib; extra == "all"
 Provides-Extra: flask
 Requires-Dist: Flask>=2.0.0; extra == "flask"
+Provides-Extra: httpx2
+Requires-Dist: httpx2; extra == "httpx2"
+Provides-Extra: requests
+Requires-Dist: requests; extra == "requests"
+Provides-Extra: oauthlib
+Requires-Dist: types-oauthlib; extra == "oauthlib"
 Dynamic: license-file
 
 ## Typing stubs for Authlib
@@ -42,13 +45,13 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://www.mypy-lang.org/) 2.3.0
-* [pyrefly](https://pyrefly.org/) 1.3.0.dev1
-* [pyright](https://microsoft.github.io/pyright/) 1.1.411
-* [ty](https://docs.astral.sh/ty/) 0.0.59
+* [mypy](https://www.mypy-lang.org/) 2.4.0
+* [pyrefly](https://pyrefly.org/) 1.4.0
+* [pyright](https://microsoft.github.io/pyright/) 1.1.414
+* [ty](https://docs.astral.sh/ty/) 0.0.91
 
 It was generated from typeshed commit
-[`bcb5ba6a29b6e1a661b50a3b4476fe7636072e3e`](https://github.com/python/typeshed/commit/bcb5ba6a29b6e1a661b50a3b4476fe7636072e3e).
+[`272d38680771baf39c7ea503ae5d042c3295e47c`](https://github.com/python/typeshed/commit/272d38680771baf39c7ea503ae5d042c3295e47c).
 
 ## Optional dependencies
 
@@ -57,7 +60,8 @@ The following extras are available:
 
 ```console
 pip install 'types-Authlib[all]' # installs all optional dependencies
-pip install 'types-Authlib[requests]' # installs requests
-pip install 'types-Authlib[httpx2]' # installs httpx2
 pip install 'types-Authlib[Flask]' # installs Flask>=2.0.0
+pip install 'types-Authlib[httpx2]' # installs httpx2
+pip install 'types-Authlib[requests]' # installs requests
+pip install 'types-Authlib[oauthlib]' # installs types-oauthlib
 ```

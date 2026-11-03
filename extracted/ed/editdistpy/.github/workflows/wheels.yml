@@ -20,7 +20,7 @@ jobs:
     steps:
       - &checkout
         name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -30,7 +30,7 @@ jobs:
           command: sdist
           args: --out dist
       - name: Upload artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sdist
           path: dist
@@ -43,11 +43,11 @@ jobs:
           - x86_64
           - aarch64
         python:
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
           - "3.14"
+          - "3.15"
     steps:
       - *checkout
       - name: Build wheel
@@ -58,7 +58,7 @@ jobs:
           manylinux: auto
           sccache: ${{ github.event_name != 'pull_request' }}
       - name: Upload artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheel-linux-${{ matrix.target }}-${{ matrix.python }}
           path: dist
@@ -71,11 +71,11 @@ jobs:
           - x86_64-unknown-linux-musl
           - aarch64-unknown-linux-musl
         python:
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
           - "3.14"
+          - "3.15"
     steps:
       - *checkout
       - name: Build wheel
@@ -86,7 +86,7 @@ jobs:
           manylinux: musllinux_1_1
           sccache: ${{ github.event_name != 'pull_request' }}
       - name: Upload artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheel-musl-${{ matrix.target }}-${{ matrix.python }}
           path: dist
@@ -99,11 +99,11 @@ jobs:
           - x64
           - x86
         python:
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
           - "3.14"
+          - "3.15"
     steps:
       - *checkout
       - name: Build wheel
@@ -113,7 +113,7 @@ jobs:
           args: --release --out dist -i ${{ matrix.python }}
           sccache: ${{ github.event_name != 'pull_request' }}
       - name: Upload artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheel-windows-${{ matrix.target }}-${{ matrix.python }}
           path: dist
@@ -126,11 +126,11 @@ jobs:
           - x86_64
           - aarch64
         python:
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
           - "3.14"
+          - "3.15"
     steps:
       - *checkout
       - name: Build wheel
@@ -140,7 +140,7 @@ jobs:
           args: --release --out dist -i ${{ matrix.python }}
           sccache: ${{ github.event_name != 'pull_request' }}
       - name: Upload artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheel-macos-${{ matrix.target }}-${{ matrix.python }}
           path: dist

@@ -25,19 +25,15 @@ from sequence_ai.errors import AuthError, Conflict, InvalidRequest, SequencesErr
 
 
 
-def _request_of(kind: str, cls: type, *, name: str | None = None, max_gpus: int | None = None,
-                require_cap: bool = False, snapshots: list | None = None, freeze: bool = False,
-                region: str | None = None) -> Any:
+def _request_of(kind: str, cls: type, *, name: str | None = None, require_cap: bool = False,
+                snapshots: list | None = None, region: str | None = None) -> Any:
     """The body `seq deploy` sends for this class — assembled here, offline, and checked against its contract.
-    `max_gpus` (`seq deploy --max-gpus N`) sets the deployment's own max GPUs over the decorator's; `require_cap`
-    refuses a GPU policy that names none, as the platform does at deploy.
+    `require_cap` refuses a GPU policy that names no max_gpus, as the platform does at deploy.
+
     `region` (`seq deploy --region R`, as written) sets where its machines run over the decorator's region= - "auto"
     back to the default (registry.region_of); a benchmark takes none.
-    What is uploaded is appended to `snapshots` when given (seq.code_bundle.Snapshot). `freeze` (`--freeze`), or the
-    class's own freeze=True, freezes the version (seq.freeze)."""
+    What is uploaded is appended to `snapshots` when given (seq.code_bundle.Snapshot)."""
     from pydantic import ValidationError
-
-    from seq.freeze import declared
 
     try:
         if kind == "benchmark":
@@ -45,15 +41,12 @@ def _request_of(kind: str, cls: type, *, name: str | None = None, max_gpus: int 
 
             if region is not None:
                 raise SeqAuthoringError("--region places a policy's machines; a benchmark takes none - its machines "
-                                        "run wherever its card is free")
+                                        "run wherever its card is available")
             request = benchmark_request(cls, name=name, snapshots=snapshots)
         else:
             from seq.deploy import deployment_request
 
             request = deployment_request(cls, name=name, snapshots=snapshots)
-            if max_gpus is not None:
-                request = request.model_copy(
-                    update={"autoscaler": request.autoscaler.model_copy(update={"max_gpus": max_gpus})})
             if region is not None:
                 from seq.registry import region_of
 
@@ -61,8 +54,6 @@ def _request_of(kind: str, cls: type, *, name: str | None = None, max_gpus: int 
                     update={"region": region_of(region, "--region ")})})
             if require_cap:
                 _require_gpu_cap(request)
-        if freeze or declared(cls):
-            request = request.model_copy(update={"freeze": True})
         _contract_check(request)
     except ValidationError as exc:
         raise SeqAuthoringError("; ".join(f"{'.'.join(map(str, e['loc'])) or 'request'}: {e['msg']}"
@@ -70,14 +61,14 @@ def _request_of(kind: str, cls: type, *, name: str | None = None, max_gpus: int 
     return request
 
 
-def build_wait_s(timeout: float | None, request: Any) -> float:
-    """How long `seq deploy` follows a policy's build: --timeout, else as long as the platform may take to start its
-    worker - the policy's timeouts.startup where it declares more than the default wait, so one that may load for 2
-    hours is not given up on at 30 minutes while the platform still loads it. {worker 7's std3 list A11}"""
+def build_wait_s(request: Any) -> float:
+    """How long `seq deploy` follows a policy's build: as long as the platform may take to start its worker - the
+    policy's timeouts.startup where it declares more than the default wait, so one that may load for 2 hours is not
+    given up on at 30 minutes while the platform still loads it. {worker 7's std3 list A11}"""
     from seq._deploy_gateway import DEFAULT_WAIT_TIMEOUT_S
 
     startup = getattr(getattr(request, "timeouts", None), "startup", None)
-    return float(timeout) if timeout is not None else max(DEFAULT_WAIT_TIMEOUT_S, float(startup or 0))
+    return max(DEFAULT_WAIT_TIMEOUT_S, float(startup or 0))
 
 
 def max_gpus_required_message() -> str:
@@ -85,9 +76,8 @@ def max_gpus_required_message() -> str:
     but for the account's figure."""
     return ("max_gpus is required for a GPU deployment: the most GPUs it may hold at once, counted in cards. How many "
             "robots each worker seats is the policy's own (`seq policy status <name>` shows its seats); with every "
-            "seat taken the next robot waits in line. Declare @seq.policy(max_gpus=N) or "
-            "deploy with --max-gpus N; change it any time with `seq policy set <name> max_gpus=N`, without a "
-            "redeploy")
+            "seat taken the next robot waits in line. Declare @seq.policy(max_gpus=N); change it any time "
+            "with `seq policy set <name> max_gpus=N`, without a redeploy")
 
 
 def _require_gpu_cap(request: Any) -> None:
@@ -277,10 +267,10 @@ def _print_region(region: str | None) -> None:
     from seq.registry import REGIONS
 
     if region in REGIONS:
-        print(f"region      {REGIONS[region]}: its machines run there alone, and a robot waits while it has no card "
-              "free")
+        print(f"region      {REGIONS[region]}: its machines run there alone, and a robot waits while no card is "
+              "available there")
     else:
-        print("region      auto: each robot's machine in the region nearest it, else wherever a card is free")
+        print("region      auto: each robot's machine in the region nearest it, else wherever a card is available")
 
 
 def _print_benchmark_echo(req: Any, snap: Any = None) -> None:
@@ -416,12 +406,9 @@ def _left_out_lines(left_out: list) -> list[str]:
 
 def _print_contract(policy: Any) -> None:
     """What the deployment says of its inputs and outputs: its own - the platform hands its functions what its robot
-    sends and its robot what it returns, unchecked (north star 5) - and its io= note."""
+    sends and its robot what it returns, unchecked (north star 5)."""
     print("I/O         the policy's own — the platform hands its functions what its robot sends and returns what they "
           "return, unchecked")
-    if policy.io:
-        lines = policy.io.strip().splitlines()
-        print(f"io          {lines[0]}" + (f"  (+{len(lines) - 1} more lines)" if len(lines) > 1 else ""))
 
 
 def name_claim(name: str, handler_ref: str, base_url: str | None) -> dict | None:
@@ -469,7 +456,7 @@ def refuse_claim(claim: dict | None) -> None:
         raise Conflict((claim or {}).get("detail") or "another account holds this name")
 
 
-def platform_check(request: Any, *, override: bool, base_url: str | None, scaling: tuple[str, ...] = ()) -> dict | None:
+def platform_check(request: Any, *, override: bool, base_url: str | None) -> dict | None:
     """The platform's own check of the request, with nothing built (POST /v1/deployments/validate): its refusal raised
     as the deploy's would be - the same error and exit code - its answer {"ok", "name", "state", "contract"} on
     acceptance, None when it cannot be asked (no key, offline). Before it a dry run
@@ -482,7 +469,7 @@ def platform_check(request: Any, *, override: bool, base_url: str | None, scalin
     except AuthError:
         return None
     try:
-        return client.validate(request, override=override, scaling=scaling)
+        return client.validate(request, override=override)
     except AuthError:
         return None
 
@@ -577,23 +564,36 @@ def first_start_lines(name: str, verdict: dict | None) -> list[str]:
     if check.get("seconds"):
         cards = int(check.get("cards") or 0)
         on = f"{cards} x {check.get('card')}" if cards > 1 else (check.get("card") or "a machine with no card")
-        ran = f"its check machine ran {elapsed(check['seconds'])}"
+
+
+        ran = f"its check machine ran {elapsed(check['seconds'])} from its start"
         if check.get("usd") is None:
             said = f"{ran}; {on} is not offered now, so this version's check is not priced"
         else:
             said = (f"{ran}: about {money(check['usd'])} for this version's check on {on}"
                     + ("" if check.get("billed", True) else ", though checks are not billed now"))
         out.append(f"{'':12}{said}")
+
+
+    build = fs.get("build") or {}
+    if build.get("seconds"):
+        ran = f"its build machine ran {elapsed(build['seconds'])}"
+        out.append(f"{'':12}" + (f"{ran}: about {money(build['usd'])} for this version's build"
+                                 if build.get("usd") is not None else f"{ran}; not priced"))
     return out
 
 
 def _seats_line(summary: dict | None) -> str | None:
     """How many robots one worker serves at once, from a ready build's summary (seats = the deployment's max_sessions),
-    for `seq deploy`'s last words; None when the summary does not say it (a CPU-only or non-serving build)."""
+    for `seq deploy`'s last words; None when the summary does not say it (a CPU-only or non-serving build). Of a policy
+    that batches, how long each robot waits for an answer beside it (max_wait_for_batch), or that it is not set.
+    """
     seats = (summary or {}).get("seats")
     if not seats:
         return None
-    return f"a worker seats {seats} robot{'s' if seats != 1 else ''} at once"
+    from sequence_ai._core.capacity import wait_said
+
+    return f"a worker seats {seats} robot{'s' if seats != 1 else ''} at once" + wait_said(summary)
 
 
 def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, sample: bool = False) -> int:
@@ -617,8 +617,7 @@ def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, 
         print(f"override: the version of {request.name} serving now is deleted for good once this one has passed its "
               "check and its workers have ended; if this one fails, nothing is deleted")
 
-    named = ("max_gpus",) if getattr(args, "max_gpus", None) is not None else ()
-    accepted = client.submit(request, override=override, scaling=named)
+    accepted = client.submit(request, override=override)
 
     name = accepted.deployment_id
     if getattr(accepted, "unread", False):
@@ -636,7 +635,7 @@ def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, 
         print(f"{name}: {notice}")
     if snap is not None and snap.tree_sha256:
         print(_kept_tree_line(name, snap.tree_sha256, args.base_url))
-    for line in _kept_lines(name, request, named, args.base_url):
+    for line in _kept_lines(name, request, args.base_url):
         print(line)
 
     stopped = _stopped_how(request.name, _deployment_row(request.name, args.base_url), args.base_url)
@@ -654,7 +653,7 @@ def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, 
                               card=gpus[0] if gpus else None, planner=planner is not None)
 
     kwargs: dict = {"on_poll": progress, "poll_interval_s": DEPLOY_POLL_S}
-    kwargs["timeout_s"] = build_wait_s(args.timeout, request)
+    kwargs["timeout_s"] = build_wait_s(request)
     final = client.wait(name, **kwargs)
     row = _deployment_row(request.name, args.base_url)
     if final.status == DeploymentState.READY:
@@ -723,9 +722,9 @@ def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, 
     raise still_building(name, f"seq policy status {name} --wait")
 
 
-def _kept_lines(name: str, request: Any, named: tuple[str, ...], base_url: str | None) -> list[str]:
+def _kept_lines(name: str, request: Any, base_url: str | None) -> list[str]:
     """What a new version of a deployment that runs keeps of its scaling where the file says otherwise - the platform
-    keeps the deployment's, and sets only what this deploy named - read from its fleet view.
+    keeps the deployment's - read from its fleet view.
     Nothing for a new deployment (no fleet yet), or where the view cannot be read."""
     from seq.deployments_cli import _call
     from seq.upgrade_cli import kept_lines, kept_scaling
@@ -734,7 +733,7 @@ def _kept_lines(name: str, request: Any, named: tuple[str, ...], base_url: str |
         scaling = _call("GET", f"/v1/deployments/{segment(name)}/fleet", base_url)["scaling"]
     except Exception:
         return []
-    kept = kept_scaling(getattr(request, "autoscaler", None), scaling, named)
+    kept = kept_scaling(getattr(request, "autoscaler", None), scaling)
     return kept_lines(name, kept, source="the file")
 
 
@@ -765,8 +764,8 @@ def _deploy_benchmark(args: argparse.Namespace, request: Any) -> int:
     from seq.eval_cli import lost_line
 
     stalled: list[float] = []
-    final = client.wait_benchmark(request.name, timeout_s=args.timeout or BENCHMARK_WAIT_S, on_poll=_show,
-                                  on_retry=lost_line, while_moving=args.timeout is None,
+    final = client.wait_benchmark(request.name, timeout_s=BENCHMARK_WAIT_S, on_poll=_show,
+                                  on_retry=lost_line, while_moving=True,
                                   on_more=more_line(request.name), on_stall=stalled.append)
     if final.status.value == "ready":
         print(f"ready: evaluate a deployed policy on it with `seq eval run <policy> --benchmark {request.name}`")
@@ -785,7 +784,7 @@ def more_line(name: str) -> Callable[[float], None]:
 
     return lambda waited: print(f"  {name}: still building after {waited / 60:.0f} min, its build log still moving: "
                                 f"waiting {BUILD_MORE_S / 60:.0f} min more (up to {BENCHMARK_WAIT_MAX_S / 3600:.0f} h "
-                                "in all; --timeout S sets a wait of your own)", flush=True)
+                                "in all)", flush=True)
 
 
 def _kept_tree_line(name: str, uploaded: str, base_url: str | None) -> str:
@@ -1044,7 +1043,7 @@ class _BuildProgress:
             return _PLAYS_SAMPLE if self._sample else _NO_ACT
         if name == "card":
             limit = s.get("limit_s")
-            card = f"a free {self._card}" if self._card and self._card.lower() != "cpu" else "a machine"
+            card = f"an available {self._card}" if self._card and self._card.lower() != "cpu" else "a machine"
             return f"waiting for {card}" + (f" - up to {round(limit / 60)} min" if limit else "")
         return _STAGES.get(name, str(name))
 

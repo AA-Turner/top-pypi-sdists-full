@@ -343,7 +343,7 @@ class FacebookPageContactInput(TypedDict, total=False):
     language: NotRequired[str]
     """Locale code for the returned data (e.g. en-US). Default: en-US."""
     page: Required[str]
-    """Facebook Page URL or page ID to look up (e.g. https://www.facebook.com/nasa)."""
+    """Facebook Page URL or page ID to look up (e.g. https://www.facebook.com/nasa). A link to a post, video, photo or reels tab on a page is read as that page. A link to Facebook's own business, about, videos, photos or reels section names no page and is refused as invalid input, with no charge."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     requireFields: NotRequired[list[Literal["adStatus", "createdUtc", "followers"]]]
@@ -466,7 +466,7 @@ class FacebookProfileInput(TypedDict, total=False):
     source: NotRequired[list[str]]
     """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     url: NotRequired[str]
-    """Full Facebook page URL."""
+    """Full Facebook page URL. profile.php without an id value names no page and is refused as invalid input, with no charge."""
 
 
 class FacebookProfileEventsInput(TypedDict, total=False):
@@ -504,7 +504,7 @@ class FacebookProfilePostsInput(TypedDict, total=False):
     source: NotRequired[list[str]]
     """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     url: NotRequired[str]
-    """Facebook page or profile link, e.g. https://www.facebook.com/nike. Accepted: facebook.com/<name>, /p/<name>-<id>, /pages/<name>/<id>, /pg/<name>, /people/<name>/<id>, profile.php?id=<id>, and share links to a page (/share/<id> or /share/p/<id>), on facebook.com or fb.com with or without www, m, mbasic, web, business or a language subdomain. Anything after the page, such as a tab, is fine. Any other Facebook link, such as a single event, group, reel, video, video or reel share link (/share/v/ or /share/r/), hashtag, search or login page, is refused as invalid input, with no charge; facebook.event_details reads one event and facebook.post reads one post."""
+    """Facebook page or profile link, e.g. https://www.facebook.com/nike. Accepted: facebook.com/<name>, /p/<name>-<id>, /pages/<name>/<id>, /pg/<name>, /people/<name>/<id>, profile.php?id=<id>, and share links to a page (/share/<id> or /share/p/<id>), on facebook.com or fb.com with or without www, m, mbasic, web, business or a language subdomain. Anything after the page, such as a tab, is fine. Any other Facebook link, such as a single event, group, reel, video, video or reel share link (/share/v/ or /share/r/), hashtag, search, login, about or fb-answers page, is refused as invalid input, with no charge; facebook.event_details reads one event and facebook.post reads one post."""
 
 
 class FacebookProfileReelsInput(TypedDict, total=False):

@@ -230,8 +230,17 @@ def _dispatch(args: argparse.Namespace) -> int:
     if cmd in ("login", "logout"):
         from seq import login_cli
 
-        return (_cmd_platform(args, login_cli.login) if cmd == "login"
-                else _cmd_platform(args, login_cli.logout, args.id))
+        return (_cmd_platform(args, login_cli.login, profile=args.profile) if cmd == "login"
+                else _cmd_platform(args, login_cli.logout, args.id, profile=args.profile))
+    if cmd == "profile":
+        from seq import login_cli
+
+        sub = args.profile_cmd
+        if sub == "activate":
+            return _cmd_platform(args, login_cli.profile_activate, args.name)
+        if sub == "current":
+            return _cmd_platform(args, login_cli.profile_current)
+        return _cmd_platform(args, login_cli.profile_list)
     if cmd == "audit":
         from seq import audit_cli
 
@@ -338,6 +347,10 @@ def _eval_ls(args: argparse.Namespace) -> int:
     if getattr(args, "adapter", None):
         from seq import adapter_cli
 
+        if any(getattr(args, k, None) is not None for k in ("limit", "cursor", "since")):
+
+            raise InvalidRequest("--adapter lists the newest 200 evals that ran it, all at once; it takes no --limit, "
+                                 "--cursor or --since")
         return _cmd_platform(args, adapter_cli.adapter_evals, args.adapter, policy=args.name, benchmark=args.benchmark,
                              status=args.status)
     if getattr(args, "status", None):
@@ -372,10 +385,6 @@ def _cmd_policy(args: argparse.Namespace) -> int:
         return cmd_doctor(name, base_url=args.base_url)
     if sub in ("versions", "stop", "start"):
         return _cmd_platform(args, getattr(dc, sub), name)
-    if sub == "freeze":
-        from seq import freeze
-
-        return _cmd_platform(args, freeze.freeze, "policy", name, off=args.off)
     if sub == "upgrade":
         from seq import upgrade_cli
 
@@ -416,8 +425,10 @@ def _cmd_billing(args: argparse.Namespace) -> int:
         try:
             return _cmd_platform(args, billing_cli.billing_top_up, args.amount, wait=not args.no_wait, **said)
         except KeyboardInterrupt:
-            print("stopped waiting; the payment still goes through - `seq account` shows the balance")
+            print("stopped waiting; the payment still goes through - `seq billing credits` lists it once it lands")
             return 0
+    if sub == "card":
+        return _cmd_platform(args, billing_cli.billing_card)
     if sub == "redeem":
 
         return _cmd_platform(args, billing_cli.redeem_promo_code, args.code)
@@ -531,7 +542,7 @@ def _cmd_account(args: argparse.Namespace) -> int:
             from seq import person_cli
 
             if sub == "delete":
-                return _cmd_platform(args, person_cli.account_delete, args.confirm)
+                return _cmd_platform(args, person_cli.account_delete)
             named = {k: getattr(args, k) for k in ("name", "email", "photo", "time_zone", "clock", "storage_limit")
                      if getattr(args, k) is not None}
             return _cmd_platform(args, person_cli.account_set, **named)
@@ -605,10 +616,6 @@ def _cmd_benchmark(args: argparse.Namespace) -> int:
         return _cmd_platform(args, benchmark_rm_cli.rm, args.name, dry_run=args.dry_run, force=args.force)
     if args.benchmark_cmd == "versions":
         return _cmd_platform(args, listing.versions, args.name)
-    if args.benchmark_cmd == "freeze":
-        from seq import freeze
-
-        return _cmd_platform(args, freeze.freeze, "benchmark", args.name, off=args.off)
     if args.benchmark_cmd == "source":
         from seq import benchmark_source_cli
 
@@ -719,8 +726,8 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
 
         return adapter_cli.deploy(cls, args)
     snaps: list = []
-    request = _request_of(kind, cls, name=args.name, max_gpus=args.max_gpus, require_cap=True, snapshots=snaps,
-                          freeze=bool(getattr(args, "freeze", False)), region=getattr(args, "region", None))
+    request = _request_of(kind, cls, name=args.name, require_cap=True, snapshots=snaps,
+                          region=getattr(args, "region", None))
     if kind == "policy" and not (args.dry_run and args.json):
         from seq import deploy_cli
 
@@ -770,9 +777,8 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
                       "passed its check and its workers have ended; if this one fails, nothing is deleted")
             deploy_cli.refuse_claim(claim)
 
-            named = ("max_gpus",) if args.max_gpus is not None else ()
             checked = deploy_cli.platform_check(request, override=bool(getattr(args, "override", False)),
-                                                base_url=args.base_url, scaling=named)
+                                                base_url=args.base_url)
             print(deploy_cli.platform_line(checked))
 
             margin = deploy_cli.margin_line(checked)
@@ -801,11 +807,6 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
                     _dry_run_price(request, args)
                 except (AuthError, Unavailable) as exc:
                     print(f"price       not read: {exc}")
-
-                from seq import deps_cost
-
-                for line in deps_cost.estimate_lines(checked.get("copy_estimate")):
-                    print(line)
         elif kind == "benchmark":
             from seq import deploy_cli
             from seq._eval_gateway import EvalGatewayClient
@@ -823,10 +824,6 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
                       "has passed its check")
             for line in deploy_cli.first_start_lines(request.name, checked):
                 print(line)
-            from seq import deps_cost
-
-            for line in deps_cost.estimate_lines((checked or {}).get("copy_estimate")):
-                print(line)
         print("\n--dry-run: " + ("the platform checked it and nothing was built" if checked else "nothing was sent")
               + "; without it, `seq deploy` submits this request.")
         return 0
@@ -840,9 +837,9 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
 
 
 def _dry_run_price(request: Any, args: argparse.Namespace) -> None:
-    """A policy's price in a dry run, as `seq policy estimate` said it before it was folded in: its card per hour, its
-    warm floor, and its use per day and month at --hours-per-day and --starts-per-day - and, once it has been deployed,
-    what its build check measured. Nothing is built.
+    """A policy's price in a dry run, as `seq policy estimate` said it before it was folded in: its card per hour and
+    its warm floor - its use priced by the hour, as no use of it is known yet - and, once it has been deployed, what its
+    build check measured. Nothing is built.
 
 """
     from seq import ops_cli
@@ -875,15 +872,15 @@ def _dry_run_price(request: Any, args: argparse.Namespace) -> None:
     steps = wait_steps(request.policy.action_chunk_valid_len, request.policy.action_chunk_replan_at)
     try:
 
-        ops_cli.estimate(gpu, min_workers=request.autoscaler.min_containers, hours_per_day=args.hours_per_day,
+        ops_cli.estimate(gpu, min_workers=request.autoscaler.min_containers,
                          buffer_workers=request.autoscaler.buffer_containers or 0,
                          max_gpus=request.autoscaler.max_gpus, seats=measured_robots,
                          seats_by=(f"v{view['priced_version']}" if measured_robots and (view or {}).get("priced_version")
                                    else None),
                          batches=batches, copies=max(1, held // per_copy) if per_copy else 1, start_s=load_s,
-                         robots=args.robots, hz=request.policy.hz, chunk_steps=steps,
+                         hz=request.policy.hz, chunk_steps=steps, wait_s=request.policy.max_wait_for_batch,
                          base_url=args.base_url, echo=print, idle_s=IDLE_S,
-                         starts_per_day=args.starts_per_day, measured_per_hour=(row or {}).get("usd_per_hour"),
+                         measured_per_hour=(row or {}).get("usd_per_hour"),
                          deployment=request.name, has_weights=request.weights is not None,
 
 

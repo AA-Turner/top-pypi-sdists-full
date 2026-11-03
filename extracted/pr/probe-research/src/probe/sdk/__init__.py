@@ -49,6 +49,7 @@ _LAZY: dict[str, str] = {
     "SpanHandle": "run.metrics.spans",
     "FailureContext": "run.context.context",
     "UnitContext": "run.context.context",
+    "DeliveryIncomplete": "delivery.outbox.waiter",
 }
 
 
@@ -93,11 +94,13 @@ if TYPE_CHECKING:  # eager names for type checkers / IDEs; never executed at run
     from .run.run import Run
     from .run.metrics.spans import SpanHandle
     from .run.context.context import FailureContext, UnitContext
+    from .delivery.outbox.waiter import DeliveryIncomplete
 
 
 __all__ = [
     "Aligned",
     "Authorship",
+    "DeliveryIncomplete",
     "CaptureLedger",
     "CaptureState",
     "Client",

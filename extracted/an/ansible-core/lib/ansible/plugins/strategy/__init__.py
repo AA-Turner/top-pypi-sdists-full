@@ -385,6 +385,8 @@ class StrategyBase:
                 if worker_prc is None or not worker_prc.is_alive():
                     if worker_prc:
                         worker_prc.close()
+
+                    self._blocked_hosts[host.name] = True
                     self._queued_task_cache[(host.name, task._uuid)] = {
                         'host': host,
                         'task': task,
@@ -404,6 +406,7 @@ class StrategyBase:
                         shared_loader_obj=plugin_loader.get_plugin_loader_namespace(),
                         worker_id=self._cur_worker,
                         cliargs=context.CLIARGS,
+                        stacktrace_dir=self._tqm.stacktrace_dir
                     )
                     self._workers[self._cur_worker] = worker_prc
                     self._tqm.send_callback('v2_runner_on_start', host, task)

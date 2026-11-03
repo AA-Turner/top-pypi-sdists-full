@@ -8,12 +8,14 @@ stage (``--store items``, the default; ``--store json`` keeps them as local file
 from __future__ import annotations
 
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ..graphql_authoring import create_authoring_client
+from ..machine_writes import run_id_from_environment
 from ..options import normalize_string, parse_options
 from .excluded_hosts import normalize_hosts
 from ..papyrus_config import resolve_openai_api_key
@@ -133,7 +135,7 @@ def _idea_store(name: str, client: Any):
     if name == ITEMS:
         from .gate import HumanusGate
 
-        return ItemStore(client, legacy=lambda: legacy_story_drafts(client), gate=HumanusGate.for_site())
+        return ItemStore(client, legacy=lambda: legacy_story_drafts(client), gate=HumanusGate.for_site(), run_id=run_id_from_environment(os.environ))
     return None
 
 
@@ -344,6 +346,7 @@ def monitor_stories_command(flags: list[str]) -> None:
     fresh = run["freshness"]
     print("freshness\t" + (f"tau {fresh['tauDays']} days\texamples {fresh['examples']}" if fresh["tauDays"] else f"none\texamples {fresh['examples']}"))
     print(f"drafts\tattempted {run['attempted']}\tfailed the citation check {len(run['invalid'])}\tskipped {len(run['skipped'])}\tduplicates {len(run['duplicates'])}\t{'would file' if dry_run else 'filed'} {len(run['drafts'])}")
+    print(f"standard\t{run['minimumStandard']}\tnothing to add {run['nothingToAdd']}\talready rejected {run['alreadyRejected']}\tconnections used {run['connectionsUsed']}\tcuration flag {run['curationFlag']['status']}")
     print(f"llm\t{run['model']}\tcalls {usage.get('calls', 0)}\tin {usage.get('inputTokens', 0)}\tout {usage.get('outputTokens', 0)}\tcost ${usage.get('costUsd', 0)}")
     review = run["review"]
     print(f"review\t{review['status']}\trequested {str(review['requested']).lower()}" + (f"\t{review['error']}" if review.get("error") else ""))

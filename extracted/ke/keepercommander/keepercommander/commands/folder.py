@@ -230,9 +230,8 @@ class FolderListCommand(Command, RecordMixin):
             dj = nsf_record_data[uid]['data_json']
             rec = vault.TypedRecord(version=3)
             rec.record_uid = uid
-            rec.title = dj.get('title', uid)
-            rec.type_name = dj.get('type', '')
             rec.load_record_data(dj, None)
+            rec.title = rec.title or uid
             return rec
         return None
 
@@ -2022,6 +2021,9 @@ def _nsf_folder_share_data(params, folder_uid, *, include_uids=False):
         at = a.get('access_type') or ''
         abbrev = _nsf_role_abbrev(a)
         auid = a.get('accessor_uid') or ''
+
+        if a.get('denied_access'):
+            continue
 
         if at == 'AT_OWNER':
             if not owner:

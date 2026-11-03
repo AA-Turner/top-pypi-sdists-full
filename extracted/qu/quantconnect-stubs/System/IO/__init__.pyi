@@ -743,6 +743,14 @@ class StringWriter(System.IO.TextWriter):
         ...
 
     @overload
+    def write(self, value: int) -> None:
+        ...
+
+    @overload
+    def write(self, value: float) -> None:
+        ...
+
+    @overload
     def write(self, value: str) -> None:
         ...
 
@@ -1895,6 +1903,14 @@ class StreamWriter(System.IO.TextWriter):
 
     @overload
     def flush_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
+        ...
+
+    @overload
+    def write(self, value: int) -> None:
+        ...
+
+    @overload
+    def write(self, value: float) -> None:
         ...
 
     @overload

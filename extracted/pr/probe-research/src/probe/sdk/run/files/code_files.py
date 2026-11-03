@@ -122,51 +122,10 @@ class CodeFilesMixin:
 
         drifted_paths: set[str] = set()  # the tree moved: named, never a strict failure
 
-        def _put(entry: dict, out: dict) -> tuple[str, str | None, str]:
-            """Verify, then stream. Returns (path, error, kind) where kind is
-            ``ok`` | ``drift`` (never sent) | ``rejected`` (storage said no:
-            not retried) | ``refused`` (the local credential gate said no: not
-            retried, never an outage) | ``transport`` (network / 5xx: retried
-            once)."""
-            path = entry["path"]
-            try:
-                verdict, fh = _snapshot.open_verified_file(root, entry)
-            except _snapshot.SnapshotError as exc:
-                return path, str(exc), "drift"
-            if verdict != "ok" or fh is None:
-                return path, f"{verdict} since the manifest was taken", "drift"
-            with fh:
-                try:
-                    client.transport.put_fileobj(
-                        out["upload_url"],
-                        fh,
-                        size=int(entry["size"]),
-                        content_type="application/octet-stream",
-                        headers=out.get("upload_headers") or None,
-                    )
-                except CredentialBlocked as exc:
-                    # THIS machine's gate said no (the file grew past the
-                    # inspection limit, or moved under the stream): storage
-                    # never saw it. Checked before RosError, which it is.
-                    return path, f"refused by the credential gate: {_gate_reason(exc)}", "refused"
-                except errors.TransportError as exc:
-                    return path, _redact_signed(str(exc)), "transport"
-                except errors.RosError as exc:
-                    status = exc.status or 0
-                    throttled = status in (408, 429)
-                    return (
-                        path,
-                        _redact_signed(str(exc)),
-                        "transport" if status >= 500 or throttled else "rejected",
-                    )
-                except Exception as exc:  # noqa: BLE001 -- reported per file below
-                    return path, _redact_signed(str(exc)), "transport"
-            return path, None, "ok"
-
         def _presign(entries: list[dict]) -> dict:
             # Path and size only: this path never calls `prepare_upload`, and a
             # snapshot must not be redacted anyway. The CONTENT was scanned when
-            # the manifest was built (snapshot._ContentGate), and `_put` streams
+            # the manifest was built (snapshot._ContentGate), and `_put_file` streams
             # only bytes whose sha256 still matches that record.
             for entry in entries:
                 check_upload(os.path.join(root, entry["path"]))
@@ -270,7 +229,7 @@ class CodeFilesMixin:
                     failed_put: dict[str, tuple[str, str]] = {}  # aid -> (kind, error)
                     pool = ThreadPoolExecutor(max_workers=CAPTURE_PUT_WORKERS)
                     try:
-                        futures = {pool.submit(_put, *need[aid]): aid for aid in pending_ids}
+                        futures = {pool.submit(_put_file, client=client, root=root, entry=need[aid][0], out=need[aid][1]): aid for aid in pending_ids}
                         for fut in as_completed(futures):
                             _path, error, kind = fut.result()
                             if error is None:
@@ -301,70 +260,17 @@ class CodeFilesMixin:
                             else:
                                 unstored[path] = f"upload failed: {error}"
                     to_confirm = [aid for aid in pending_ids if aid not in failed_put]
-                    unconfirmed: list[str] = []
-                    if to_confirm:
-                        result = client.confirm_capture_batch(to_confirm)
-                        seen: set[str] = set()
-                        for aid in result.get("confirmed") or []:
-                            if aid in need:
-                                seen.add(aid)
-                                n_uploaded += 1
-                                for p in _paths_for(aid):
-                                    _mark_stored(p)
-                        for aid in result.get("unconfirmed") or []:
-                            if aid in need:
-                                seen.add(aid)
-                                unconfirmed.append(aid)
-                                for p in _paths_for(aid):
-                                    unstored[p] = "not confirmed by storage"
-                        # Only `unconfirmed` (HEAD did not see the object yet)
-                        # is worth a second PUT + confirm. The other buckets
-                        # are verdicts: `refused` is a live row that is not a
-                        # capture row (the researcher registered that name
-                        # and bytes on purpose), `failed` is a row the upload
-                        # reaper gave up on, `unknown` has no live row.
-                        for bucket, reason in (
-                            ("refused", "already an artifact of this run, not captured"),
-                            ("failed", "reaped by storage before the upload landed"),
-                            ("unknown", "no live artifact row for this file"),
-                        ):
-                            for aid in result.get(bucket) or []:
-                                if aid in need:
-                                    seen.add(aid)
-                                    for p in _paths_for(aid):
-                                        unstored[p] = reason
-                        for aid in to_confirm:
-                            if aid not in seen:
-                                if attempt == 1:
-                                    unconfirmed.append(aid)
-                                else:
-                                    for p in _paths_for(aid):
-                                        unstored[p] = "no verdict from storage"
+                    unconfirmed, confirmed_now = _confirm_window(
+                        _mark_stored=_mark_stored, _paths_for=_paths_for, attempt=attempt,
+                        client=client, need=need, to_confirm=to_confirm, unstored=unstored,
+                    )
+                    n_uploaded += confirmed_now
                     transport_failed = [a for a, (k, _) in failed_put.items() if k == "transport"]
                     rejected = [a for a, (k, _) in failed_put.items() if k == "rejected"]
-                    if attempt == 1 and len(pending_ids) >= 2:
-                        # Evaluated AFTER the confirm so the PUTs that landed are
-                        # banked before the walk stops. Every PUT in a window
-                        # failed against storage on the first pass -- or, in a window of OUTAGE_MIN_WINDOW or
-                        # more, at least half of them: that is an outage, not
-                        # 128 individual mishaps, and a flaky link must not be
-                        # walked for hours. A window storage REJECTED outright
-                        # (a proxy that strips the checksum header, a bucket
-                        # policy) is the same verdict. (The retry pass is only
-                        # the stragglers; two flaky files in a small window
-                        # are retried, not declared an outage.)
-                        all_failed = len(transport_failed) == len(pending_ids)
-                        half_failed = len(pending_ids) >= OUTAGE_MIN_WINDOW and len(
-                            transport_failed
-                        ) * 2 >= len(pending_ids)
-                        if all_failed or half_failed:
-                            first = failed_put[transport_failed[0]][1]
-                            raise errors.TransportError(f"storage unreachable: {first}")
-                        if len(rejected) == len(pending_ids):
-                            first = failed_put[rejected[0]][1]
-                            raise errors.TransportError(
-                                f"storage rejected every upload in this window: {first}"
-                            )
+                    _raise_if_outage(
+                        attempt=attempt, failed_put=failed_put, pending_ids=pending_ids,
+                        rejected=rejected, transport_failed=transport_failed,
+                    )
                     # Every verdict above was recorded as it happened and a
                     # later success pops it, so the second pass needs no
                     # bookkeeping of its own: whatever is still named after it
@@ -399,6 +305,121 @@ class CodeFilesMixin:
                 raise errors.RosError(message)
             _diagnostics.warn(message, stacklevel=3)
         return out
+
+
+def _put_file(*, client, root, entry, out) -> tuple[str, str | None, str]:
+    """Verify, then stream. Returns (path, error, kind) where kind is
+    ``ok`` | ``drift`` (never sent) | ``rejected`` (storage said no:
+    not retried) | ``refused`` (the local credential gate said no: not
+    retried, never an outage) | ``transport`` (network / 5xx: retried
+    once)."""
+    path = entry["path"]
+    try:
+        verdict, fh = _snapshot.open_verified_file(root, entry)
+    except _snapshot.SnapshotError as exc:
+        return path, str(exc), "drift"
+    if verdict != "ok" or fh is None:
+        return path, f"{verdict} since the manifest was taken", "drift"
+    with fh:
+        try:
+            client.transport.put_fileobj(
+                out["upload_url"],
+                fh,
+                size=int(entry["size"]),
+                content_type="application/octet-stream",
+                headers=out.get("upload_headers") or None,
+            )
+        except CredentialBlocked as exc:
+            # THIS machine's gate said no (the file grew past the
+            # inspection limit, or moved under the stream): storage
+            # never saw it. Checked before RosError, which it is.
+            return path, f"refused by the credential gate: {_gate_reason(exc)}", "refused"
+        except errors.TransportError as exc:
+            return path, _redact_signed(str(exc)), "transport"
+        except errors.RosError as exc:
+            status = exc.status or 0
+            throttled = status in (408, 429)
+            return (
+                path,
+                _redact_signed(str(exc)),
+                "transport" if status >= 500 or throttled else "rejected",
+            )
+        except Exception as exc:  # noqa: BLE001 -- reported per file below
+            return path, _redact_signed(str(exc)), "transport"
+    return path, None, "ok"
+
+
+def _confirm_window(*, _mark_stored, _paths_for, attempt, client, need, to_confirm, unstored):
+    """Confirm the window's landed PUTs with storage and record each verdict. Returns the ids worth
+    a second pass and how many files were confirmed now."""
+    n_uploaded = 0
+    unconfirmed: list[str] = []
+    if to_confirm:
+        result = client.confirm_capture_batch(to_confirm)
+        seen: set[str] = set()
+        for aid in result.get("confirmed") or []:
+            if aid in need:
+                seen.add(aid)
+                n_uploaded += 1
+                for p in _paths_for(aid):
+                    _mark_stored(p)
+        for aid in result.get("unconfirmed") or []:
+            if aid in need:
+                seen.add(aid)
+                unconfirmed.append(aid)
+                for p in _paths_for(aid):
+                    unstored[p] = "not confirmed by storage"
+        # Only `unconfirmed` (HEAD did not see the object yet)
+        # is worth a second PUT + confirm. The other buckets
+        # are verdicts: `refused` is a live row that is not a
+        # capture row (the researcher registered that name
+        # and bytes on purpose), `failed` is a row the upload
+        # reaper gave up on, `unknown` has no live row.
+        for bucket, reason in (
+            ("refused", "already an artifact of this run, not captured"),
+            ("failed", "reaped by storage before the upload landed"),
+            ("unknown", "no live artifact row for this file"),
+        ):
+            for aid in result.get(bucket) or []:
+                if aid in need:
+                    seen.add(aid)
+                    for p in _paths_for(aid):
+                        unstored[p] = reason
+        for aid in to_confirm:
+            if aid not in seen:
+                if attempt == 1:
+                    unconfirmed.append(aid)
+                else:
+                    for p in _paths_for(aid):
+                        unstored[p] = "no verdict from storage"
+    return unconfirmed, n_uploaded
+
+
+def _raise_if_outage(*, attempt, failed_put, pending_ids, rejected, transport_failed):
+    """Stop the walk when the first pass shows storage is down or rejecting everything."""
+    if attempt == 1 and len(pending_ids) >= 2:
+        # Evaluated AFTER the confirm so the PUTs that landed are
+        # banked before the walk stops. Every PUT in a window
+        # failed against storage on the first pass -- or, in a window of OUTAGE_MIN_WINDOW or
+        # more, at least half of them: that is an outage, not
+        # 128 individual mishaps, and a flaky link must not be
+        # walked for hours. A window storage REJECTED outright
+        # (a proxy that strips the checksum header, a bucket
+        # policy) is the same verdict. (The retry pass is only
+        # the stragglers; two flaky files in a small window
+        # are retried, not declared an outage.)
+        all_failed = len(transport_failed) == len(pending_ids)
+        half_failed = len(pending_ids) >= OUTAGE_MIN_WINDOW and len(
+            transport_failed
+        ) * 2 >= len(pending_ids)
+        if all_failed or half_failed:
+            first = failed_put[transport_failed[0]][1]
+            raise errors.TransportError(f"storage unreachable: {first}")
+        if len(rejected) == len(pending_ids):
+            first = failed_put[rejected[0]][1]
+            raise errors.TransportError(
+                f"storage rejected every upload in this window: {first}"
+            )
 from probe.sdk.run.files.code_upload import (  # noqa: E402 -- pieces need each other; the front door loads this one first
     CODE_STORAGE_ARCHIVE,
     CODE_STORAGE_ARTIFACTS,

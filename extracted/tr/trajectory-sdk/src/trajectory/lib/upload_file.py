@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import BinaryIO
 
 from trajectory.lib._exceptions import FileUploadError
-from trajectory.types.benchmarks.benchmark_upload_file_param import BenchmarkUploadFileParam
+from trajectory.types.benchmarks.benchmarks_create_upload_params import BenchmarkUploadFileParam
 
 _DEFAULT_CONTENT_TYPE = "text/plain"
 _SUPPORTED_CONTENT_TYPES = frozenset(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: DIRAC
-Version: 9.1.23
+Version: 9.1.24
 Summary: DIRAC is an interware, meaning a software framework for distributed computing.
 Home-page: https://github.com/DIRACGrid/DIRAC/
 License: GPL-3.0-only
@@ -19,7 +19,7 @@ Requires-Dist: cachetools
 Requires-Dist: certifi
 Requires-Dist: cwltool
 Requires-Dist: diraccfg
-Requires-Dist: DIRACCommon==v9.1.23
+Requires-Dist: DIRACCommon==v9.1.24
 Requires-Dist: diracx-client>=v0.0.1
 Requires-Dist: diracx-core>=v0.0.1
 Requires-Dist: diracx-cli>=v0.0.1
@@ -46,7 +46,7 @@ Requires-Dist: requests
 Requires-Dist: rucio-clients>=34.4.2
 Requires-Dist: sqlalchemy
 Requires-Dist: typing_extensions>=4.3.0
-Requires-Dist: Authlib>=1.0.0.a2
+Requires-Dist: Authlib>=1.9.0
 Requires-Dist: pyjwt
 Requires-Dist: dominate
 Requires-Dist: zstandard

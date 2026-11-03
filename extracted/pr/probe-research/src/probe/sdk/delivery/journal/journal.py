@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 from typing import TYPE_CHECKING
 
-from ...._shared import oscompat
+from ....foundation.os_backend import os_backend as oscompat
 from ....foundation.compose.compose import fold_parts
 # scanning disabled: from .redaction import default_scrub, scrub_string, scrub_text
 # scanning disabled: from .stamp_scrub import scrub_body, scrub_envelope, scrub_op

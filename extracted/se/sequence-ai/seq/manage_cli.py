@@ -1,8 +1,8 @@
 """
 The commands of `seq policy | benchmark | eval | adapter | volume` and `seq audit` that had no function of their own,
 as functions: `seq.policy_list`, `policy_status`, `policy_stop`, `policy_start`, `policy_rm`, `policy_upgrade`,
-`policy_versions`, `policy_rollback`, `policy_freeze`, `policy_source`; `seq.benchmark_status`, `benchmark_cancel`,
-`benchmark_rm`, `benchmark_upgrade`, `benchmark_versions`, `benchmark_freeze`, `benchmark_source`; `seq.eval_status`,
+`policy_versions`, `policy_rollback`, `policy_source`; `seq.benchmark_status`, `benchmark_cancel`, `benchmark_rm`,
+`benchmark_upgrade`, `benchmark_versions`, `benchmark_source`; `seq.eval_status`,
 `eval_report`, `eval_cancel`, `eval_list`; `seq.adapter_list`, `adapter_rm`; `seq.volume_list`, `volume_show`;
 `seq.audit`.
 
@@ -164,16 +164,6 @@ def policy_rollback(name: str, *, version: int | None = None, base_url: str | No
     return deployments_cli.rollback(name, version, base_url, _say(echo))
 
 
-def policy_freeze(name: str, *, version: int | None = None, off: bool = False, base_url: str | None = None,
-                  echo: Echo = None) -> dict:
-    """Freeze a version - its base and everything its build installed kept in your storage, so it can be built again
-    exactly as it is, billed by the GB-month - `version`, or the one serving; `off` unfreezes it
-    (`seq policy freeze`). {"dependencies_state", "dependencies_bytes", ...}"""
-    from seq import freeze
-
-    return freeze.freeze("policy", _ref(name, version), off=off, base_url=base_url, echo=_say(echo))
-
-
 def policy_source(name: str, *, version: int | None = None, out: str | None = None, base_url: str | None = None,
                   echo: Echo = None) -> dict:
     """The code a version runs, as it deployed it - `version`, or the one serving - downloaded and unpacked into the
@@ -232,15 +222,6 @@ def benchmark_versions(name: str, *, base_url: str | None = None, echo: Echo = N
     from seq import listing
 
     return listing.versions(name, base_url=base_url, echo=_say(echo))
-
-
-def benchmark_freeze(name: str, *, version: int | None = None, off: bool = False, base_url: str | None = None,
-                     echo: Echo = None) -> dict:
-    """Freeze a version of a benchmark - kept in your storage so it can be built again exactly as it is - `version`, or
-    the one new evals run; `off` unfreezes it (`seq benchmark freeze`)."""
-    from seq import freeze
-
-    return freeze.freeze("benchmark", _ref(name, version), off=off, base_url=base_url, echo=_say(echo))
 
 
 def benchmark_source(name: str, *, version: int | None = None, out: str | None = None, base_url: str | None = None,

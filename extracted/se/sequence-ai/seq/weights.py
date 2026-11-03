@@ -33,9 +33,14 @@ class Weights:
         weights=seq.Weights.template("pi05-droid")              # the template's latest published version
         weights=seq.Weights.template("pi05-droid", version=1)   # one version, pinned
 
-    The platform resolves the name (and the version, when none is pinned) at deploy and copies that version into
-    the deployment's own volume. Your own weights are an hf:// repo or a volume you uploaded with
-    `seq volume put` (weights=seq.Volume.from_name("my-ckpt"))."""
+    The platform resolves the name (and the version, when none is pinned) at deploy. While the policy's code is that
+    template's, unchanged, its machines read the platform's read-only copy of that version - nothing copied, nothing
+    billed as storage; with any line of its code changed, the deployment keeps a copy of its own, billed as storage.
+    Your own weights are an hf:// repo or a volume you uploaded with `seq volume put`
+    (weights=seq.Volume.from_name("my-ckpt")).
+
+
+"""
 
     @staticmethod
     def template(name: str, version: int | str | None = None) -> str:

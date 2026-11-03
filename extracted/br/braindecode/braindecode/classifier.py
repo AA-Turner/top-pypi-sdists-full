@@ -33,7 +33,12 @@ class EEGClassifier(_EEGNeuralNet, NeuralNetClassifier):
 
     cropped: bool (default=False)
         Defines whether torch model passed to this class is cropped or not.
-        Currently used for callbacks definition.
+        Currently used for callbacks definition. For input without window
+        indices (such as numpy arrays), scoring callbacks treat each example
+        as a separate trial and average its temporal predictions. To aggregate
+        multiple windows of the same trial, pass a window dataset retaining
+        its window indices. Cross-validation splits must keep windows from
+        the same trial together.
 
     callbacks: None or list of strings or list of Callback instances (default=None)
         More callbacks, in addition to those returned by
@@ -195,7 +200,7 @@ class EEGClassifier(_EEGNeuralNet, NeuralNetClassifier):
         """
         return self.predict_proba(X).argmax(1)
 
-    def predict_trials(self, X, return_targets=True):
+    def predict_trials(self, X, return_targets=True, *, loader_kwargs=None):
         """Create trialwise predictions from a cropped dataset.
 
         Parameters
@@ -204,20 +209,27 @@ class EEGClassifier(_EEGNeuralNet, NeuralNetClassifier):
             A braindecode dataset to be predicted.
         return_targets : bool
             If True, additionally returns the trial targets.
+        loader_kwargs : dict | None
+            Cropped mode only: DataLoader overrides, see
+            :func:`braindecode.training.iter_trial_predictions`.
 
         Returns
         -------
-        trial_predictions : np.ndarray
+        trial_predictions : np.ndarray | list of np.ndarray
             3-dimensional array (n_trials x n_classes x n_predictions), where
             the number of predictions depend on the chosen window size and the
-            receptive field of the network.
-        trial_targets : np.ndarray
-            Ground-truth targets from the dataset in a 2-dimensional array
-            (n_trials x n_targets). Only returned when ``return_targets=True``.
-            The number of targets depends on the decoding paradigm and can be
-            either a single value, multiple values, or a sequence.
+            receptive field of the network. If trials have different lengths,
+            a list with one (n_classes x n_predictions) array per trial.
+        trial_targets : np.ndarray | list of np.ndarray
+            Ground-truth targets from the dataset. Only returned when
+            ``return_targets=True``. An ``np.ndarray`` with a leading trial
+            dimension: ``(n_trials,)`` for scalar targets, with further
+            dimensions for multi-value or equal-length sequence targets. If
+            trial lengths differ, a list with one target array per trial.
         """
         if not self.cropped:
+            if loader_kwargs is not None:
+                raise ValueError("loader_kwargs requires cropped=True")
             warnings.warn(
                 "This method was designed to predict trials in cropped mode. "
                 "Calling it when cropped is False will give the same result as "
@@ -235,6 +247,7 @@ class EEGClassifier(_EEGNeuralNet, NeuralNetClassifier):
             return_targets=return_targets,
             batch_size=self.batch_size,
             num_workers=self.get_iterator(X, training=False).loader.num_workers,
+            loader_kwargs=loader_kwargs,
         )
 
     @property

@@ -1761,8 +1761,9 @@ def test_network_filters_match_osmnx_way_filters():
     """#369 — the values each network type excludes, as OSMnx's way filters exclude
     them. OSMnx writes its exclusions as unanchored regular expressions, so its "motor"
     stands for the motor/motorway/motorway_link values written out here. The exceptions:
-    the access tags follow OSM's access hierarchy, and driving also excludes busway,
-    ladder and trail."""
+    the access tags follow OSM's access hierarchy, walking and cycling leave the ways
+    built for the other mode to the access rule (which keeps those the mode's tag opens),
+    and driving also excludes busway, ladder and trail."""
     from pyrosm.config.osm_filters import get_osm_filter
 
     lifecycle = {
@@ -1814,7 +1815,7 @@ def test_network_filters_match_osmnx_way_filters():
         },
         "walking": {
             "area": {"yes"},
-            "highway": lifecycle | {"bus_guideway", "cycleway"} | motor,
+            "highway": lifecycle | {"bus_guideway"} | motor,
             "service": {"private"},
             "sidewalk": {"separate"},
             "sidewalk:both": {"separate"},
@@ -1824,7 +1825,7 @@ def test_network_filters_match_osmnx_way_filters():
         "cycling": {
             "area": {"yes"},
             "highway": lifecycle
-            | {"bus_guideway", "corridor", "elevator", "escalator", "footway", "steps"}
+            | {"bus_guideway", "corridor", "elevator", "escalator", "steps"}
             | motor,
             "service": {"private"},
         },
@@ -1836,28 +1837,31 @@ def test_network_filters_match_osmnx_way_filters():
             "service": {"private"},
         },
     }
-    # The access tags each network type reads, from the most specific one.
+    # The access tags each network type reads, from the most specific one, and the
+    # highway values of the ways built for another mode.
     vehicle = ("motorcar", "motor_vehicle", "vehicle", "access")
     access = {
-        "driving": vehicle,
-        "driving+service": vehicle,
-        "walking": ("foot", "access"),
-        "cycling": ("bicycle", "vehicle", "access"),
+        "driving": (vehicle, set()),
+        "driving+service": (vehicle, set()),
+        "walking": (("foot", "access"), {"cycleway"}),
+        "cycling": (("bicycle", "vehicle", "access"), {"footway"}),
         "all": None,
-        "all_public": ("access",),
+        "all_public": (("access",), set()),
     }
 
     for network_type, exclusions in expected.items():
         network_filter = dict(get_osm_filter(network_type))
         rule = network_filter.pop("access", None)
-        assert (rule and rule.keys) == access[network_type], network_type
+        assert (
+            rule and (rule.keys, set(rule.other_mode_highway))
+        ) == access[network_type], network_type
         assert {
             k: set(v) for k, v in network_filter.items()
         } == exclusions, network_type
 
 
 @pytest.mark.parametrize(
-    "network_type, access_tags, kept",
+    "network_type, tags, kept",
     [
         ("walking", {"access": "no"}, False),
         ("walking", {"access": "no", "foot": "yes"}, True),
@@ -1870,20 +1874,32 @@ def test_network_filters_match_osmnx_way_filters():
         ("driving", {"motor_vehicle": "no", "motorcar": "yes"}, True),
         ("driving", {"access": "yes", "motorcar": "no"}, False),
         ("all_public", {"access": "no"}, False),
+        # foot=use_sidepath sends pedestrians to the sidewalk mapped beside the way; the
+        # cycling network keeps bicycle=use_sidepath.
+        ("cycling", {"bicycle": "use_sidepath"}, True),
+        ("walking", {"highway": "cycleway", "foot": "use_sidepath"}, False),
+        # A way built for another mode needs a tag of the mode, which then decides.
+        ("walking", {"highway": "cycleway", "access": "no", "foot": "yes"}, True),
+        ("walking", {"highway": "cycleway", "foot": "no;yes"}, False),
+        ("walking", {"highway": "cycleway", "access": "yes"}, False),
+        ("cycling", {"highway": "footway", "bicycle": "dismount"}, True),
+        ("cycling", {"highway": "footway", "vehicle": "yes"}, False),
     ],
 )
-def test_network_access_follows_the_most_specific_tag(network_type, access_tags, kept):
+def test_network_access_follows_the_most_specific_tag(network_type, tags, kept):
     """The predefined networks follow OSM's access hierarchy: a tag of the network's
     mode overrides the general access tag, the most specific tag present decides, and
-    the way is excluded when it is 'no' or 'private'. access=no used to be kept, so the
+    the way is excluded when it is 'no' or 'private', in the walking network also when it
+    is 'use_sidepath'. access=no used to be kept, so the
     Suomenlinna maintenance tunnel (access=no, no foot tag) joined the island to the
-    mainland in the walking network of Helsinki."""
+    mainland in the walking network of Helsinki. A cycle way is walkable and a foot way
+    cyclable only with a tag of the mode, which the hierarchy then reads."""
     from pyrosm.config import Conf
     from pyrosm.config.osm_filters import get_osm_filter
     from pyrosm.data_filter import element_should_be_kept
     from pyrosm.data_manager import _get_osm_ways_and_relations
 
-    way = {"id": 1, "highway": "residential", "nodes": [1, 2], **access_tags}
+    way = {"id": 1, "highway": "residential", "nodes": [1, 2], **tags}
     network_filter = get_osm_filter(network_type)
     # The way path of the in-memory reader, and the element path of the out-of-core one.
     ways = _get_osm_ways_and_relations(
@@ -1891,6 +1907,176 @@ def test_network_access_follows_the_most_specific_tag(network_type, access_tags,
     )[0]
     assert (ways is not None) == kept
     assert element_should_be_kept(way, ["highway"], network_filter, "exclude") == kept
+
+
+@pytest.mark.parametrize("engine", ["in_memory", "out_of_core"])
+@pytest.mark.parametrize(
+    "lon, lat, walking, cycling",
+    [
+        # Germany: OSM's worldwide defaults
+        (13.40, 52.52, [10, 11, 14, 15, 16, 17, 20], [10, 11, 12, 13, 14, 19, 20]),
+        # Finland: pedestrians may use a cycle way without a foot tag
+        (24.94, 60.17, [10, 11, 13, 14, 15, 16, 17, 18, 20], [10, 11, 12, 13, 14, 19, 20]),
+        # Norway: cyclists may also use a foot way without a bicycle tag
+        (
+            10.75,
+            59.91,
+            [10, 11, 13, 14, 15, 16, 17, 18, 20],
+            [10, 11, 12, 13, 14, 16, 17, 18, 19, 20],
+        ),
+    ],
+    ids=["DE", "FI", "NO"],
+)
+def test_shared_foot_and_cycle_paths_join_walking_and_cycling(
+    engine, lon, lat, walking, cycling, tmp_path
+):
+    """The walking network left out every cycle way and the cycling network every foot
+    way, also the shared foot and cycle paths: in the Helsinki region, about 3,300 km of
+    cycle ways tagged foot=designated or foot=yes were missing from the walking network.
+    A cycle way is walkable and a foot way cyclable when it has a tag of the mode that does
+    not close it; without such a tag, when the default of the way's country lets the mode
+    use it. The driving and 'all' networks are unchanged, and get_graph selects the same
+    ways. shared_paths="tagged" gives OSM's worldwide defaults and shared_paths="all"
+    keeps every such way that no tag closes, in every country. foot=use_sidepath, which
+    sends pedestrians to the sidewalk mapped beside the way, closes the way except with
+    shared_paths="all"; the cycling network keeps bicycle=use_sidepath at every level."""
+    import numpy as np
+
+    from pyrosm import OSM
+    from pyrosm.pbf_export import write_pbf_from_records
+
+    ways = {
+        10: {"highway": "residential"},
+        11: {"highway": "cycleway", "foot": "designated"},
+        12: {"highway": "cycleway", "foot": "no"},
+        13: {"highway": "cycleway"},
+        14: {"highway": "footway", "bicycle": "yes"},
+        15: {"highway": "footway", "bicycle": "no"},
+        16: {"highway": "footway"},
+        17: {"highway": "footway", "vehicle": "yes"},  # no bicycle tag: its country decides
+        18: {"highway": "cycleway;footway"},
+        19: {"highway": "cycleway", "foot": "use_sidepath"},
+        20: {"highway": "residential", "bicycle": "use_sidepath"},
+    }
+    nodes = {
+        "id": np.arange(1, 13, dtype=np.int64),
+        "lon": lon + 0.001 * np.arange(12),
+        "lat": np.full(12, lat),
+        "version": np.ones(12, dtype=np.int64),
+        "timestamp": np.full(12, 1600000000, dtype=np.int64),
+        "changeset": np.zeros(12, dtype=np.int64),
+        "tags": [None] * 12,
+    }
+    records = [
+        {"id": i, "refs": [i - 9, i - 8], "version": 1, "timestamp": 1600000000, "tags": t}
+        for i, t in ways.items()
+    ]
+    path = write_pbf_from_records(
+        nodes, records, [], str(tmp_path / "paths.osm.pbf"), (lon, lat, lon + 0.011, lat)
+    )
+    osm = OSM(path, engine=engine)
+    expected = {
+        "walking": walking,
+        "cycling": cycling,
+        "driving": [10, 20],
+        "all": list(range(10, 21)),
+    }
+    for network_type, ids in expected.items():
+        edges = osm.get_network(network_type=network_type)
+        assert sorted(edges["id"].tolist()) == ids, network_type
+    for network_type in ("walking", "cycling"):
+        # The nodes are those of the kept ways, without those of the ways left out.
+        node_frame, _ = osm.get_network(network_type=network_type, nodes=True)
+        ids = expected[network_type]
+        assert set(node_frame["id"]) == {n for i in ids for n in (i - 9, i - 8)}
+        graph = osm.get_graph(
+            network_type, graph_type="networkx", retain_all=True, simplify=False
+        )
+        osmids = {osmid for *_, osmid in graph.edges(data="osmid")}
+        assert sorted(osmids) == expected[network_type], network_type
+    levels = {
+        "tagged": {
+            "walking": [10, 11, 14, 15, 16, 17, 20],
+            "cycling": [10, 11, 12, 13, 14, 19, 20],
+        },
+        "all": {
+            "walking": [10, 11, 13, 14, 15, 16, 17, 18, 19, 20],
+            "cycling": [10, 11, 12, 13, 14, 16, 17, 18, 19, 20],
+        },
+    }
+    for shared_paths, by_type in levels.items():
+        for network_type, ids in by_type.items():
+            edges = osm.get_network(network_type, shared_paths=shared_paths)
+            assert sorted(edges["id"].tolist()) == ids, (shared_paths, network_type)
+            graph = osm.get_graph(
+                network_type,
+                graph_type="networkx",
+                retain_all=True,
+                shared_paths=shared_paths,
+            )
+            # The simplified graph lists the ways of an edge.
+            osmids = {
+                i
+                for *_, osmid in graph.edges(data="osmid")
+                for i in np.ravel(osmid).tolist()
+            }
+            assert sorted(osmids) == ids, (shared_paths, network_type)
+
+
+@pytest.mark.parametrize("engine", ["in_memory", "out_of_core"])
+@pytest.mark.parametrize(
+    "lon, walking",
+    [(6.85, [10, 11]), (7.62, None)],
+    ids=["NL and DE", "DE only"],
+)
+def test_shared_paths_by_the_country_of_each_way(engine, lon, walking, tmp_path):
+    """In a file whose area spans countries with different defaults (the Netherlands, where
+    pedestrians may use a cycle way without a foot tag, and Germany, where they may not),
+    each such cycle way follows the country of its first node; with only German ones, the
+    walking read finds no edges."""
+    import warnings
+
+    import numpy as np
+
+    from pyrosm import OSM
+    from pyrosm.pbf_export import write_pbf_from_records
+
+    # Way 10 lies at lon, way 11 (a cycle way without a foot tag) too; way 12, the same
+    # kind of cycle way, in Germany.
+    lons = [lon, lon + 0.001, lon + 0.002, 7.62, 7.621]
+    nodes = {
+        "id": np.arange(1, 6, dtype=np.int64),
+        "lon": np.array(lons),
+        "lat": np.array([52.22, 52.22, 52.22, 51.96, 51.96]),
+        "version": np.ones(5, dtype=np.int64),
+        "timestamp": np.full(5, 1600000000, dtype=np.int64),
+        "changeset": np.zeros(5, dtype=np.int64),
+        "tags": [None] * 5,
+    }
+    tags = {10: {"highway": "residential"}, 11: {"highway": "cycleway"}}
+    refs = {10: [1, 2], 11: [2, 3], 12: [4, 5]}
+    # Only the German way has a surface: its column goes with the way.
+    tags[12] = {"highway": "cycleway", "surface": "asphalt"}
+    records = [
+        {"id": i, "refs": refs[i], "version": 1, "timestamp": 1600000000, "tags": tags[i]}
+        for i in (11, 12) + ((10,) if walking else ())
+    ]
+    path = write_pbf_from_records(
+        nodes, records, [], str(tmp_path / "ways.osm.pbf"), (6.8, 51.9, 7.7, 52.3)
+    )
+    osm = OSM(path, engine=engine)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        edges = osm.get_network(network_type="walking")
+    if walking is None:
+        assert edges is None
+        return
+    assert sorted(edges["id"].tolist()) == walking
+    assert "surface" not in edges.columns
+    node_frame, _ = osm.get_network(network_type="walking", nodes=True)
+    assert set(node_frame["id"]) == {1, 2, 3}
+    graph = osm.get_graph("walking", graph_type="networkx", retain_all=True, simplify=False)
+    assert {osmid for *_, osmid in graph.edges(data="osmid")} == set(walking)
 
 
 @pytest.mark.parametrize("kernel", ["cython", "reference"])
@@ -2414,6 +2600,30 @@ def test_network_read_with_custom_filter_refuses_unknown_network_type(engine):
     osm = OSM(get_data("test_pbf"), engine=engine, workers=1)
     with pytest.raises(ValueError, match="should be one of"):
         osm.get_network("drivng", custom_filter={"highway": ["primary"]})
+
+
+@pytest.mark.parametrize("engine", ["in_memory", "out_of_core"])
+@pytest.mark.parametrize(
+    "kwargs, message",
+    [
+        ({"shared_paths": "some"}, "'shared_paths' should be one of"),
+        ({"network_type": "driving", "shared_paths": "all"}, "apply only to"),
+        (
+            {"custom_filter": {"highway": ["cycleway"]}, "shared_paths": "tagged"},
+            "apply only to",
+        ),
+    ],
+    ids=["unknown level", "driving", "custom filter"],
+)
+def test_network_read_refuses_an_unusable_shared_paths(engine, kwargs, message):
+    """shared_paths takes one of its three levels, and 'tagged' and 'all' only for the
+    walking and cycling networks read without a custom_filter, the networks with ways
+    built for the other mode, with either engine."""
+    from pyrosm import OSM, get_data
+
+    osm = OSM(get_data("test_pbf"), engine=engine, workers=1)
+    with pytest.raises(ValueError, match=message):
+        osm.get_network(**kwargs)
 
 
 @pytest.mark.parametrize("nodes", [False, True])
@@ -5990,3 +6200,145 @@ def test_reading_does_not_import_the_graph_libraries(tmp_path):
         env=dict(os.environ, MPLCONFIGDIR=str(tmp_path)),
     )
     assert result.returncode == 0, result.stderr[-800:]
+
+
+_ALONG = "of the area. This part lies along the edge of the area."
+_SPREAD = "of the area. This part is spread across the area."
+
+
+@pytest.mark.parametrize(
+    "call, layout, left_out",
+    [
+        ("get_data_by_area", "strip", "230 km² (0.08 %) " + _ALONG),
+        ("get_data_by_bbox", "strip", "230 km² (0.08 %) " + _ALONG),
+        ("get_data_by_geocoding", "holes", "110 km² (0.04 %) " + _SPREAD),
+        ("get_data_by_area", "island", "140 km² (0.047 %) " + _SPREAD),
+    ],
+)
+def test_left_out_part_warning_is_readable_and_points_at_the_call(
+    tmp_path, monkeypatch, call, layout, left_out
+):
+    """#832 — the warning about the part of the area that the chosen extract leaves
+    out prints plain numbers (it printed ``1.5e+02 km²``). For a part along the whole
+    edge it says so, and for holes in the extract or a whole island left out it says
+    that the part is spread across the area, instead of giving the area's own bounds as
+    where the part lies. It points at the user's call, not at pyrosm's code."""
+    import warnings
+
+    from shapely.geometry import MultiPolygon, Polygon, box
+
+    import pyrosm
+    from pyrosm.data import extract_index as ei
+    from pyrosm.data import geocoding
+
+    area = box(20.0, 60.0, 30.0, 65.0)
+    if layout == "strip":
+        # A strip of about 100 m along every side of the area lies outside the extract.
+        outline = box(20.002, 60.001, 29.998, 64.999)
+    elif layout == "holes":
+        # Two small holes in the extract, at opposite corners inside the area.
+        corners = [box(20.5, 60.5, 20.6, 60.6), box(29.4, 64.4, 29.5, 64.5)]
+        outline = Polygon(box(19, 59, 31, 66).exterior, [c.exterior for c in corners])
+    else:
+        # A strip along the north and east sides lies outside the extract, and so does
+        # a small island that touches the area in a point, where the strip's inner
+        # side meets the west side.
+        island = Polygon([(20.0, 64.999), (19.9, 64.95), (19.9, 65.05)])
+        area = MultiPolygon([area, island])
+        outline = box(20.0, 60.0, 29.998, 64.999)
+    extract = ei._candidate_frame(
+        "BBBike", ["x"], ["x"], ["https://BBBike/x"], [40_000_000], [outline]
+    )
+    monkeypatch.setattr(ei, "_bbbike_extracts", lambda *a, **k: extract)
+    monkeypatch.setattr(ei, "_geofabrik_extracts", lambda *a, **k: extract[:0])
+    monkeypatch.setattr(ei, "_movisda_extracts", lambda *a, **k: extract[:0])
+    monkeypatch.setattr(
+        "pyrosm.utils.download.download", lambda *a, **k: pyrosm.get_data("test_pbf")
+    )
+    monkeypatch.setattr(geocoding, "geocode", lambda query, **k: area)
+    queries = {"get_data_by_bbox": area.bounds, "get_data_by_geocoding": "X"}
+    query = queries.get(call, area)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        line = sys._getframe().f_lineno + 1
+        getattr(pyrosm, call)(query, crop=False, directory=tmp_path)
+    [warning] = [w for w in caught if "leaves out" in str(w.message)]
+    assert str(warning.message) == "BBBike x leaves out " + left_out
+    assert (warning.filename, warning.lineno) == (__file__, line)
+
+
+def test_a_piece_borders_a_line_along_it_not_at_its_end():
+    """#832 — a piece left out of the area borders a line on its boundary only along the
+    line, also a line of 1 µm, not where it only touches the line's end: a whole island
+    that touches another piece's seam in a point does not lie along the edge."""
+    from shapely.geometry import LineString, Polygon, box
+
+    from pyrosm.data import extract_index as ei
+
+    sliver = box(0.0, 0.0, 1e-6, 1.0)
+    island = Polygon([(1e-6, 1.0), (1.0, 2.0), (-1.0, 2.0)])  # touches the seam's end
+    seam = LineString([(1e-6, 1.0 - 1e-6), (1e-6, 1.0)])  # 1 µm on the sliver's side
+    assert ei._pieces_bordering([sliver, island], seam).tolist() == [True, False]
+
+
+def test_widget_bar_ends_at_100_percent(monkeypatch):
+    """In Jupyter, a crop's bar, cleared at its end in a terminal, ends drawn at 100 % with
+    the "success" style, also when its last report comes within tqdm's ``mininterval`` of
+    the redraw before; it ended at that redraw's 93 %, with no style (#833)."""
+    pytest.importorskip("ipywidgets")
+    from tqdm import notebook
+
+    from pyrosm.utils import progress
+
+    monkeypatch.setattr(progress, "_bar_class", lambda: (notebook.tqdm, False))
+    with progress.stepping(True, "Cropping x.osm.pbf", leave=False, timed=True) as steps:
+        advance = steps.start_step("writing the file")
+        advance(93, 100)
+        steps.report.bar.refresh()  # the last redraw, as every second while open
+        advance(100, 100)
+    label, bar, _ = steps.report.bar.container.children
+    assert label.value.endswith("100%")
+    assert (bar.value, bar.bar_style) == (100, "success")
+    assert steps.report.bar.container.layout.visibility != "hidden"
+
+
+@pytest.mark.parametrize("call", ["find_extracts", "to_pbf"])
+def test_warnings_point_at_the_callers_line(tmp_path, monkeypatch, call):
+    """The extract search's warnings for an index or a size it cannot fetch, and the
+    warning for a crop that holds no node, named a line in pyrosm's own code. They point at
+    the caller's line, as pyrosm's other warnings do (#851)."""
+    import warnings
+    from urllib.error import URLError
+
+    from shapely.geometry import box
+
+    import pyrosm
+    from pyrosm.utils import download
+
+    def offline(*args, **kwargs):
+        raise URLError("down")
+
+    monkeypatch.setattr(download, "open_url", offline)
+    area = box(24.9, 60.15, 24.95, 60.2)
+    osm = pyrosm.OSM(pyrosm.get_data("test_pbf"), bounding_box=[0, 0, 0.1, 0.1])
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        if call == "find_extracts":
+            line = sys._getframe().f_lineno + 1
+            pyrosm.find_extracts(area, update=True, directory=tmp_path, progress=False)
+        else:
+            line = sys._getframe().f_lineno + 1
+            osm.to_pbf(tmp_path / "empty.osm.pbf")
+    messages = [str(w.message) for w in caught]
+    expected = {
+        "find_extracts": [
+            "Geofabrik's index is unavailable",
+            "BBBike's list of cities is unavailable",
+            "Movisda's administrative index is unavailable",
+            "Movisda's grid index is unavailable",
+            "Could not get the size of",
+        ],
+        "to_pbf": ["No node of test.osm.pbf lies in the area"],
+    }[call]
+    assert all(any(m.startswith(e) for m in messages) for e in expected)
+    assert all((w.filename, w.lineno) == (__file__, line) for w in caught)

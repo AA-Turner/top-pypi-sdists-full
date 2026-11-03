@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: etils
-Version: 1.14.0
+Version: 1.15.0
 Summary: Collection of common python utils
 Keywords: utils,jax,tensorflow,tf,machine learning,deep learning
 Author-email: Conchylicultor <etils@google.com>
@@ -60,7 +60,7 @@ Requires-Dist: fsspec ; extra == "epath"
 Requires-Dist: typing_extensions ; extra == "epath"
 Requires-Dist: zipp ; extra == "epath"
 Requires-Dist: etils[epy] ; extra == "epath"
-Requires-Dist: gcsfs ; extra == "epath-gcs"
+Requires-Dist: gcsfs>=2026.4.0 ; extra == "epath-gcs"
 Requires-Dist: etils[epath] ; extra == "epath-gcs"
 Requires-Dist: s3fs ; extra == "epath-s3"
 Requires-Dist: etils[epath] ; extra == "epath-s3"

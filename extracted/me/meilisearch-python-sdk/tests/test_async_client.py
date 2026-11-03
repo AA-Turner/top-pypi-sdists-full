@@ -9,16 +9,21 @@ from uuid import uuid4
 import pytest
 from camel_converter.pydantic_base import CamelBase
 from httpx2 import AsyncClient as HttpxAsyncClient
-from httpx2 import ConnectError, ConnectTimeout, RemoteProtocolError, Request, Response
+from httpx2 import (
+    ConnectError,
+    ConnectTimeout,
+    ReadTimeout,
+    RemoteProtocolError,
+    Request,
+    Response,
+)
 
 from meilisearch_python_sdk import AsyncClient
 from meilisearch_python_sdk._task import (
     async_get_task,
 )
-from meilisearch_python_sdk._utils import decode_jwt
 from meilisearch_python_sdk.errors import (
     BatchNotFoundError,
-    InvalidRestriction,
     MeilisearchApiError,
     MeilisearchCommunicationError,
     MeilisearchTaskFailedError,
@@ -30,6 +35,7 @@ from meilisearch_python_sdk.models.index import IndexInfo
 from meilisearch_python_sdk.models.version import Version
 from meilisearch_python_sdk.models.webhook import WebhookCreate, WebhookUpdate
 from meilisearch_python_sdk.types import JsonDict
+from tests.conftest import decode_jwt
 
 
 @pytest.fixture
@@ -242,16 +248,6 @@ async def test_generate_tenant_token_default_key_expires_past(async_client, defa
 
 
 @pytest.mark.no_parallel
-async def test_generate_tenant_token_invalid_restriction(test_key_info, async_client):
-    test_key_info.indexes = ["good"]
-    key = await async_client.create_key(test_key_info)
-    payload = {"indexes": ["bad"]}
-
-    with pytest.raises(InvalidRestriction):
-        async_client.generate_tenant_token(payload, api_key=key)
-
-
-@pytest.mark.no_parallel
 async def test_get_indexes(async_client, async_indexes_sample):
     _, index_uid, index_uid2 = async_indexes_sample
     response = await async_client.get_indexes()
@@ -411,6 +407,12 @@ async def test_get_raw_index_none(async_client):
     response = await async_client.get_raw_index("test")
 
     assert response is None
+
+
+async def test_get_raw_index_bad_key(base_url, ssl_verify):
+    async with AsyncClient(base_url, "bad", verify=ssl_verify) as client:
+        with pytest.raises(MeilisearchApiError):
+            await client.get_raw_index("test")
 
 
 @pytest.mark.no_parallel
@@ -588,6 +590,15 @@ async def test_remote_protocol_error(async_client, monkeypatch):
 async def test_connection_timeout(async_client, monkeypatch):
     def mock_error(*args, **kwargs):
         raise ConnectTimeout("error")
+
+    monkeypatch.setattr(HttpxAsyncClient, "post", mock_error)
+    with pytest.raises(MeilisearchCommunicationError):
+        await async_client.create_index("some_index")
+
+
+async def test_read_timeout(async_client, monkeypatch):
+    def mock_error(*args, **kwargs):
+        raise ReadTimeout("error")
 
     monkeypatch.setattr(HttpxAsyncClient, "post", mock_error)
     with pytest.raises(MeilisearchCommunicationError):
@@ -1059,6 +1070,25 @@ async def test_get_tasks_date_filters(async_client, async_empty_index, small_mov
 
 
 @pytest.mark.no_parallel
+async def test_get_tasks_date_filters_timezone_aware(async_client, async_empty_index, small_movies):
+    index = await async_empty_index()
+    response = await index.add_documents(small_movies)
+    task = await async_client.wait_for_task(response.task_uid)
+    before = task.enqueued_at - timedelta(seconds=1)
+    after = task.finished_at + timedelta(seconds=1)
+
+    assert before.tzinfo is not None
+
+    after_hit = await async_client.get_tasks(uids=[task.uid], after_enqueued_at=before)
+    before_hit = await async_client.get_tasks(uids=[task.uid], before_finished_at=after)
+    after_miss = await async_client.get_tasks(uids=[task.uid], after_enqueued_at=after)
+
+    assert [x.uid for x in after_hit.results] == [task.uid]
+    assert [x.uid for x in before_hit.results] == [task.uid]
+    assert after_miss.results == []
+
+
+@pytest.mark.no_parallel
 async def test_get_task(async_client, async_empty_index, small_movies):
     index = await async_empty_index()
     response = await index.add_documents(small_movies)
@@ -1190,6 +1220,16 @@ async def test_get_batches_with_params(async_client, async_empty_index, small_mo
     await asyncio.gather(*waits)
 
     result = await async_client.get_batches(uids=[task.task_uid for task in tasks])
+    assert len(result.results) > 0
+
+
+async def test_get_batches_naive_date_filter(async_client, async_empty_index, small_movies):
+    index = await async_empty_index()
+    response = await index.add_documents(small_movies)
+    await async_client.wait_for_task(response.task_uid)
+    before = datetime.now(tz=UTC).replace(tzinfo=None) - timedelta(hours=1)
+
+    result = await async_client.get_batches(after_enqueued_at=before)
     assert len(result.results) > 0
 
 

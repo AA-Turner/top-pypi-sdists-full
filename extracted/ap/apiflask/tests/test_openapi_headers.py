@@ -1,13 +1,10 @@
 import openapi_spec_validator as osv
 import pytest
 
-from .schemas import Foo
-from .schemas import ResponseHeader
-from apiflask.fields import Boolean
-from apiflask.fields import Integer
-from apiflask.fields import List
-from apiflask.fields import Number
-from apiflask.fields import String
+from apiflask import Schema
+from apiflask.fields import Boolean, Integer, List, Number, String
+
+from .schemas import Foo, ResponseHeader
 
 
 def test_spec_with_dict_headers(app, client):
@@ -95,3 +92,31 @@ def test_spec_validity_with_headers(app, client, openapi_version):
     rv = client.get('/openapi.json')
     assert rv.status_code == 200
     osv.validate(rv.json)
+
+
+@pytest.mark.parametrize('openapi_version', ['3.0.0', '3.1.0'])
+def test_nullable_header_field_with_openapi_version(app, client, openapi_version):
+    app.config['OPENAPI_VERSION'] = openapi_version
+
+    class NullableHeaderField(Schema):
+        x_nullable_header = String(data_key='X-Nullable-Header', allow_none=True)
+
+    @app.get('/foo')
+    @app.output(Foo, headers=NullableHeaderField)
+    def foo():
+        pass
+
+    rv = client.get('/openapi.json')
+    assert rv.status_code == 200
+    osv.validate(rv.json)
+    expected = (
+        {'nullable': True, 'type': 'string'}
+        if openapi_version == '3.0.0'
+        else {'type': ['string', 'null']}
+    )
+    assert (
+        rv.json['paths']['/foo']['get']['responses']['200']['headers']['X-Nullable-Header'][
+            'schema'
+        ]
+        == expected
+    )

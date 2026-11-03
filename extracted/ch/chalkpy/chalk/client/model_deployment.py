@@ -7,7 +7,7 @@ import math
 import random
 import time
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Tuple, cast
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Tuple, Union, cast
 
 import grpc
 
@@ -35,6 +35,8 @@ from chalk.scalinggroup.spec import (
 from chalk.utils.collections import FrozenOrderedSet
 
 if TYPE_CHECKING:
+    from chalkcompute import RetryPolicy  # pyright: ignore[reportMissingImports]
+
     from chalk._gen.chalk.container.v1 import service_pb2 as container_pb
     from chalk.client.client_grpc import ChalkGRPCClient
 
@@ -180,6 +182,8 @@ class ModelDeployment:
     execution_target: Optional[ExecutionBackend] = None
     """The selected revision's cluster placement, or ``None`` when unspecified."""
 
+    _call_retries: Optional[RetryPolicy] = dataclasses.field(default=None, repr=False, compare=False)
+    _retry_policy: Optional[Mapping[str, Any]] = dataclasses.field(default=None, repr=False, compare=False)
     _client: Any = dataclasses.field(default=None, repr=False, compare=False)
 
     _queue_name: str = dataclasses.field(default="", repr=False, compare=False)
@@ -192,6 +196,26 @@ class ModelDeployment:
     """The version actually served, once a re-read found the deployment moved past ``model_version``."""
     _live_model_name: Optional[str] = dataclasses.field(default=None, repr=False, compare=False)
     """The current registry name after a re-read follows a model rename."""
+
+    def with_options(self, *, retries: Optional[Union[int, RetryPolicy]] = None) -> "ModelDeployment":
+        """Return a scoped handle overriding retries for ``remote()`` and ``defer()``.
+
+        Accepts an integer retry count or ``chalkcompute.RetryPolicy``. Counts
+        exclude the initial attempt; zero disables retries and ``None`` inherits
+        the deployed policy. Queue calls currently honor only the retry count.
+        """
+        if retries is not None:
+            from chalkcompute import RetryPolicy  # pyright: ignore[reportMissingImports]
+
+            policy = RetryPolicy.from_int_or_policy(retries)
+            policy.validate_execution()
+            return dataclasses.replace(self, _call_retries=policy)
+        return dataclasses.replace(self, _call_retries=None)
+
+    def _effective_retry_policy(self) -> Optional[Mapping[str, Any]]:
+        if self._call_retries is not None:
+            return self._call_retries.to_dict()
+        return self._retry_policy
 
     @property
     def min_replicas(self) -> int:
@@ -261,8 +285,10 @@ class ModelDeployment:
             # Resolve before binding: the deployment may now serve a version with other inputs.
             web_url = self._resolve_web_url()
         inputs = self._bind(args, kwargs)
+        policy = self._effective_retry_policy()
+        options: dict[str, Any] = {} if policy is None else {"retry_policy": policy}
         try:
-            batch = call_model_url(client, web_url, inputs)
+            batch = call_model_url(client, web_url, inputs, **options)
         except Exception as e:
             # A connection failure can mean routing moved; re-read the URL and retry once.
             if not is_stale_route_error(e):
@@ -270,7 +296,9 @@ class ModelDeployment:
             fresh_url, inputs = self._resolve_and_rebind(args, kwargs, inputs)
             if fresh_url == web_url:
                 raise
-            batch = call_model_url(client, fresh_url, inputs)
+            policy = self._effective_retry_policy()
+            options = {} if policy is None else {"retry_policy": policy}
+            batch = call_model_url(client, fresh_url, inputs, **options)
         return batch.column(0).to_pylist()[0]
 
     def _resolve_and_rebind(
@@ -313,6 +341,7 @@ class ModelDeployment:
             object.__setattr__(self, "_live_model_version", fresh.model_version)
         object.__setattr__(self, "_live_web_url", fresh.web_url)
         object.__setattr__(self, "_live_model_name", fresh.model_name)
+        object.__setattr__(self, "_retry_policy", fresh._retry_policy)
         return fresh.web_url
 
     def defer(self, *args: Any, **kwargs: Any) -> ModelCallHandle:
@@ -329,7 +358,8 @@ class ModelDeployment:
         inputs = self._bind(args, kwargs)
         get_queue_client = self._bound_client()._get_queue_client
         queue_name = self._queue_name or self.model_name
-        call_id, _ = enqueue_model_call(get_queue_client(), queue_name, inputs)
+        options = {} if self._call_retries is None else {"max_retries": self._call_retries.max_retries}
+        call_id, _ = enqueue_model_call(get_queue_client(), queue_name, inputs, **options)
         return ModelCallHandle(get_queue_client, queue_name, call_id)
 
     def refresh(self) -> "ModelDeployment":
@@ -528,6 +558,19 @@ def _model_name_by_id(
     return name
 
 
+def _retry_policy_from_spec(spec: Any) -> Optional[Mapping[str, Any]]:
+    if not spec.HasField("retry_policy"):
+        return None
+    policy = spec.retry_policy
+    return {
+        "max_retries": policy.max_retries,
+        "initial_wait_seconds": policy.initial_backoff_ms / 1000 if policy.HasField("initial_backoff_ms") else 1.0,
+        "backoff_multiplier": policy.backoff_multiplier if policy.HasField("backoff_multiplier") else 2.0,
+        "max_wait_seconds": policy.max_backoff_ms / 1000 if policy.HasField("max_backoff_ms") else 60.0,
+        "jitter": policy.jitter if policy.HasField("jitter") else True,
+    }
+
+
 def model_deployment_from_proto(
     pb: Any,
     client: Optional["ChalkGRPCClient"] = None,
@@ -576,6 +619,11 @@ def model_deployment_from_proto(
         available_replicas=source.available_replicas,
         model_id=model_id,
         _client=client,
+        _retry_policy=(
+            _retry_policy_from_spec(current_revision.spec)
+            if current_revision is not None and current_revision.id
+            else None
+        ),
         _queue_name=(record.queue_name if record is not None else "") or model_deployment_queue_name(pb, model_name),
     )
 

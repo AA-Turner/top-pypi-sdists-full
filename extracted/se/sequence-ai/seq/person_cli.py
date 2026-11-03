@@ -75,43 +75,55 @@ def account_set(*, name: Any = _UNSET, email: Any = _UNSET, photo: Any = _UNSET,
     counts toward it: a number of GB, or a size such as "500GB" or "2TB", with no ceiling of the platform's - storage is
     billed by the GB - or "plan" / None for the plan's own; in force at once). Returns you as the platform then has
     you."""
+    from sequence_ai.errors import InvalidRequest
+
     from seq import storage_note
 
-    limit = storage_note.parse_size(storage_limit) if storage_limit is not _UNSET else _UNSET
-    sent = False
+
+
+    if all(v is _UNSET for v in (name, email, photo, time_zone, clock, storage_limit)):
+        raise InvalidRequest("nothing to change: --name, --email, --photo, --time-zone, --clock or --storage-limit")
+    try:
+        limit = storage_note.parse_size(storage_limit) if storage_limit is not _UNSET else _UNSET
+    except ValueError as exc:
+        raise InvalidRequest(str(exc)) from None
+    removed = photo is not _UNSET and (photo is None or str(photo).lower() == "none")
+    upload = _photo(photo) if photo is not _UNSET and not removed else None
     profile = {k: v for k, v in (("name", name), ("time_zone", time_zone), ("clock", clock)) if v is not _UNSET}
     if profile:
         if profile.get("time_zone") == "local":
             profile["time_zone"] = None
         _call("PATCH", "/v1/account/profile", base_url, profile, person=True)
-        sent = True
     if email is not _UNSET:
         out = _call("POST", "/v1/account/email", base_url, {"email": email}, person=True) or {}
         _say(echo, f"a link went to your old address and one to {out.get('email') or email}: the change is made once "
                    "both are opened")
-        sent = True
-    if photo is not _UNSET:
-        if photo is None or str(photo).lower() == "none":
-            _call("DELETE", "/v1/account/photo", base_url, person=True)
-            _say(echo, "photo removed")
-        else:
-            path = pathlib.Path(photo).expanduser()
-            kind = PHOTO_TYPES.get(path.suffix.lower())
-            if kind is None:
-                raise ValueError(f"{path.name}: a photo is a .png, .jpg or .webp file")
-            _call("PUT", "/v1/account/photo", base_url, person=True, upload=(path.read_bytes(), kind))
-            _say(echo, "photo set")
-        sent = True
+    if removed:
+        _call("DELETE", "/v1/account/photo", base_url, person=True)
+        _say(echo, "photo removed")
+    elif upload is not None:
+        _call("PUT", "/v1/account/photo", base_url, person=True, upload=upload)
+        _say(echo, "photo set")
     if limit is not _UNSET:
         st = _call("PUT", "/v1/account/storage-limit", base_url, {"limit_bytes": limit}, person=True) or {}
         _say(echo, storage_line(st))
         said = storage_note.note(st)
         if said:
             _say(echo, said)
-        sent = True
-    if not sent:
-        raise ValueError("nothing to change: --name, --email, --photo, --time-zone, --clock or --storage-limit")
     return account_person(base_url=base_url, echo=echo)
+
+
+def _photo(photo: Any) -> tuple[bytes, str]:
+    """A photo file's bytes and type; InvalidRequest for one that is not a PNG, JPEG or WebP file on this machine."""
+    from sequence_ai.errors import InvalidRequest
+
+    path = pathlib.Path(photo).expanduser()
+    kind = PHOTO_TYPES.get(path.suffix.lower())
+    if kind is None:
+        raise InvalidRequest(f"{path.name}: a photo is a .png, .jpg or .webp file")
+    if not path.is_file():
+        raise InvalidRequest(f"{path}: no such file")
+    return path.read_bytes(), kind
 
 
 def storage_line(st: dict) -> str:
@@ -123,10 +135,20 @@ def storage_line(st: dict) -> str:
             f"{deps_cost.size(st.get('used_bytes'))} stored")
 
 
-def account_delete(confirm: str, *, base_url: str | None = None, echo: Echo = None) -> dict:
-    """Delete the account, as the Account page does: `confirm` is its id as `seq account` shows it. The platform's own
-    rules decide - an account that still holds money or runs anything is refused, in its words. Nothing of it comes
-    back."""
-    out = _call("DELETE", "/v1/account", base_url, {"confirm": confirm}, person=True) or {}
-    _say(echo, f"account {out.get('deleted') or confirm} deleted")
-    return out
+def account_delete(*, base_url: str | None = None, echo: Echo = None, opener: Any = None) -> dict:
+    """Delete the account - on the console's Account page, where you confirm it: the page said and opened in your
+    browser, and nothing deleted from here. Before: `seq account delete --confirm ID` deleted it from the terminal.
+    
+"""
+    from seq.billing_cli import _open
+    from seq.login_cli import _base
+    from sequence_ai._core import login as signin
+    from sequence_ai.errors import InvalidRequest
+
+    root = signin.console(_base(base_url))
+    if root is None:
+        raise InvalidRequest("this platform's console is not known on this machine: sign in (seq login), then run "
+                             "seq account delete again")
+    _say(echo, "the account is deleted on the console's Account page, where you confirm it:")
+    _open(root + "account/", echo, opener)
+    return {"url": root + "account/"}

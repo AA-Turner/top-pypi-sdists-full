@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
-import math
 import shlex
 import time
 from collections import deque
@@ -14,12 +12,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from plato.agents import vm_setup
-from plato.rpc.client.connection import AgentDaemonClient
-from plato.rpc.client.fallback import rpc_or_ssh
-from plato.rpc.client.manager import close_agent_client, get_agent_client, get_host_state
-from plato.rpc.client.stubs import HealthStub, PoolStub
-from plato.rpc.errors import AgentRpcError
-from plato.rpc.protocol import CAP_HEALTH_REPORT, CAP_POOL_RECLAIM, CAP_POOL_RESET
 from plato.runtimes.base import Runtime, RuntimeInfo
 from plato.runtimes.vm import VMRuntime
 
@@ -29,93 +21,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _ACQUIRE_PROVISION_ATTEMPT_LIMIT = 3
 _PROVISION_VM_ATTEMPT_LIMIT = 3
-# How long a budget acquirer waits before re-scanning sibling pools for an
-# evictable idle VM. Bounded polling avoids a lost-wakeup deadlock when an idle
-# VM appears between a failed eviction scan and the condition wait.
-_BUDGET_WAIT_RETRY_S = 1.0
-# Bound on the best-effort pre-release workspace flush (dead NFS server).
-_FLUSH_TIMEOUT_S = 30
-# Slack added on top of attempts*timeout for the aggregate ceilings below —
-# covers one daemon re-bootstrap (scp + ssh + readiness poll) per cycle.
-_LIFECYCLE_BUDGET_SLACK_S = 120.0
-
-
-class AgentVMBudget:
-    """Session-wide cap on LIVE agent VMs across every warm pool of a world.
-
-    ``WarmPool.max_size`` bounds each pool individually, but a world that fans
-    out through several pools (one :class:`AgentExecutionManager` per
-    agent-config/primary-mount shape) can retain idle VMs in one pool while
-    another provisions — the SUM of live VMs can then blow past the session's
-    ~40-env limit even though each pool respects its own ``max_parallel``.
-
-    Pools constructed with a shared budget acquire one token per provisioned VM
-    and release it when the VM is destroyed. When the budget is exhausted, an
-    acquirer evicts the least-recently-used IDLE VM from any registered pool
-    (destroying it frees its token) instead of over-provisioning; if no VM is
-    idle it waits for one to be released.
-    """
-
-    def __init__(self, max_vms: int) -> None:
-        if max_vms < 1:
-            raise ValueError("max_vms must be at least 1")
-        self.max_vms = max_vms
-        self._live = 0
-        self._condition = asyncio.Condition()
-        self._pools: list[WarmPool] = []
-
-    @property
-    def live(self) -> int:
-        """Number of live (idle + in-use + stopping) VMs holding a token."""
-        return self._live
-
-    def register_pool(self, pool: WarmPool) -> None:
-        """Track a pool so its idle VMs are candidates for cross-pool eviction."""
-        if pool not in self._pools:
-            self._pools.append(pool)
-
-    async def acquire(self) -> None:
-        """Reserve one live-VM slot, evicting an idle sibling VM when full."""
-        while True:
-            async with self._condition:
-                if self._live < self.max_vms:
-                    self._live += 1
-                    return
-            if await self._evict_lru_idle_vm():
-                continue
-            async with self._condition:
-                if self._live < self.max_vms:
-                    continue
-                # Bounded wait: notify_idle()/release() wake us early, the
-                # timeout guards against wakeups lost between the eviction
-                # scan above and this wait.
-                with contextlib.suppress(TimeoutError):
-                    await asyncio.wait_for(self._condition.wait(), timeout=_BUDGET_WAIT_RETRY_S)
-
-    async def release(self) -> None:
-        """Return one live-VM slot (called when a VM is destroyed)."""
-        async with self._condition:
-            if self._live > 0:
-                self._live -= 1
-            self._condition.notify_all()
-
-    async def notify_idle(self) -> None:
-        """Wake budget waiters so they can retry idle-VM eviction."""
-        async with self._condition:
-            self._condition.notify_all()
-
-    async def _evict_lru_idle_vm(self) -> bool:
-        """Destroy the least-recently-used idle VM across all pools, if any."""
-        best_pool: WarmPool | None = None
-        best_last_used = math.inf
-        for pool in self._pools:
-            last_used = pool.oldest_idle_last_used()
-            if last_used is not None and last_used < best_last_used:
-                best_last_used = last_used
-                best_pool = pool
-        if best_pool is None:
-            return False
-        return await best_pool.evict_oldest_idle_vm()
 
 
 @dataclass(slots=True)
@@ -130,8 +35,6 @@ class PooledVM:
     last_used_at: float
     use_count: int
     healthy: bool = True
-    # True while this VM holds a token in the pool's shared AgentVMBudget.
-    holds_budget_token: bool = False
 
 
 class WarmPool:
@@ -154,14 +57,9 @@ class WarmPool:
         health_check_attempts: int = 3,
         reset_attempts: int = 3,
         vm_timeout: int | None = None,
-        vm_budget: AgentVMBudget | None = None,
-        alias_prefix: str = "warm-pool",
-        idle_timeout: float | None = None,
     ) -> None:
         if max_size < 1:
             raise ValueError("max_size must be at least 1")
-        if idle_timeout is not None and idle_timeout <= 0:
-            raise ValueError("idle_timeout must be positive")
         if pre_warm < 0:
             raise ValueError("pre_warm must be non-negative")
         if health_check_attempts < 1:
@@ -171,7 +69,6 @@ class WarmPool:
 
         self._runtime_factory = runtime_factory
         self._image = image
-        self._alias_prefix = alias_prefix
         self.max_size = max_size
         self._pre_warm_target = min(pre_warm, max_size)
         self.health_check_timeout = health_check_timeout
@@ -179,12 +76,6 @@ class WarmPool:
         self.health_check_attempts = health_check_attempts
         self.reset_attempts = reset_attempts
         self._vm_timeout = vm_timeout
-        # Seconds a released VM may sit in the pool before it is destroyed.
-        # None keeps idle VMs until shutdown or budget eviction.
-        self._idle_timeout = idle_timeout
-        self._vm_budget = vm_budget
-        if vm_budget is not None:
-            vm_budget.register_pool(self)
 
         self._available: deque[PooledVM] = deque()
         self._in_use: dict[str, PooledVM] = {}
@@ -194,13 +85,6 @@ class WarmPool:
         self._closed = False
         self._replenish_task: asyncio.Task[None] | None = None
         self._replenish_requests = 0
-        self._reaper_task: asyncio.Task[None] | None = None
-        # Set by _schedule_idle_reap() so a running reaper re-checks the pool
-        # (a VM released mid-destroy or mid-wait must get its own timeout).
-        self._reap_wake = asyncio.Event()
-        # The reaper's in-flight destroy batch; shutdown() awaits it so it
-        # never returns while reaped VMs are still being stopped.
-        self._reap_destroying: asyncio.Future[list[None | BaseException]] | None = None
 
     def _make_runtime(self) -> Runtime:
         """Create a fresh runtime for one agent environment."""
@@ -251,10 +135,6 @@ class WarmPool:
         """Return a VM to the pool or destroy it if reset/health-check fails."""
         await self._mark_not_in_use(pooled_vm.alias)
 
-        # Flush outstanding NFS write-back BEFORE any teardown path — both the
-        # reset (lazy umount) and destroy paths otherwise drop dirty pages.
-        await self._flush_workspace_writes(pooled_vm, workspace_paths)
-
         if destroy or not pooled_vm.healthy or self._closed:
             await self._destroy_vm(pooled_vm)
             self._schedule_replenish()
@@ -292,11 +172,6 @@ class WarmPool:
 
         if destroy_now:
             await self._destroy_vm(pooled_vm)
-            return
-        self._schedule_idle_reap()
-        if self._vm_budget is not None:
-            # An idle VM just became evictable — wake budget waiters.
-            await self._vm_budget.notify_idle()
 
     async def pre_warm(self) -> None:
         """Provision the configured number of warm VMs ahead of time."""
@@ -312,17 +187,7 @@ class WarmPool:
         if needed <= 0:
             return
 
-        # Task-based (not bare gather) so cancellation of pre_warm itself can
-        # still harvest completed children: a cancelled gather abandons
-        # already-provisioned VMs (alive, holding budget tokens, unregistered)
-        # and skips the _provisioning decrement — permanently deflating pool
-        # capacity and deadlocking acquirers waiting on the condition.
-        tasks = [asyncio.create_task(self._provision_vm_budgeted()) for _ in range(needed)]
-        try:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-        except BaseException:
-            await asyncio.shield(self._abort_pre_warm(tasks, needed))
-            raise
+        results = await asyncio.gather(*(self._provision_vm() for _ in range(needed)), return_exceptions=True)
 
         provisioned: list[PooledVM] = []
         failures = 0
@@ -343,21 +208,6 @@ class WarmPool:
 
         if self._closed:
             await asyncio.gather(*(self._destroy_vm(vm) for vm in provisioned), return_exceptions=True)
-        else:
-            self._schedule_idle_reap()
-
-    async def _abort_pre_warm(self, tasks: list[asyncio.Task], needed: int) -> None:
-        """Cancelled mid-pre-warm: return slots, destroy harvested VMs."""
-        for task in tasks:
-            if not task.done():
-                task.cancel()
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        async with self._condition:
-            self._provisioning -= needed
-            self._condition.notify_all()
-        doomed = [r for r in results if isinstance(r, PooledVM)]
-        if doomed:
-            await asyncio.gather(*(self._destroy_vm(vm) for vm in doomed), return_exceptions=True)
 
     async def shutdown(self) -> None:
         """Destroy every VM managed by the pool."""
@@ -379,15 +229,6 @@ class WarmPool:
                 pass
             self._replenish_task = None
 
-        if self._reaper_task is not None:
-            self._reaper_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await self._reaper_task
-            self._reaper_task = None
-        if self._reap_destroying is not None:
-            await asyncio.gather(self._reap_destroying, return_exceptions=True)
-            self._reap_destroying = None
-
         async with self._condition:
             pooled_vms = list(self._all_vms.values())
             self._available.clear()
@@ -405,10 +246,7 @@ class WarmPool:
                     raise RuntimeError("WarmPool has been shut down")
 
                 if self._available:
-                    # Most-recently-used first: the coldest VMs stay idle long
-                    # enough for the idle reaper (and budget eviction) to take
-                    # them, so a pool shrinks back after a burst.
-                    pooled_vm = self._available.pop()
+                    pooled_vm = self._available.popleft()
                     self._in_use[pooled_vm.alias] = pooled_vm
                     return pooled_vm
 
@@ -419,7 +257,7 @@ class WarmPool:
                     continue
 
             try:
-                pooled_vm = await self._provision_vm_budgeted()
+                pooled_vm = await self._provision_vm()
             except Exception as exc:
                 async with self._condition:
                     self._provisioning -= 1
@@ -437,82 +275,21 @@ class WarmPool:
                 )
                 await asyncio.sleep(delay)
                 continue
-            except BaseException:
-                # Cancelled while waiting on the budget or mid-provision: the
-                # reserved local slot must be returned or the pool's capacity
-                # shrinks permanently.
-                async with self._condition:
-                    self._provisioning -= 1
-                    self._condition.notify_all()
-                raise
 
-            try:
-                async with self._condition:
-                    self._provisioning -= 1
-                    if self._closed:
-                        destroy_now = True
-                    else:
-                        self._all_vms[pooled_vm.alias] = pooled_vm
-                        self._in_use[pooled_vm.alias] = pooled_vm
-                        self._condition.notify_all()
-                        destroy_now = False
-            except BaseException:
-                # Cancelled between a successful provision and registration
-                # (`async with` is an await point): without cleanup the fresh
-                # VM stays alive untracked, its AgentVMBudget token is never
-                # returned, and _provisioning never decrements — the pool and
-                # the session env cap shrink permanently. Shielded so a second
-                # cancellation cannot abandon the teardown mid-flight.
-                await asyncio.shield(self._cleanup_unregistered_vm(pooled_vm))
-                raise
+            async with self._condition:
+                self._provisioning -= 1
+                if self._closed:
+                    destroy_now = True
+                else:
+                    self._all_vms[pooled_vm.alias] = pooled_vm
+                    self._in_use[pooled_vm.alias] = pooled_vm
+                    self._condition.notify_all()
+                    destroy_now = False
 
             if destroy_now:
                 await self._destroy_vm(pooled_vm)
                 raise RuntimeError("WarmPool was shut down during provisioning")
             return pooled_vm
-
-    async def _cleanup_unregistered_vm(self, pooled_vm: PooledVM) -> None:
-        """Teardown for a provisioned-but-never-registered VM (cancel race).
-
-        The VM was never added to ``_all_vms``/``_in_use``, so only the
-        provisioning counter and the VM itself (plus its budget token, released
-        by ``_destroy_vm``) need cleaning up.
-        """
-        async with self._condition:
-            self._provisioning -= 1
-            self._condition.notify_all()
-        with contextlib.suppress(Exception):
-            await self._destroy_vm(pooled_vm)
-
-    async def _provision_vm_budgeted(self) -> PooledVM:
-        """Provision one VM, holding a global live-VM budget token when configured."""
-        if self._vm_budget is None:
-            return await self._provision_vm()
-        await self._vm_budget.acquire()
-        try:
-            pooled_vm = await self._provision_vm()
-        except BaseException:
-            await self._vm_budget.release()
-            raise
-        pooled_vm.holds_budget_token = True
-        return pooled_vm
-
-    def oldest_idle_last_used(self) -> float | None:
-        """``last_used_at`` of the least-recently-used idle VM, or None."""
-        if not self._available:
-            return None
-        return min(vm.last_used_at for vm in self._available)
-
-    async def evict_oldest_idle_vm(self) -> bool:
-        """Destroy the LRU idle VM to free global budget; False when none idle."""
-        async with self._condition:
-            if not self._available:
-                return False
-            lru = min(self._available, key=lambda vm: vm.last_used_at)
-            self._available = deque(vm for vm in self._available if vm.alias != lru.alias)
-        logger.info("Warm pool: evicting idle VM %s to free the shared agent-VM budget", lru.alias)
-        await self._destroy_vm(lru)
-        return True
 
     async def _mark_not_in_use(self, alias: str) -> None:
         async with self._condition:
@@ -531,90 +308,10 @@ class WarmPool:
             self._available = deque(vm for vm in self._available if vm.alias != pooled_vm.alias)
             self._condition.notify_all()
 
-        # Announce the reclaim to the daemon (best-effort) so any in-flight RPC
-        # against this VM gets a typed VMReclaimedError instead of a dropped
-        # connection, then drop the cached client/host state so a future VM
-        # reusing this mesh IP starts from a clean "unknown" instead of firing
-        # RPC at a daemon that isn't there.
-        hostname = pooled_vm.runtime_info.hostname
-        state = get_host_state(hostname)
-        if state.has_capability(CAP_POOL_RECLAIM) and state.token:
-            with contextlib.suppress(Exception):
-                client = get_agent_client(hostname, state.token)
-                await PoolStub(client).reclaim(deadline_s=5.0)
-        with contextlib.suppress(Exception):
-            await close_agent_client(hostname)
-
         try:
             await pooled_vm.vm_runtime.stop(pooled_vm.runtime_info.runtime_id)
         except Exception as exc:
             logger.warning("Failed to destroy pooled VM %s: %s", pooled_vm.alias, exc)
-        finally:
-            # Release the shared budget token exactly once per VM, and only
-            # after the backend env is actually gone.
-            if pooled_vm.holds_budget_token and self._vm_budget is not None:
-                pooled_vm.holds_budget_token = False
-                await self._vm_budget.release()
-
-    def _schedule_idle_reap(self) -> None:
-        if self._idle_timeout is None or self._closed:
-            return
-        if self._reaper_task is None or self._reaper_task.done():
-            self._reaper_task = asyncio.create_task(self._reap_idle_vms(), name="warm-pool-idle-reaper")
-        else:
-            self._reap_wake.set()
-
-    async def _reap_idle_vms(self) -> None:
-        """Destroy VMs idle past ``idle_timeout``, keeping the pre-warm floor.
-
-        Runs while the pool holds reapable idle VMs and exits once it holds
-        none; ``release()`` and ``pre_warm()`` restart it, or wake it when it
-        is still running. Expired VMs leave ``_available`` under the condition
-        lock, so an acquire can never check out a VM the reaper has claimed.
-        The exit decision is also made under the lock with no await before the
-        task finishes, so a release either sees the reaper done (and starts a
-        new one) or is seen by it.
-        """
-        assert self._idle_timeout is not None
-        idle_timeout = self._idle_timeout
-        while True:
-            self._reap_wake.clear()
-            async with self._condition:
-                if self._closed:
-                    return
-                now = time.monotonic()
-                # VMs beyond the pre-warm floor; only those may be reaped.
-                spare = len(self._all_vms) + self._provisioning - self._pre_warm_target
-                expired = sorted(
-                    (vm for vm in self._available if now - vm.last_used_at >= idle_timeout),
-                    key=lambda vm: vm.last_used_at,
-                )[: max(0, spare)]
-                if expired:
-                    doomed = {vm.alias for vm in expired}
-                    self._available = deque(vm for vm in self._available if vm.alias not in doomed)
-                elif not self._available or spare <= 0:
-                    return
-                next_expiry = min((vm.last_used_at for vm in self._available), default=now) + idle_timeout
-
-            if expired:
-                for vm in expired:
-                    logger.info(
-                        "Warm pool: VM %s idle for %.0fs (idle timeout %.0fs); destroying it",
-                        vm.alias,
-                        now - vm.last_used_at,
-                        idle_timeout,
-                    )
-                # Shielded: a VM already removed from _available must not be
-                # abandoned alive (and holding a budget token) by a cancel.
-                self._reap_destroying = asyncio.gather(
-                    *(self._destroy_vm(vm) for vm in expired), return_exceptions=True
-                )
-                await asyncio.shield(self._reap_destroying)
-                self._reap_destroying = None
-                continue  # re-check: VMs may have been released meanwhile
-
-            with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(self._reap_wake.wait(), timeout=max(0.0, next_expiry - time.monotonic()))
 
     def _schedule_replenish(self) -> None:
         if self._closed or self._pre_warm_target <= 0:
@@ -671,7 +368,7 @@ class WarmPool:
         last_exc: BaseException | None = None
 
         for attempt in range(_PROVISION_VM_ATTEMPT_LIMIT):
-            alias = vm_setup.make_agent_alias(self._alias_prefix)
+            alias = vm_setup.make_agent_alias("warm-pool")
             logger.info(
                 "Creating pooled runtime: %s (image: %s)%s",
                 alias,
@@ -717,213 +414,58 @@ class WarmPool:
         raise last_exc
 
     async def _reset_vm(self, pooled_vm: PooledVM, workspace_paths: list[str]) -> bool:
-        """Reset a pooled VM: ``reset_attempts`` tries with backoff, shared by
-        BOTH transports (the SSH-era loop lived inside the SSH helper only, so
-        the RPC port silently dropped it: one blip cost the VM).
-
-        Each RPC attempt is a REAL re-execution: ``PoolStub.reset`` mints a
-        fresh idempotency key per call — only the client's internal resend
-        WITHIN one call replays the daemon's cached result. A typed error is a
-        failed attempt, not an abort: transient daemon unavailability (restart,
-        re-arm) gets the same retries an SSH transport drop did. Never raises —
-        parity with the SSH path's bool contract."""
-        ssh_key = pooled_vm.runtime_info.ssh_key_path
-        hostname = pooled_vm.runtime_info.hostname
-
-        async def _rpc(client: AgentDaemonClient) -> tuple[bool, str]:
-            result = await PoolStub(client).reset(workspace_paths, deadline_s=float(self.reset_timeout))
-            # A received typed result IS success — steps are best-effort, parity
-            # with the SSH `(cmd) || true` chain. But failed steps must be
-            # VISIBLE: a workspace that silently didn't reset (wedged sshfs
-            # mount, ENOTCONN) hands stale mount state to the next tenant with
-            # nothing in any log.
-            for step in result.steps:
-                if not step.ok:
-                    logger.warning(
-                        "Warm pool reset on %s: step %s failed: %s",
-                        pooled_vm.alias,
-                        step.name,
-                        step.detail,
-                    )
-            return True, ""
-
-        async def _ssh() -> tuple[bool, str]:
-            return await self._reset_vm_ssh_once(pooled_vm, workspace_paths)
-
-        # Aggregate ceiling (audit H1): the per-attempt layers below each
-        # carry their own retries (client resend, daemon re-bootstrap), and
-        # without a cap they MULTIPLY — a sick daemon turned 3 attempts into
-        # ~12 minutes inside release()'s uncancellable shield, holding a pool
-        # slot and a budget token the whole time. Before the migration,
-        # attempts x timeout was a true ceiling; this restores it.
-        total_budget = self.reset_attempts * float(self.reset_timeout) + _LIFECYCLE_BUDGET_SLACK_S
-        last_detail = ""
-        try:
-            async with asyncio.timeout(total_budget):
-                for attempt in range(self.reset_attempts):
-                    try:
-                        if ssh_key is None:
-                            ok, last_detail = await self._reset_vm_ssh_once(pooled_vm, workspace_paths)
-                        else:
-                            ok, last_detail = await rpc_or_ssh(hostname, ssh_key, CAP_POOL_RESET, _rpc, _ssh)
-                    except AgentRpcError as exc:
-                        ok, last_detail = False, str(exc)
-                    if ok:
-                        return True
-                    if attempt + 1 < self.reset_attempts:
-                        await asyncio.sleep(min(float(2**attempt), 5.0))
-        except TimeoutError:
-            last_detail = f"aggregate reset budget {total_budget:.0f}s exhausted ({last_detail or 'no detail'})"
-
-        logger.warning(
-            "Warm pool reset failed on %s after %d attempt(s): %s",
-            pooled_vm.alias,
-            self.reset_attempts,
-            last_detail or "no detail",
-        )
-        return False
-
-    async def _reset_vm_ssh_once(self, pooled_vm: PooledVM, workspace_paths: list[str]) -> tuple[bool, str]:
-        """One SSH reset attempt. Retries are the caller's job (_reset_vm).
-
-        Every segment is wrapped in ``(...) || true``, so a non-zero exit can
-        only come from the ssh transport itself (typically 255 when the
-        session drops mid-command) — exactly the transient class the caller's
-        retry loop exists for."""
         commands = _runtime_reset_commands(workspace_paths)
         command = " && ".join(f"({cmd}) || true" for cmd in commands)
         command += " && echo warm-pool-reset-ok"
 
-        exit_code, stdout, stderr = await pooled_vm.vm_runtime.exec(
-            pooled_vm.runtime_info.runtime_id,
-            command,
-            timeout=self.reset_timeout,
-        )
-        if exit_code == 0 and "warm-pool-reset-ok" in stdout:
-            return True, ""
-        detail = (
-            f"exit={exit_code} stdout={stdout.strip()[-200:] if stdout else ''}"
-            f" stderr={stderr.strip()[-200:] if stderr else ''}"
-        )
-        return False, detail
-
-    async def health_check(self, pooled_vm: PooledVM) -> bool:
-        """Public health probe for a checked-out VM (used by runtime leases)."""
-        return await self._health_check(pooled_vm)
-
-    async def _flush_workspace_writes(self, pooled_vm: PooledVM, workspace_paths: list[str]) -> None:
-        """Flush dirty NFS pages for each workspace before reset/destroy.
-
-        The reset path historically did a lazy ``umount -l`` with no sync, so
-        an agent that exited moments before release could lose its final
-        writes: the NFS client's not-yet-written-back pages were dropped with
-        the detach, leaving permanent zero-holes in files on the server (seen
-        live as a codex rollout truncated to NULs when its lane was released
-        ~6s after codex-exec exited). ``sync -f`` (syncfs) on each mountpoint
-        forces write-back to the NFS server first. Best-effort and bounded:
-        a dead server must not wedge release.
-        """
-        if not workspace_paths:
-            return
-        syncs = " ; ".join(f"sync -f {shlex.quote(str(Path(path)))} 2>/dev/null || sync" for path in workspace_paths)
-        try:
-            exit_code, _, stderr = await pooled_vm.vm_runtime.exec(
+        exit_code = 0
+        stdout = ""
+        stderr = ""
+        # Every segment is wrapped in `(...) || true`, so a non-zero exit can
+        # only come from the ssh transport itself (typically 255 when the
+        # session drops mid-command). Retry with a fresh connection before
+        # giving up — drops here are usually transient.
+        for attempt in range(self.reset_attempts):
+            exit_code, stdout, stderr = await pooled_vm.vm_runtime.exec(
                 pooled_vm.runtime_info.runtime_id,
-                f"({syncs}) ; true",
-                timeout=_FLUSH_TIMEOUT_S,
+                command,
+                timeout=self.reset_timeout,
             )
-            if exit_code != 0:
-                logger.warning(
-                    "Workspace write flush on %s exited %d: %s",
-                    pooled_vm.alias,
-                    exit_code,
-                    (stderr or "").strip()[-200:],
-                )
-        except Exception:
-            logger.warning("Workspace write flush failed on %s (best-effort)", pooled_vm.alias, exc_info=True)
+            if exit_code == 0 and "warm-pool-reset-ok" in stdout:
+                return True
+            if attempt + 1 < self.reset_attempts:
+                await asyncio.sleep(min(float(2**attempt), 5.0))
+
+        logger.warning(
+            "Warm pool reset failed on %s (exit=%d): stdout=%s stderr=%s",
+            pooled_vm.alias,
+            exit_code,
+            stdout.strip()[-200:] if stdout else "",
+            stderr.strip()[-200:] if stderr else "",
+        )
+        return False
 
     async def _health_check(self, pooled_vm: PooledVM) -> bool:
-        """Health-check a pooled VM: ``health_check_attempts`` tries with
-        backoff, shared by BOTH transports.
-
-        The retry loop lives here — not inside the SSH helper — because a
-        single RPC ping is more transient-failure-prone than SSH, not less:
-        it probes our daemon (which has legitimate down-windows: dev-sync
-        reinstall re-arm, restarts) rather than sshd. acquire() and release()
-        destroy the VM on False, so one blip must not cost a warm VM. A failed
-        RPC attempt that demotes the host also lets a later attempt land on
-        the SSH fallback.
-        """
-        ssh_key = pooled_vm.runtime_info.ssh_key_path
-        hostname = pooled_vm.runtime_info.hostname
-
-        async def _rpc(client: AgentDaemonClient) -> bool:
-            await HealthStub(client).ping(deadline_s=float(self.health_check_timeout))
-            return True
-
-        async def _ssh() -> bool:
-            return await self._health_check_ssh_once(pooled_vm)
-
-        async def _attempt() -> bool:
-            if ssh_key is None:
-                return await self._health_check_ssh_once(pooled_vm)
-            try:
-                return await rpc_or_ssh(hostname, ssh_key, CAP_HEALTH_REPORT, _rpc, _ssh)
-            except AgentRpcError as exc:
-                # A health check REPORTS health; it must never raise. The SSH
-                # path returns a bool for every failure, and acquire() calls
-                # this with no try/except — a propagating error there would
-                # strand a VM already moved to _in_use instead of discarding it
-                # and trying the next one. Unreachable/unauthorized/reclaimed is
-                # exactly what "unhealthy" means.
-                logger.info("Warm pool: health check failed for %s: %s", pooled_vm.alias, exc)
-                return False
-
-        # Same aggregate ceiling as _reset_vm (audit H1): nested per-attempt
-        # retries must not multiply past attempts x timeout + one re-bootstrap.
-        total_budget = self.health_check_attempts * float(self.health_check_timeout) + _LIFECYCLE_BUDGET_SLACK_S
         healthy = False
-        try:
-            async with asyncio.timeout(total_budget):
-                for attempt in range(self.health_check_attempts):
-                    healthy = await _attempt()
-                    if healthy:
-                        break
-                    if attempt + 1 < self.health_check_attempts:
-                        await asyncio.sleep(min(float(2**attempt), 5.0))
-        except TimeoutError:
-            logger.warning(
-                "Warm pool: health check aggregate budget %.0fs exhausted on %s",
-                total_budget,
-                pooled_vm.alias,
+        for attempt in range(self.health_check_attempts):
+            exit_code, stdout, _ = await pooled_vm.vm_runtime.exec(
+                pooled_vm.runtime_info.runtime_id,
+                "echo warm-pool-ok",
+                timeout=self.health_check_timeout,
             )
-            healthy = False
+            healthy = exit_code == 0 and stdout.strip() == "warm-pool-ok"
+            if healthy:
+                break
+            if attempt + 1 < self.health_check_attempts:
+                await asyncio.sleep(min(float(2**attempt), 5.0))
         pooled_vm.healthy = healthy
         return healthy
-
-    async def _health_check_ssh_once(self, pooled_vm: PooledVM) -> bool:
-        """One SSH echo probe. Retries are the caller's job (_health_check)."""
-        exit_code, stdout, _ = await pooled_vm.vm_runtime.exec(
-            pooled_vm.runtime_info.runtime_id,
-            "echo warm-pool-ok",
-            timeout=self.health_check_timeout,
-        )
-        return exit_code == 0 and stdout.strip() == "warm-pool-ok"
 
 
 def _runtime_reset_commands(workspace_paths: list[str]) -> list[str]:
     """Return generic runtime cleanup commands for a pooled VM."""
     commands = [
         "pkill -x plato-agent-runner 2>/dev/null; true",
-        # Kill everything a workflow ``setup=`` command spawned. The setup
-        # wrapper (plato.workflows.backend.build_setup_command) joins a fresh
-        # cgroup before exec, so the FULL descendant tree — daemonized servers
-        # included — is kernel-tracked here regardless of setsid/double-fork;
-        # ``cgroup.kill`` SIGKILLs the whole membership atomically (fork race
-        # handled in-kernel). rmdir is best-effort: a not-yet-reaped zombie
-        # leaves an empty dir that is harmless and removed on the next reset.
-        'for cg in /sys/fs/cgroup/plato-wf-setup-*; do [ -d "$cg" ] || continue; '
-        'echo 1 > "$cg/cgroup.kill" 2>/dev/null; rmdir "$cg" 2>/dev/null; done; true',
         # Kill any chromium spawned by ``shared_cdp_chromium`` before we rm
         # its profile dir. ``user-data-dir=/tmp/plato-ab-`` is unique to our
         # spawn path, so this never false-positives against other chrome
@@ -936,26 +478,6 @@ def _runtime_reset_commands(workspace_paths: list[str]) -> list[str]:
         # bracketed regex still matches chrome's literal `user-data-dir=...`
         # cmdline but does not match our own `[u]ser-data-dir=...` literal.
         "pkill -9 -f '[u]ser-data-dir=/tmp/plato-ab-' 2>/dev/null; true",
-        # Reap any direct-fuse dataset daemon BEFORE the /tmp wipe below:
-        # deleting a live worker's hydration cache/config underneath it can
-        # wedge the fuse loop mid-request — the same D-state failure class the
-        # direct mounts exist to avoid. Killed first, the workspace
-        # ``umount -l`` entries (appended before the wipe) detach the
-        # now-dead mounts cleanly and the wipe only touches orphaned state.
-        "pkill -x plato-fuse 2>/dev/null; true",
-    ]
-    for workspace_path in workspace_paths:
-        quoted_path = shlex.quote(str(Path(workspace_path)))
-        commands.append(
-            # sync -f first: a lazy detach silently drops not-yet-written-back
-            # NFS pages (permanent zero-holes server-side). Prefer a bounded
-            # real umount so outstanding writes complete; fall back to a lazy
-            # detach only when the mount is wedged (dead server, busy fd).
-            f"sync -f {quoted_path} 2>/dev/null || sync; "
-            f"timeout 30 umount {quoted_path} 2>/dev/null || umount -l {quoted_path} 2>/dev/null; "
-            f"rm -rf {quoted_path} 2>/dev/null; mkdir -p {quoted_path}"
-        )
-    commands += [
         # /var/tmp glob is scoped to plato-* on purpose. Wiping all of /var/tmp
         # removes systemd's per-service PrivateTmp dirs
         # (/var/tmp/systemd-private-*-ssh.service-*) that the live SSH session
@@ -965,115 +487,9 @@ def _runtime_reset_commands(workspace_paths: list[str]) -> list[str]:
         ": > /etc/environment",
         "sed -i '/runtime\\.plato\\.internal/d' /etc/hosts 2>/dev/null; true",
     ]
+    for workspace_path in workspace_paths:
+        quoted_path = shlex.quote(str(Path(workspace_path)))
+        commands.append(
+            f"umount -l {quoted_path} 2>/dev/null; rm -rf {quoted_path} 2>/dev/null; mkdir -p {quoted_path}"
+        )
     return commands
-
-
-class RuntimeLease:
-    """One task's bound pooled VM, released after an idle window.
-
-    Used when ``AgentConfig.runtime_idle_release_seconds`` is set: instead of
-    returning the VM to the pool after every run, the run path binds it here
-    and the next run checks it back out — an interactive lane keeps a stable
-    VM across turns. The idle timer starts at ``bind()`` (turn end) and is
-    cancelled by ``checkout()`` (next turn start), so it can never fire
-    mid-run. Every transition holds ``_lock``: a run racing the idle expiry
-    either checks the VM out first (timer cancelled, reuse) or finds the
-    lease empty (release already committed, acquire fresh) — no half-states.
-
-    When the lease ENDS (idle expiry, shutdown) the VM is DESTROYED rather
-    than returned to the pool: ten idle chat lanes must not inflate standing
-    capacity to ten VMs. The pool's replenish loop maintains the configured
-    warm floor independently of lane count, which is the correct standing
-    capacity for fast first-acquires.
-    """
-
-    def __init__(self, pool: WarmPool, idle_seconds: float) -> None:
-        self._pool = pool
-        self._idle_seconds = idle_seconds
-        self._lock = asyncio.Lock()
-        self._pooled: PooledVM | None = None
-        self._workspace_paths: list[str] = []
-        self._timer: asyncio.Task[None] | None = None
-        # Setup identity of the bound VM (see AgentTask._setup_fingerprint):
-        # a reuse may skip install/env setup only when this matches. Read by
-        # the run path after checkout(); only meaningful for the checked-out VM.
-        self.last_fingerprint: str | None = None
-        # Held across a whole checkout → bind window — by a run for the turn,
-        # by a warm for the acquire + install — and by a release. Without it
-        # a run overlapping a warm finds the lease empty and queues on the
-        # pool for the slot the warm holds and will bind, not return: a
-        # deadlock on the default one-slot pool, a dropped VM on a larger one.
-        self.turn_lock = asyncio.Lock()
-
-    async def checkout(self) -> PooledVM | None:
-        """Take the bound VM for a run (cancelling the idle timer), or None."""
-        async with self._lock:
-            self._cancel_timer()
-            pooled, self._pooled = self._pooled, None
-            return pooled
-
-    async def checkout_healthy(self, workspace_paths: list[str]) -> PooledVM | None:
-        """Check the bound VM out and probe it: the VM when it answers, else None.
-
-        A VM that fails the probe is destroyed here, so the caller acquires
-        fresh. From checkout until the caller binds or releases, the VM
-        belongs to nobody — checked out of the lease yet counted in use by
-        the pool — so a cancellation landing on the probe destroys it too;
-        otherwise it would pin a pool slot forever.
-        """
-        pooled = await self.checkout()
-        if pooled is None:
-            return None
-        try:
-            healthy = await self._pool.health_check(pooled)
-        except BaseException:
-            with contextlib.suppress(Exception):
-                await asyncio.shield(self._pool.release(pooled, workspace_paths=workspace_paths, destroy=True))
-            raise
-        if healthy:
-            return pooled
-        logger.warning("Leased runtime %s failed its health check; destroying it", pooled.alias)
-        await asyncio.shield(self._pool.release(pooled, workspace_paths=workspace_paths, destroy=True))
-        return None
-
-    async def bind(
-        self,
-        pooled: PooledVM,
-        workspace_paths: list[str],
-        fingerprint: str | None = None,
-    ) -> None:
-        """Bind a VM after a successful run and start the idle timer."""
-        async with self._lock:
-            self._cancel_timer()
-            self._pooled = pooled
-            self._workspace_paths = list(workspace_paths)
-            self.last_fingerprint = fingerprint
-            self._timer = asyncio.create_task(self._expire(), name="runtime-lease-idle")
-
-    async def release(self, *, destroy: bool = True) -> None:
-        """End the lease now (shutdown / teardown): destroy the bound VM."""
-        async with self._lock:
-            self._cancel_timer()
-            pooled, self._pooled = self._pooled, None
-            paths = self._workspace_paths
-        if pooled is not None:
-            await asyncio.shield(self._pool.release(pooled, workspace_paths=paths, destroy=destroy))
-
-    def _cancel_timer(self) -> None:
-        if self._timer is not None:
-            self._timer.cancel()
-            self._timer = None
-
-    async def _expire(self) -> None:
-        await asyncio.sleep(self._idle_seconds)
-        async with self._lock:
-            pooled, self._pooled = self._pooled, None
-            paths = self._workspace_paths
-            self._timer = None
-        if pooled is not None:
-            logger.info(
-                "Runtime lease idle for %.0fs; destroying %s (the pool floor replenishes independently)",
-                self._idle_seconds,
-                pooled.alias,
-            )
-            await asyncio.shield(self._pool.release(pooled, workspace_paths=paths, destroy=True))

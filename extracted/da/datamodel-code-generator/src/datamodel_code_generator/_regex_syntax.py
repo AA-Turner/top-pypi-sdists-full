@@ -1,4 +1,4 @@
-"""Static scan of regex syntax: which patterns every engine runs alike, and the conjunction of patterns.
+"""Static scan of regex syntax: which patterns every engine runs alike, which need Python's ``re``, and conjunctions.
 
 The scan follows the Rust grammar and never reads the installed pydantic-core or the running Python, so the
 decisions made from it do not depend on the environment that generates. A leaf: the parser's keyword table
@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from functools import cache
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, Literal, TypeAlias
 
 from typing_extensions import final
 
@@ -18,27 +18,35 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 __all__ = [
+    "EngineRow",
     "PatternConjunction",
     "conjoin_patterns",
     "has_lookaround",
     "is_portable_pattern",
     "literal_pattern_value",
     "lookahead_patterns",
+    "needs_python_engine",
     "pairwise_patterns",
     "pattern_admits",
     "pattern_implies",
     "scan_regex_syntax",
 ]
 
+EngineRow: TypeAlias = Literal["model", "adapter"]
+"""What selects the ``python-re`` engine of a pattern: the config of a model, or a schema validator's adapter."""
+
 _LOOKAROUND_PATTERN: Final = r"\(\?<?[=!]"
 
 
 _UNICODE_WHITE_SPACE = "[\t-\r \x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*"
 _REGEX_ESCAPE_TOKENS = r"\\[pPxuUbB]\{[^}]*\}?|\\(?P<escape>.)?|(?P<open>\[\^?\]?)"
+_COUNTED_REPETITION: Final = (
+    rf"\{{{_UNICODE_WHITE_SPACE}[0-9]+{_UNICODE_WHITE_SPACE}"
+    rf"(?:,{_UNICODE_WHITE_SPACE}(?:[0-9]+{_UNICODE_WHITE_SPACE})?)?\}}"
+)
 _REGEX_TOKEN: Final = (
     rf"(?s){_REGEX_ESCAPE_TOKENS}|\(\?P?<(?![=!])[^>()\\]*>|\(\?(?P<group>[>(#]|P=)|\(\?(?P<flags>[A-Za-z-]*)[:)]"
-    rf"|(?:\{{{_UNICODE_WHITE_SPACE}[0-9]+{_UNICODE_WHITE_SPACE}"
-    rf"(?:,{_UNICODE_WHITE_SPACE}(?:[0-9]+{_UNICODE_WHITE_SPACE})?)?\}}|[*+?])(?P<possessive>\+)?|(?P<brace>\{{)"
+    rf"|(?:{_COUNTED_REPETITION}|[*+?])(?P<possessive>\+)?|(?P<brace>\{{)"
 )
 _REGEX_CLASS_TOKEN: Final = rf"(?s)\[:\^?[A-Za-z]+:\]|{_REGEX_ESCAPE_TOKENS}|(?P<close>\])"
 _RUST_REJECTED_ESCAPES = frozenset("0123456789NZ")
@@ -100,20 +108,38 @@ def scan_regex_syntax(pattern: str) -> tuple[bool, tuple[int, int]] | None:
     return (rejected, minimum_python)
 
 
+def needs_python_engine(pattern: str, *, row: EngineRow, target_python: tuple[int, int] | None = None) -> bool:
+    """Return whether pydantic needs Python's ``re`` (the ``python-re`` engine) for a pattern, decided statically.
+
+    A lookaround always does. Row ``adapter`` (a schema validator's adapter, 0.87.0): so does a pattern in which the
+    scan finds syntax Rust rejects, or which it cannot read (a verbose pattern). Row ``model`` (the config of a model,
+    or of the models that use a type alias, 0.84.0): so does syntax Rust rejects that Python's ``re`` reads at
+    ``target_python``, the target of the string type the pattern constrains; without one (None) only a lookaround
+    counts, and a verbose pattern keeps the default engine. The rows disagree on a verbose pattern and on syntax newer
+    than the target Python (#5636).
+    """
+    if has_lookaround(pattern):
+        return True
+    if row == "adapter":
+        return (scan := scan_regex_syntax(pattern)) is None or scan[0]
+    return (
+        target_python is not None
+        and (scan := scan_regex_syntax(pattern)) is not None
+        and scan[0]
+        and target_python >= scan[1]
+    )
+
+
 def is_portable_pattern(pattern: str) -> bool:
-    """Return whether a pattern runs on the default regex engine of every supported pydantic."""
-    return not has_lookaround(pattern) and (scan := scan_regex_syntax(pattern)) is not None and not scan[0]
+    """Return whether a pattern runs on the default regex engine of every supported pydantic (row ``adapter``)."""
+    return not needs_python_engine(pattern, row="adapter")
 
 
 _REGEX_META_CHARACTERS: Final = frozenset(r"\.^$*+?{}[]|()")
-_LITERAL_PATTERN: Final = r"(?:[^\\.^$*+?{}\[\]|()]|\\[\\.^$*+?{}\[\]|()])*"
 _HEAD_CHARACTER: Final = r"[^\\.^$*+?{}\[\]|()]|\\[\\.^$*+?{}\[\]|()]"
+_LITERAL_PATTERN: Final = rf"(?:{_HEAD_CHARACTER})*"
 _QUANTIFIER_STARTS: Final = frozenset("*+?{")
 _SINGLE_CLASS: Final = r"(?s)\\[dDwWsSntrfv]|\\x[0-9A-Fa-f]{2}|\[\^?\]?(?:[^\\\[\]]|\\.)*\]"
-_COUNTED_REPETITION: Final = (
-    rf"\{{{_UNICODE_WHITE_SPACE}[0-9]+{_UNICODE_WHITE_SPACE}"
-    rf"(?:,{_UNICODE_WHITE_SPACE}(?:[0-9]+{_UNICODE_WHITE_SPACE})?)?\}}"
-)
 _PLAIN_REPETITION: Final = r"\{[0-9]+(?:,[0-9]*)?\}"
 _NON_ASCII_CLASS_ESCAPE: Final = r"(?<!\\)(?:\\\\)*\\[sSwWdDbB]"
 _GROUP_NAME: Final = r"\(\?(?P<python>P?)<(?![=!])(?P<name>[^>()\\]*)>"
@@ -287,7 +313,7 @@ def _reads_alike(pattern: str) -> bool:
     Rust and Python's ``re`` parse it (``is_portable_pattern``, no syntax that needs a later Python), Python reads
     every escape, group and class of it as Rust does, and a global flag group starts it if it has one.
     """
-    if not is_portable_pattern(pattern) or (scan := scan_regex_syntax(pattern)) is None or scan[1] != _PY_310:
+    if has_lookaround(pattern) or scan_regex_syntax(pattern) != (False, _PY_310):
         return False
     structure = _structure(pattern)
     return structure.read_alike and all(position == 0 for position in structure.global_flags)
@@ -342,19 +368,13 @@ def lookahead_patterns(patterns: Sequence[str]) -> str:
     prefix of the longest get ``\A(?=[\s\S]*a)(?=[\s\S]*b)``. No check that the patterns read alike on every engine
     or conjoin into one expression (``conjoin_patterns`` does).
     """
-    match patterns:
-        case [pattern]:
-            return pattern
-        case [left, right] if left == right:
-            return left
     literals = [literal_pattern_value(pattern) for pattern in patterns]
     if all(literal is not None for literal in literals):
         longest = max((literal for literal in literals if literal is not None), key=str.__len__)
         if any(literal is not None and not longest.startswith(literal) for literal in literals):
             return r"\A" + "".join(rf"(?=[\s\S]*{pattern})" for pattern in dict.fromkeys(patterns))
-    match patterns:
-        case [left, right]:
-            return f"(?={left})(?={right})"
+    if len(patterns) <= 2:  # noqa: PLR2004
+        return pairwise_patterns(patterns)
     result = patterns[0]
     for pattern in patterns[1:]:
         result = lookahead_patterns((result, pattern))

@@ -12,7 +12,7 @@ records is asserted by
 
 The order is the campaign's, not this file's:
 `native/inc/doppler/wfm_synth/wfm_synth_core.h` is the SSOT and
-`native/tests/test_wfm_synth_core.c` certifies it in C. This file
+`native/tests/wfm_synth/test_wfm_synth_core.c` certifies it in C. This file
 measures the same properties through `doppler.wfm._SynthEngine` — the
 raw engine the `Synth`/`Segment`/`Composer` ladder is built on — to show
 the binding delivers them.
@@ -249,7 +249,8 @@ def section_object() -> None:
         "[docs/design/wfmgen.md](../../../../../../docs/design/wfmgen.md); "
         "the API is "
         "`native/inc/doppler/wfm_synth/wfm_synth_core.h`, certified in C by "
-        "`native/tests/test_wfm_synth_core.c`. Neither is restated here."
+        "`native/tests/wfm_synth/test_wfm_synth_core.c`. Neither is restated "
+        "here."
     )
     R.md()
     R.md(
@@ -257,7 +258,8 @@ def section_object() -> None:
         "public `Synth` is a thin declarative wrapper over the same core, "
         "so a property proven here holds for the ladder above it. The "
         "wrapper adds one rule of its own: a standalone sweeping chirp must "
-        "declare its `span`, because it has no segment to lend one (F2)."
+        "declare its `span`, because it has no segment to lend one "
+        f"({R.ref('step_chirp_emitted_flat_cw')})."
     )
     R.md()
 
@@ -652,7 +654,8 @@ def measure_chirp(d: Data) -> None:
         "The span above is pinned by `set_chirp_span()` before the first "
         "read. It used to be taken from the first `steps()` call instead, "
         "and `step()` never took one at all, so the same chirp was three "
-        "different waveforms depending on how it was read (**F2**, "
+        "different waveforms depending on how it was read "
+        f"(**{R.ref('step_chirp_emitted_flat_cw')}**, "
         "gh-1115, now fixed). Read the same pinned chirp three ways:"
     )
     R.md()
@@ -747,7 +750,8 @@ def measure_faces(d: Data) -> None:
     R.md(
         f"Bit-for-bit on {len(d.face_identical)} of {len(TYPES)} types, "
         f"both ways -- `chirp` included, now that its span is pinned "
-        "before the first read instead of taken from it (§2.6, F2)."
+        "before the first read instead of taken from it (§2.6, "
+        f"{R.ref('step_chirp_emitted_flat_cw')})."
     )
     R.md()
 
@@ -841,7 +845,8 @@ def measure_accessors(d: Data) -> None:
         "0..nsps-1 and wraps, the held symbol reads back as the QPSK leg "
         "+-1/sqrt(2), and an injected value survives the round trip"
         + (". " if ok else " **-- one of these fails.** ")
-        + "They had no C coverage at all before this certification (F3)."
+        + "They had no C coverage at all before this certification "
+        f"({R.ref('four_public_entry_points_ten')})."
     )
     R.md()
     d.unreachable = [
@@ -900,7 +905,7 @@ def review(d: Data) -> None:
     R.md("## 3. Review -- findings, with verdicts")
     R.md()
     R.find(
-        "F1",
+        "header_arithmetic_untested",
         "FIXED",
         "**The arithmetic the header calls 'the one place this lives' was "
         "tested by nothing.** `wfm_synth_snr_over_fs` and "
@@ -918,7 +923,7 @@ def review(d: Data) -> None:
         "goes red; so does removing the non-positive span guard.",
     )
     R.find(
-        "F2",
+        "step_chirp_emitted_flat_cw",
         "FIXED",
         "**`step()` on a chirp emitted a flat CW tone, and an unpinned "
         "chirp's sweep depended on how the caller chunked its reads** "
@@ -940,7 +945,7 @@ def review(d: Data) -> None:
         "C unpinned-parity case and the §2.6 limit red.",
     )
     R.find(
-        "F3",
+        "four_public_entry_points_ten",
         "FIXED",
         "**Four public entry points and all ten accessors had zero C "
         "coverage.** `dp_wfm_synth_set_dsss_chips`, "
@@ -955,7 +960,7 @@ def review(d: Data) -> None:
         "doing nothing, `set_sym_pos` doing nothing -- all now red.",
     )
     R.find(
-        "F4",
+        "auto_resolved_twice",
         "BY DESIGN",
         "**`create()` and the composer resolve `auto` differently for "
         "dsss, and they must.** `dp_wfm_synth_create` resolves an `auto` SNR "
@@ -971,7 +976,7 @@ def review(d: Data) -> None:
         "Es/No one it must not give.",
     )
     R.find(
-        "F5",
+        "noise_steps_defends_dead_path",
         "GAP",
         "**`noise_steps` matches `steps()`'s AWGN chunking to defend "
         "against a code path that no longer exists, and nothing would "
@@ -989,7 +994,7 @@ def review(d: Data) -> None:
         "paths disagreed 'nothing noticed'.",
     )
     R.find(
-        "F6",
+        "bits_symbol_map_identity_library",
         "C-ONLY",
         "**The bits->symbol map's identity with the library's is certified "
         "in C.** `mpsk_constellation` is not bound in Python, so the claim "
@@ -1080,7 +1085,8 @@ def limits(d: Data) -> None:
     R.limit(
         d.chirp_step_gap == 0.0 and d.chirp_block_gap == 0.0,
         "a pinned chirp read by one steps(), by step() and in 64-sample "
-        "blocks is one waveform, bit for bit (F2)",
+        "blocks is one waveform, bit for bit "
+        f"({R.ref('step_chirp_emitted_flat_cw')})",
     )
     R.limit(
         d.chirp_unpinned_gap == 0.0 and d.chirp_unpinned_swept < 1.0,
@@ -1209,7 +1215,10 @@ def plots(d: Data) -> None:
         ax.plot(ifreq(y) / 1e3, label=lab, **style)
     ax.set_xlabel("sample")
     ax.set_ylabel("instantaneous frequency (kHz)")
-    ax.set_title("One pinned chirp, three read patterns, one waveform (F2)")
+    ax.set_title(
+        "One pinned chirp, three read patterns, one waveform "
+        f"({R.number('step_chirp_emitted_flat_cw')})"
+    )
     ax.grid(True, alpha=0.3)
     ax.legend(fontsize=8)
     fig.tight_layout()
@@ -1240,7 +1249,8 @@ def build(write: bool = True) -> Report:
             "Pinned, it is one waveform however it is read -- one call, "
             "step() or 64-sample blocks, bit for bit. A standalone `Synth` "
             "that sweeps must say `span=` and raises without it; a "
-            "`Segment` lends its `num_samples` (§2.6, F2, gh-1115).",
+            "`Segment` lends its `num_samples` (§2.6, "
+            f"{R.ref('step_chirp_emitted_flat_cw')}, gh-1115).",
             "**The SNR you ask for is the SNR you get, in all three "
             "references.** Realized noise power tracks "
             "`snr [+10log10(bps)] -10log10(span)` to "
@@ -1268,7 +1278,10 @@ def build(write: bool = True) -> Report:
             "conversion the header calls its single source of truth, four "
             "more public entry points and all ten accessors were tested by "
             "nothing until this certification; the chirp defect had been "
-            "reachable from the public API the whole time (F1, F2, F3).",
+            "reachable from the public API the whole time "
+            f"({R.ref('header_arithmetic_untested')}, "
+            f"{R.ref('step_chirp_emitted_flat_cw')}, "
+            f"{R.ref('four_public_entry_points_ten')}).",
         ],
     )
     if write:

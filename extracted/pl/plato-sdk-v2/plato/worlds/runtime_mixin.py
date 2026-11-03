@@ -58,11 +58,13 @@ class RuntimeMixin:
             return
 
         serialized_session = cast("SerializedSession | Mapping[str, object]", self._runtime_info.serialized_session)
+        logger.debug("Restoring Plato session from runtime info")
         self._plato_session = await Session.load(
             serialized_session,
             start_heartbeat=True,
             heartbeat_use_process=True,
         )
+        logger.debug(f"Plato session {self._plato_session.session_id} restored, heartbeat started")
 
     async def _resolve_world_hostname(self) -> None:
         """Resolve the world VM's mesh IP and update runtime_info hostname.
@@ -91,6 +93,7 @@ class RuntimeMixin:
             pub_key_path = Path(str(ssh_key_path) + ".pub")
             if pub_key_path.exists():
                 await world_env.add_ssh_key(pub_key_path.read_text().strip())
+                logger.debug("Registered SSH public key on world VM")
 
     async def _disconnect_plato_session(self) -> None:
         """Stop heartbeat for the Plato session (does not close the session)."""

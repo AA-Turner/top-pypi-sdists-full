@@ -4,6 +4,7 @@ import datetime as dt
 import logging
 import re
 from datetime import timedelta
+from typing import Any
 
 from .ApiImpl import (
     ApiImpl,
@@ -79,7 +80,7 @@ class VehicleManager:
         self.geocode_provider: int = geocode_provider
         self.pin: str = pin
         self.language: str = language
-        self.geocode_api_key: str = geocode_api_key
+        self.geocode_api_key: str | None = geocode_api_key
 
         self.api: ApiImpl = self.get_implementation_by_region_brand(
             self.region, self.brand, self.language
@@ -118,7 +119,7 @@ class VehicleManager:
         )
         self.initialize_vehicles()
 
-    def initialize_vehicles(self):
+    def initialize_vehicles(self) -> None:
         if len(self.vehicles) > 0:
             _LOGGER.warning(
                 "Vehicles already initialized, this will re-initialize and cause data loss mapping errors"
@@ -268,10 +269,12 @@ class VehicleManager:
             self.initialize_vehicles()
         return False
 
-    def start_climate(self, vehicle_id: str, options: ClimateRequestOptions) -> str:
+    def start_climate(
+        self, vehicle_id: str, options: ClimateRequestOptions
+    ) -> str | None:
         return self.api.start_climate(self.token, self.get_vehicle(vehicle_id), options)
 
-    def stop_climate(self, vehicle_id: str) -> str:
+    def stop_climate(self, vehicle_id: str) -> str | None:
         return self.api.stop_climate(self.token, self.get_vehicle(vehicle_id))
 
     def start_pet_care(
@@ -294,28 +297,28 @@ class VehicleManager:
             self.token, self.get_vehicle(vehicle_id)
         )
 
-    def lock(self, vehicle_id: str) -> str:
+    def lock(self, vehicle_id: str) -> str | None:
         return self.api.lock_action(
             self.token, self.get_vehicle(vehicle_id), VEHICLE_LOCK_ACTION.LOCK
         )
 
-    def unlock(self, vehicle_id: str) -> str:
+    def unlock(self, vehicle_id: str) -> str | None:
         return self.api.lock_action(
             self.token,
             self.get_vehicle(vehicle_id),
             VEHICLE_LOCK_ACTION.UNLOCK,
         )
 
-    def start_charge(self, vehicle_id: str) -> str:
+    def start_charge(self, vehicle_id: str) -> str | None:
         return self.api.start_charge(self.token, self.get_vehicle(vehicle_id))
 
-    def stop_charge(self, vehicle_id: str) -> str:
+    def stop_charge(self, vehicle_id: str) -> str | None:
         return self.api.stop_charge(self.token, self.get_vehicle(vehicle_id))
 
-    def start_hazard_lights(self, vehicle_id: str) -> str:
+    def start_hazard_lights(self, vehicle_id: str) -> str | None:
         return self.api.start_hazard_lights(self.token, self.get_vehicle(vehicle_id))
 
-    def start_hazard_lights_and_horn(self, vehicle_id: str) -> str:
+    def start_hazard_lights_and_horn(self, vehicle_id: str) -> str | None:
         return self.api.start_hazard_lights_and_horn(
             self.token, self.get_vehicle(vehicle_id)
         )
@@ -339,7 +342,7 @@ class VehicleManager:
             self.token, self.get_vehicle(vehicle_id), enabled
         )
 
-    def set_charge_limits(self, vehicle_id: str, ac: int, dc: int) -> str:
+    def set_charge_limits(self, vehicle_id: str, ac: int, dc: int) -> str | None:
         return self.api.set_charge_limits(
             self.token, self.get_vehicle(vehicle_id), ac, dc
         )
@@ -453,6 +456,11 @@ class VehicleManager:
     def set_vehicle_to_load_discharge_limit(self, vehicle_id: str, limit: int) -> str:
         return self.api.set_vehicle_to_load_discharge_limit(
             self.token, self.get_vehicle(vehicle_id), limit
+        )
+
+    def start_ota_update(self, vehicle_id: str, start: bool) -> dict[str, Any]:
+        return self.api.start_ota_update(
+            self.token, self.get_vehicle(vehicle_id), start
         )
 
     def set_navigation(self, vehicle_id: str, poi_list: list[POIInfo]) -> str:

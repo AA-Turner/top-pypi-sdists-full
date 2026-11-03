@@ -695,7 +695,7 @@ class GoogleHotelsNamespace:
         Price: $0.0015 per request.
 
         Example:
-            res = client.google_hotels.details(checkIn="2026-12-01", checkOut="2026-12-03", country="us", propertyToken="ChcImaG28Zbom8uuARoKL20vMDNncTd2NBAB")
+            res = client.google_hotels.details(checkIn="2026-12-03", checkOut="2026-12-05", country="us", propertyToken="ChcImaG28Zbom8uuARoKL20vMDNncTd2NBAB")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "google_hotels.details", dict(input), options
@@ -717,7 +717,7 @@ class GoogleHotelsNamespace:
         Price: $0.0015 per request.
 
         Example:
-            res = client.google_hotels.search(checkIn="2026-12-01", checkOut="2026-12-03", country="us", query="hotels near times square new york")
+            res = client.google_hotels.search(checkIn="2026-12-03", checkOut="2026-12-05", country="us", query="hotels near times square new york")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "google_hotels.search", dict(input), options
@@ -746,7 +746,7 @@ class AsyncGoogleHotelsNamespace:
         Price: $0.0015 per request.
 
         Example:
-            res = client.google_hotels.details(checkIn="2026-12-01", checkOut="2026-12-03", country="us", propertyToken="ChcImaG28Zbom8uuARoKL20vMDNncTd2NBAB")
+            res = client.google_hotels.details(checkIn="2026-12-03", checkOut="2026-12-05", country="us", propertyToken="ChcImaG28Zbom8uuARoKL20vMDNncTd2NBAB")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "google_hotels.details", dict(input), options
@@ -768,7 +768,7 @@ class AsyncGoogleHotelsNamespace:
         Price: $0.0015 per request.
 
         Example:
-            res = client.google_hotels.search(checkIn="2026-12-01", checkOut="2026-12-03", country="us", query="hotels near times square new york")
+            res = client.google_hotels.search(checkIn="2026-12-03", checkOut="2026-12-05", country="us", query="hotels near times square new york")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "google_hotels.search", dict(input), options

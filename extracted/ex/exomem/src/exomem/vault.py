@@ -1532,6 +1532,12 @@ def stat_generation(info: os.stat_result) -> tuple[int, int, int]:
 #: callers must keep hashing content.
 STAT_GENERATION_TRUSTED = os.name != "nt"
 
+#: How long both of a leaf's timestamps must have stood still before a read for its
+#: generation to bind the bytes read. Timestamps advance in clock ticks, so a write in
+#: the same tick as the previous one leaves the generation unchanged; git applies the
+#: same rule to its index. Every racy-clean check in the package uses this window.
+GENERATION_RACY_WINDOW_NS = 2_000_000_000
+
 
 def _same_captured_identity(first: PathIdentity, second: PathIdentity) -> bool:
     return (
@@ -4077,6 +4083,27 @@ class DirectoryCensusGuard:
             raise PathGuardError("PATH_GUARD_CHANGED", "guarded directory census changed")
 
 
+def _unbounded_leaf_reason(info: os.stat_result, limit: int) -> str | None:
+    """Which bounded-regular-file condition a guarded leaf fails, or None."""
+    if not stat.S_ISREG(info.st_mode):
+        return "is not a regular file"
+    if info.st_nlink != 1:
+        return f"has {info.st_nlink} hard links; only a file with one link is read"
+    if info.st_size > limit:
+        return f"is {info.st_size} bytes, over the {limit}-byte read limit"
+    return None
+
+
+def _refuse_unbounded_leaf(target: str, reason: str) -> PathGuardError:
+    """The refusal for a guarded leaf that is not a bounded regular file.
+
+    The error text names the failed condition and not the path: this read also covers pages
+    that are withheld from a restricted caller, so the path would name one. The server log has it.
+    """
+    log.warning("guarded read refused: %s %s", target, reason)
+    return PathGuardError("PATH_GUARD_UNSAFE", f"guarded content {reason}")
+
+
 def _read_bounded_guarded_snapshot(
     vault_root: Path, target: str, limit: int
 ) -> tuple[bytes, PathGuard]:
@@ -4116,14 +4143,9 @@ def _read_bounded_guarded_snapshot(
         leaf = os.open(parts[-1], flags | getattr(os, "O_NONBLOCK", 0), dir_fd=descriptor)
         descriptors.append(leaf)
         before = os.fstat(leaf)
-        if (
-            not stat.S_ISREG(before.st_mode)
-            or before.st_nlink != 1
-            or before.st_size > limit
-        ):
-            raise PathGuardError(
-                "PATH_GUARD_UNSAFE", "guarded content is not a bounded regular file"
-            )
+        unbounded = _unbounded_leaf_reason(before, limit)
+        if unbounded is not None:
+            raise _refuse_unbounded_leaf(target, unbounded)
         chunks: list[bytes] = []
         remaining = limit + 1
         while remaining:
@@ -4232,16 +4254,13 @@ def _read_bounded_windows_snapshot(
             ancestors.append(_identity("/".join(parts[: index + 1]), opened))
         leaf_path = root.joinpath(*parts)
         before = leaf_path.lstat()
-        if (
-            not stat.S_ISREG(before.st_mode)
-            or stat.S_ISLNK(before.st_mode)
-            or _is_reparse(before)
-            or before.st_nlink != 1
-            or before.st_size > limit
-        ):
-            raise PathGuardError(
-                "PATH_GUARD_UNSAFE", "guarded content is not a bounded regular file"
-            )
+        unbounded = (
+            "is a link, not a regular file"
+            if stat.S_ISLNK(before.st_mode) or _is_reparse(before)
+            else _unbounded_leaf_reason(before, limit)
+        )
+        if unbounded is not None:
+            raise _refuse_unbounded_leaf(target, unbounded)
         leaf = _open_windows_path_descriptor(
             leaf_path,
             desired_access=0x80000000,
@@ -4317,6 +4336,62 @@ def read_bounded_guarded_bytes(
         raise PathGuardError("PATH_GUARD_CONTENT", "guarded content changed")
     guard.recheck(Path(vault_root))
     return data, guard
+
+
+def read_bounded_guarded_bytes_with_generation(
+    vault_root: Path, target: str, *, limit: int
+) -> tuple[bytes, PathGuard, PathGuard | None]:
+    """`read_bounded_guarded_bytes`, plus a generation guard bound to the same bytes.
+
+    The generation guard rechecks the leaf's ancestry, identity and `stat_generation`
+    with lstat calls and reads no bytes. Where `STAT_GENERATION_TRUSTED` holds, a match
+    proves the bytes held still: `st_ctime_ns` is the inode change time, which every
+    write moves and no POSIX call can set (`os.utime` puts mtime back and moves ctime).
+    The generation is taken before the read and confirmed after it against the
+    descriptor's identity, so a write during the read cannot hide behind it.
+
+    The third value is None, and the caller keeps the content guard, where a generation
+    does not prove the bytes: on Windows, where ctime is the creation time; when the
+    leaf moved during the read; and when a timestamp was inside
+    `GENERATION_RACY_WINDOW_NS` of the read. A filesystem that does not move ctime on
+    a write (some FUSE or network mounts), or a Windows volume mounted on Linux, whose
+    change time a Windows program can set, defeats the generation, as it does
+    `record_item_cache`. So do a writer through a shared mmap, which moves no timestamp
+    until it syncs, and one write call that runs longer than the racy window.
+    """
+    root = Path(vault_root)
+    if not STAT_GENERATION_TRUSTED:
+        data, guard = read_bounded_guarded_bytes(root, target, limit=limit)
+        return data, guard, None
+    _safe_guard_target(target)
+    leaf = os.path.join(os.fspath(root), target)
+    # Taken before the read: a later write cannot then hide inside the racy window.
+    started = time.time_ns()
+    try:
+        before = os.lstat(leaf)
+    except FileNotFoundError:
+        raise
+    except OSError as error:
+        raise PathGuardError("PATH_GUARD_IO", "guarded content could not be opened") from error
+    data, guard = read_bounded_guarded_bytes(root, target, limit=limit)
+    try:
+        after = os.lstat(leaf)
+    except OSError:
+        return data, guard, None
+    generation = stat_generation(before)
+    identity = guard.leaf_identity
+    if (
+        identity is None
+        or not _same_identity(identity, before)
+        or not _same_identity(identity, after)
+        or stat_generation(after) != generation
+        or before.st_size != len(data)
+        or started - max(before.st_mtime_ns, before.st_ctime_ns) <= GENERATION_RACY_WINDOW_NS
+    ):
+        return data, guard, None
+    bound = PathGuard(target, guard.ancestors, guard.missing_parents, identity, "generation", None)
+    object.__setattr__(bound, "expected_generation", generation)
+    return data, guard, bound
 
 
 def read_guarded_text(vault_root: Path, path: Path) -> tuple[str, PathGuard]:
@@ -8211,6 +8286,11 @@ def normalize_wikilink(
     return canonical, warning
 
 
+def wikilink_page_key(page: str) -> str:
+    """A link's page part as resolution keys it: no `.md`, no edge blanks or slashes."""
+    return page.removesuffix(".md").strip().strip("/")
+
+
 def _normalize_wikilink(
     target: str,
     vault_root: Path,
@@ -8224,7 +8304,7 @@ def _normalize_wikilink(
     """Normalize a link and retain the physical owner for internal consumers."""
 
     cleaned, anchor = split_wikilink_target(target)
-    cleaned = cleaned.removesuffix(".md").strip().strip("/")
+    cleaned = wikilink_page_key(cleaned)
     if not cleaned:
         if strict:
             raise UnresolvedWikilinkError(f"empty wikilink target: {target!r}")

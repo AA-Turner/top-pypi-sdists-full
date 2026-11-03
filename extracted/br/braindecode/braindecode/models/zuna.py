@@ -6,17 +6,24 @@
 from __future__ import annotations
 
 import math
+import warnings
 from typing import Optional
 
+import numpy as np
 import torch
 from einops import rearrange
 from einops.layers.torch import Rearrange
 from torch import nn
-from torch.nn import functional
 
+from braindecode.functional import scaled_dot_product_attention
+from braindecode.functional.attention import _hpu_lazy
 from braindecode.models.base import EEGModuleMixin
-from braindecode.models.util import extract_channel_locations_from_chs_info
+from braindecode.models.util import (
+    extract_channel_locations_from_chs_info,
+    warn_if_sfreq_differs,
+)
 from braindecode.modules import PatchTokenizer
+from braindecode.modules.layers import RMSNorm
 
 
 class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
@@ -47,10 +54,12 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
     Signal size and sampling frequency follow the standard Braindecode model
     arguments. Supply either ``n_times`` or both ``input_window_seconds`` and
     ``sfreq``; ZUNA does not set these values implicitly. ZUNA1.1 was trained
-    at 256 Hz with 32-sample tokens. This implementation does not
-    resample, filter, or normalize the input. Channel coordinates are read from
-    ``chs_info`` when the model is constructed and stored in fixed rotary
-    position buffers.
+    at 256 Hz with 32-sample tokens (another ``sfreq`` warns). This
+    implementation does not resample, filter, or normalize the input. Channel
+    coordinates are read from ``chs_info`` (in metres, MNE head frame) when the
+    model is constructed and stored in fixed rotary position buffers; a channel
+    without a location takes the standard 10-05 position of its name, with a
+    warning.
 
     .. rubric:: Architecture Overview
 
@@ -110,7 +119,9 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
     .. rubric:: Additional Mechanisms
 
     - **Register tokens**: one learned register is paired with every patch.
-      Only register outputs enter the latent projection.
+      Only register outputs enter the latent projection. With
+      ``registers=False`` the encoder runs on the patch tokens alone (half the
+      tokens) and the patch outputs enter the latent projection instead.
     - **ZUNA1.1 normalization**: query-key RMS normalization and optional
       post-attention and post-feed-forward RMS normalization match the changes
       introduced in ZUNA1.1.
@@ -131,13 +142,17 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
         default is ``64``.
     fine_time_pts : int, optional
         Number of fine time points per token (the encoder input dimension).
-        ``n_times`` must be divisible by this value. The default is ``32``, or
-        0.125 seconds for data sampled at 256 Hz.
+        ``n_times`` must be divisible by this value unless ``on_non_divisible``
+        is ``"pad"`` or ``"crop"``. The default is ``32``, or 0.125 seconds for
+        data sampled at 256 Hz.
     latent_dim : int, optional
         Per-token output dimension of the encoder. The default is ``32``.
     max_seqlen : int, optional
-        Length of the rotary frequency table. It must be at least
-        ``max(pos_bins, n_times // fine_time_pts)``. The default is ``256``.
+        Minimum length of the rotary frequency table. The table is extended to
+        ``max(pos_bins, the number of temporal patches)`` when the window needs
+        more rows, so longer windows than the release's 8192 samples are
+        accepted (positions past the pretraining range are extrapolated by the
+        rotary embedding). The default is ``256``.
     rope_theta : float, optional
         Base period of the rotary positional embedding. The default is
         ``10000.0``.
@@ -163,6 +178,22 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
     activation : type[nn.Module], optional
         Feed-forward activation class. The default is
         :class:`torch.nn.SiLU`.
+    on_non_divisible : {"pad", "crop", "error"}, optional
+        How to handle an ``n_times`` that is not a multiple of ``fine_time_pts``,
+        passed to :class:`braindecode.modules.PatchTokenizer`: ``"error"`` raises,
+        ``"pad"`` right-pads the last patch with zeros, ``"crop"`` drops the
+        trailing samples. The default is ``"pad"``.
+    registers : bool, optional
+        Place a learned register before each patch, as in ZUNA1.1. ``False``
+        drops the registers: the sequence holds the patch tokens only (half the
+        tokens, so about half the memory and a large share of the compute per
+        step), each keeps its rotary position, and the head reads the patch
+        outputs. This changes the model (it is not the published ZUNA1.1
+        encoder), but the parameters are the same, so pretrained weights load
+        unchanged; the register parameter is then not used and does not
+        require gradients. The default is ``True``.
+
+        .. versionadded:: 2.0
 
     Notes
     -----
@@ -215,6 +246,10 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
         sandwich_norm: bool = True,
         qk_norm: bool = True,
         activation: type[nn.Module] = nn.SiLU,
+        on_non_divisible: str = "pad",
+        registers: bool = True,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
         super().__init__(
             n_outputs=n_outputs,
@@ -223,27 +258,34 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
 
         # Variables
         self.num_channels = self.n_chans
         self.latent_dim = latent_dim
-        coarse_time_points = self.n_times // fine_time_pts
+        if on_non_divisible == "pad":
+            # PatchTokenizer right-pads the last partial patch at forward time.
+            coarse_time_points = -(-self.n_times // fine_time_pts)
+        else:
+            coarse_time_points = self.n_times // fine_time_pts
         rotary_axis_dim = head_dim // 4
 
         # Checks
-        channel_locations = extract_channel_locations_from_chs_info(
-            self._chs_info, num_channels=self.num_channels
+        warn_if_sfreq_differs("ZUNA", self._sfreq, 256)
+        channel_positions = torch.as_tensor(
+            _channel_positions(self._chs_info, self.num_channels), dtype=torch.float32
         )
-        if channel_locations is None:
-            raise ValueError("ZUNA requires channel locations in chs_info.")
-        channel_positions = torch.as_tensor(channel_locations, dtype=torch.float32)
-        if (
-            channel_positions.shape != (self.num_channels, 3)
-            or not torch.isfinite(channel_positions).all()
-        ):
-            raise ValueError("ZUNA requires finite 3D locations for every channel.")
+        if channel_positions.abs().max() > 1.0:  # a head is ~0.1 m across
+            warnings.warn(
+                "ZUNA expects channel locations in metres (MNE head frame); got "
+                f"coordinates up to {float(channel_positions.abs().max()):g}, which "
+                f"are clipped to +/-{pos_half_range} m.",
+                UserWarning,
+                stacklevel=2,
+            )
         if head_dim % 8 != 0:
             raise ValueError("head_dim must be divisible by eight for 4D RoPE.")
 
@@ -252,7 +294,7 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
             PatchTokenizer(
                 patch_size=fine_time_pts,
                 n_times=self.n_times,
-                on_non_divisible="error",
+                on_non_divisible=on_non_divisible,
             ),
             Rearrange(
                 "batch channel temporal_patch sample "
@@ -275,7 +317,11 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
         )
 
         rotary_frequency_table = _build_rotary_frequency_table(
-            torch.arange(max_seqlen, dtype=torch.float32),
+            # RoPE is analytic and the tables are non-persistent buffers: extend the
+            # table to the window instead of capping it (rows < max_seqlen unchanged).
+            torch.arange(
+                max(max_seqlen, pos_bins, coarse_time_points), dtype=torch.float32
+            ),
             axis_dim=rotary_axis_dim,
             theta=rope_theta,
         )
@@ -283,7 +329,10 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
             rotary_frequency_table[token_position_indices],
             "token coordinate rotary_frequency -> token (coordinate rotary_frequency)",
         )
-        token_rotary_frequencies = token_rotary_frequencies.repeat_interleave(2, dim=0)
+        if registers:  # each register takes the position of the patch after it
+            token_rotary_frequencies = token_rotary_frequencies.repeat_interleave(
+                2, dim=0
+            )
 
         self.encoder = _ZUNAEncoder(
             dim=dim,
@@ -299,6 +348,7 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
             sandwich_norm=sandwich_norm,
             qk_norm=qk_norm,
             activation=activation,
+            registers=registers,
         )
         self.final_layer = nn.Sequential(
             Rearrange("batch channel latent -> batch (channel latent)"),
@@ -330,10 +380,54 @@ class ZUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
     def reset_head(self, n_outputs: int) -> None:
         """Replace the classification head for a new number of outputs."""
         self._n_outputs = n_outputs
+        self._update_init_kwargs(n_outputs=n_outputs)
         self.final_layer = nn.Sequential(
             Rearrange("batch channel latent -> batch (channel latent)"),
             nn.Linear(self.num_channels * self.latent_dim, n_outputs),
         )
+
+
+def _channel_positions(chs_info, n_chans):
+    """``(n_chans, 3)`` locations from ``chs_info``; a channel without a usable
+    ``loc`` takes the standard 10-05 position of its name, as MNE places it."""
+    locs = extract_channel_locations_from_chs_info(
+        chs_info, num_channels=n_chans, fill_missing=True
+    )
+    if locs is None:
+        raise ValueError("ZUNA requires channel locations in chs_info.")
+    missing = np.flatnonzero(~np.isfinite(locs).all(1) | ~locs.any(1))
+    if len(missing) == 0:
+        return locs
+    import mne
+
+    names = [str(chs_info[i].get("ch_name", "")) for i in missing]
+    unknown = [n for n in names if not n]
+    if not unknown:
+        montage = (
+            "colin27_1005"  # standard_1005's name from MNE 1.13
+            if "colin27_1005" in mne.channels.get_builtin_montages()
+            else "standard_1005"
+        )
+        info = mne.create_info(names, 256.0, "eeg")
+        info.set_montage(
+            montage, match_case=False, match_alias=True, on_missing="ignore"
+        )
+        filled = np.array([ch["loc"][:3] for ch in info["chs"]], dtype=locs.dtype)
+        ok = np.isfinite(filled).all(1) & filled.any(1)
+        unknown = [n for n, k in zip(names, ok) if not k]
+    if unknown:
+        raise ValueError(
+            "ZUNA requires finite 3D locations for every channel; "
+            f"{unknown} have none and are not in the standard 10-05 montage."
+        )
+    warnings.warn(
+        f"ZUNA: {len(names)} channel(s) without a location (e.g. {names[0]}) take "
+        "the standard 10-05 position of their name.",
+        UserWarning,
+        stacklevel=3,
+    )
+    locs[missing] = filled
+    return locs
 
 
 def _build_rotary_frequency_table(
@@ -375,50 +469,108 @@ class _RotaryPositionEmbedding(nn.Module):
         rotary_cosine: torch.Tensor,
         rotary_sine: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        if not torch.jit.is_scripting() and query.device.type == "hpu":
+            fused = _hpu_fused_rotary(query, key, rotary_cosine, rotary_sine)
+            if fused is not None:
+                return fused
         rotary_cosine = rotary_cosine.unsqueeze(0).unsqueeze(2)
         rotary_sine = rotary_sine.unsqueeze(0).unsqueeze(2)
 
         batch_size, sequence_length, num_heads, head_dim = query.shape
-        query_pairs = query.float().reshape(
+        work = torch.promote_types(query.dtype, torch.float32)
+        # Each (real, imaginary) pair (a, b) rotates to (-b, a): swap the pair
+        # here; the sign is in ``rotary_sine`` (see _ZUNAEncoder).
+        query_pairs = query.to(work).reshape(
             batch_size, sequence_length, num_heads, head_dim // 2, 2
         )
-        key_pairs = key.float().reshape(
+        key_pairs = key.to(work).reshape(
             batch_size, sequence_length, num_heads, head_dim // 2, 2
         )
-        rotated_query = self.merge_rotary_pairs(
-            torch.stack((-query_pairs[..., 1], query_pairs[..., 0]), dim=-1)
-        )
-        rotated_key = self.merge_rotary_pairs(
-            torch.stack((-key_pairs[..., 1], key_pairs[..., 0]), dim=-1)
-        )
+        rotated_query = self.merge_rotary_pairs(query_pairs.flip(-1))
+        rotated_key = self.merge_rotary_pairs(key_pairs.flip(-1))
 
-        query = (query.float() * rotary_cosine + rotated_query * rotary_sine).type_as(
+        query = (query.to(work) * rotary_cosine + rotated_query * rotary_sine).type_as(
             query
         )
-        key = (key.float() * rotary_cosine + rotated_key * rotary_sine).type_as(key)
+        key = (key.to(work) * rotary_cosine + rotated_key * rotary_sine).type_as(key)
         return query, key
 
 
-class _RMSNorm(nn.Module):
-    """Root-mean-square layer normalisation.
+def _define_hpu_pairwise_rotary():
+    """Gaudi's fused pairwise RoPE kernel as a custom op.
 
-    ``torch.nn.RMSNorm`` is only available from PyTorch 2.4, but braindecode
-    supports ``torch>=2.0``; this shippable equivalent (same approach as
-    :class:`~braindecode.models.REVE` and ``CodeBrain``) keeps the model
-    importable on older PyTorch while preserving the ``.weight`` parameter
-    name for state-dict compatibility.
+    A custom op (not an ``autograd.Function``) so that a compiled region keeps it
+    as one opaque node. The kernel has no gradient of its own; the rotation is
+    orthogonal, so the gradient is the same kernel with the opposite angle. Only
+    called on HPU tensors; defining it imports nothing from the Gaudi bridge.
     """
+    if hasattr(torch.ops.braindecode, "zuna_pairwise_rotary"):  # module reloaded
+        return torch.ops.braindecode.zuna_pairwise_rotary
 
-    def __init__(self, dimension: int, epsilon: float = 1e-5):
-        super().__init__()
-        self.epsilon = epsilon
-        self.weight = nn.Parameter(torch.ones(dimension))
-
-    def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
-        normalized = input_tensor.float() * torch.rsqrt(
-            input_tensor.float().pow(2).mean(-1, keepdim=True) + self.epsilon
+    # Explicit schema: this module's postponed annotations are strings.
+    @torch.library.custom_op(
+        "braindecode::zuna_pairwise_rotary",
+        mutates_args=(),
+        schema="(Tensor x, Tensor cosine, Tensor sine) -> Tensor",
+    )
+    def rotary(x, cosine, sine):
+        from habana_frameworks.torch.hpex.kernels import (
+            RotaryPosEmbeddingMode,
+            apply_rotary_pos_emb,
         )
-        return normalized.type_as(self.weight) * self.weight
+
+        return apply_rotary_pos_emb(
+            x.contiguous(), cosine, sine, None, 0, RotaryPosEmbeddingMode.PAIRWISE
+        )
+
+    @rotary.register_fake
+    def _(x, cosine, sine):
+        return torch.empty_like(x, memory_format=torch.contiguous_format)
+
+    def setup_context(ctx, inputs, output):
+        ctx.save_for_backward(inputs[1], inputs[2])
+
+    def backward(ctx, grad_output):
+        cosine, sine = ctx.saved_tensors
+        return rotary(grad_output, cosine, -sine), None, None
+
+    rotary.register_autograd(backward, setup_context=setup_context)
+    return rotary
+
+
+_hpu_pairwise_rotary = _define_hpu_pairwise_rotary()
+
+
+@torch.jit.unused
+def _hpu_fused_rotary(
+    query: torch.Tensor,
+    key: torch.Tensor,
+    rotary_cosine: torch.Tensor,
+    rotary_sine: torch.Tensor,
+) -> Optional[tuple[torch.Tensor, torch.Tensor]]:
+    """``_RotaryPositionEmbedding`` in HPU eager mode (and compiled regions).
+
+    Gaudi's fused pairwise RoPE kernel. Not in lazy mode, where the graph
+    compiler fuses the formula itself and the kernel was slower (2.47 -> 2.86 s
+    per train step, 21 channels x 1280 samples, batch 64): None there.
+
+    The formula runs as about ten element-wise ops on float32 copies of the
+    queries and keys (a quarter of a ZUNA block's train-step time at 107,520
+    tokens per batch in eager mode); the kernel does it in one pass, also inside
+    a compiled region. Same float32 arithmetic, so the outputs are identical;
+    the gradient is rounded to the input dtype once instead of once per term.
+    """
+    if not torch.compiler.is_compiling() and _hpu_lazy():
+        return None
+    work = torch.promote_types(query.dtype, torch.float32)
+    cosine = rotary_cosine.unsqueeze(0).unsqueeze(2)
+    # The kernel applies the pair sign itself: pass sin(angle), which is
+    # ``rotary_sine`` at the imaginary component of every pair.
+    sine = rotary_sine[:, 1::2].repeat_interleave(2, dim=-1).unsqueeze(0).unsqueeze(2)
+    return (
+        _hpu_pairwise_rotary(query.to(work), cosine, sine).type_as(query),
+        _hpu_pairwise_rotary(key.to(work), cosine, sine).type_as(key),
+    )
 
 
 class _Attention(nn.Module):
@@ -441,8 +593,8 @@ class _Attention(nn.Module):
         self.wk = nn.Linear(embedding_dim, n_heads * head_dim, bias=False)
         self.wv = nn.Linear(embedding_dim, n_heads * head_dim, bias=False)
         self.wo = nn.Linear(n_heads * head_dim, embedding_dim, bias=False)
-        self.q_norm = _RMSNorm(head_dim, epsilon=norm_eps) if qk_norm else nn.Identity()
-        self.k_norm = _RMSNorm(head_dim, epsilon=norm_eps) if qk_norm else nn.Identity()
+        self.q_norm = RMSNorm(head_dim, eps=norm_eps) if qk_norm else nn.Identity()
+        self.k_norm = RMSNorm(head_dim, eps=norm_eps) if qk_norm else nn.Identity()
         self.rotary_embedding = _RotaryPositionEmbedding()
 
     def forward(
@@ -463,7 +615,7 @@ class _Attention(nn.Module):
         value = self.wv(input_tensor).reshape(attention_shape)
         query, key = self.rotary_embedding(query, key, rotary_cosine, rotary_sine)
 
-        attention_output = functional.scaled_dot_product_attention(
+        attention_output = scaled_dot_product_attention(
             query.transpose(1, 2),
             key.transpose(1, 2),
             value.transpose(1, 2),
@@ -529,17 +681,13 @@ class _TransformerBlock(nn.Module):
             ffn_dim_multiplier=ffn_dim_multiplier,
             activation=activation,
         )
-        self.attention_norm = _RMSNorm(embedding_dim, epsilon=norm_eps)
-        self.ffn_norm = _RMSNorm(embedding_dim, epsilon=norm_eps)
+        self.attention_norm = RMSNorm(embedding_dim, eps=norm_eps)
+        self.ffn_norm = RMSNorm(embedding_dim, eps=norm_eps)
         self.attention_norm_post = (
-            _RMSNorm(embedding_dim, epsilon=norm_eps)
-            if sandwich_norm
-            else nn.Identity()
+            RMSNorm(embedding_dim, eps=norm_eps) if sandwich_norm else nn.Identity()
         )
         self.ffn_norm_post = (
-            _RMSNorm(embedding_dim, epsilon=norm_eps)
-            if sandwich_norm
-            else nn.Identity()
+            RMSNorm(embedding_dim, eps=norm_eps) if sandwich_norm else nn.Identity()
         )
 
     def forward(
@@ -548,14 +696,18 @@ class _TransformerBlock(nn.Module):
         rotary_cosine: torch.Tensor,
         rotary_sine: torch.Tensor,
     ) -> torch.Tensor:
-        input_tensor = input_tensor.float()
+        # Residual stream in float32 at least; the sub-layers run in the
+        # weights' dtype.
+        dtype = self.attention.wq.weight.dtype
+        residual_dtype = torch.promote_types(dtype, torch.float32)
+        input_tensor = input_tensor.to(residual_dtype)
         hidden_states = input_tensor + self.attention_norm_post(
             self.attention(
-                self.attention_norm(input_tensor), rotary_cosine, rotary_sine
-            ).float()
+                self.attention_norm(input_tensor).to(dtype), rotary_cosine, rotary_sine
+            ).to(residual_dtype)
         )
         return hidden_states + self.ffn_norm_post(
-            self.feed_forward(self.ffn_norm(hidden_states)).float()
+            self.feed_forward(self.ffn_norm(hidden_states).to(dtype)).to(residual_dtype)
         )
 
 
@@ -575,12 +727,16 @@ class _ZUNAEncoder(nn.Module):
         sandwich_norm: bool = True,
         qk_norm: bool = True,
         activation: type[nn.Module] = nn.SiLU,
+        registers: bool = True,
     ):
         super().__init__()
+        self.use_registers = registers
 
         # Layers
         self.tok_embeddings = nn.Linear(input_dim, dim)
+        # Kept without registers too, so the pretrained state dict loads as is.
         self.registers = nn.Parameter(torch.zeros(1, input_dim))
+        self.registers.requires_grad_(registers)
         self.layers = nn.ModuleList(
             _TransformerBlock(
                 dim,
@@ -595,7 +751,7 @@ class _ZUNAEncoder(nn.Module):
             )
             for _ in range(n_layers)
         )
-        self.norm = _RMSNorm(dim, epsilon=norm_eps)
+        self.norm = RMSNorm(dim, eps=norm_eps)
         self.output = nn.Linear(dim, output_dim, bias=False)
 
         # Buffers
@@ -604,13 +760,23 @@ class _ZUNAEncoder(nn.Module):
             rotary_frequencies.cos(),
             persistent=False,
         )
+        # Sine with the pair rotation's sign folded in: -sin on the real, +sin
+        # on the imaginary component of every pair (exact, saves a negation).
+        pair_sign = torch.tensor([-1.0, 1.0]).repeat(rotary_frequencies.shape[-1] // 2)
         self.register_buffer(
             "rotary_sine",
-            rotary_frequencies.sin(),
+            rotary_frequencies.sin() * pair_sign,
             persistent=False,
         )
 
     def forward(self, patch_tokens: torch.Tensor) -> torch.Tensor:
+        if not self.use_registers:
+            hidden_states = self.tok_embeddings(patch_tokens)
+            for layer in self.layers:
+                hidden_states = layer(
+                    hidden_states, self.rotary_cosine, self.rotary_sine
+                )
+            return self.output(self.norm(hidden_states).to(self.output.weight.dtype))
         batch_size, sequence_length, patch_size = patch_tokens.shape
         register_tokens = self.registers.expand(batch_size, sequence_length, -1)
         interleaved_tokens = torch.stack(
@@ -623,4 +789,4 @@ class _ZUNAEncoder(nn.Module):
         register_latents = hidden_states.reshape(batch_size, sequence_length, 2, -1)[
             :, :, 0
         ]
-        return self.output(self.norm(register_latents))
+        return self.output(self.norm(register_latents).to(self.output.weight.dtype))

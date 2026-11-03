@@ -28,12 +28,24 @@ _RECORDS = (
     "Span",
 )
 
-__all__ = [*_RECORDS, "CONTRACTS", "Contracts"]
+_CLIENT_MESSAGES = (
+    "Action",
+    "Audience",
+    "ClientMessage",
+    "ClientMessageList",
+    "ClientRefusalBody",
+    "MessageCode",
+    "Severity",
+)
+
+__all__ = [*_RECORDS, *_CLIENT_MESSAGES, "CONTRACTS", "Contracts"]
 
 
 def __getattr__(name: str) -> Any:
     if name in _RECORDS:
         return getattr(importlib.import_module(".records", __name__), name)
+    if name in _CLIENT_MESSAGES:
+        return getattr(importlib.import_module(".client_messages", __name__), name)
     if name in ("CONTRACTS", "Contracts"):
         return getattr(importlib.import_module(".probe_contracts", __name__), name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

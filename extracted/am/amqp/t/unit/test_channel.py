@@ -67,9 +67,13 @@ class test_Channel:
     def test_do_revive(self):
         self.c.open = Mock(name='open')
         self.c.is_open = True
+        self.c._confirm_selected = True
+
         self.c._do_revive()
+
         assert not self.c.is_open
-        self.c.open.assert_called_with()
+        assert not self.c._confirm_selected
+        self.c.open.assert_called_once_with()
 
     def test_close__not_open(self):
         self.c.is_open = False
@@ -275,6 +279,13 @@ class test_Channel:
         assert 123 not in self.c.callbacks
         assert 123 not in self.c.cancel_callbacks
 
+    def test_on_basic_cancel__no_ack(self):
+        self.c.callbacks[123] = Mock()
+        self.c.cancel_callbacks[123] = Mock()
+        self.c.no_ack_consumers.add(123)
+        self.c._on_basic_cancel(123)
+        assert 123 not in self.c.no_ack_consumers
+
     def test_basic_consume(self):
         callback = Mock()
         on_cancel = Mock()
@@ -331,7 +342,7 @@ class test_Channel:
             returns_tuple=True
         )
         assert self.c.callbacks[123] is callback
-        assert ret == ret_promise
+        assert ret == 123
 
     def test_basic_consume_no_wait_no_consumer_tag(self):
         callback = Mock()
@@ -340,7 +351,8 @@ class test_Channel:
                 'q', arguments={'x': 1},
                 callback=callback, nowait=True
             )
-        assert 123 not in self.c.callbacks
+        self.c.send_method.assert_not_called()
+        assert not self.c.callbacks
 
     def test_on_basic_deliver(self):
         msg = Message()
@@ -425,6 +437,28 @@ class test_Channel:
             timeout=None
         )
         self.c.basic_publish_confirm(1, 2, arg=1)
+
+    def test_confirm_publish_reselects_after_channel_revival(self):
+        self.c.confirm_select = Mock(name='confirm_select')
+        self.c._basic_publish = Mock(name='_basic_publish')
+        self.c.wait = Mock(name='wait')
+        self.c.open = Mock(name='open')
+
+        def publish():
+            return self.c.basic_publish_confirm(
+                1, 2, exchange='test', routing_key='key',
+            )
+
+        publish()
+        assert self.c.confirm_select.call_count == 1
+
+        with pytest.raises(NotFound):
+            self.c._on_close(404, 'channel closed', 50, 61)
+
+        self.c.open.assert_called_once_with()
+
+        publish()
+        assert self.c.confirm_select.call_count == 2
 
     def test_basic_publish_confirm_nack(self):
         # test checking whether library is handling correctly Nack confirms

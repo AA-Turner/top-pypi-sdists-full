@@ -17,7 +17,9 @@ __lazy_modules__ = {
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}.builder.builder",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}.builder.wheel_tag",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.cmake",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}.format",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.settings.skbuild_model",
     f"{__spec__.parent}._pathutil",
 }
 
@@ -160,7 +162,7 @@ def get_editable_rebuild_dir(
     """
     Persistent install tree for a rebuildable redirect editable.
 
-    ``editable.rebuild-dir`` (formatted like ``build-dir``) overrides the default
+    ``editable.rebuild-dir`` (formatted like ``build-dir``, plus ``{build_dir}``) overrides the default
     ``install/<targetlib>`` tree inside ``build-dir``. The redirect references the
     compiled artifacts here by absolute path, so it must be stable between build
     and run time (#1135).
@@ -168,7 +170,13 @@ def get_editable_rebuild_dir(
     if settings.editable.rebuild_dir:
         return Path(
             settings.editable.rebuild_dir.format(
-                **pyproject_format(settings=settings, tags=tags, state=state, name=name)
+                **pyproject_format(
+                    settings=settings,
+                    tags=tags,
+                    state=state,
+                    name=name,
+                    build_dir=build_dir,
+                )
             )
         ).resolve()
     return (build_dir / "install" / targetlib).resolve()
@@ -293,6 +301,19 @@ def configure_wheel(
         fresh=settings.cmake.fresh and primary,
     )
     builder = Builder(settings=settings, config=config)
+
+    if settings.build_dir:
+        # An editable redirect from a previous install of this project is active
+        # in every Python the build starts. Listing the build dir in the skip
+        # marker makes that redirect yield to normal import resolution (#1612).
+        from ..resources._editable_redirect import MARKER
+
+        skip = config.env.get(MARKER, "").split(os.pathsep)
+        resolved_build_dir = os.fspath(build_dir.resolve())
+        if resolved_build_dir not in skip:
+            config.env[MARKER] = os.pathsep.join(
+                [*filter(None, skip), resolved_build_dir]
+            )
 
     # Setting the install prefix because some libs hardcode CMAKE_INSTALL_PREFIX
     # Otherwise `cmake --install --prefix` would work by itself

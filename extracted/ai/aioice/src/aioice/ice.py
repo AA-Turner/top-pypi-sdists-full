@@ -9,8 +9,9 @@ import re
 import secrets
 import socket
 import threading
+from collections import deque
 from collections.abc import Callable
-from typing import Optional, Union, cast
+from typing import Any, cast
 
 import ifaddr
 
@@ -25,6 +26,10 @@ ICE_FAILED = 2
 
 CONSENT_FAILURES = 6
 CONSENT_INTERVAL = 5
+
+# Maximum number of early checks kept until connect(). The RFCs set no such
+# limit, so use the one on connectivity checks (RFC 8445 section 19.5.1).
+MAX_EARLY_CHECKS = 100
 
 connection_id = itertools.count()
 protocol_id = itertools.count()
@@ -41,8 +46,13 @@ class TransportPolicy(enum.Enum):
     RELAY = 1
     """
     Only ICE candidates whose IP addresses are being relayed,
-    such as those being passed through a STUN or TURN server,
+    such as those being passed through a TURN server,
     will be considered.
+
+    Candidates are only gathered from a TURN server, so none are gathered
+    without one, even with a STUN server. Remote mDNS candidates are
+    ignored, as they cannot be paired with relayed candidates, and the
+    related address of relayed candidates is hidden.
     """
 
 
@@ -55,7 +65,7 @@ async def get_or_create_mdns_protocol(subscriber: object) -> mdns.MDnsProtocol:
         if _mdns.protocol is None:
             _mdns.protocol = await mdns.create_mdns_protocol()
         _mdns.subscribers.add(subscriber)
-    return _mdns.protocol
+    return cast(mdns.MDnsProtocol, _mdns.protocol)
 
 
 async def unref_mdns_protocol(subscriber: object) -> None:
@@ -93,11 +103,13 @@ def get_host_addresses(use_ipv4: bool, use_ipv6: bool) -> list[str]:
 
 
 async def relayed_candidate(
+    *,
     component: int,
+    hide_related_address: bool,
     protocol_factory: Callable[[], "StunProtocol"],
     turn_server: tuple[str, int],
-    turn_username: Optional[str],
-    turn_password: Optional[str],
+    turn_username: str | None,
+    turn_password: str | None,
     turn_ssl: bool,
     turn_transport: str,
 ) -> tuple[Candidate, "StunProtocol"]:
@@ -117,6 +129,13 @@ async def relayed_candidate(
     # Build relayed candidate.
     candidate_address = protocol.transport.get_extra_info("sockname")
     related_address = protocol.transport.get_extra_info("related_address")
+    if hide_related_address:
+        # Do not expose a disallowed candidate through the related address
+        # (RFC 9429 section 3.5.3), using the format of RFC 8839 section 5.1.
+        if ipaddress.ip_address(candidate_address[0]).version == 4:
+            related_address = ("0.0.0.0", 9)
+        else:
+            related_address = ("::", 9)
     protocol.local_candidate = Candidate(
         foundation=candidate_foundation("relay", "udp", candidate_address[0]),
         component=component,
@@ -138,7 +157,7 @@ async def server_reflexive_candidate(
     Query STUN server to obtain a server-reflexive candidate.
     """
     # lookup address
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     stun_server = (
         await loop.run_in_executor(None, socket.gethostbyname, stun_server[0]),
         stun_server[1],
@@ -187,14 +206,13 @@ def validate_password(value: str) -> None:
         raise ValueError("Password must satisfy 22*256ice-char")
 
 
-def validate_remote_candidate(candidate: Candidate) -> Candidate:
+def validate_remote_candidate(candidate: Candidate, host: str) -> str:
     """
-    Check the remote candidate is supported.
+    Check the remote candidate is supported and return its canonical address.
     """
     if candidate.type not in ["host", "relay", "srflx"]:
-        raise ValueError('Unexpected candidate type "%s"' % candidate.type)
-    ipaddress.ip_address(candidate.host)
-    return candidate
+        raise ValueError(f'Unexpected candidate type "{candidate.type}"')
+    return str(ipaddress.ip_address(host))
 
 
 def validate_username(value: str) -> None:
@@ -209,7 +227,7 @@ def validate_username(value: str) -> None:
 
 class CandidatePair:
     def __init__(self, protocol: "StunProtocol", remote_candidate: Candidate) -> None:
-        self.task: Optional[asyncio.Task] = None
+        self.task: asyncio.Task[None] | None = None
         self.nominated = False
         self.protocol = protocol
         self.remote_candidate = remote_candidate
@@ -217,7 +235,7 @@ class CandidatePair:
         self.state = CandidatePair.State.FROZEN
 
     def __repr__(self) -> str:
-        return "CandidatePair(%s -> %s)" % (self.local_addr, self.remote_addr)
+        return f"CandidatePair({self.local_addr} -> {self.remote_addr})"
 
     @property
     def component(self) -> int:
@@ -233,7 +251,7 @@ class CandidatePair:
 
     @property
     def remote_addr(self) -> tuple[str, int]:
-        return (self.remote_candidate.host, self.remote_candidate.port)
+        return (self.remote_candidate._network_host, self.remote_candidate.port)
 
     class State(enum.Enum):
         FROZEN = 0
@@ -244,15 +262,16 @@ class CandidatePair:
 
 
 class StunProtocol(asyncio.DatagramProtocol):
+    local_candidate: Candidate
+    transport: asyncio.DatagramTransport
+
     def __init__(self, receiver: "Connection") -> None:
         self.__closed: asyncio.Future[bool] = asyncio.Future()
         self.id = next(protocol_id)
-        self.local_candidate: Optional[Candidate] = None
         self.receiver = receiver
-        self.transport: Optional[asyncio.DatagramTransport] = None
         self.transactions: dict[bytes, stun.Transaction] = {}
 
-    def connection_lost(self, exc: Exception) -> None:
+    def connection_lost(self, exc: Exception | None) -> None:
         self.__log_debug("connection_lost(%s)", exc)
         if not self.__closed.done():
             self.receiver.protocol_lost(self)
@@ -262,7 +281,7 @@ class StunProtocol(asyncio.DatagramProtocol):
         self.__log_debug("connection_made(%s)", transport)
         self.transport = cast(asyncio.DatagramTransport, transport)
 
-    def datagram_received(self, data: Union[bytes, str], addr: tuple) -> None:
+    def datagram_received(self, data: bytes | str, addr: tuple[Any, ...]) -> None:
         # force IPv6 four-tuple to a two-tuple
         addr = (addr[0], addr[1])
         data = cast(bytes, data)
@@ -296,8 +315,8 @@ class StunProtocol(asyncio.DatagramProtocol):
         self,
         request: stun.Message,
         addr: tuple[str, int],
-        integrity_key: Optional[bytes] = None,
-        retransmissions: Optional[int] = None,
+        integrity_key: bytes | None = None,
+        retransmissions: int | None = None,
     ) -> tuple[stun.Message, tuple[str, int]]:
         """
         Execute a STUN transaction and return the response.
@@ -330,7 +349,7 @@ class StunProtocol(asyncio.DatagramProtocol):
         logger.debug("%s %s " + msg, self.receiver, self, *args)
 
     def __repr__(self) -> str:
-        return "protocol(%s)" % self.id
+        return f"protocol({self.id})"
 
 
 class ConnectionEvent:
@@ -355,7 +374,7 @@ class Connection:
     :param turn_transport: The transport for TURN server, `"udp"` or `"tcp"`.
     :param use_ipv4: Whether to use IPv4 candidates.
     :param use_ipv6: Whether to use IPv6 candidates.
-    :param transport_policy: Transport policy.
+    :param transport_policy: The transport policy.
     :param local_username: An optional local username, otherwise a random one
                            will be generated.
     :param local_password: An optional local password, otherwise a random one
@@ -366,17 +385,17 @@ class Connection:
         self,
         ice_controlling: bool,
         components: int = 1,
-        stun_server: Optional[tuple[str, int]] = None,
-        turn_server: Optional[tuple[str, int]] = None,
-        turn_username: Optional[str] = None,
-        turn_password: Optional[str] = None,
+        stun_server: tuple[str, int] | None = None,
+        turn_server: tuple[str, int] | None = None,
+        turn_username: str | None = None,
+        turn_password: str | None = None,
         turn_ssl: bool = False,
         turn_transport: str = "udp",
         use_ipv4: bool = True,
         use_ipv6: bool = True,
         transport_policy: TransportPolicy = TransportPolicy.ALL,
-        local_username: Optional[str] = None,
-        local_password: Optional[str] = None,
+        local_username: str | None = None,
+        local_password: str | None = None,
     ) -> None:
         self.ice_controlling = ice_controlling
 
@@ -393,9 +412,9 @@ class Connection:
         #: Whether the remote party is an ICE Lite implementation.
         self.remote_is_lite = False
         #: Remote username, which you need to set.
-        self.remote_username: Optional[str] = None
+        self.remote_username: str | None = None
         #: Remote password, which you need to set.
-        self.remote_password: Optional[str] = None
+        self.remote_password: str | None = None
 
         self.stun_server = stun_server
         self.turn_server = turn_server
@@ -404,17 +423,19 @@ class Connection:
         self.turn_ssl = turn_ssl
         self.turn_transport = turn_transport
 
-        # private
+        # Private attributes.
         self._closed = False
+        self._closing = False
         self._components = set(range(1, components + 1))
         self._check_list: list[CandidatePair] = []
         self._check_list_done = False
-        self._check_list_state: asyncio.Queue = asyncio.Queue()
-        self._early_checks: list[
+        self._check_list_state: asyncio.Queue[int] = asyncio.Queue()
+        # Bound the memory used until connect(), dropping the oldest check.
+        self._early_checks: deque[
             tuple[stun.Message, tuple[str, int], StunProtocol]
-        ] = []
+        ] = deque(maxlen=MAX_EARLY_CHECKS)
         self._early_checks_done = False
-        self._event_waiter: Optional[asyncio.Future[ConnectionEvent]] = None
+        self._event_waiter: asyncio.Future[ConnectionEvent] | None = None
         self._id = next(connection_id)
         self._local_candidates: list[Candidate] = []
         self._local_candidates_end = False
@@ -426,22 +447,12 @@ class Connection:
         self._protocols: list[StunProtocol] = []
         self._remote_candidates: list[Candidate] = []
         self._remote_candidates_end = False
-        self._query_consent_task: Optional[asyncio.Task] = None
-        self._queue: asyncio.Queue[tuple[Optional[bytes], Optional[int]]] = (
-            asyncio.Queue()
-        )
+        self._remote_candidates_resolving = 0
+        self._query_consent_task: asyncio.Task[None] | None = None
+        self._queue: asyncio.Queue[tuple[bytes, int] | None] = asyncio.Queue()
         self._tie_breaker = secrets.randbits(64)
         self._use_ipv4 = use_ipv4
         self._use_ipv6 = use_ipv6
-
-        if (
-            stun_server is None
-            and turn_server is None
-            and transport_policy == TransportPolicy.RELAY
-        ):
-            raise ValueError(
-                "Relay transport policy requires a STUN and/or TURN server."
-            )
 
         self._transport_policy = transport_policy
 
@@ -471,10 +482,13 @@ class Connection:
         """
         Remote candidates, which you need to populate using
         :meth:`add_remote_candidate`.
+
+        Remote mDNS candidates keep their hostname instead of the resolved
+        address (draft-ietf-mmusic-mdns-ice-candidates section 3.3.1).
         """
         return self._remote_candidates[:]
 
-    async def add_remote_candidate(self, remote_candidate: Optional[Candidate]) -> None:
+    async def add_remote_candidate(self, remote_candidate: Candidate | None) -> None:
         """
         Add a remote candidate or signal end-of-candidates.
 
@@ -482,58 +496,70 @@ class Connection:
         may be added while :meth:`connect` is running, and :meth:`connect`
         does not report an ICE negotiation failure.
 
+        The candidate is copied, so later changes to it have no effect. A
+        candidate with the same transport address as one already added is
+        ignored. Once :meth:`close` has been called, remote candidates are
+        ignored, including mDNS candidates still being resolved. With the relay
+        transport policy, mDNS candidates are ignored without being resolved.
+
         :param remote_candidate: A :class:`Candidate` instance or `None`.
         """
         if self._remote_candidates_end:
             raise ValueError("Cannot add remote candidate after end-of-candidates.")
 
-        # end-of-candidates
-        if remote_candidate is None:
-            self._prune_components()
-            self._remote_candidates_end = True
-
-            # Removing components may leave all the remaining ones nominated, or
-            # the pairs may all have failed meanwhile (RFC 8838 section 14).
-            if self._early_checks_done and not self._check_list_maybe_complete():
-                self._check_list_maybe_fail()
+        if self._closing:
             return
 
-        # resolve mDNS candidate
+        # Handle end-of-candidates.
+        if remote_candidate is None:
+            self._remote_candidates_end = True
+            if not self._remote_candidates_resolving:
+                self._end_remote_candidates()
+            return
+
+        # Keep our own copy, so changes made by either side do not affect the other.
+        remote_candidate = copy.copy(remote_candidate)
+
+        # Resolve an mDNS candidate.
         if mdns.is_mdns_hostname(remote_candidate.host):
-            mdns_protocol = await get_or_create_mdns_protocol(self)
-            remote_addr = await mdns_protocol.resolve(remote_candidate.host)
-            if remote_addr is None:
+            # Ignore mDNS candidates with the relay transport policy
+            # (draft-ietf-mmusic-mdns-ice-candidates section 3.2).
+            if self._transport_policy == TransportPolicy.RELAY:
                 self.__log_info(
-                    f'Remote candidate "{remote_candidate.host}" could not be resolved'
+                    'Remote candidate "%s" ignored with the relay transport policy',
+                    remote_candidate.host,
                 )
                 return
-            self.__log_info(
-                f'Remote candidate "{remote_candidate.host}" resolved to {remote_addr}'
-            )
 
-            copy_candidate = copy.copy(remote_candidate)
-            copy_candidate.host = remote_addr
-            await self.add_remote_candidate(copy_candidate)
+            # Keep the candidate if end-of-candidates arrives meanwhile, as only
+            # newly received candidates are ignored (RFC 8838 section 14).
+            self._remote_candidates_resolving += 1
+            try:
+                mdns_protocol = await get_or_create_mdns_protocol(self)
+                remote_addr = await mdns_protocol.resolve(remote_candidate.host)
+                if remote_addr is None:
+                    self.__log_info(
+                        'Remote candidate "%s" could not be resolved',
+                        remote_candidate.host,
+                    )
+                elif not self._closing:
+                    self.__log_info(
+                        'Remote candidate "%s" resolved to %s',
+                        remote_candidate.host,
+                        remote_addr,
+                    )
+                    self._add_remote_candidate(remote_candidate, remote_addr)
+            finally:
+                self._remote_candidates_resolving -= 1
+                if (
+                    self._remote_candidates_end
+                    and not self._remote_candidates_resolving
+                    and not self._closing
+                ):
+                    self._end_remote_candidates()
             return
 
-        # validate the remote candidate
-        try:
-            validate_remote_candidate(remote_candidate)
-        except ValueError as e:
-            self.__log_info(
-                f'Remote candidate "{remote_candidate.host}" is not valid: {e}'
-            )
-            return
-        self._remote_candidates.append(remote_candidate)
-
-        # pair the remote candidate
-        for protocol in self._protocols:
-            if protocol.local_candidate.can_pair_with(
-                remote_candidate
-            ) and not self._find_pair(protocol, remote_candidate):
-                pair = CandidatePair(protocol, remote_candidate)
-                self._check_list.append(pair)
-        self.sort_check_list()
+        self._add_remote_candidate(remote_candidate, remote_candidate.host)
 
     async def gather_candidates(self) -> None:
         """
@@ -543,9 +569,19 @@ class Connection:
         """
         if not self._local_candidates_start:
             self._local_candidates_start = True
-            addresses = get_host_addresses(
-                use_ipv4=self._use_ipv4, use_ipv6=self._use_ipv6
-            )
+
+            # Host and server-reflexive candidates are not used with the relay
+            # transport policy (RFC 9429 section 3.5.3).
+            addresses = []
+            if self._transport_policy == TransportPolicy.ALL:
+                addresses = get_host_addresses(
+                    use_ipv4=self._use_ipv4, use_ipv6=self._use_ipv6
+                )
+            elif self.turn_server is None:
+                self.__log_info(
+                    "No candidates gathered with the relay transport policy, "
+                    "as there is no TURN server"
+                )
             coros = [
                 self.get_component_candidates(component=component, addresses=addresses)
                 for component in self._components
@@ -554,7 +590,7 @@ class Connection:
                 self._local_candidates += candidates
             self._local_candidates_end = True
 
-    def get_default_candidate(self, component: int) -> Optional[Candidate]:
+    def get_default_candidate(self, component: int) -> Candidate | None:
         """
         Get the default local candidate for the specified component.
 
@@ -582,35 +618,30 @@ class Connection:
 
         # Forming candidate pairs (RFC 8445 section 6.1.2.2).
         for remote_candidate in self._remote_candidates:
-            for protocol in self._protocols:
-                if protocol.local_candidate.can_pair_with(
-                    remote_candidate
-                ) and not self._find_pair(protocol, remote_candidate):
-                    pair = CandidatePair(protocol, remote_candidate)
-                    self._check_list.append(pair)
+            self._pair_remote_candidate(remote_candidate)
         self.sort_check_list()
 
         self._unfreeze_initial()
 
-        # handle early checks
+        # Handle the checks received before connect().
         for early_check in self._early_checks:
             self.check_incoming(*early_check)
-        self._early_checks = []
+        self._early_checks.clear()
         self._early_checks_done = True
 
-        # perform checks
+        # Perform the checks.
         while True:
-            if not self.check_periodic():
+            if not self._check_periodic():
                 break
             await asyncio.sleep(0.02)
 
-        # wait for completion
+        # Wait for the check list to complete or fail.
         if self._check_list:
             res = await self._check_list_state.get()
         else:
             res = ICE_FAILED
 
-        # cancel remaining checks
+        # Cancel the remaining checks.
         for check in self._check_list:
             if check.task:
                 check.task.cancel()
@@ -618,13 +649,16 @@ class Connection:
         if res != ICE_COMPLETED:
             raise ConnectionError("ICE negotiation failed")
 
-        # start consent freshness tests
+        # Start consent freshness tests (RFC 7675).
         self._query_consent_task = asyncio.create_task(self.query_consent())
 
     async def close(self) -> None:
         """
         Close the connection.
         """
+        # Ignore remote candidates from now on, including those resolved meanwhile.
+        self._closing = True
+
         # Stop consent freshness tests.
         if self._query_consent_task and not self._query_consent_task.done():
             self._query_consent_task.cancel()
@@ -633,9 +667,18 @@ class Connection:
             except asyncio.CancelledError:
                 pass
 
-        # Stop the check list.
-        if self._check_list and not self._check_list_done:
+        # Stop the check list, which also ends the checks loop in connect().
+        if not self._check_list_done:
             self._check_list_state.put_nowait(ICE_FAILED)
+            self._check_list_done = True
+
+        # Stop the checks before their sockets are closed, as connect() may
+        # not be running to cancel them.
+        tasks = [p.task for p in self._check_list if p.task is not None]
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.wait(tasks)
 
         # Unreference mDNS.
         await unref_mdns_protocol(self)
@@ -647,14 +690,14 @@ class Connection:
         self._local_candidates.clear()
 
         # Wake up any pending recv().
-        self.data_received(None, None)
+        self._queue.put_nowait(None)
 
         # Emit an event.
         if not self._closed:
             self._emit_event(ConnectionClosed())
             self._closed = True
 
-    async def get_event(self) -> Optional[ConnectionEvent]:
+    async def get_event(self) -> ConnectionEvent | None:
         """
         Return the next `ConnectionEvent` or `None` if the connection is
         already closed.
@@ -664,7 +707,7 @@ class Connection:
         assert self._event_waiter is None, "already awaiting event"
         if self._closed:
             return None
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         self._event_waiter = loop.create_future()
         return await asyncio.shield(self._event_waiter)
 
@@ -693,7 +736,7 @@ class Connection:
             raise ConnectionError("Cannot receive data, not connected")
 
         result = await self._queue.get()
-        if result[0] is None:
+        if result is None:
             raise ConnectionError("Connection lost while receiving data")
         return result
 
@@ -752,8 +795,59 @@ class Connection:
 
     # private
 
+    def _add_remote_candidate(
+        self, remote_candidate: Candidate, network_host: str
+    ) -> None:
+        """
+        Add a remote candidate, reached at the given address.
+        """
+        # Validate the remote candidate.
+        try:
+            remote_candidate._network_host = validate_remote_candidate(
+                remote_candidate, network_host
+            )
+        except ValueError as e:
+            self.__log_info(
+                f'Remote candidate "{remote_candidate.host}" is not valid: {e}'
+            )
+            return
+
+        known_candidate = self._find_remote_candidate(remote_candidate)
+        if known_candidate is None:
+            self._remote_candidates.append(remote_candidate)
+        elif known_candidate.type == "prflx":
+            # Update a candidate learned as peer-reflexive, keeping its pair
+            # (RFC 8445 section 7.3.1.3, RFC 8838 section 11).
+            self.__log_info(
+                "Peer reflexive candidate %s signalled as %s",
+                known_candidate,
+                remote_candidate,
+            )
+            known_candidate.host = remote_candidate.host
+            known_candidate.foundation = remote_candidate.foundation
+            known_candidate.priority = remote_candidate.priority
+            known_candidate.type = remote_candidate.type
+            known_candidate.related_address = remote_candidate.related_address
+            known_candidate.related_port = remote_candidate.related_port
+            known_candidate.tcptype = remote_candidate.tcptype
+            known_candidate.generation = remote_candidate.generation
+            remote_candidate = known_candidate
+        else:
+            # A peer eliminates redundant candidates (RFC 8445 section 5.1.3), so
+            # this is the same candidate signalled again (RFC 8838 section 9).
+            self.__log_info(
+                "Remote candidate %s is ignored, as it has the same address as %s",
+                remote_candidate,
+                known_candidate,
+            )
+            return
+
+        # Pair the remote candidate.
+        self._pair_remote_candidate(remote_candidate)
+        self.sort_check_list()
+
     def build_request(self, pair: CandidatePair, nominate: bool) -> stun.Message:
-        tx_username = "%s:%s" % (self.remote_username, self.local_username)
+        tx_username = f"{self.remote_username}:{self.local_username}"
         request = stun.Message(
             message_method=stun.Method.BINDING, message_class=stun.Class.REQUEST
         )
@@ -814,7 +908,7 @@ class Connection:
         # find remote candidate
         remote_candidate = None
         for c in self._remote_candidates:
-            if c.host == addr[0] and c.port == addr[1]:
+            if c._network_host == addr[0] and c.port == addr[1]:
                 remote_candidate = c
                 assert remote_candidate.component == component
                 break
@@ -874,7 +968,7 @@ class Connection:
         Mark the check list as failed if no further progress can be made.
         """
         # More remote candidates may still be trickled (RFC 8838 section 8).
-        if not self._remote_candidates_end:
+        if self._remote_candidates_expected():
             return
 
         for p in self._check_list:
@@ -894,29 +988,38 @@ class Connection:
             self._check_list_state.put_nowait(ICE_FAILED)
             self._check_list_done = True
 
-    def check_periodic(self) -> bool:
-        # find the highest-priority pair that is in the waiting state
+    def _check_periodic(self) -> bool:
+        """
+        Start a check for the highest-priority Waiting pair, or else Frozen pair.
+
+        connect() calls this every 20 ms to pace the checks, like the Ta timer
+        of RFC 8445 section 6.1.4.2, for as long as this returns True.
+        """
+        # Start no more checks once the check list is completed, failed or closed.
+        if self._check_list_done:
+            return False
+
+        # Start the highest-priority pair in the Waiting state.
         for pair in self._check_list:
             if pair.state == CandidatePair.State.WAITING:
                 self.check_start_task(pair)
                 return True
 
-        # find the highest-priority pair that is in the frozen state
+        # Otherwise start the highest-priority pair in the Frozen state.
         for pair in self._check_list:
             if pair.state == CandidatePair.State.FROZEN:
                 self.check_start_task(pair)
                 return True
 
-        # if we expect more candidates, keep going
-        if not self._remote_candidates_end:
-            return not self._check_list_done
-
-        return False
+        # Keep going if more remote candidates are expected.
+        return self._remote_candidates_expected()
 
     async def check_start(self, pair: CandidatePair) -> None:
         """
         Starts a check.
         """
+        # Checks only start once connect() has the remote password.
+        assert self.remote_password is not None
         self.check_state(pair, CandidatePair.State.IN_PROGRESS)
 
         nominate = self.ice_controlling and not self.remote_is_lite
@@ -994,9 +1097,20 @@ class Connection:
             self._event_waiter = None
             waiter.set_result(event)
 
+    def _end_remote_candidates(self) -> None:
+        """
+        Handle end-of-candidates once all remote candidates have been processed.
+        """
+        self._prune_components()
+
+        # Removing components may leave all the remaining ones nominated, or
+        # the pairs may all have failed meanwhile (RFC 8838 section 14).
+        if self._early_checks_done and not self._check_list_maybe_complete():
+            self._check_list_maybe_fail()
+
     def _find_pair(
         self, protocol: StunProtocol, remote_candidate: Candidate
-    ) -> Optional[CandidatePair]:
+    ) -> CandidatePair | None:
         """
         Find a candidate pair in the check list.
         """
@@ -1005,16 +1119,30 @@ class Connection:
                 return pair
         return None
 
+    def _find_remote_candidate(self, remote_candidate: Candidate) -> Candidate | None:
+        """
+        Find a remote candidate with the same transport address.
+        """
+        for c in self._remote_candidates:
+            if (
+                c.component == remote_candidate.component
+                and c.transport.lower() == remote_candidate.transport.lower()
+                and c._network_host == remote_candidate._network_host
+                and c.port == remote_candidate.port
+            ):
+                return c
+        return None
+
     async def get_component_candidates(
         self, component: int, addresses: list[str], timeout: int = 5
     ) -> list[Candidate]:
         candidates = []
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
-        # gather host candidates
+        # Gather host candidates.
         host_protocols = []
         for address in addresses:
-            # create transport
+            # Create the transport.
             try:
                 transport, protocol = await loop.create_datagram_endpoint(
                     lambda: StunProtocol(self), local_addr=(address, 0)
@@ -1029,7 +1157,7 @@ class Connection:
                 continue
             host_protocols.append(protocol)
 
-            # add host candidate
+            # Add the host candidate.
             candidate_address = protocol.transport.get_extra_info("sockname")
             protocol.local_candidate = Candidate(
                 foundation=candidate_foundation("host", "udp", candidate_address[0]),
@@ -1040,11 +1168,10 @@ class Connection:
                 port=candidate_address[1],
                 type="host",
             )
-            if self._transport_policy == TransportPolicy.ALL:
-                candidates.append(protocol.local_candidate)
+            candidates.append(protocol.local_candidate)
         self._protocols += host_protocols
 
-        tasks: list[asyncio.Task[tuple[Candidate, Optional[StunProtocol]]]] = []
+        tasks: list[asyncio.Task[tuple[Candidate, StunProtocol | None]]] = []
 
         # Query STUN server for server-reflexive candidates (IPv4 only).
         if self.stun_server:
@@ -1062,6 +1189,9 @@ class Connection:
                 asyncio.create_task(
                     relayed_candidate(
                         component=component,
+                        hide_related_address=(
+                            self._transport_policy == TransportPolicy.RELAY
+                        ),
                         protocol_factory=lambda: StunProtocol(self),
                         turn_server=self.turn_server,
                         turn_username=self.turn_username,
@@ -1077,14 +1207,31 @@ class Connection:
             done, pending = await asyncio.wait(tasks, timeout=timeout)
             for task in done:
                 if task.exception() is None:
-                    candidate, protocol = task.result()
+                    candidate, relay_protocol = task.result()
                     candidates.append(candidate)
-                    if protocol is not None:
-                        self._protocols.append(protocol)
+                    if relay_protocol is not None:
+                        self._protocols.append(relay_protocol)
             for task in pending:
                 task.cancel()
 
         return candidates
+
+    def _pair_remote_candidate(self, remote_candidate: Candidate) -> None:
+        """
+        Pair a remote candidate with the local candidates it can pair with.
+        """
+        is_mdns = mdns.is_mdns_hostname(remote_candidate.host)
+        for protocol in self._protocols:
+            # Relaying to an mDNS candidate would reveal its address to the TURN
+            # server (draft-ietf-mmusic-mdns-ice-candidates section 3.3.2).
+            if is_mdns and protocol.local_candidate.type == "relay":
+                continue
+
+            if protocol.local_candidate.can_pair_with(
+                remote_candidate
+            ) and not self._find_pair(protocol, remote_candidate):
+                pair = CandidatePair(protocol, remote_candidate)
+                self._check_list.append(pair)
 
     def _prune_components(self) -> None:
         """
@@ -1095,15 +1242,15 @@ class Connection:
         seen_components = set(map(lambda x: x.component, self._remote_candidates))
         missing_components = self._components - seen_components
         if missing_components:
-            self.__log_info(
-                "Components %s have no candidate pairs" % missing_components
-            )
+            self.__log_info("Components %s have no candidate pairs", missing_components)
             self._components = seen_components
 
     async def query_consent(self) -> None:
         """
         Periodically check consent (RFC 7675).
         """
+        # Consent checks only start once connect() has the remote password.
+        assert self.remote_password is not None
         failures = 0
         while True:
             # randomize between 0.8 and 1.2 times CONSENT_INTERVAL
@@ -1126,7 +1273,7 @@ class Connection:
                     self._query_consent_task = None
                     return await self.close()
 
-    def data_received(self, data: Optional[bytes], component: Optional[int]) -> None:
+    def data_received(self, data: bytes, component: int) -> None:
         self._queue.put_nowait((data, component))
 
     def protocol_lost(self, protocol: StunProtocol) -> None:
@@ -1134,8 +1281,14 @@ class Connection:
         # protocol must not abort a pending recv().
         for pair in self._nominated.values():
             if pair.protocol is protocol:
-                self.data_received(None, None)
+                self._queue.put_nowait(None)
                 return
+
+    def _remote_candidates_expected(self) -> bool:
+        """
+        Whether more remote candidates may still be added.
+        """
+        return not self._remote_candidates_end or self._remote_candidates_resolving > 0
 
     def request_received(
         self,
@@ -1144,17 +1297,21 @@ class Connection:
         protocol: StunProtocol,
         raw_data: bytes,
     ) -> None:
+        # Ignore incoming checks once closing, as they would start new checks.
+        if self._closing:
+            return
+
         if message.message_method != stun.Method.BINDING:
             self.respond_error(message, addr, protocol, (400, "Bad Request"))
             return
 
-        # authenticate request
+        # Authenticate the request.
         try:
             stun.parse_message(
                 raw_data, integrity_key=self.local_password.encode("utf8")
             )
             if self.remote_username is not None:
-                rx_username = "%s:%s" % (self.local_username, self.remote_username)
+                rx_username = f"{self.local_username}:{self.remote_username}"
                 if message.attributes.get("USERNAME") != rx_username:
                     raise ValueError("Wrong username")
         except ValueError:
@@ -1175,7 +1332,7 @@ class Connection:
                 return
             self.switch_role(ice_controlling=True)
 
-        # send binding response
+        # Send a Binding response.
         response = stun.Message(
             message_method=stun.Method.BINDING,
             message_class=stun.Class.RESPONSE,
@@ -1185,7 +1342,9 @@ class Connection:
         response.add_message_integrity(self.local_password.encode("utf8"))
         protocol.send_stun(response, addr)
 
-        if not self._check_list and not self._early_checks_done:
+        # Defer incoming checks until connect() has the remote password, even
+        # if trickled candidates already formed pairs (RFC 8445 section 7.3).
+        if not self._early_checks_done:
             self._early_checks.append((message, addr, protocol))
         else:
             self.check_incoming(message, addr, protocol)
@@ -1243,4 +1402,4 @@ class Connection:
         logger.info("%s " + msg, self, *args)
 
     def __repr__(self) -> str:
-        return "Connection(%s)" % self._id
+        return f"Connection({self._id})"

@@ -141,7 +141,7 @@ def test_py_info_cached_error(mocker: MockerFixture, tmp_path: Path, session_cac
         PythonInfo.from_exe(str(tmp_path), session_cache)
     with pytest.raises(RuntimeError):
         PythonInfo.from_exe(str(tmp_path), session_cache)
-    assert spy.call_count == 2
+    assert spy.call_count == 4
 
 
 def test_py_info_cache_clear(mocker: MockerFixture, session_cache: DiskCache) -> None:
@@ -304,9 +304,9 @@ def test_py_info_ignores_distutils_config(monkeypatch: pytest.MonkeyPatch, tmp_p
 def test_discover_exe_on_path_non_spec_name_match(mocker: MockerFixture) -> None:
     suffixed_name = f"python{CURRENT.version_info.major}.{CURRENT.version_info.minor}m"
     if sys.platform == "win32":  # pragma: win32 cover
-        suffixed_name += Path(CURRENT.original_executable).suffix
+        suffixed_name += Path(CURRENT.executable).suffix
     spec = PythonSpec.from_string_spec(suffixed_name)
-    mocker.patch.object(CURRENT, "original_executable", str(Path(CURRENT.executable).parent / suffixed_name))
+    mocker.patch.object(CURRENT, "executable", str(Path(CURRENT.executable).parent / suffixed_name))
     assert CURRENT.satisfies(spec, impl_must_match=True) is True
 
 
@@ -483,6 +483,12 @@ def test_py_info_to_dict_includes_sysconfig_platform() -> None:
     data = CURRENT.to_dict()
     assert "sysconfig_platform" in data
     assert data["sysconfig_platform"] == sysconfig.get_platform()
+
+
+def test_py_info_to_dict_preserves_property_named_answer_key() -> None:
+    data = CURRENT.to_dict()
+    data["system_include"] = "supplied path"
+    assert PythonInfo.from_dict(data).to_dict()["system_include"] == "supplied path"
 
 
 def test_py_info_json_round_trip() -> None:

@@ -16,9 +16,9 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Literal
 
-import numpy as np
 
 from river_client.client import (
+    Model,
     _ForwardBackwardNeedsSubBatches,
     _merge_forward_backward_sub_batch_results,
 )
@@ -27,11 +27,12 @@ from river_client.types import Checkpoint, RiverError
 from .advantages import (
     Batchwise,
     GroupCentered,
+    _build_batch,
+    _decouple,
     _training_rewards,
     accumulation_scale,
-    build_batch,
-    decouple_ppo,
 )
+from .batch import TrainingBatch
 from .checkpoint import (
     Checkpointing,
     StateStore,
@@ -537,6 +538,17 @@ class AsyncTrainer:
         with self._activities.measure(operation):
             return await call(function, *args, **kwargs)
 
+    async def _model_data(self, data):
+        """Training data in the form the model takes.
+
+        River's ``Model`` encodes a ``TrainingBatch`` datum by datum as it
+        sends it. Other model adapters receive a list, built off the event
+        loop.
+        """
+        if isinstance(data, TrainingBatch) and not isinstance(self.engine.model, Model):
+            return await call(list, data)
+        return data
+
     def _config(self):
         if self.optimizer.schedule is not None and not dataclasses.is_dataclass(
             self.optimizer.schedule
@@ -712,6 +724,7 @@ class AsyncTrainer:
                 else {}
             ),
             # Each committed update is written once and referenced afterwards.
+            # Batches are built into datums only while the save writes them.
             "journal": [capture.record(update) for update in self._journal],
             "admitted_policy_steps": self._admitted_policy_steps.copy(),
             "active": sorted(self._active),
@@ -748,6 +761,7 @@ class AsyncTrainer:
             )
             # Committed journal updates live in the checkpoint; keep only
             # references in memory and reload them if recovery replays them.
+            # This also releases the trajectories an update's batches build from.
             self._journal = [self._store.release(update) for update in self._journal]
             self._saved_model_step = state["model_step"]
             self._last_state_save = time.monotonic()
@@ -998,16 +1012,14 @@ class AsyncTrainer:
             await self._wait_state_write(write)
 
     def _backward_kwargs(self, data, *, zero_out=True):
+        routing = _routing(data)
         if self.routing_replay and any(
-            not d.get("expert_routing_handle") and not d.get("_rl_recovered_routing")
-            for d in data
+            not handle and not recovered for handle, recovered in routing
         ):
             raise ValueError(
                 "routing_replay requires a routing handle for every training datum"
             )
-        replay = self.routing_replay and all(
-            d.get("expert_routing_handle") for d in data
-        )
+        replay = self.routing_replay and all(handle for handle, _ in routing)
         if self.routing_replay and not replay:
             warnings.warn(
                 "Recovered training data has no routing capture; this backward batch "
@@ -1031,15 +1043,20 @@ class AsyncTrainer:
             **self._policy_guard(),
             **(
                 {"allow_routing_fallback": True}
-                if replay and any(d.get("_rl_recovered_routing") for d in data)
+                if replay and any(recovered for _, recovered in routing)
                 else {}
             ),
         }
 
     def _backward_data(self, data, *, preserve_recovery=False):
         missing = self.routing_replay and any(
-            not d.get("expert_routing_handle") for d in data
+            not handle for handle, _ in _routing(data)
         )
+        if isinstance(data, TrainingBatch):
+            return data.with_items(
+                **({} if preserve_recovery else {"drop_recovery": True}),
+                **({"drop_routing": True} if missing else {}),
+            )
         return [
             {
                 k: v
@@ -1055,7 +1072,7 @@ class AsyncTrainer:
         fb = await self._call(
             "backward",
             self.engine.model.forward_backward,
-            self._backward_data(data),
+            await self._model_data(self._backward_data(data)),
             **self._backward_kwargs(data, zero_out=zero_out),
         )
         # Deliberately wait for successful backward before submitting Adam.
@@ -1142,7 +1159,10 @@ class AsyncTrainer:
             self._streamed_results.append(result)
         else:
             if prepared is None:
-                prepared = self._backward_data(data), self._backward_kwargs(data)
+                prepared = (
+                    await self._model_data(self._backward_data(data)),
+                    self._backward_kwargs(data),
+                )
             request_data, request_kwargs = prepared
             # Await submission in order, not GPU completion: seq_id and the
             # initial gradient reset must precede every later contribution.
@@ -1240,7 +1260,9 @@ class AsyncTrainer:
                     await self._submit_backward(chunk, 0)
                 await self._collect_backwards(all_pending=True)
                 fb = _merge_forward_backward_sub_batch_results(
-                    self._streamed_results, [len(c) for c in self._streamed_chunks]
+                    self._streamed_results,
+                    [len(c) for c in self._streamed_chunks],
+                    custom=self._loss_binding.is_custom,
                 )
             finally:
                 await self._drain_backwards()
@@ -1328,7 +1350,8 @@ class AsyncTrainer:
                         for g, values in zip(batch_groups, all_values, strict=True)
                     }
                 self._check_step()
-                data, selected = [], []
+                # Prepared groups hold trajectory references, not datums.
+                data, selected = TrainingBatch(), []
                 tokens = 0
                 for group in groups:
                     key = (self._committed_step, group.id)
@@ -1336,7 +1359,7 @@ class AsyncTrainer:
                         self._apply_policy_provenance(group.trajectories)
                         # Spilled arrays are read from disk; keep it off the loop.
                         contribution, metrics = await call(
-                            build_batch,
+                            _build_batch,
                             [group.trajectories],
                             estimator=estimator,
                             normalize=self._loss_binding.normalize,
@@ -1357,14 +1380,12 @@ class AsyncTrainer:
                         # conditioning text and expanded image tokens.
                         self._prepared_groups[key] = (
                             contribution,
-                            sum(len(d["advantages"]) for d in contribution),
+                            sum(contribution.lengths()),
                         )
                     contribution, input_tokens = self._prepared_groups[key]
-                    if starting_custom and not any(
-                        np.any(d["advantages"]) for d in contribution
-                    ):
+                    if starting_custom and not contribution.advantaged():
                         continue
-                    data.extend(contribution)
+                    data += contribution
                     selected.append(group)
                     tokens += input_tokens
                     if (
@@ -1400,22 +1421,18 @@ class AsyncTrainer:
                         forward = await self._call(
                             "forward",
                             self.engine.model.forward,
-                            data,
+                            await self._model_data(data),
                             **self._policy_guard(),
                             loss_fn="importance_sampling",
                             logprob_temperature=self.engine.temperature,
                         )
-                        data, correction = decouple_ppo(
+                        data, correction, corrected = await call(
+                            _decouple,
                             data,
                             forward.logprobs,
                             max_importance_weight=self._loss_binding.max_importance_weight,
                         )
-                        self._streamed_corrections.append(
-                            (
-                                sum(np.count_nonzero(d["advantages"]) for d in data),
-                                correction,
-                            )
-                        )
+                        self._streamed_corrections.append((corrected, correction))
                 if self._streaming_custom_loss is not None:
                     data = await call(
                         custom_batch,
@@ -2078,7 +2095,7 @@ class AsyncTrainer:
                                 ]
                                 self._apply_policy_provenance(trajectories)
                                 data, metrics = await call(
-                                    build_batch,
+                                    _build_batch,
                                     [g.trajectories for g in backward_groups],
                                     estimator=self.advantage,
                                     normalize=self._loss_binding.normalize,
@@ -2096,12 +2113,9 @@ class AsyncTrainer:
                                 if self._loss_binding.is_custom:
                                     if (
                                         not self._loss_binding.train_zero_advantage_batches
-                                        and not any(
-                                            np.any(datum["advantages"])
-                                            for datum in data
-                                        )
+                                        and not data.advantaged()
                                     ):
-                                        data = []
+                                        data = TrainingBatch()
                                     if self._streaming_custom_loss is None:
                                         data = await call(
                                             custom_batch,
@@ -2122,12 +2136,13 @@ class AsyncTrainer:
                                         forward = await self._call(
                                             "forward",
                                             self.engine.model.forward,
-                                            data,
+                                            await self._model_data(data),
                                             **self._policy_guard(),
                                             loss_fn="importance_sampling",
                                             logprob_temperature=self.engine.temperature,
                                         )
-                                        data, correction_metrics = decouple_ppo(
+                                        data, correction_metrics, _ = await call(
+                                            _decouple,
                                             data,
                                             forward.logprobs,
                                             max_importance_weight=self._loss_binding.max_importance_weight,
@@ -2158,6 +2173,7 @@ class AsyncTrainer:
                                         fb = _merge_forward_backward_sub_batch_results(
                                             self._streamed_results,
                                             [len(c) for c in self._streamed_chunks],
+                                            custom=self._loss_binding.is_custom,
                                         )
                                         scale = accumulation_scale(
                                             [g.trajectories for g in selected],
@@ -2396,3 +2412,13 @@ def run(trainer: AsyncTrainer, dataset, *, steps: int, on_step=None):
     raise RuntimeError(
         "rl.run cannot nest an event loop; use 'async for step in trainer.run(...)'"
     )
+
+
+def _routing(data):
+    """Per datum: (has a routing capture, restored from a checkpoint)."""
+    if isinstance(data, TrainingBatch):
+        return data.routing()
+    return [
+        (bool(d.get("expert_routing_handle")), bool(d.get("_rl_recovered_routing")))
+        for d in data
+    ]

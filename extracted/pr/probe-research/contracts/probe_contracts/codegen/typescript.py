@@ -43,7 +43,7 @@ def member_key(name: str) -> str:
     return "".join(part.capitalize() for part in name.lower().split("_"))
 
 
-def _jsdoc(cls: type, indent: str = "") -> str:
+def render_jsdoc(cls: type, indent: str = "") -> str:
     text = doc_of(cls)
     if not text:
         return ""
@@ -54,11 +54,11 @@ def _jsdoc(cls: type, indent: str = "") -> str:
     return f"{indent}/**\n{body}{indent} */\n"
 
 
-def _enum(cls: type[Enum]) -> str:
+def render_enum(cls: type[Enum]) -> str:
     members = "".join(f'  {member_key(m.name)}: "{m.value}",\n' for m in cls)
     name = cls.__name__
     return (
-        f"{_jsdoc(cls)}export const {name} = {{\n{members}}} as const;\n"
+        f"{render_jsdoc(cls)}export const {name} = {{\n{members}}} as const;\n"
         f"export type {name} = (typeof {name})[keyof typeof {name}];\n"
     )
 
@@ -67,10 +67,10 @@ def _interface(cls: type[BaseModel]) -> str:
     fields = "".join(
         f"  {name}: {render_type(describe(info.annotation))};\n" for name, info in cls.model_fields.items()
     )
-    return f"{_jsdoc(cls)}export interface {cls.__name__} {{\n{fields}}}\n"
+    return f"{render_jsdoc(cls)}export interface {cls.__name__} {{\n{fields}}}\n"
 
 
 def render_typescript(contracts: Contracts) -> str:
-    blocks = [_enum(e) for e in contracts.enums]
+    blocks = [render_enum(e) for e in contracts.enums]
     blocks += [_interface(m) for m in (*contracts.nested, *contracts.records)]
     return HEADER + "".join(f"\n{block}" for block in blocks)

@@ -15,7 +15,6 @@
 """Utils to handle resources."""
 
 from __future__ import annotations
-
 import importlib.resources as importlib_resources  # pylint: disable=unused-import
 import itertools
 import pathlib
@@ -58,29 +57,29 @@ class ResourcePath(zipfile.Path):
   def __eq__(self, other) -> bool:
     return (
         type(self) == type(other)  # pylint: disable=unidiomatic-typecheck
-        and self.root == other.root  # pytype: disable=attribute-error
-        and self.at == other.at  # pytype: disable=attribute-error
+        and self.root == other.root
+        and self.at == other.at
     )
 
   def __hash__(self) -> int:
-    return hash((self.root, self.at))  # pytype: disable=attribute-error
+    return hash((self.root, self.at))
 
   if sys.version_info < (3, 10):
     # Required due to: https://bugs.python.org/issue42043
     def _next(self, at) -> 'ResourcePath':  # pylint: disable=g-wrong-blank-lines
-      return type(self)(self.root, at)  # pytype: disable=attribute-error
+      return type(self)(self.root, at)
 
     # Before 3.10, joinpath only accept a single arg
     def joinpath(self, *other):
       """Overwrite `joinpath` to be consistent with `pathlib.Path`."""
-      next_ = posixpath.join(self.at, *other)  # pytype: disable=attribute-error
-      return self._next(self.root.resolve_dir(next_))  # pytype: disable=attribute-error
+      next_ = posixpath.join(self.at, *other)
+      return self._next(self.root.resolve_dir(next_))
 
   if sys.version_info < (3, 11):
 
     @property
     def suffix(self):
-      return pathlib.Path(self.at).suffix or self.filename.suffix  # pytype: disable=attribute-error
+      return pathlib.Path(self.at).suffix or self.filename.suffix
 
 
 def resource_path(package: Union[str, types.ModuleType]) -> abstract_path.Path:
@@ -111,8 +110,9 @@ def resource_path(package: Union[str, types.ModuleType]) -> abstract_path.Path:
     The read-only path to the root module directory
   """
   try:
-    path = importlib_resources.files(package)  # pytype: disable=module-attr
+    path = importlib_resources.files(package)
   except AttributeError:
+    path = None
     is_adhoc = True
   else:
     is_adhoc = False
@@ -130,6 +130,7 @@ def resource_path(package: Union[str, types.ModuleType]) -> abstract_path.Path:
       path = sys.modules[package].__file__
     else:
       raise TypeError(f'Unknown package type: {type(package)}: {package}')
+    assert path is not None
     path = pathlib.Path(path)
     if path.name == '__init__.py':
       path = path.parent

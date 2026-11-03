@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scylla-driver
-Version: 3.29.12
+Version: 3.29.13
 Summary: Scylla Driver for Apache Cassandra
 Author: ScyllaDB
 License: Apache-2.0
@@ -28,7 +28,6 @@ Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: geomet>=1.1
-Requires-Dist: pyyaml>5.0
 Provides-Extra: graph
 Requires-Dist: gremlinpython<4,>=3.7.4; extra == "graph"
 Provides-Extra: cle
@@ -46,8 +45,9 @@ Dynamic: license-file
     :target: https://opensource.org/licenses/Apache-2.0
 .. |version| image:: https://badge.fury.io/py/scylla-driver.svg
     :target: https://badge.fury.io/py/scylla-driver
+.. |pyversion| image:: https://img.shields.io/pypi/pyversions/scylla-driver.svg
 
-|license| |version|
+|license| |version| |pyversion|
 
 Scylla Python Driver
 ====================
@@ -63,6 +63,9 @@ Scylla Enterprise (2018.1.x+) using exclusively Cassandra's binary protocol and 
 
 .. image:: https://github.com/scylladb/python-driver/actions/workflows/integration-tests.yml/badge.svg?branch=master
    :target: https://github.com/scylladb/python-driver/actions/workflows/integration-tests.yml?query=event%3Apush+branch%3Amaster
+
+.. image:: https://codecov.io/gh/scylladb/python-driver/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/scylladb/python-driver
 
 The driver supports Python versions 3.10-3.15.
 

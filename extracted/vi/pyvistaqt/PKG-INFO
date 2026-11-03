@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvistaqt
-Version: 0.13.1
+Version: 0.13.2
 Summary: pyvista qt plotter
 Author-email: PyVista Developers <info@pyvista.org>
 License: MIT
@@ -28,14 +28,14 @@ Provides-Extra: test
 Requires-Dist: ipython==8.39.0; extra == "test"
 Requires-Dist: numpy==2.4.4; python_version >= "3.11" and extra == "test"
 Requires-Dist: numpy==2.2.6; python_version < "3.11" and extra == "test"
-Requires-Dist: pytest==9.1.1; extra == "test"
+Requires-Dist: pytest==9.2.0; extra == "test"
 Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: pytest-memprof==0.2.0; extra == "test"
 Requires-Dist: pytest-qt==4.5.0; extra == "test"
 Requires-Dist: pyvista[jupyter]; extra == "test"
 Requires-Dist: refleak==0.2.2; extra == "test"
-Requires-Dist: scooby==0.11.2; extra == "test"
-Requires-Dist: sphinx_gallery==0.21.0; extra == "test"
+Requires-Dist: scooby==0.12.1; extra == "test"
+Requires-Dist: sphinx_gallery==0.22.1; extra == "test"
 Provides-Extra: docs
 Requires-Dist: pydata-sphinx-theme; extra == "docs"
 Requires-Dist: Sphinx; extra == "docs"

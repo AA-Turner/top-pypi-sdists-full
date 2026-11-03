@@ -3,7 +3,6 @@ import logging
 import re
 from collections.abc import Generator
 from enum import Enum, IntEnum
-from typing import FrozenSet, Optional, Set
 
 import pylsqpack
 from aioquic.buffer import UINT_VAR_MAX_SIZE, Buffer, BufferReadError, encode_uint_var
@@ -238,14 +237,14 @@ def parse_settings(data: bytes) -> dict[int, int]:
         except BufferReadError:
             raise FrameError("Could not parse SETTINGS frame")
         if setting in RESERVED_SETTINGS:
-            raise SettingsError("Setting identifier 0x%x is reserved" % setting)
+            raise SettingsError(f"Setting identifier 0x{setting:x} is reserved")
         if setting in settings:
-            raise SettingsError("Setting identifier 0x%x is included twice" % setting)
+            raise SettingsError(f"Setting identifier 0x{setting:x} is included twice")
         settings[setting] = value
     return dict(settings)
 
 
-def stream_is_request_response(stream_id: int):
+def stream_is_request_response(stream_id: int) -> bool:
     """
     Returns True if the stream is a client-initiated bidirectional stream.
     """
@@ -258,43 +257,43 @@ def validate_header_name(key: bytes) -> None:
     """
     for i, c in enumerate(key):
         if c <= 0x20 or (c >= 0x41 and c <= 0x5A) or c >= 0x7F:
-            raise MessageError("Header %r contains invalid characters" % key)
+            raise MessageError(f"Header {key!r} contains invalid characters")
         if c == COLON and i != 0:
             # Colon not at start, definitely bad.  Keys starting with a colon
             # will be checked in pseudo-header validation code.
-            raise MessageError("Header %r contains a non-initial colon" % key)
+            raise MessageError(f"Header {key!r} contains a non-initial colon")
 
 
-def validate_header_value(key: bytes, value: bytes):
+def validate_header_value(key: bytes, value: bytes) -> None:
     """
     Validate a header value as specified by RFC 9113 section 8.2.1.
     """
     for c in value:
         if c == NUL or c == LF or c == CR:
-            raise MessageError("Header %r value has forbidden characters" % key)
+            raise MessageError(f"Header {key!r} value has forbidden characters")
     if len(value) > 0:
         first = value[0]
         if first in WHITESPACE:
-            raise MessageError("Header %r value starts with whitespace" % key)
+            raise MessageError(f"Header {key!r} value starts with whitespace")
         if len(value) > 1:
             last = value[-1]
             if last in WHITESPACE:
-                raise MessageError("Header %r value ends with whitespace" % key)
+                raise MessageError(f"Header {key!r} value ends with whitespace")
 
 
 def validate_headers(
     headers: Headers,
     *,
     allow_te: bool = False,
-    allowed_pseudo_headers: FrozenSet[bytes],
-    required_pseudo_headers: FrozenSet[bytes],
-    stream: Optional["H3Stream"] = None,
+    allowed_pseudo_headers: frozenset[bytes],
+    required_pseudo_headers: frozenset[bytes],
+    stream: "H3Stream | None" = None,
 ) -> None:
     after_pseudo_headers = False
-    authority: Optional[bytes] = None
-    path: Optional[bytes] = None
-    scheme: Optional[bytes] = None
-    seen_pseudo_headers: Set[bytes] = set()
+    authority: bytes | None = None
+    path: bytes | None = None
+    scheme: bytes | None = None
+    seen_pseudo_headers: set[bytes] = set()
     for key, value in headers:
         validate_header_name(key)
         validate_header_value(key, value)
@@ -303,12 +302,12 @@ def validate_headers(
             # pseudo-headers
             if after_pseudo_headers:
                 raise MessageError(
-                    "Pseudo-header %r is not allowed after regular headers" % key
+                    f"Pseudo-header {key!r} is not allowed after regular headers"
                 )
             if key not in allowed_pseudo_headers:
-                raise MessageError("Pseudo-header %r is not valid" % key)
+                raise MessageError(f"Pseudo-header {key!r} is not valid")
             if key in seen_pseudo_headers:
-                raise MessageError("Pseudo-header %r is included twice" % key)
+                raise MessageError(f"Pseudo-header {key!r} is included twice")
             seen_pseudo_headers.add(key)
 
             # store value
@@ -341,7 +340,7 @@ def validate_headers(
     # check required pseudo-headers are present
     missing = required_pseudo_headers.difference(seen_pseudo_headers)
     if missing:
-        raise MessageError("Pseudo-headers %s are missing" % sorted(missing))
+        raise MessageError(f"Pseudo-headers {sorted(missing)} are missing")
 
     if scheme in (b"http", b"https"):
         if not authority:
@@ -364,7 +363,7 @@ def validate_push_promise_headers(headers: Headers) -> None:
 
 
 def validate_request_headers(
-    headers: Headers, stream: Optional["H3Stream"] = None
+    headers: Headers, stream: "H3Stream | None" = None
 ) -> None:
     validate_headers(
         headers,
@@ -380,7 +379,7 @@ def validate_request_headers(
 
 
 def validate_response_headers(
-    headers: Headers, stream: Optional["H3Stream"] = None
+    headers: Headers, stream: "H3Stream | None" = None
 ) -> None:
     validate_headers(
         headers,
@@ -410,22 +409,22 @@ def validate_trailers(headers: Headers) -> None:
 class H3Stream:
     def __init__(self, stream_id: int) -> None:
         self.blocked = False
-        self.blocked_frame_size: Optional[int] = None
-        self.blocked_frame_type: Optional[int] = None
-        self.blocked_push_id: Optional[int] = None
+        self.blocked_frame_size: int | None = None
+        self.blocked_frame_type: int | None = None
+        self.blocked_push_id: int | None = None
         self.buffer = b""
         self.receiving_ended = False
         self.sending_ended = False
-        self.frame_size: Optional[int] = None
-        self.frame_type: Optional[int] = None
+        self.frame_size: int | None = None
+        self.frame_type: int | None = None
         self.headers_recv_state: HeadersState = HeadersState.INITIAL
         self.headers_send_state: HeadersState = HeadersState.INITIAL
         self.interim_response_received = False
-        self.push_id: Optional[int] = None
-        self.session_id: Optional[int] = None
+        self.push_id: int | None = None
+        self.session_id: int | None = None
         self.stream_id = stream_id
-        self.stream_type: Optional[int] = None
-        self.expected_content_length: Optional[int] = None
+        self.stream_type: int | None = None
+        self.expected_content_length: int | None = None
         self.content_length: int = 0
 
     def is_ended(self) -> bool:
@@ -453,7 +452,7 @@ class H3Connection:
         self._is_client = quic.configuration.is_client
         self._is_done = False
         self._quic = quic
-        self._quic_logger: Optional[QuicLoggerTrace] = quic._quic_logger
+        self._quic_logger: QuicLoggerTrace | None = quic._quic_logger
         self._decoder = pylsqpack.Decoder(
             self._max_table_capacity, self._blocked_streams
         )
@@ -465,18 +464,18 @@ class H3Connection:
         self._settings_received = False
         self._stream: dict[int, H3Stream] = {}
 
-        self._max_push_id: Optional[int] = 8 if self._is_client else None
+        self._max_push_id: int | None = 8 if self._is_client else None
         self._next_push_id: int = 0
 
-        self._local_control_stream_id: Optional[int] = None
-        self._local_decoder_stream_id: Optional[int] = None
-        self._local_encoder_stream_id: Optional[int] = None
+        self._local_control_stream_id: int | None = None
+        self._local_decoder_stream_id: int | None = None
+        self._local_encoder_stream_id: int | None = None
 
-        self._peer_control_stream_id: Optional[int] = None
-        self._peer_decoder_stream_id: Optional[int] = None
-        self._peer_encoder_stream_id: Optional[int] = None
-        self._received_settings: Optional[dict[int, int]] = None
-        self._sent_settings: Optional[dict[int, int]] = None
+        self._peer_control_stream_id: int | None = None
+        self._peer_decoder_stream_id: int | None = None
+        self._peer_encoder_stream_id: int | None = None
+        self._received_settings: dict[int, int] | None = None
+        self._sent_settings: dict[int, int] | None = None
 
         self._init_connection()
 
@@ -684,14 +683,14 @@ class H3Connection:
             )
 
     @property
-    def received_settings(self) -> Optional[dict[int, int]]:
+    def received_settings(self) -> dict[int, int] | None:
         """
         Return the received SETTINGS frame, or None.
         """
         return self._received_settings
 
     @property
-    def sent_settings(self) -> Optional[dict[int, int]]:
+    def sent_settings(self) -> dict[int, int] | None:
         """
         Return the sent SETTINGS frame, or None.
         """
@@ -704,9 +703,7 @@ class H3Connection:
         """
         self._quic.reset_stream(stream_id, ErrorCode.H3_REQUEST_INCOMPLETE)
 
-    def _create_uni_stream(
-        self, stream_type: int, push_id: Optional[int] = None
-    ) -> int:
+    def _create_uni_stream(self, stream_type: int, push_id: int | None = None) -> int:
         """
         Create an unidirectional stream of the given type.
         """
@@ -717,7 +714,7 @@ class H3Connection:
         self._quic.send_stream_data(stream_id, encode_uint_var(stream_type))
         return stream_id
 
-    def _decode_headers(self, stream_id: int, frame_data: Optional[bytes]) -> Headers:
+    def _decode_headers(self, stream_id: int, frame_data: bytes | None) -> Headers:
         """
         Decode a HEADERS block and send decoder updates on the decoder stream.
 
@@ -831,7 +828,7 @@ class H3Connection:
                 raise IdError("MAX_PUSH_ID reduced the maximum push ID")
             self._max_push_id = max_push_id
 
-    def _check_content_length(self, stream: H3Stream):
+    def _check_content_length(self, stream: H3Stream) -> None:
         if (
             stream.expected_content_length is not None
             and stream.content_length != stream.expected_content_length
@@ -841,7 +838,7 @@ class H3Connection:
     def _handle_request_or_push_frame(
         self,
         frame_type: int,
-        frame_data: Optional[bytes],
+        frame_data: bytes | None,
         stream: H3Stream,
         stream_ended: bool,
     ) -> list[H3Event]:
@@ -1079,7 +1076,7 @@ class H3Connection:
         )
 
     def _log_stream_type(
-        self, stream_id: int, stream_type: int, push_id: Optional[int] = None
+        self, stream_id: int, stream_type: int, push_id: int | None = None
     ) -> None:
         if self._quic_logger is not None:
             type_name = {
@@ -1331,7 +1328,7 @@ class H3Connection:
 
         buf = Buffer(data=stream.buffer)
         consumed = 0
-        unblocked_streams: Set[int] = set()
+        unblocked_streams: set[int] = set()
 
         while (
             stream.stream_type

@@ -1,6 +1,5 @@
 import hashlib
 import ipaddress
-from typing import Optional
 
 
 def candidate_foundation(
@@ -9,7 +8,7 @@ def candidate_foundation(
     """
     See RFC 5245 - 4.1.1.3. Computing Foundations
     """
-    key = "%s|%s|%s" % (candidate_type, candidate_transport, base_address)
+    key = f"{candidate_type}|{candidate_transport}|{base_address}"
     return hashlib.md5(key.encode("ascii")).hexdigest()
 
 
@@ -45,10 +44,10 @@ class Candidate:
         host: str,
         port: int,
         type: str,
-        related_address: Optional[str] = None,
-        related_port: Optional[int] = None,
-        tcptype: Optional[str] = None,
-        generation: Optional[int] = None,
+        related_address: str | None = None,
+        related_port: int | None = None,
+        tcptype: str | None = None,
+        generation: int | None = None,
     ) -> None:
         self.foundation = foundation
         self.component = component
@@ -61,6 +60,10 @@ class Candidate:
         self.related_port = related_port
         self.tcptype = tcptype
         self.generation = generation
+
+        # The address used to reach the candidate, hidden behind the name of a remote
+        # mDNS candidate (draft-ietf-mmusic-mdns-ice-candidates section 3.3.1).
+        self._network_host = host
 
     @classmethod
     def from_sdp(cls, sdp: str) -> "Candidate":
@@ -76,10 +79,10 @@ class Candidate:
         if len(bits) < 8:
             raise ValueError("SDP does not have enough properties")
 
-        related_address: Optional[str] = None
-        related_port: Optional[int] = None
-        tcptype: Optional[str] = None
-        generation: Optional[int] = None
+        related_address: str | None = None
+        related_port: int | None = None
+        tcptype: str | None = None
+        generation: int | None = None
         for i in range(8, len(bits) - 1, 2):
             if bits[i] == "raddr":
                 related_address = bits[i + 1]
@@ -108,23 +111,18 @@ class Candidate:
         """
         Return a string representation suitable for SDP.
         """
-        sdp = "%s %d %s %d %s %d typ %s" % (
-            self.foundation,
-            self.component,
-            self.transport,
-            self.priority,
-            self.host,
-            self.port,
-            self.type,
+        sdp = (
+            f"{self.foundation} {self.component} {self.transport} "
+            f"{self.priority} {self.host} {self.port} typ {self.type}"
         )
         if self.related_address is not None:
-            sdp += " raddr %s" % self.related_address
+            sdp += f" raddr {self.related_address}"
         if self.related_port is not None:
-            sdp += " rport %s" % self.related_port
+            sdp += f" rport {self.related_port}"
         if self.tcptype is not None:
-            sdp += " tcptype %s" % self.tcptype
+            sdp += f" tcptype {self.tcptype}"
         if self.generation is not None:
-            sdp += " generation %d" % self.generation
+            sdp += f" generation {self.generation}"
         return sdp
 
     def can_pair_with(self, other: "Candidate") -> bool:
@@ -133,8 +131,8 @@ class Candidate:
         the two candidates have the same component ID and have the same IP
         address version.
         """
-        a = ipaddress.ip_address(self.host)
-        b = ipaddress.ip_address(other.host)
+        a = ipaddress.ip_address(self._network_host)
+        b = ipaddress.ip_address(other._network_host)
         return (
             self.component == other.component
             and self.transport.lower() == other.transport.lower()
@@ -142,4 +140,4 @@ class Candidate:
         )
 
     def __repr__(self) -> str:
-        return "Candidate(%s)" % self.to_sdp()
+        return f"Candidate({self.to_sdp()})"

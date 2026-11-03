@@ -568,10 +568,12 @@ class PushToInputStreamResponse(_message.Message):
     def __init__(self, success: _Optional[_Union[PushToInputStreamResponse.PushToInputStreamResponseSuccess, _Mapping]] = ..., error: _Optional[_Union[PushToInputStreamResponse.PushToInputStreamResponseError, _Mapping]] = ...) -> None: ...
 
 class GetJobResultSchemaRequest(_message.Message):
-    __slots__ = ["job_id"]
+    __slots__ = ["job_id", "program_id"]
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    PROGRAM_ID_FIELD_NUMBER: _ClassVar[int]
     job_id: str
-    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+    program_id: str
+    def __init__(self, job_id: _Optional[str] = ..., program_id: _Optional[str] = ...) -> None: ...
 
 class GetJobResultSchemaResponse(_message.Message):
     __slots__ = ["success", "error"]

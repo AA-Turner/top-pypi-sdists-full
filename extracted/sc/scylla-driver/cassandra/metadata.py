@@ -126,6 +126,8 @@ class Metadata(object):
         self.keyspaces = {}
         self.dbaas = False
         self._hosts = {}
+        # Secondary index for EndPoint lookup;
+        # _hosts (keyed by immutable host_id) owns host identity.
         self._host_id_by_endpoint = {}
         self._hosts_lock = RLock()
         self._tablets = Tablets({})
@@ -140,10 +142,14 @@ class Metadata(object):
     def refresh(self, connection, timeout, target_type=None, change_type=None, fetch_size=None,
                 metadata_request_timeout=None, **kwargs):
 
-        host_id = getattr(connection, '_control_connection_host_id', None)
-        host = self.get_host_by_host_id(host_id) if host_id is not None else None
-        if host is None:
-            host = self.get_host(connection.original_endpoint)
+        bound_host = vars(connection).get('_control_connection_host')
+        if bound_host is not None:
+            host = (bound_host if self.get_host_by_host_id(bound_host.host_id)
+                    is bound_host else None)
+        else:
+            host_id = getattr(connection, '_control_connection_host_id', None)
+            host = (self.get_host_by_host_id(host_id) if host_id is not None
+                    else self.get_host(connection.original_endpoint))
         server_version = host.release_version if host else None
         dse_version = host.dse_version if host else None
         parser = get_schema_parser(connection, server_version, dse_version, timeout, metadata_request_timeout, fetch_size)
@@ -350,23 +356,114 @@ class Metadata(object):
                 self._hosts[host.host_id] = host
                 return host, True
 
-    def remove_host(self, host):
-        self._tablets.drop_tablets_by_host_id(host.host_id)
+    def _add_or_replace_host(self, host, allow_replace=True):
+        """Publish a new host and retire the previous endpoint owner together.
+
+        Returns ``(host, new, replaced_host)``. Callers notify listeners only
+        after the replacement is visible in both host indexes.
+        """
         with self._hosts_lock:
-            self._host_id_by_endpoint.pop(host.endpoint, False)
-            return bool(self._hosts.pop(host.host_id, False))
+            existing = self._hosts.get(host.host_id)
+            if existing is not None:
+                return existing, False, None
+            old_id = self._host_id_by_endpoint.get(host.endpoint)
+            if old_id is not None and not allow_replace:
+                raise ValueError("Replacing an endpoint owner requires host addition signaling")
+            replaced_host = self._hosts.pop(old_id, None)
+            self._hosts[host.host_id] = host
+            self._host_id_by_endpoint[host.endpoint] = host.host_id
+
+        if replaced_host is not None:
+            self._tablets.drop_tablets_by_host_id(replaced_host.host_id)
+        return host, True, replaced_host
+
+    def replace_host_endpoint(self, old_host, replacement):
+        """Atomically replace a Host object after its endpoint changes.
+
+        The host ID remains the identity. A new object fences work attached to
+        the old endpoint; both endpoint indexes change under one lock.
+        """
+        self.replace_host_endpoints([(old_host, replacement)])
+
+    def replace_host_endpoints(self, replacements):
+        """Publish a batch of endpoint moves under one hosts lock.
+
+        Every source must still be the exact current Host. A destination can
+        belong to another source in this batch, allowing chains and swaps.
+        Validation finishes before either index changes.
+        """
+        replacements = list(replacements)
+        source_ids = set()
+        destinations = set()
+        with self._hosts_lock:
+            for old_host, replacement in replacements:
+                if old_host.host_id != replacement.host_id:
+                    raise ValueError("Endpoint replacement must preserve host_id")
+                if old_host.endpoint == replacement.endpoint:
+                    raise ValueError("Endpoint replacement requires a new endpoint")
+                if old_host.host_id in source_ids:
+                    raise ValueError("Host appears more than once in endpoint replacement")
+                if replacement.endpoint in destinations:
+                    raise ValueError(
+                        "Endpoint appears more than once in endpoint replacement")
+                if self._hosts.get(old_host.host_id) is not old_host:
+                    raise ValueError("Host is no longer current in metadata")
+                source_ids.add(old_host.host_id)
+                destinations.add(replacement.endpoint)
+
+            for old_host, replacement in replacements:
+                owner_id = self._host_id_by_endpoint.get(replacement.endpoint)
+                if owner_id is not None and owner_id not in source_ids:
+                    raise ValueError("New endpoint belongs to another host")
+
+            for old_host, _ in replacements:
+                if self._host_id_by_endpoint.get(old_host.endpoint) == old_host.host_id:
+                    self._host_id_by_endpoint.pop(old_host.endpoint)
+            for _, replacement in replacements:
+                self._hosts[replacement.host_id] = replacement
+                self._host_id_by_endpoint[replacement.endpoint] = replacement.host_id
+
+    def _update_host_location(self, host, datacenter, rack):
+        """Publish a current Host's location with fresh replica-map caches."""
+        with self._hosts_lock:
+            if self._hosts.get(host.host_id) is not host:
+                return False
+            host.set_location_info(datacenter, rack)
+            token_map = self.token_map
+            if token_map is not None:
+                # A concurrent lazy replica calculation can finish on the old
+                # TokenMap without repopulating caches on the current one.
+                self.token_map = TokenMap(
+                    token_map.token_class, token_map.token_to_host_owner,
+                    token_map.ring, self)
+            return True
+
+    def remove_host(self, host):
+        with self._hosts_lock:
+            if self._hosts.get(host.host_id) is not host:
+                return False
+            if self._host_id_by_endpoint.get(host.endpoint) == host.host_id:
+                self._host_id_by_endpoint.pop(host.endpoint)
+            self._hosts.pop(host.host_id)
+        self._tablets.drop_tablets_by_host_id(host.host_id)
+        return True
 
     def remove_host_by_host_id(self, host_id, endpoint=None):
-        self._tablets.drop_tablets_by_host_id(host_id)
         with self._hosts_lock:
-            if endpoint and self._host_id_by_endpoint[endpoint] == host_id:
-                self._host_id_by_endpoint.pop(endpoint, False)
-            return bool(self._hosts.pop(host_id, False))
+            host = self._hosts.get(host_id)
+            if host is None or (endpoint is not None and host.endpoint != endpoint):
+                return False
+            if endpoint and self._host_id_by_endpoint.get(endpoint) == host_id:
+                self._host_id_by_endpoint.pop(endpoint)
+            self._hosts.pop(host_id)
+        self._tablets.drop_tablets_by_host_id(host_id)
+        return True
 
     def update_host(self, host, old_endpoint):
         host, created = self.add_or_return_host(host)
         with self._hosts_lock:
-            self._host_id_by_endpoint.pop(old_endpoint, False)
+            if self._host_id_by_endpoint.get(old_endpoint) == host.host_id:
+                self._host_id_by_endpoint.pop(old_endpoint)
             self._host_id_by_endpoint[host.endpoint] = host.host_id
 
     def get_host(self, endpoint_or_address, port=None):
@@ -3601,7 +3698,7 @@ class EdgeMetadata(object):
         self.to_clustering_columns = to_clustering_columns
 
 
-def get_column_from_system_local(connection, column_name: str, timeout, metadata_request_timeout) -> str:
+def _query_column_from_system_local(connection, column_name, timeout, metadata_request_timeout):
     success, local_result = connection.wait_for_response(
         QueryMessage(
             query=maybe_add_timeout_to_query(
@@ -3609,35 +3706,59 @@ def get_column_from_system_local(connection, column_name: str, timeout, metadata
                 metadata_request_timeout),
             consistency_level=ConsistencyLevel.ONE)
         , timeout=timeout, fail_on_error=False)
-    if not success or not local_result.parsed_rows:
-        return ""
+    if not success:
+        return "", local_result
+    if not local_result.parsed_rows:
+        return "", "no row returned"
     local_rows = dict_factory(local_result.column_names, local_result.parsed_rows)
     local_row = local_rows[0]
-    return local_row.get(column_name)
+    return local_row.get(column_name), None
+
+
+def get_column_from_system_local(connection, column_name: str, timeout, metadata_request_timeout) -> str:
+    return _query_column_from_system_local(
+        connection, column_name, timeout, metadata_request_timeout)[0]
 
 
 def get_schema_parser(connection, server_version, dse_version, timeout, metadata_request_timeout, fetch_size=None):
-    if server_version is None and dse_version is None:
-        server_version = get_column_from_system_local(connection, "release_version", timeout, metadata_request_timeout)
-        dse_version = get_column_from_system_local(connection, "dse_version", timeout, metadata_request_timeout)
+    """Select the schema parser for the server's release line.
 
-    version = Version(server_version or "0")
+    Cassandra and Scylla schema families are selected by major version; DSE
+    families are selected by major and minor version. Prerelease maturity does
+    not imply the preceding schema family, so versions such as
+    ``6.8.0-SNAPSHOT`` and ``6.8.0.rc1`` correctly select DSE68.
+    """
+    missing_release_version_reason = None
+    if not server_version and not dse_version:
+        server_version, error = _query_column_from_system_local(
+            connection, "release_version", timeout, metadata_request_timeout)
+        dse_version = get_column_from_system_local(connection, "dse_version", timeout, metadata_request_timeout)
+        if not server_version:
+            missing_release_version_reason = error or "empty value"
+
+    version = Version(server_version or "0.0")
     if dse_version:
         v = Version(dse_version)
-        if v >= Version('6.8.0'):
+        dse_release = (v.major, v.minor)
+        if dse_release >= (6, 8):
             return SchemaParserDSE68(connection, timeout, fetch_size, metadata_request_timeout)
-        elif v >= Version('6.7.0'):
+        elif dse_release >= (6, 7):
             return SchemaParserDSE67(connection, timeout, fetch_size, metadata_request_timeout)
-        elif v >= Version('6.0.0'):
+        elif dse_release >= (6, 0):
             return SchemaParserDSE60(connection, timeout, fetch_size, metadata_request_timeout)
 
-    if version >= Version('4-a'):
+    if version.major >= 4:
         return SchemaParserV4(connection, timeout, fetch_size, metadata_request_timeout)
-    elif version >= Version('3.0.0'):
+    elif version.major >= 3:
         return SchemaParserV3(connection, timeout, fetch_size, metadata_request_timeout)
     else:
         # we could further specialize by version. Right now just refactoring the
         # multi-version parser we have as of C* 2.2.0rc1.
+        if missing_release_version_reason is not None:
+            log.warning(
+                "Could not read release_version from system.local (%s); "
+                "falling back to the oldest schema parser",
+                missing_release_version_reason)
         return SchemaParserV22(connection, timeout, fetch_size, metadata_request_timeout)
 
 

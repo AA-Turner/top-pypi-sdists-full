@@ -3,7 +3,7 @@ import re
 import socket
 import sys
 import uuid
-from typing import Optional, Union, cast
+from typing import Any, cast
 
 import dns.exception
 import dns.flags
@@ -19,7 +19,7 @@ MDNS_ADDRESS = "224.0.0.251"
 MDNS_PORT = 5353
 MDNS_HOSTNAME_RE = re.compile(r"^[a-zA-Z0-9-]{1,63}\.local$")
 
-MDNS_RDCLASS = dns.rdataclass.IN | 0x8000
+MDNS_RDCLASS = dns.rdataclass.RdataClass.make(dns.rdataclass.IN | 0x8000)
 
 
 def create_mdns_hostname() -> str:
@@ -31,25 +31,26 @@ def is_mdns_hostname(name: str) -> bool:
 
 
 class MDnsProtocol(asyncio.DatagramProtocol):
+    rx_transport: asyncio.DatagramTransport
+
     def __init__(self, tx_transport: asyncio.DatagramTransport) -> None:
         self.__closed: asyncio.Future[bool] = asyncio.Future()
         self.zone = dns.zone.Zone("", relativize=False, rdclass=MDNS_RDCLASS)
         self.queries: dict[dns.name.Name, set[asyncio.Future[str]]] = {}
 
-        self.rx_transport: Optional[asyncio.DatagramTransport] = None
         self.tx_transport = tx_transport
 
-    def connection_lost(self, exc: Exception) -> None:
+    def connection_lost(self, exc: Exception | None) -> None:
         # abort any outstanding queries
         for name, futures in list(self.queries.items()):
             for future in futures:
-                future.set_exception(asyncio.TimeoutError)
+                future.set_exception(TimeoutError)
         self.__closed.set_result(True)
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         self.rx_transport = cast(asyncio.DatagramTransport, transport)
 
-    def datagram_received(self, data: Union[bytes, str], addr: tuple) -> None:
+    def datagram_received(self, data: bytes | str, addr: tuple[Any, ...]) -> None:
         # parse message
         try:
             message = dns.message.from_wire(cast(bytes, data))
@@ -59,7 +60,7 @@ class MDnsProtocol(asyncio.DatagramProtocol):
         if isinstance(message, dns.message.QueryMessage):
             # answer question
             for question in message.question:
-                rdtypes: list[int] = []
+                rdtypes: list[dns.rdatatype.RdataType] = []
                 if question.rdtype in (
                     dns.rdatatype.ANY,
                     dns.rdatatype.A,
@@ -118,18 +119,16 @@ class MDnsProtocol(asyncio.DatagramProtocol):
         rdata = dns.rdata.GenericRdata(rdclass=MDNS_RDCLASS, rdtype=rdtype, data=data)
         self.zone.replace_rdataset(name, dns.rdataset.from_rdata(120, rdata))
 
-    async def resolve(
-        self, hostname: str, timeout: Optional[float] = 1.0
-    ) -> Optional[str]:
+    async def resolve(self, hostname: str, timeout: float | None = 1.0) -> str | None:
         name = dns.name.from_text(hostname)
-        future: asyncio.Future[str] = asyncio.Future()
+        future: asyncio.Future[str] = asyncio.get_running_loop().create_future()
 
         if name in self.queries:
             # a query for this name is already pending
             self.queries[name].add(future)
         else:
             # no query for this name is pending, send a request
-            self.queries[name] = set([future])
+            self.queries[name] = {future}
             message = dns.message.make_query(name, rdtype=dns.rdatatype.A)
             message.id = 0
             message.flags = 0
@@ -137,7 +136,7 @@ class MDnsProtocol(asyncio.DatagramProtocol):
 
         try:
             return await asyncio.wait_for(future, timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return None
         finally:
             if name in self.queries:
@@ -151,7 +150,7 @@ async def create_mdns_protocol() -> MDnsProtocol:
     Using a single socket works fine on Linux, but on OS X we need to use
     separate sockets for sending and receiving.
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     # sender
 

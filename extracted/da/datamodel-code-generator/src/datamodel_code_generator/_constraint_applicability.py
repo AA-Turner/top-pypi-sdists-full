@@ -4,10 +4,7 @@ The rows are static: the keyword groups of each JSON kind, the keywords a declar
 each Python or library type takes in each output model, the classes that enforce a keyword themselves, the keywords
 the ``con*`` types and ``msgspec.Meta`` take, and the rows that keep today's answer where two sites disagree
 (``legacy-*``; a fix of that output deletes its row). Every function is pure: facts in, keywords out. The adapters
-read the live objects: ``types.py:DataTypeManager.constraint_keywords`` and ``type_constraint_keywords`` (emitted
-types), ``parser/jsonschema.py:JsonSchemaParser._split_constraint_values`` and ``_keywords_taken`` (the L1 split),
-``parser/base.py:Parser._decide_overridden_constraints`` (``--type-overrides``) and
-``model/msgspec.py:DataModelField._meta_keywords`` (``msgspec.Meta``).
+read the live objects and are listed in ``docs/architecture.md``.
 
 Legacy rows, each named by the function that decides it:
 
@@ -17,6 +14,8 @@ Legacy rows, each named by the function that decides it:
 * ``legacy-all-of-root-format-kinds`` (``all_of_root_keyword_kinds``): an ``allOf`` root merged with constraints keeps
   the keywords of the kinds its format names, silently, before the field split decides the declared ones by the
   emitted type.
+* ``legacy-exact-ints-as-floats`` (``exact_float``): the schema models read an int constraint as a float where one
+  equals it, and keep the int only where a float would differ.
 * ``legacy-undeclared-keywords-off-literal`` (``undeclared_keywords_taken``): the ``Literal`` of a ``const`` or an
   ``enum`` takes no keyword of a kind its schema does not declare, though it takes those of its values' type for a
   declared one. The literal check (``literal_check``) decides such a keyword on the values where it can, so the row
@@ -27,6 +26,9 @@ Legacy rows, each named by the function that decides it:
 * ``legacy-anyurl-keeps-string-keywords`` (``declared_string_keywords_taken``; G03b removes it with the render-time
   drop): a type that names ``AnyUrl`` takes every keyword a declared string holds, and the Pydantic outputs leave out
   every constraint of a field whose type holds it outside a container when they write the field, with a warning.
+* ``legacy-msgspec-float-bounds`` (``integer_bound``): the check of a msgspec union reads the bound of a float member
+  as the float it is, so an integral bound past ``2**53`` is the integer of its binary value, where the schema models
+  read the decimal that is written.
 
 This module is a leaf (the standard library, ``typing_extensions``, ``enums`` and ``_requirements``): ``types.py``
 builds the public tables of ``DataTypeManager`` from it while it is imported, and the model package imports
@@ -38,11 +40,11 @@ from __future__ import annotations
 import operator
 from dataclasses import replace
 from fractions import Fraction
-from math import isfinite
+from math import ceil, floor, inf, isfinite
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias
 
-from typing_extensions import final
+from typing_extensions import TypeIs, final
 
 from datamodel_code_generator._records import record
 from datamodel_code_generator._regex_syntax import pattern_admits
@@ -50,6 +52,7 @@ from datamodel_code_generator._requirements import pydantic_target_meets
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping, Sequence
+    from collections.abc import Set as AbstractSet
 
     from datamodel_code_generator._requirements import PydanticConstruct
     from datamodel_code_generator.enums import TargetPydanticVersion
@@ -65,6 +68,7 @@ __all__ = [
     "MSGSPEC_OUTPUT",
     "NO_KEYWORDS",
     "NUMBER_BOUND_KEYWORDS",
+    "NUMBER_FIELD_KEYWORDS",
     "NUMBER_KEYWORDS",
     "NUMBER_KEYWORD_ORDER",
     "PROPERTY_COUNT_KEYWORDS",
@@ -76,31 +80,52 @@ __all__ = [
     "TAG_LITERAL_UNTAKEN_KEYWORD",
     "TYPE_DEPENDENT_CONSTRAINTS_KEY",
     "TYPE_DEPENDENT_KEYWORDS",
+    "ConstraintOptions",
     "DeclaredKinds",
     "OutputKeywords",
+    "RenderDrop",
     "all_of_root_keyword_kinds",
     "base64_bytes_consumed_keywords",
     "constrained_type_keyword_order",
+    "decimal_field_form",
     "declared_keywords",
     "declared_string_keywords_taken",
+    "enforced_keywords",
+    "exact_float",
+    "field_form_zero_bound",
     "holds_number_format",
+    "inexact_float_divisor",
+    "int_beyond_values",
+    "int_constraint_beyond_values",
+    "integer_bound",
+    "is_non_finite",
+    "json_integer",
+    "json_number",
     "keyword_kinds",
     "length_reading",
     "listed_type_keywords",
     "literal_check",
+    "literal_enforces_every_keyword",
+    "literal_met_keywords",
     "literal_number_keywords",
     "member_keywords",
     "meta_keywords",
+    "non_finite_written",
+    "none_type_keywords",
     "overridden_declared_constraints",
     "property_consumed_keywords",
+    "render_drop",
     "resplit_overridden_constraints",
+    "saturating_float",
     "shape_keywords",
     "shape_meta_keywords",
     "split_declared_keywords",
+    "strict_decimal_multiple",
     "undeclared_keywords_taken",
     "unlisted_type_keywords",
     "untaken_minimums",
     "untaken_values",
+    "writes_beside_literal",
 ]
 
 NUMBER_KEYWORD_ORDER: Final[tuple[str, ...]] = (
@@ -305,6 +330,11 @@ class OutputKeywords:
     keywords, and ``literals_take`` that a ``Literal`` takes the keywords its values take. ``zero_bound_classes`` maps
     a class built for one zero bound to the keyword it enforces itself (row ``legacy-consumed-at-object-property``),
     and ``writes_constrained_types`` tells that the type manager writes scalar constraints into ``con*`` types.
+
+    The number rows say which values the output writes: ``int_values`` is the range of the ints it takes as a number
+    constraint, an ``Enum`` or ``Literal`` value or a tag (None when it takes every int), and
+    ``drops_non_finite_bounds`` that a bound or divisor with no finite float is left out (else it is written as the
+    infinity or NaN).
     """
 
     type_keywords: Mapping[str, frozenset[str]]
@@ -315,6 +345,8 @@ class OutputKeywords:
     literals_take: bool
     zero_bound_classes: Mapping[str, tuple[str, ...]]
     writes_constrained_types: bool
+    int_values: range | None
+    drops_non_finite_bounds: bool
 
 
 BASE_OUTPUT: Final = OutputKeywords(
@@ -326,6 +358,8 @@ BASE_OUTPUT: Final = OutputKeywords(
     literals_take=True,
     zero_bound_classes=MappingProxyType({}),
     writes_constrained_types=False,
+    int_values=None,
+    drops_non_finite_bounds=False,
 )
 """The rows of the type manager of the standard-library outputs (dataclasses, TypedDict)."""
 PYDANTIC_OUTPUT: Final = replace(
@@ -345,6 +379,8 @@ MSGSPEC_OUTPUT: Final = replace(
     annotation_unions_take=False,
     fixed_tuples_take_length=False,
     literals_take=False,
+    int_values=range(-(2**63), 2**63),
+    drops_non_finite_bounds=True,
 )
 """The rows of the msgspec type manager, as the msgspec type table lists what ``msgspec.Meta`` checks."""
 
@@ -448,15 +484,144 @@ def undeclared_keywords_taken(taken: frozenset[str], *, value_literal: bool) -> 
     return NO_KEYWORDS if value_literal else taken
 
 
+@final
+@record
+class ConstraintOptions:
+    """The options that decide which constraints a field writes beside its type, read only by this table.
+
+    ``omit_redundant_constraints`` (``--omit-redundant-constraints``) leaves out of a field every keyword its type
+    enforces itself (``enforced_keywords``, ``literal_enforces_every_keyword``, ``writes_beside_literal``,
+    ``field_form_zero_bound``). ``use_decimal_in_field_forms`` (``--use-decimal-in-field-forms``) writes the number
+    of a field form with ``multipleOf`` as a ``Decimal`` too, strict in every form (``decimal_field_form``,
+    ``strict_decimal_multiple``).
+    """
+
+    omit_redundant_constraints: bool = False
+    use_decimal_in_field_forms: bool = False
+
+
+def _class_keywords(zero_bound_classes: Mapping[str, tuple[str, ...]], type_name: str | None) -> tuple[str, ...]:
+    """Return the keywords a type enforces by its class: the zero bound of a zero-bound class."""
+    return zero_bound_classes.get(type_name, ()) if type_name else ()
+
+
 def property_consumed_keywords(
     zero_bound_classes: Mapping[str, tuple[str, ...]], type_name: str | None
 ) -> tuple[str, ...]:
     """Return the keywords a field at an object property leaves out, as its own type is a class that enforces them.
 
     Row ``legacy-consumed-at-object-property``: only an object property whose own type is a zero-bound class leaves
-    them out; a root, an item or a union member of the class writes them again.
+    them out; a root, an item or a union member of the class writes them again, unless ``enforced_keywords`` leaves
+    them out at every position.
     """
-    return zero_bound_classes.get(type_name, ()) if type_name else ()
+    return _class_keywords(zero_bound_classes, type_name)
+
+
+def enforced_keywords(
+    options: ConstraintOptions,
+    leaves: Iterable[tuple[str | None, Sequence[object]]],
+    constraints: Mapping[str, float | str],
+    zero_bound_classes: Mapping[str, tuple[str, ...]],
+) -> frozenset[str]:
+    """Return the keywords of a schema that its field's type enforces itself, which the field leaves out.
+
+    Only under ``omit_redundant_constraints``. ``leaves`` gives each type a value of the field's type validates as,
+    but ``None``: its class name (None for a container) and the values of its ``Literal`` (empty for another type).
+    Every leaf must enforce a keyword: a zero-bound class its bound, a ``Literal`` each keyword of ``constraints``
+    all its values meet (``literal_met_keywords``).
+    """
+    if not options.omit_redundant_constraints:
+        return NO_KEYWORDS
+    return frozenset.intersection(
+        *(
+            literal_met_keywords(values, constraints)
+            if values
+            else frozenset(_class_keywords(zero_bound_classes, type_name))
+            for type_name, values in leaves
+        )
+    )
+
+
+def literal_enforces_every_keyword(
+    options: ConstraintOptions,
+    values: Sequence[object],
+    constraints: Mapping[str, float | str],
+    declared: AbstractSet[str],
+) -> bool:
+    """Return whether the ``Literal`` of values enforces every constraint beside them, so the field writes none.
+
+    Only under ``omit_redundant_constraints``: the literal check decides each keyword the schema sets (``declared``)
+    and every value meets it.
+    """
+    return (
+        options.omit_redundant_constraints
+        and constraints.keys() == declared
+        and len(literal_met_keywords(values, constraints)) == len(constraints)
+    )
+
+
+def writes_beside_literal(options: ConstraintOptions, *, writes_field_arguments: bool) -> bool:
+    """Return whether a field writes the keywords it takes beside the ``Literal`` of its values.
+
+    A field that writes ``Field()`` arguments does, which Pydantic checks on the ``Literal``; under
+    ``omit_redundant_constraints`` the literal check decides them all and the field writes none of them.
+    """
+    return writes_field_arguments and not options.omit_redundant_constraints
+
+
+def field_form_zero_bound(
+    options: ConstraintOptions, values: Mapping[str, object], *, zero_bound_types: bool, strict: bool
+) -> str | None:
+    """Return the one bound equal to 0 that the type of a field form takes, as its zero-bound class, or None.
+
+    Under ``--use-non-positive-negative-number-constrained-types`` (``zero_bound_types``) a schema with exactly one
+    bound equal to 0 keeps it on its type (row ``legacy-consumed-at-object-property`` writes it again); under
+    ``omit_redundant_constraints`` a strict number takes none, so its field writes the bound beside ``StrictInt`` or
+    ``StrictFloat`` instead of a strict ``con*`` type that repeats it.
+    """
+    if not zero_bound_types or (options.omit_redundant_constraints and strict):
+        return None
+    return bounds[0] if len(bounds := [key for key in NUMBER_BOUND_KEYWORDS if values.get(key) == 0]) == 1 else None
+
+
+def decimal_field_form(options: ConstraintOptions, *, decimal_for_multiple_of: bool, float_multiple_of: bool) -> bool:
+    """Return whether a field form writes a float number with ``multipleOf`` (``float_multiple_of``) as a ``Decimal``.
+
+    It does under ``--use-decimal-for-multiple-of`` with ``use_decimal_in_field_forms``; without the latter the
+    field forms write a float, as in 0.86.0.
+    """
+    return decimal_for_multiple_of and options.use_decimal_in_field_forms and float_multiple_of
+
+
+def strict_decimal_multiple(options: ConstraintOptions, *, strict: bool) -> bool:
+    """Return whether the ``Decimal`` a float number with ``multipleOf`` is written as is strict.
+
+    It is under ``--strict-types float`` (``strict``) with ``use_decimal_in_field_forms``.
+    """
+    return strict and options.use_decimal_in_field_forms
+
+
+RenderDrop: TypeAlias = Literal["self-reference-container", "strict-kwargs", "anyurl"]
+"""Why a field writes none of its constraints when it is written."""
+
+
+def render_drop(
+    *, self_reference_outside_container: bool, strict_arguments: bool, anyurl_outside_container: bool = False
+) -> RenderDrop | None:
+    """Return why a field writes none of its constraints when it is written, or None when it writes them.
+
+    A field naming its own model outside a container takes none, and a strict type with arguments writes them
+    itself. Row ``legacy-anyurl-keeps-string-keywords``: the Pydantic outputs leave out every constraint of a field
+    whose type holds ``AnyUrl`` outside a container, with a warning.
+    """
+    if self_reference_outside_container:
+        return "self-reference-container"
+    return "strict-kwargs" if strict_arguments else "anyurl" if anyurl_outside_container else None
+
+
+def none_type_keywords(*, none_type: bool) -> frozenset[str]:
+    """Return the number constraints of a field a ``None`` type leaves out when the field is written (``none_type``)."""
+    return NUMBER_FIELD_KEYWORDS if none_type else NO_KEYWORDS
 
 
 def base64_bytes_consumed_keywords(arguments: Mapping[str, object]) -> frozenset[str]:
@@ -637,6 +802,16 @@ _BOUND_CHECKS: Final[Mapping[str, Callable[[float, float], bool]]] = MappingProx
 })
 
 
+def json_integer(value: object) -> TypeIs[int]:
+    """Return whether a JSON value is an integer: an int, a ``bool`` being none."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def json_number(value: object) -> TypeIs[int | float]:
+    """Return whether a JSON value is a number: an int or a float, a ``bool`` being none."""
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
+
 def _meets_length(value: object, keyword: str, limit: float) -> bool:
     """Return whether a JSON value meets a length keyword, counting the code points of a string."""
     if not isinstance(value, str):
@@ -656,7 +831,7 @@ def _meets(value: object, keyword: str, limit: float | str) -> bool | None:
         return pattern_admits(limit, value) if isinstance(value, str) else True
     if keyword in LENGTH_KEYWORDS:
         return _meets_length(value, keyword, limit)
-    if isinstance(value, bool) or not isinstance(value, int | float):
+    if not json_number(value):
         return True
     if (check := _BOUND_CHECKS.get(keyword)) is not None:
         return check(value, limit)
@@ -670,6 +845,12 @@ def _is_finite(number: float) -> bool:
     return isinstance(number, int) or isfinite(number)
 
 
+def _decided(values: Sequence[object], constraints: Mapping[str, float | str]) -> dict[str, tuple[bool | None, ...]]:
+    """Return, for each keyword of ``constraints`` the check decides on every value, whether each value meets it."""
+    met = {keyword: tuple(_meets(value, keyword, limit) for value in values) for keyword, limit in constraints.items()}
+    return {keyword: results for keyword, results in met.items() if None not in results}
+
+
 def literal_check(
     values: Sequence[object], constraints: Mapping[str, float | str]
 ) -> tuple[tuple[str, ...], tuple[bool, ...]]:
@@ -677,6 +858,119 @@ def literal_check(
 
     ``constraints`` holds keywords of ``LITERAL_DECIDABLE_KEYWORDS`` with their limits, in the order to report them.
     """
-    met = {keyword: tuple(_meets(value, keyword, limit) for value in values) for keyword, limit in constraints.items()}
-    decided = tuple(keyword for keyword, results in met.items() if None not in results)
-    return decided, tuple(all(met[keyword][index] for keyword in decided) for index in range(len(values)))
+    met = _decided(values, constraints)
+    return tuple(met), tuple(all(results[index] for results in met.values()) for index in range(len(values)))
+
+
+def literal_met_keywords(
+    values: Sequence[object], constraints: Mapping[str, float | str], *, unmet_too: bool = False
+) -> frozenset[str]:
+    """Return the keywords of ``constraints`` the literal check decides that every one of the values meets.
+
+    With ``unmet_too`` also those no value meets, whose values stay as written with the unsatisfiable warning.
+    """
+    return frozenset(
+        keyword
+        for keyword, results in _decided(values, constraints).items()
+        if all(results) or (unmet_too and not any(results))
+    )
+
+
+def inexact_float_divisor(divisor: float) -> bool:
+    """Return whether a float holds a ``multipleOf`` divisor only approximately: it is no dyadic rational it holds.
+
+    msgspec checks a float ``multipleOf`` by the floating-point remainder, so it leaves out such a divisor, as 0.01,
+    which would reject its own multiples.
+    """
+    exact = Fraction(str(divisor))
+    return bool(exact.denominator & (exact.denominator - 1)) or Fraction(float(divisor)) != exact
+
+
+NUMBER_FIELD_KEYWORDS: Final[frozenset[str]] = frozenset({"gt", "ge", "lt", "le", "multiple_of"})
+"""The number constraints of a field, as the Pydantic ``Field`` and ``msgspec.Meta`` call them."""
+
+
+def saturating_float(number: float) -> float:
+    """Return a number as a float: an int beyond the float range is the infinity of its sign, as ``1e400`` is."""
+    try:
+        return float(number)
+    except OverflowError:
+        return inf if number > 0 else -inf
+
+
+def exact_float(number: int) -> float | None:
+    """Return an int as the float that equals it, or None when the float range or its precision cannot hold it.
+
+    Row ``legacy-exact-ints-as-floats``: the schema models read an int constraint as a float where one equals it
+    (``-2**63``, ``2**64``) and keep the int only where a float would differ.
+    """
+    try:
+        float_value = float(number)
+    except OverflowError:
+        return None
+    return float_value if float_value == number else None
+
+
+_INTEGER_BOUNDS: Final[Mapping[str, tuple[Literal["ge", "le"], Callable[[Any], int], int]]] = MappingProxyType({
+    "ge": ("ge", ceil, 0),
+    "gt": ("ge", floor, 1),
+    "le": ("le", floor, 0),
+    "lt": ("le", ceil, -1),
+})
+
+
+def integer_bound(
+    keyword: str, value: float, *, arithmetic: Literal["exact", "float"]
+) -> tuple[Literal["ge", "le"], int] | None:
+    """Return the ``ge`` or ``le`` that the integers a ``ge``, ``gt``, ``le`` or ``lt`` bound admits come to, or None.
+
+    The least integer a lower bound admits and the greatest an upper bound admits: the ceiling or the floor of the
+    bound, one more or less for an exclusive one. ``exact`` reads the bound as the decimal it is written (``1e300`` is
+    ``10**300``); ``float`` reads the float it is (``int(1e300)``).
+
+    Row ``legacy-msgspec-float-bounds``: the check of a msgspec union reads a bound ``float``, so an integral bound
+    past ``2**53`` is the integer of its binary value, where the schema models read it ``exact``.
+    """
+    if (row := _INTEGER_BOUNDS.get(keyword)) is None:
+        return None
+    side, rounding, offset = row
+    return side, rounding(Fraction(str(value)) if arithmetic == "exact" else value) + offset
+
+
+def is_non_finite(number: float) -> bool:
+    """Return whether a number has no finite float: an infinity, NaN, or an int beyond the float range."""
+    return not isfinite(saturating_float(number))
+
+
+def non_finite_written(number: float, *, as_float: bool) -> float | None:
+    """Return a number as the infinity or NaN that a type writes it as, or None when it writes it finite.
+
+    A float type writes an int beyond the float range as an infinity too (``saturating_float``); an int or a
+    ``Decimal`` type writes an int as it is.
+    """
+    if not as_float and not isinstance(number, float):
+        return None
+    return None if isfinite(written := saturating_float(number)) else written
+
+
+def _within(values: range, value: int) -> bool:
+    """Return whether an int lies in a range, by its bounds: ``in`` counts the range for an ``int`` subclass."""
+    return values.start <= value < values.stop
+
+
+def int_beyond_values(output: OutputKeywords, value: object) -> bool:
+    """Return whether the output refuses an int: one outside ``OutputKeywords.int_values``. A ``bool`` lies within."""
+    return output.int_values is not None and isinstance(value, int) and not _within(output.int_values, value)
+
+
+def int_constraint_beyond_values(output: OutputKeywords, keyword: str, value: object) -> bool:
+    """Return whether the output refuses a number constraint of an int: one outside the range its keyword takes.
+
+    A ``gt`` or ``lt`` takes the range less its greatest or least int, whose ``ge`` or ``le`` the output writes
+    instead; a keyword that is no number constraint of a field (``NUMBER_FIELD_KEYWORDS``) is never refused.
+    """
+    if output.int_values is None or not isinstance(value, int) or keyword not in NUMBER_FIELD_KEYWORDS:
+        return False
+    values = output.int_values
+    taken = values[:-1] if keyword == "gt" else values[1:] if keyword == "lt" else values
+    return not _within(taken, value)

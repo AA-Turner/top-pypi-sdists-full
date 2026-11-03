@@ -35,7 +35,7 @@ from .nested_share_folder.helpers import (
     is_nested_share_folder, is_nested_share_record, load_record_metadata, resolve_folder_uid)
 from ..nested_share_folder.removal_api import (
     resolve_nested_share_folder_uid, resolve_nested_share_record_uid)
-from .. import api, utils, crypto, vault
+from .. import api, utils, crypto, vault, rest_api
 from ..params import KeeperParams
 from ..display import bcolors
 from ..proto import APIRequest_pb2, record_pb2, enterprise_pb2
@@ -774,7 +774,7 @@ class KSMCommand(Command):
         audit_filter = {'audit_event_type': [KSM_USAGE_EVENT_TYPE], 'created': created_filter}
         rows = fetch_audit_events(
             params, audit_filter, columns=['app_uid', 'device_name', 'username'],
-            aggregate=['occurrences'], report_type='span', limit=limit)
+            aggregate=['occurrences'], report_type='span', limit=limit, cmd='secrets-manager usage')
 
         # Aggregation maps mirror Console getSecretsManagerMetrics. The *_apps maps track which
         # application UID(s) contributed to each row so we can flag rows whose app has been deleted
@@ -928,7 +928,7 @@ class KSMCommand(Command):
         audit_filter = {'audit_event_type': KSM_EVENT_TYPES, 'created': created_filter}
         rows = fetch_audit_events(
             params, audit_filter, columns=['audit_event_type'], aggregate=['occurrences'],
-            report_type=report_type, limit=limit, order='descending')
+            report_type=report_type, limit=limit, order='descending', cmd='secrets-manager usage')
 
         def label(evt):
             return AUDIT_EVENT_STATE_MAPPING.get(evt, evt)
@@ -2364,12 +2364,30 @@ class KSMCommand(Command):
 
         ksm_conf_storage = InMemoryKeyValueStorage()
 
-        secrets_manager = SecretsManager(
-            hostname=params.config.get('server'),
-            token=one_time_token,
-            # verify_ssl_certs=False,
-            config=ksm_conf_storage
-        )
+        # A self-managed server has its own key, which the Secrets Manager SDK cannot know.
+        # Pass it, so that the SDK can talk to the server and so that the configuration
+        # written below carries it for the Gateway or application that uses it.
+        server_key = rest_api.get_self_managed_server_key(params.rest_context)
+        server_key_args = {}
+        if server_key:
+            server_key_args = {
+                'server_public_key': server_key.public_key,
+                'server_public_key_id': str(server_key.key_id),
+            }
+
+        try:
+            secrets_manager = SecretsManager(
+                hostname=params.config.get('server'),
+                token=one_time_token,
+                # verify_ssl_certs=False,
+                config=ksm_conf_storage,
+                **server_key_args
+            )
+        except TypeError:
+            if not server_key_args:
+                raise
+            raise Exception('This server uses its own server key, which needs keeper-secrets-manager-core 17.3.0 '
+                            'or later.\nUpgrade it using pip `pip3 install -U keeper-secrets-manager-core`')
 
         secrets_manager.get_secrets("NON-EXISTING-RECORD-UID")
 
@@ -2380,6 +2398,9 @@ class KSMCommand(Command):
             ConfigKeys.KEY_SERVER_PUBLIC_KEY_ID.value: ksm_conf_storage.config.get(ConfigKeys.KEY_SERVER_PUBLIC_KEY_ID),
             ConfigKeys.KEY_APP_KEY.value:              ksm_conf_storage.config.get(ConfigKeys.KEY_APP_KEY),
         }
+
+        if server_key:
+            config_dict[ConfigKeys.KEY_SERVER_PUBLIC_KEY.value] = server_key.public_key
 
         # if the SDK version is below 16.2.0 then this key won't be present
         if 'KEY_OWNER_PUBLIC_KEY' in ConfigKeys.__members__ and ksm_conf_storage.config.get(ConfigKeys.KEY_OWNER_PUBLIC_KEY):
@@ -2474,5 +2495,4 @@ class KSMCommand(Command):
                                                        b'KEEPER_SECRETS_MANAGER_CLIENT_ID',
                                                        digest).digest())
         return one_time_token_hash
-
 

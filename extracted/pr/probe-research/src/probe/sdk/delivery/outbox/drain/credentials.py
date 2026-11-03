@@ -8,6 +8,7 @@ from probe.foundation.compat.compat import StrEnum
 from typing import Any
 from .... import errors
 from ....session_marker import WIZARD_HINT
+from probe.sdk.delivery.status_fields import StatusField
 
 
 def _settings_for(context: dict | None):
@@ -325,7 +326,7 @@ def _cooling_refusals(journal: "Journal") -> dict[str, str]:
     from datetime import datetime, timezone
 
     status = Journal.read_status(journal.dir, include_receipts=False, keep_idle_refusals=True) or {}
-    recorded = status.get("refused_fingerprints")
+    recorded = status.get(StatusField.REFUSED_FINGERPRINTS)
     cooling: dict[str, str] = {}
     if not isinstance(recorded, dict):
         return cooling

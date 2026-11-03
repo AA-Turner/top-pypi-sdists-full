@@ -17,7 +17,7 @@ HEADER = (
 )
 
 #: Where the SDK keeps 3.11's StrEnum for 3.10 (agent/tests/test_py310_compat.py), as
-#: scripts/gen_models.py writes it for the other generated models.
+#: agent/tools/codegen/gen_models.py writes it for the other generated models.
 STR_ENUM_MODULE = "probe.foundation.compat.compat"
 
 PRELUDE = '''"""The shared domain records (probe-contracts), as the SDK reads them."""

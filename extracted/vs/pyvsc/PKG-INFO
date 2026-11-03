@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvsc
-Version: 1.0.0
+Version: 1.1.0
 Summary: pyvsc (Verification Stimulus and Coverage) is a Python package for generating randomized stimulus and defining and collecting functional coverage.
 Author-email: Matthew Ballance <matt.ballance@gmail.com>
 License-Expression: Apache-2.0

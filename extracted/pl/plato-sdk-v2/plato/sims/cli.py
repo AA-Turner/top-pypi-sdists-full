@@ -43,8 +43,6 @@ import json
 import sys
 from typing import get_type_hints
 
-from plato.utils.pypi_index import plato_build_env
-
 from .registry import registry
 
 
@@ -1067,10 +1065,7 @@ def cmd_publish(
 
             except ImportError as e:
                 print(f"Error: Missing dependency for SDK generation: {e}", file=sys.stderr)
-                print(
-                    'Install with: uv add plato-sdk-v2 --index "https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/"',
-                    file=sys.stderr,
-                )
+                print("Install with: uv add plato-sdk-v2", file=sys.stderr)
                 sys.exit(1)
             except Exception as e:
                 print(f"Error generating instruction SDK: {e}", file=sys.stderr)
@@ -1155,8 +1150,7 @@ def cmd_publish(
                                 file=sys.stderr,
                             )
                             print(
-                                f'  Run: uvx --index-url "https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/" '
-                                f"--from 'plato-sdk-v2=={expected_version}' plato sims publish",
+                                f"  Run: uvx --from 'plato-sdk-v2=={expected_version}' plato sims publish",
                                 file=sys.stderr,
                             )
                             print(
@@ -1205,10 +1199,7 @@ def cmd_publish(
 
             except ImportError as e:
                 print(f"Error: Missing dependency for SDK generation: {e}", file=sys.stderr)
-                print(
-                    'Install with: uv add plato-sdk-v2 --index "https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/"',
-                    file=sys.stderr,
-                )
+                print("Install with: uv add plato-sdk-v2", file=sys.stderr)
                 sys.exit(1)
             except Exception as e:
                 print(f"Error generating SDK: {e}", file=sys.stderr)
@@ -1305,7 +1296,6 @@ client = Client.create(base_url="...")
                 result = subprocess.run(
                     ["uv", "build"],
                     cwd=build_dir,
-                    env=plato_build_env(),
                     capture_output=True,
                     text=True,
                 )

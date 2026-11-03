@@ -41,14 +41,18 @@ def make_client(tmp_path: Path) -> Iterator[MakeClient]:
         client.__exit__(None, None, None)
 
 
-def complete_setup(client: TestClient, password: str = PASSWORD) -> None:
+def complete_setup(client: TestClient, password: str = PASSWORD, tour: bool = False) -> None:
+    """Set up myOrb and sign in; past the tour that follows, unless `tour`."""
     token = client.app.state.auth.setup_token
     response = client.post(
         "/setup",
         data={"password": password, "password_confirmation": password, "token": token},
+        follow_redirects=False,
     )
-    assert response.status_code == 200
-    assert response.url.path == "/"
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+    if not tour:
+        client.post("/tour/finish", follow_redirects=False)
 
 
 @pytest.fixture

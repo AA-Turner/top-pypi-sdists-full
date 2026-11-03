@@ -10,6 +10,7 @@
 import warnings
 
 import numpy as np
+import torch
 from skorch.regressor import NeuralNetRegressor
 
 from .eegneuralnet import _EEGNeuralNet
@@ -139,7 +140,7 @@ class EEGRegressor(_EEGNeuralNet, NeuralNetRegressor):
         else:
             return y_pred
 
-    def predict_trials(self, X, return_targets=True):
+    def predict_trials(self, X, return_targets=True, *, loader_kwargs=None):
         """Create trialwise predictions from a cropped dataset.
 
         Parameters
@@ -148,20 +149,27 @@ class EEGRegressor(_EEGNeuralNet, NeuralNetRegressor):
             A braindecode dataset to be predicted.
         return_targets : bool
             If True, additionally returns the trial targets.
+        loader_kwargs : dict | None
+            Cropped mode only: DataLoader overrides, see
+            :func:`braindecode.training.iter_trial_predictions`.
 
         Returns
         -------
-        trial_predictions : np.ndarray
+        trial_predictions : np.ndarray | list of np.ndarray
             3-dimensional array (n_trials x n_classes x n_predictions), where
             the number of predictions depend on the chosen window size and the
-            receptive field of the network.
-        trial_targets : np.ndarray
-            Ground-truth targets from the dataset in a 2-dimensional array
-            (n_trials x n_targets). Only returned when ``return_targets=True``.
-            The number of targets depends on the decoding paradigm and can be
-            either a single value, multiple values, or a sequence.
+            receptive field of the network. If trials have different lengths,
+            a list with one (n_classes x n_predictions) array per trial.
+        trial_targets : np.ndarray | list of np.ndarray
+            Ground-truth targets from the dataset. Only returned when
+            ``return_targets=True``. An ``np.ndarray`` with a leading trial
+            dimension: ``(n_trials,)`` for scalar targets, with further
+            dimensions for multi-value or equal-length sequence targets. If
+            trial lengths differ, a list with one target array per trial.
         """
         if not self.cropped:
+            if loader_kwargs is not None:
+                raise ValueError("loader_kwargs requires cropped=True")
             warnings.warn(
                 "This method was designed to predict trials in cropped mode. "
                 "Calling it when cropped is False will give the same result as "
@@ -170,7 +178,12 @@ class EEGRegressor(_EEGNeuralNet, NeuralNetRegressor):
             )
             preds = self.predict(X)
             if return_targets:
-                return preds, np.concatenate([X[i][1] for i in range(len(X))])
+                # stack, not concatenate: scalar targets are 0-d, and
+                # multi-value targets must keep one row per trial
+                ys = np.stack([np.asarray(X[i][1]) for i in range(len(X))])
+                if ys.ndim == 2 and ys.shape[1] == 1:
+                    ys = ys[:, 0]  # single-value targets, as before
+                return preds, ys
             return preds
         self.check_is_fitted()
         return predict_trials(
@@ -179,6 +192,7 @@ class EEGRegressor(_EEGNeuralNet, NeuralNetRegressor):
             return_targets=return_targets,
             batch_size=self.batch_size,
             num_workers=self.get_iterator(X, training=False).loader.num_workers,
+            loader_kwargs=loader_kwargs,
         )
 
     def fit(self, X, y=None, **kwargs):
@@ -228,7 +242,37 @@ class EEGRegressor(_EEGNeuralNet, NeuralNetRegressor):
         if y is not None:
             if y.ndim == 1:
                 y = np.array(y).reshape(-1, 1)
-        super().fit(X=X, y=y, **kwargs)
+        return super().fit(X=X, y=y, **kwargs)
+
+    def get_loss(self, y_pred, y_true, *args, **kwargs):
+        """Return the loss for this batch.
+
+        A one-dimensional target of shape ``(batch,)`` is reshaped to
+        ``(batch, 1)`` when the prediction has shape ``(batch, 1)``, so that
+        the criterion compares each prediction with its own target instead of
+        broadcasting to ``(batch, batch)``.
+
+        Parameters
+        ----------
+        y_pred : torch tensor
+            Predicted target values.
+        y_true : torch tensor
+            True target values.
+
+        Returns
+        -------
+        loss : torch tensor
+            The loss value.
+        """
+        if (
+            isinstance(y_pred, torch.Tensor)
+            and isinstance(y_true, torch.Tensor)
+            and y_pred.ndim == 2
+            and y_pred.shape[1] == 1
+            and y_true.ndim == 1
+        ):
+            y_true = y_true.reshape(-1, 1)
+        return super().get_loss(y_pred, y_true, *args, **kwargs)
 
     @property
     def mode(self):

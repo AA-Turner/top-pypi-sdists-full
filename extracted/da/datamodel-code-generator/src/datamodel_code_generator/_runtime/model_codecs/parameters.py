@@ -9,11 +9,45 @@ from typing import Final, Literal, TypeAlias, cast
 from urllib.parse import quote
 
 from .errors import ParameterEncodingError
-from .media import FieldPlan, JSONValue, LexicalKind, encode_form, finite, json_bytes, json_text, lexical, media_kind
+from .media import (
+    FieldPlan,
+    JSONValue,
+    LexicalKind,
+    encode_form,
+    finite,
+    is_token,
+    json_bytes,
+    json_text,
+    lexical,
+    media_kind,
+)
+
+__all__ = (
+    "OWS",
+    "PATH_SAFE",
+    "PLACEHOLDER",
+    "ParameterLocation",
+    "ParameterPlan",
+    "ValueShape",
+    "builtin_content",
+    "cookie_octets",
+    "header_text",
+    "pairs",
+    "parameter_key",
+    "part_pairs",
+    "path_text",
+    "percent_encoded",
+    "query_pairs",
+    "querystring",
+)
 
 ParameterLocation: TypeAlias = Literal["path", "query", "querystring", "header", "cookie"]
 ValueShape: TypeAlias = Literal["scalar", "array", "object"]
 
+PLACEHOLDER: Final = re.compile(r"\{([^{}]*)\}")
+"""A placeholder of a path or server URL template, `{name}`, with its name as the group."""
+PATH_SAFE: Final = "/:@!$&'()*+,;="
+"""The characters besides unreserved ones that the literal text of a path keeps: `/` and those of RFC 3986's pchar."""
 _RESERVED: Final = ":/?#[]@!$&'()*+,;="
 _PATH_KEPT: Final = "/?#[],;="
 _QUERY_KEPT: Final = "#&+=[],"
@@ -25,10 +59,9 @@ _STYLES: Final = {
     "header": frozenset({"simple"}),
     "cookie": frozenset({"form", "cookie"}),
 }
-TOKEN: Final = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+")
 _NOT_HEADER_TEXT: Final = re.compile(r"[^\t\x20-\x7E]")
 _COOKIE_OCTETS: Final = re.compile(r"[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]*")
-_OWS: Final = " \t"
+OWS: Final = " \t"
 _UNENCODABLE: Final = "A parameter value is text that UTF-8 cannot encode, such as a lone surrogate"
 
 
@@ -59,16 +92,21 @@ class ParameterPlan:
             content = "" if self.content_media_type is None else f" with content {self.content_media_type!r}"
             msg = f"{self.location} parameter style {self.style!r}{content} has no builtin form for {self.shape} values"
             raise ValueError(msg)
-        if self.location == "header" and not TOKEN.fullmatch(self.name):
+        if self.location == "header" and not is_token(self.name):
             msg = f"header name {self.name!r} is not a token, which every header field name must be"
             raise ValueError(msg)
-        if (
-            self.location == "cookie"
-            and (self.style == "cookie" or self.shape == "scalar")
-            and not TOKEN.fullmatch(self.name)
-        ):
+        if self.location == "cookie" and (self.style == "cookie" or self.shape == "scalar") and not is_token(self.name):
             msg = f"cookie parameter name {self.name!r} is not a token, which a cookie sent as it is needs"
             raise ValueError(msg)
+
+
+def parameter_key(location: str, name: str) -> tuple[str, str]:
+    """Return what identifies a parameter of a request: its location and name, a header's name in lower case.
+
+    Header field names are case-insensitive (RFC 9110), so two header parameters, targets or credentials that differ
+    only in case name the same field.
+    """
+    return location, name.lower() if location == "header" else name
 
 
 def builtin_content(location: ParameterLocation, media_type: str) -> bool:
@@ -118,13 +156,16 @@ def _entries(plan: ParameterPlan, value: JSONValue) -> list[_Entry]:
     raise ParameterEncodingError(msg)
 
 
+def percent_encoded(text: str, safe: str) -> str:
+    """Return a text percent-encoded but for unreserved and safe characters, keeping its percent-encoded octets."""
+    return "".join(part if index % 2 else quote(part, safe=safe) for index, part in enumerate(_TRIPLET.split(text)))
+
+
 def _percent(plan: ParameterPlan, kept: str) -> Callable[[str], str]:
     if not plan.allow_reserved:
         return lambda text: quote(text, safe="")
     safe = "".join(char for char in _RESERVED if char not in kept)
-    return lambda text: "".join(
-        part if index % 2 else quote(part, safe=safe) for index, part in enumerate(_TRIPLET.split(text))
-    )
+    return lambda text: percent_encoded(text, safe)
 
 
 def _encoded(entries: list[_Entry], encode: Callable[[str], str]) -> list[_Entry]:
@@ -168,16 +209,12 @@ def _encode_path(plan: ParameterPlan, entries: list[_Entry]) -> str:
     return text
 
 
-def _verbatim(text: str) -> str:
-    return text
-
-
 def _encode_query(plan: ParameterPlan, entries: list[_Entry], *, raw: bool = False) -> list[_Entry]:
     """Return a query style's pairs, percent-encoded unless `raw` asks for the text form-data parts carry.
 
     Raw text cannot escape a delimiter, so a value or member name that holds the one its style joins with is refused.
     """
-    encode = _verbatim if raw else _percent(plan, _QUERY_KEPT)
+    encode: Callable[[str], str] = (lambda text: text) if raw else _percent(plan, _QUERY_KEPT)
     encoded = entries if raw else _encoded(entries, encode)
     name = encode(plan.name)
     match plan.style, plan.shape, plan.explode:
@@ -207,7 +244,15 @@ def header_text(text: str) -> bool:
 
     It holds HTAB, SP, and visible ASCII only, without whitespace at either end.
     """
-    return not _NOT_HEADER_TEXT.search(text) and text == text.strip(_OWS)
+    return not _NOT_HEADER_TEXT.search(text) and text == text.strip(OWS)
+
+
+def cookie_octets(text: str) -> bool:
+    """Return whether a text is a cookie value sent as it is, unquoted cookie octets as RFC 6265 writes them.
+
+    It holds visible ASCII only, without `"`, `,`, `;`, or a backslash.
+    """
+    return _COOKIE_OCTETS.fullmatch(text) is not None
 
 
 def _header_text(text: str, *, item: bool) -> str:
@@ -233,7 +278,7 @@ def _encode_cookie(plan: ParameterPlan, entries: list[_Entry]) -> list[_Entry]:
     pairs = [(plan.name if key is None else key, text) for key, text in entries]
     if plan.style == "form" and plan.shape != "scalar":
         return [(quote(key, safe=""), quote(text, safe="")) for key, text in pairs]
-    if not all(TOKEN.fullmatch(key) and _COOKIE_OCTETS.fullmatch(text) for key, text in pairs):
+    if not all(is_token(key) and cookie_octets(text) for key, text in pairs):
         msg = "A cookie name must be a token and its value unquoted cookie octets"
         raise ParameterEncodingError(msg)
     return list(pairs)
@@ -257,11 +302,8 @@ def _content(plan: ParameterPlan, value: JSONValue) -> str:
 
 
 def _querystring_text(plan: ParameterPlan, value: JSONValue) -> str:
-    match media_kind(plan.content_media_type or ""):
-        case "form":
-            return encode_form(value, plan.fields, plan.additional).decode("ascii")
-        case _:
-            pass
+    if media_kind(plan.content_media_type or "") == "form":
+        return encode_form(value, plan.fields, plan.additional).decode("ascii")
     return quote(_content(plan, value), safe="")
 
 

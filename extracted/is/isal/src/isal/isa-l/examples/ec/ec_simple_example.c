@@ -210,6 +210,22 @@ main(int argc, char *argv[])
         }
 
         printf(" } done all: Pass\n");
+
+        // Free allocated memory
+        free(encode_matrix);
+        free(decode_matrix);
+        free(invert_matrix);
+        free(temp_matrix);
+        free(g_tbls);
+
+        for (i = 0; i < m; i++) {
+                free(frag_ptrs[i]);
+        }
+
+        for (i = 0; i < p; i++) {
+                free(recover_outp[i]);
+        }
+
         return 0;
 }
 
@@ -224,18 +240,14 @@ gf_gen_decode_matrix_simple(u8 *encode_matrix, u8 *decode_matrix, u8 *invert_mat
                             int m)
 {
         int i, j, p, r;
-        int nsrcerrs = 0;
         u8 s, *b = temp_matrix;
         u8 frag_in_err[MMAX];
 
         memset(frag_in_err, 0, sizeof(frag_in_err));
 
-        // Order the fragments in erasure for easier sorting
-        for (i = 0; i < nerrs; i++) {
-                if (frag_err_list[i] < k)
-                        nsrcerrs++;
+        // Mark the input fragments with error for later processing
+        for (i = 0; i < nerrs; i++)
                 frag_in_err[frag_err_list[i]] = 1;
-        }
 
         // Construct b (matrix that encoded remaining frags) by removing erased rows
         for (i = 0, r = 0; i < k; i++, r++) {

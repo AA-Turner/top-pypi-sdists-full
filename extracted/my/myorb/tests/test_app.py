@@ -198,7 +198,9 @@ def test_name_in_greeting(make_client: MakeClient):
     client = make_client()
     token = client.app.state.auth.setup_token
     data = {"password": "correct horse battery", "password_confirmation": "correct horse battery"}
-    client.post("/setup", data={**data, "token": token, "name": "  Tony   "})
+    data = {**data, "token": token, "name": "  Tony   "}
+    client.post("/setup", data=data, follow_redirects=False)
+    client.post("/tour/finish")
     assert ', <span class="greeting-name">Tony</span>' in client.get("/").text
 
     response = client.post("/settings/profile", data={"name": "<Pepper>"})
@@ -215,7 +217,9 @@ def test_assistant_is_named_by_the_user(make_client: MakeClient):
     token = client.app.state.auth.setup_token
     data = {"password": "correct horse battery", "password_confirmation": "correct horse battery"}
     assert 'value="Orb"' in client.get("/setup", params={"token": token}).text
-    client.post("/setup", data={**data, "token": token, "assistant": "Iris"})
+    data = {**data, "token": token, "assistant": "Iris"}
+    client.post("/setup", data=data, follow_redirects=False)
+    client.post("/tour/finish")
     page = client.get("/").text
     assert '<span class="core-name" style="--chars: 4">Iris</span>' in page
     assert "<title>Iris</title>" in page

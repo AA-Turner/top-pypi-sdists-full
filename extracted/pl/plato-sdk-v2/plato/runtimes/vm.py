@@ -10,10 +10,8 @@ from typing import TYPE_CHECKING
 
 import tenacity
 
-from plato.rpc.client.manager import close_agent_client
 from plato.runtimes.base import Runtime, RuntimeInfo, VMMetadata
 from plato.runtimes.settings import get_settings
-from plato.utils.ssh import gateway_proxy_command
 from plato.utils.subprocess import VM_PATH_EXPORT, run_ssh, run_ssh_streaming
 from plato.v2 import Env
 from plato.v2.types import SimConfigCompute
@@ -44,7 +42,7 @@ def _gateway_ssh_opts(job_id: str) -> list[tuple[str, str]]:
     """Build SSH ProxyCommand options to reach a VM through the Plato gateway."""
     gateway_host = get_settings().gateway_host
     sni = f"{job_id}--22.{gateway_host}"
-    proxy_cmd = gateway_proxy_command(gateway_host, sni)
+    proxy_cmd = f"openssl s_client -quiet -connect {gateway_host}:443 -servername {sni} 2>/dev/null"
     return [("ProxyCommand", proxy_cmd)]
 
 
@@ -138,9 +136,9 @@ class VMRuntime(Runtime):
         alias = alias or f"vm-{id(self):x}"
 
         # Reuse an already-provisioned env on retry.  When start() retries
-        # after a post-provision step (SSH key add, SSH readiness) fails,
-        # the env from the prior attempt is still live on the backend —
-        # calling add_env again with the same alias would raise "Duplicate alias".
+        # after connect_network or SSH fails, the env from the prior attempt
+        # is still live on the backend — calling add_env again with the same
+        # alias would raise "Duplicate alias".
         env = self._envs.get(alias)
         if env is None:
             env = await self._session.add_env(
@@ -160,18 +158,13 @@ class VMRuntime(Runtime):
             )
             self._envs[alias] = env
 
-        # Network attachment is handled by add_env itself (the session
-        # connects requested networks once envs are ready) — no explicit
-        # connect_network call needed here.
+        await self._session.connect_network()
 
         # Add SSH public key to the VM.
         if self._ssh_key_path:
             pub_key = Path(str(self._ssh_key_path) + ".pub").read_text().strip()
             await env.add_ssh_key(pub_key)
         hostname, extra_opts = self._ssh_target(env)
-        # A new VM can get the mesh IP of one this process used before: forget that VM's
-        # daemon state, or the first RPC skips the bootstrap and hits a daemon not up yet.
-        await close_agent_client(hostname)
         if self._ssh_key_path is not None:
             await self._wait_for_ssh(hostname, extra_opts=extra_opts, timeout=min(timeout, 60))
         logger.debug("VM runtime started: alias=%s job_id=%s hostname=%s", alias, env.job_id, hostname)
@@ -205,24 +198,16 @@ class VMRuntime(Runtime):
             raise RuntimeError(f"Unknown runtime_id: {runtime_id}")
         return env
 
-    async def remove_job(self, job_id: str) -> bool:
-        return await self._session.remove_job(job_id)
-
     async def stop(self, runtime_id: str) -> None:
         env = self._envs.pop(runtime_id, None)
         if env is None:
             logger.warning("VM runtime stop: unknown runtime_id %s", runtime_id)
             return
-        hostname = env.mesh_ip if _use_mesh_ssh() else env.job_id
         try:
             await self._session.remove_env(env)
             logger.debug("VM runtime stopped: %s", runtime_id)
         except Exception as e:
             logger.warning("Failed to stop VM %s: %s", runtime_id, e)
-        finally:
-            # Its mesh IP goes back to the pool: drop the cached client and daemon state with it.
-            if hostname:
-                await close_agent_client(hostname)
 
     async def exec(
         self,

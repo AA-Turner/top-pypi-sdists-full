@@ -264,6 +264,127 @@ def compiler_supports_clmul():
     return False
 
 
+def target_may_be_arm64():
+    """Return True if the build targets 64-bit ARM: Linux and other Unix
+    systems on AArch64, Windows on ARM64, and macOS on arm64
+    (alone or in a universal2 build, together with x86-64)."""
+
+    platform = get_platform()
+    return platform.endswith(("aarch64", "arm64", "universal2"))
+
+
+def compiler_supports_armv8_crypto():
+    """Return the compiler options to enable the intrinsics of the ARMv8
+    Cryptography Extensions (AES, PMULL and SHA-256), or False if the compiler
+    cannot emit them.
+
+    The test program, like the modules, is empty when not compiled for
+    AArch64, so that the x86-64 half of a macOS universal2 build succeeds.
+    The modules only support little-endian CPUs."""
+
+    source = """
+    #if defined(__aarch64__) || defined(_M_ARM64)
+    #if defined(__ARM_BIG_ENDIAN)
+    #error Only for little-endian CPUs
+    #endif
+    #include <arm_neon.h>
+    #include <stdint.h>
+    #include <string.h>
+    uint8x16_t f(uint8x16_t x, uint8x16_t k) {
+        x = vaesmcq_u8(vaeseq_u8(x, k));
+        return vaesimcq_u8(vaesdq_u8(x, k));
+    }
+    uint64x2_t g(uint64x2_t a, uint64x2_t b) {
+        uint64x2_t lo, hi;
+    #if defined(_MSC_VER) && !defined(__clang__)
+        lo = vmull_p64(vget_low_u64(a), vget_low_u64(b));
+        hi = vmull_high_p64(a, b);
+    #else
+        lo = vreinterpretq_u64_p128(vmull_p64((poly64_t)vgetq_lane_u64(a, 0),
+                                              (poly64_t)vgetq_lane_u64(b, 0)));
+        hi = vreinterpretq_u64_p128(vmull_high_p64(vreinterpretq_p64_u64(a),
+                                                   vreinterpretq_p64_u64(b)));
+    #endif
+        return veorq_u64(lo, vextq_u64(hi, hi, 1));
+    }
+    uint32x4_t h(uint32x4_t a, uint32x4_t b) {
+        a = vsha256su1q_u32(vsha256su0q_u32(a, b), a, b);
+        return vsha256h2q_u32(vsha256hq_u32(a, b, a), b, a);
+    }
+    int main(void) {
+        int ret;
+        uint8x16_t x;
+        uint64x2_t y;
+        x = vdupq_n_u8(1);
+        x = f(x, x);
+        y = vreinterpretq_u64_u8(x);
+        y = g(y, y);
+        y = vreinterpretq_u64_u32(h(vreinterpretq_u32_u64(y), vreinterpretq_u32_u64(y)));
+        memcpy(&ret, &y, sizeof(ret));
+        return ret;
+    }
+    #else
+    int main(void) {
+        return 0;
+    }
+    #endif
+    """
+
+    if test_compilation(source, msg="ARMv8 Cryptography Extensions intrinsics"):
+        return {"extra_cc_options": [], "extra_macros": []}
+
+    options = ["-march=armv8-a+crypto"]
+    if test_compilation(source, extra_cc_options=options, msg="ARMv8 Cryptography Extensions intrinsics"):
+        return {"extra_cc_options": options, "extra_macros": []}
+
+    return False
+
+
+def compiler_supports_armv8_sha512():
+    """Return the compiler options to enable the intrinsics of the SHA-512
+    instructions of ARMv8.2 (SHA512H, SHA512H2, SHA512SU0 and SHA512SU1),
+    or False if the compiler cannot emit them.
+
+    As in compiler_supports_armv8_crypto(), the test program is empty
+    when not compiled for AArch64."""
+
+    source = """
+    #if defined(__aarch64__) || defined(_M_ARM64)
+    #if defined(__ARM_BIG_ENDIAN)
+    #error Only for little-endian CPUs
+    #endif
+    #include <arm_neon.h>
+    #include <stdint.h>
+    #include <string.h>
+    uint64x2_t f(uint64x2_t a, uint64x2_t b) {
+        a = vsha512su1q_u64(vsha512su0q_u64(a, b), a, b);
+        return vsha512h2q_u64(vsha512hq_u64(a, b, a), b, a);
+    }
+    int main(void) {
+        int ret;
+        uint64x2_t x;
+        x = vdupq_n_u64(1);
+        x = f(x, x);
+        memcpy(&ret, &x, sizeof(ret));
+        return ret;
+    }
+    #else
+    int main(void) {
+        return 0;
+    }
+    #endif
+    """
+
+    if test_compilation(source, msg="ARMv8.2 SHA-512 intrinsics"):
+        return {"extra_cc_options": [], "extra_macros": []}
+
+    options = ["-march=armv8.2-a+sha3"]
+    if test_compilation(source, extra_cc_options=options, msg="ARMv8.2 SHA-512 intrinsics"):
+        return {"extra_cc_options": options, "extra_macros": []}
+
+    return False
+
+
 def compiler_supports_avx2_bmi2():
     """Return the compiler options to enable AVX2, BMI1 and BMI2 intrinsics
     (all together), or False if the compiler cannot emit all of them.
@@ -485,6 +606,7 @@ def set_compiler_options(extensions):
     Also, it removes existing modules when not supported, such as:
       - AESNI
       - CLMUL
+      - ARMv8 Cryptography Extensions
       - AVX2 and BMI2
     """
 
@@ -555,6 +677,37 @@ def set_compiler_options(extensions):
     else:
         print("Warning: compiler does not support CLMUL instructions")
         remove_extension(extensions, clmul_mod_name)
+
+    # ARMv8 Cryptography Extensions (AES, PMULL and SHA-256), on 64-bit ARM only
+    armv8_crypto_result = target_may_be_arm64() and compiler_supports_armv8_crypto()
+    armv8_crypto_mod_names = [
+        "Crypto.Cipher._raw_aes_armv8",
+        "Crypto.Hash._ghash_pmull",
+        "Crypto.Hash._SHA224_armv8",
+        "Crypto.Hash._SHA256_armv8",
+    ]
+    if armv8_crypto_result:
+        print("Compiling support for ARMv8 Cryptography Extensions")
+        for x in extensions:
+            if x.name in armv8_crypto_mod_names:
+                x.extra_compile_args.extend(armv8_crypto_result["extra_cc_options"])
+    else:
+        print("Warning: compiler does not support ARMv8 Cryptography Extensions")
+        for mod_name in armv8_crypto_mod_names:
+            remove_extension(extensions, mod_name)
+
+    # SHA-512 instructions of ARMv8.2, on 64-bit ARM only
+    armv8_sha512_result = target_may_be_arm64() and compiler_supports_armv8_sha512()
+    armv8_sha512_mod_names = ["Crypto.Hash._SHA384_armv8", "Crypto.Hash._SHA512_armv8"]
+    if armv8_sha512_result:
+        print("Compiling support for ARMv8.2 SHA-512 instructions")
+        for x in extensions:
+            if x.name in armv8_sha512_mod_names:
+                x.extra_compile_args.extend(armv8_sha512_result["extra_cc_options"])
+    else:
+        print("Warning: compiler does not support ARMv8.2 SHA-512 instructions")
+        for mod_name in armv8_sha512_mod_names:
+            remove_extension(extensions, mod_name)
 
     # AVX2, BMI1 and BMI2, all together (gcc and clang only)
     # Detecting them at runtime requires cpuid.h

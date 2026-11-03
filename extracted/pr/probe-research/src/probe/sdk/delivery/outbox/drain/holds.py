@@ -6,7 +6,7 @@ import os
 import time
 from pathlib import Path
 
-from ....._shared import oscompat
+from .....foundation.os_backend import os_backend as oscompat
 from .....foundation.durable.durable import (
     fsync_directory,
     write_text_atomic)

@@ -56,13 +56,22 @@ def _post(base: str, path: str, body: dict, bearer: str | None = None) -> httpx.
         raise unreachable(base, exc) from None
 
 
+def _console_root(url: str) -> str | None:
+    """The console's root, from the page a sign-in is confirmed on (`<root>device/?code=…`): where its Account and
+    Billing pages are."""
+    i = url.find("/device/") if isinstance(url, str) else -1
+    return url[: i + 1] if i > 0 and url.startswith("https://") else None
+
+
 def login(*, base_url: str | None = None, echo: Echo = print, open_page: Callable[[str], Any] | None = None,
-          sleep: Callable[[float], Any] | None = None) -> dict:
+          sleep: Callable[[float], Any] | None = None, profile: str | None = None) -> dict:
     """Sign in on this machine: the page to confirm the code on is opened (or printed), and the platform asked until
-    you approve it there. Returns {email, login_id}; refused when the code is denied or lapses first."""
+    you approve it there. Returns {email, login_id}; refused when the code is denied or lapses first. `profile` signs in
+    under that name and makes it the active one; without it, the active profile."""
     open_page = open_page or webbrowser.open
     sleep = sleep or time.sleep
     base = _base(base_url)
+    name = signin._named(profile) if profile else signin.profile()
     r = _post(base, "/v1/login", {"device": _device(), "client": f"seq {_version()}"[:40]})
     raise_for(r)
     started = r.json()
@@ -90,10 +99,13 @@ def login(*, base_url: str | None = None, echo: Echo = print, open_page: Callabl
             continue
         raise_for(r)
         got = r.json()
-        before = signin.saved(base)
+        before = signin.saved(base, profile=name)
+        root = _console_root(url)
         signin.save(base, {"access_token": got["access_token"], "refresh_token": got["refresh_token"],
                            "expires_at": got["expires_at"], "email": got.get("email"), "user_id": got.get("user_id"),
-                           "login_id": got.get("login_id")})
+                           "login_id": got.get("login_id"), **({"console": root} if root else {})}, profile=name)
+        if profile:
+            signin.activate(name)
         if before and before.get("login_id") and before.get("login_id") != got.get("login_id"):
 
 
@@ -133,7 +145,8 @@ def _resolve(login_id: str, base: str) -> dict:
     return hits[0]
 
 
-def logout(login_id: str | None = None, *, base_url: str | None = None, echo: Echo = print) -> dict:
+def logout(login_id: str | None = None, *, base_url: str | None = None, echo: Echo = print,
+           profile: str | None = None) -> dict:
     """Sign out: this machine's sign-in ended on the platform and removed here - or, given one of the ids `seq account`
     lists, that sign-in ended wherever it is. Signed out is said only when the platform ended it (or it had ended
     already); when the platform did not, or could not be reached, the sign-in is kept here to try again and the refusal
@@ -146,15 +159,16 @@ def logout(login_id: str | None = None, *, base_url: str | None = None, echo: Ec
         if (signin.saved(base) or {}).get("login_id") == hit["id"]:
             signin.drop(base)
         return {"signed_out": hit.get("device"), "login_id": hit["id"]}
-    entry = signin.saved(base)
+    name = signin._named(profile) if profile else signin.profile()
+    entry = signin.saved(base, profile=name)
     if entry is None:
-        _say(echo, "not signed in on this machine")
+        _say(echo, "not signed in on this machine" + (f" in profile {name}" if profile else ""))
         return {"signed_out": None}
     who = entry.get("email") or "this machine's sign-in"
     retry = ("it stays signed in here to try again: seq logout once more, or Sign out on the console's Account page "
              "(seq account names this machine's)")
     try:
-        token = signin.Login(base).token()
+        token = signin.Login(base, name).token()
     except AuthError:
         token = None
     already = token is None
@@ -171,7 +185,7 @@ def logout(login_id: str | None = None, *, base_url: str | None = None, echo: Ec
             already = True
         elif r.status_code >= 300 or said is False:
             raise Unavailable(f"the platform did not end {who} (answered {r.status_code}); {retry}")
-    signin.drop(base)
+    signin.drop(base, profile=name)
     _say(echo, f"signed out {entry.get('email') or ''}".rstrip()
          + (" (its sign-in had ended already)" if already else ""))
     return {"signed_out": entry.get("email"), "login_id": entry.get("login_id")}
@@ -225,3 +239,34 @@ def account(*, base_url: str | None = None, echo: Echo = print) -> dict:
     who = you(base_url=base_url, echo=echo)
     out = capacity_cli.account(base_url=base_url, echo=echo)
     return {**(out if isinstance(out, dict) else {"account": out}), **({"you": who} if who else {})}
+
+
+def profile_list(*, base_url: str | None = None, echo: Echo = print) -> list[dict]:
+    """`seq profile list`: each profile, who is signed in under it at which platform address, the active one marked."""
+    active, out = signin.profile(), []
+    for name, logins in signin.profiles():
+        mark = "*" if name == active else " "
+        kept = {a: e for a, e in logins.items() if isinstance(e, dict) and e.get("refresh_token")}
+        for address, entry in sorted(kept.items()):
+            _say(echo, f"{mark} {name:<8} {entry.get('email') or 'signed in'} at {address}")
+            out.append({"profile": name, "active": name == active, "address": address, "email": entry.get("email")})
+        if not kept:
+            _say(echo, f"{mark} {name:<8} signed in nowhere")
+            out.append({"profile": name, "active": name == active, "address": None, "email": None})
+    return out
+
+
+def profile_activate(name: str, *, base_url: str | None = None, echo: Echo = print) -> dict:
+    """`seq profile activate NAME`: the profile every later seq on this machine signs in as; SEQUENCES_PROFILE still
+    wins for a process that sets it."""
+    signin.activate(name)
+    _say(echo, f"profile {name} is active: seq signs in as it"
+         + ("" if signin.saved(_base(base_url), profile=name) else " - seq login signs you in under it"))
+    return {"active": name}
+
+
+def profile_current(*, base_url: str | None = None, echo: Echo = print) -> dict:
+    """`seq profile current`: the profile seq signs in as now."""
+    name = signin.profile()
+    _say(echo, name)
+    return {"profile": name}

@@ -109,6 +109,26 @@ def patience(seconds: float | None):
 
 
 @contextmanager
+def pause_patience():
+    """Suspend an enclosing `patience` scope for a block that waits on a person or the Probe
+    daemon, not the server, and give the budget back after: its deadline moves on by the time
+    spent (a 90 s wait for a run's project never eats `probe.init()`'s 90 s). No-op outside one."""
+    outer = _patience_outer.get()
+    if outer is _NOT_PATIENT:
+        yield
+        return
+    started = time.monotonic()
+    try:
+        with without_patience():
+            yield
+    finally:
+        current = _request_deadline.get()
+        if current is not None:
+            moved = current + (time.monotonic() - started)
+            _request_deadline.set(moved if outer is None else min(outer, moved))
+
+
+@contextmanager
 def without_patience():
     """Suspend an enclosing `patience` scope for a block: quick retries again, and the deadline in
     force outside patience (a close's) comes back. For best-effort capture, threads started during

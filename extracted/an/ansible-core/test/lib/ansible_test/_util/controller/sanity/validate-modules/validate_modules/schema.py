@@ -670,9 +670,6 @@ def list_dict_option_schema(for_collection, plugin_type):
             'cli': [cli_schema],
             'keyword': [keyword_schema],
             'deprecated': deprecated_schema,
-            # Only honored by ansible-core 2.22 and later. It is accepted here
-            # so a collection documenting it can still pass this sanity test
-            # when run under older ansible-core versions.
             'secret': bool,
         })
 
@@ -864,6 +861,8 @@ def doc_schema(module_name, for_collection=False, deprecated_module=False, plugi
         doc_schema_dict['author'] = All(Any(None, list_string_types, str), author)
     if plugin_type == 'callback':
         doc_schema_dict[Required('type')] = Any('aggregate', 'notification', 'stdout')
+    if plugin_type in ('lookup', 'filter', 'test'):
+        doc_schema_dict['positional'] = Any(list_string_types, str)
 
     if for_collection:
         # Optional

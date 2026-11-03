@@ -1,5 +1,3 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;  Copyright(c) 2023 Intel Corporation All rights reserved.
 ;
 ;  Redistribution and use in source and binary forms, with or without
 ;  modification, are permitted provided that the following conditions
@@ -34,8 +32,6 @@
 %include "reg_sizes.asm"
 %include "gf_vect_gfni.inc"
 %include "memcpy.asm"
-
-%if AS_FEATURE_LEVEL >= 10
 
 %ifidn __OUTPUT_FORMAT__, elf64
  %define arg0   rdi
@@ -230,8 +226,8 @@ func(gf_3vect_mad_avx2_gfni)
         FUNC_SAVE
 
         xor     pos, pos
-        shl     vec_i, 3                ;Multiply by 8
-        shl     vec, 3                  ;Multiply by 8
+        shl     vec_i, 5                ;Multiply by 32
+        shl     vec, 5                  ;Multiply by 32
         lea     tmp, [mul_array + vec_i]
         vbroadcastsd xgft1, [tmp]
         vbroadcastsd xgft2, [tmp + vec]
@@ -273,4 +269,3 @@ func(gf_3vect_mad_avx2_gfni)
         ret
 
 endproc_frame
-%endif  ; if AS_FEATURE_LEVEL >= 10

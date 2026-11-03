@@ -8,7 +8,18 @@ string or a validation error list. See ``CONTRACT.md`` (Error contract).
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from probe.foundation.server_messages import ServerMessage
+
+
+def _import_server_messages():
+    """`probe.foundation.server_messages`, on first use: the Probe service's start path imports
+    this module and must import no vocabulary (tests/test_service_import_budget.py)."""
+    from probe.foundation import server_messages
+
+    return server_messages
 
 
 class RosError(Exception):
@@ -28,6 +39,9 @@ class RosError(Exception):
     #: `X-Probe-Workspace-Limit-Applied` echo): the thing may exist outside it. The
     #: transport sets it and says so in the message.
     workspace_limit_applied: str | None = None
+    #: What the server said in its error answer (`probe.foundation.server_messages`): its sentence,
+    #: `code`, `message_id`, `action`. Set by the transport on every 4xx/5xx; None for a local error.
+    server_message: ServerMessage | None = None
 
     def __init__(self, message: str, *, status: int | None = None, detail: Any = None):
         super().__init__(message)
@@ -269,11 +283,11 @@ UPGRADE_COMMAND = "pip install -U probe-research"
 
 
 def upgrade_message(message: str, min_version: str | None) -> str:
-    """The refusal's sentence, ending in how to upgrade (added only when missing)."""
-    if "pip install" in message:
-        return message
-    target = f"probe-research {min_version} or later" if min_version else "a newer probe-research"
-    return f"{message.rstrip()} Upgrade to {target}: `{UPGRADE_COMMAND}`."
+    """The refusal's sentence, ending in how to upgrade (added only when missing): the SDK's
+    `render_server_message` line for `Action.UPDATE`, on the same line."""
+    messages = _import_server_messages()
+    refusal = messages.ServerMessage(text=message, action=messages.Action.UPDATE, min_version=min_version)
+    return messages.render_server_message(refusal).replace("\n", " ")
 
 
 class ClientTooOldError(RosError):
@@ -339,7 +353,10 @@ class ProjectRequired(ValidationError):
     """A run was opened with no project or experiment, and none is set on this computer.
 
     Raised before any request: every run has a home. Fix: `project=` / `experiment=`
-    (`--project` / `--experiment`), `PROBE_PROJECT`, or `probe project use <slug>`.
+    (`--project` / `--experiment`), `PROBE_PROJECT`, the session's project (the daemon's), or
+    `probe project use <slug>`. Its message names the fix that fits why none came
+    (`runs.home.MISSING_HOME_FIXES`): a script run by hand, a session the daemon does not record,
+    a daemon that is not running, or one that did not pick in time.
     """
 
     def __init__(self, message: str = "", **kw: Any):
@@ -349,8 +366,10 @@ class ProjectRequired(ValidationError):
 #: What a run with no home is told (`ProjectRequired`): every way to name one.
 PROJECT_REQUIRED_FIX = (
     "A run needs a project. Pass project= (or experiment=; CLI: --project / --experiment), "
-    "set PROBE_PROJECT, or run `probe project use <slug>`. If none fits, create one: "
-    "`probe project create <slug>`."
+    "set PROBE_PROJECT, or run `probe project use <slug>`. Where the Probe daemon records the "
+    "session, a run on this machine goes to the session's project, waiting for the daemon to set "
+    "it (`probe session home show` prints it). If none fits, create one: `probe project create "
+    "<slug> --kind <kind>`."
 )
 
 
@@ -421,15 +440,28 @@ _OBJECT_DETAIL_STATUSES = frozenset({402, 409})
 
 
 def _detail_message(detail: Any) -> str:
-    if isinstance(detail, str):
-        return detail
-    if isinstance(detail, dict):
-        return str(detail.get("message") or detail)
-    return str(detail)
+    """`detail` as words: an object's message, a FastAPI 422 list as a sentence, never a repr."""
+    return _import_server_messages().describe_detail(detail)
 
 
-def error_for(status: int, detail: Any) -> RosError:
-    """Build the right exception for an HTTP status + parsed ``detail``."""
+class ServerRefusedError(RosError):
+    """The server refused with a code this client has no class for (a refusal newer than it).
+
+    `str()` is the server's own sentence, and `server_message` carries its `code`, `message_id`
+    and `action`: a caller shows it as given instead of a bare status."""
+
+
+def error_for(status: int, detail: Any, server_message: ServerMessage | None = None) -> RosError:
+    """Build the right exception for an HTTP status + parsed ``detail``, carrying what the server
+    said (`server_message`; read from ``detail`` when the caller has no whole body)."""
+    message = server_message or _import_server_messages().parse_server_message(status, {"detail": detail})
+    error = _choose_error(status, detail, message)
+    error.server_message = message
+    return error
+
+
+def _choose_error(status: int, detail: Any, message: ServerMessage) -> RosError:
+    """`error_for`'s class choice."""
     # BEFORE the status table: a workspace-write refusal is a 403 whose meaning
     # is per-DESTINATION, not per-credential, and only `detail.code` separates
     # the two. Branching on the code rather than the status is what stops one
@@ -450,6 +482,8 @@ def error_for(status: int, detail: Any) -> RosError:
         cls = _BY_STATUS[status]
         return cls(_detail_message(detail), detail=detail)  # type: ignore[call-arg]
     cls = _BY_STATUS.get(status)
+    if cls is None and status < 500 and (message.code or message.message_id):
+        return ServerRefusedError(message.text or _detail_message(detail), status=status, detail=detail)
     if cls is None:
         cls = ServerError if status >= 500 else RosError
     return cls(_detail_message(detail), status=status, detail=detail)

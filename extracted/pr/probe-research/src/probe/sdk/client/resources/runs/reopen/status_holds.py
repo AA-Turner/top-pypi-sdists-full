@@ -37,7 +37,7 @@ class StatusHoldsMixin:
         worker can never be delivering one of them at the same moment; if a
         worker holds the lock for more than a few seconds, nothing is held and
         the barrier may deliver them, as before 2.3."""
-        from ......_shared import oscompat
+        from ......foundation.os_backend import os_backend as oscompat
 
         # A `completed` close is NOT held: the incumbent finished, so the
         # barrier delivers it with the data and the relaunch must not continue

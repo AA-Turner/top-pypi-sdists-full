@@ -60,7 +60,7 @@ class AsyncClient(BaseClient):
         url: str,
         api_key: str | None = None,
         *,
-        timeout: int | None = None,
+        timeout: int | None = 5,
         verify: bool | SSLContext = True,
         custom_headers: dict[str, str] | None = None,
         json_handler: BuiltinHandler | OrjsonHandler | None = None,
@@ -72,7 +72,7 @@ class AsyncClient(BaseClient):
             url: The url to the Meilisearch API (ex: http://localhost:7700)
             api_key: The optional API key for Meilisearch. Defaults to None.
             timeout: The amount of time in seconds that the client will wait for a response before
-                timing out. Defaults to None.
+                timing out. Defaults to 5.
             verify: SSL certificates (a.k.a CA bundle) used to
                 verify the identity of requested hosts. Either `True` (default CA bundle),
                 a path to an SSL certificate file, or `False` (disable verification)
@@ -504,7 +504,7 @@ class AsyncClient(BaseClient):
         """Get stats for all indexes.
 
         Args:
-            show_internal_database_sizes: Include internal database size inforamation in results.
+            show_internal_database_sizes: Include internal database size information in results.
                 Default = False.
             size_format: When present and set to human, then all database sizes in responses of the
                 stat routes will be returned as a string containing an appropriate unit (MiB, GiB,
@@ -777,10 +777,12 @@ class AsyncClient(BaseClient):
             >>> async with AsyncClient("http://localhost.com", "masterKey") as client:
             >>>     index = await client.get_raw_index("movies")
         """
-        response = await self.http_client.get(f"indexes/{uid}")
-
-        if response.status_code == 404:
-            return None
+        try:
+            response = await self._http_requests.get(f"indexes/{uid}")
+        except MeilisearchApiError as e:
+            if e.status_code == 404:
+                return None
+            raise
 
         return IndexInfo(**self._http_requests.parse_json(response))
 

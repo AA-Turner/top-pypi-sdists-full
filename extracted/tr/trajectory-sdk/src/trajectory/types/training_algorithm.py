@@ -4,4 +4,4 @@ from __future__ import annotations
 
 from typing import Literal, TypeAlias
 
-TrainingAlgorithm: TypeAlias = Literal["gspo", "grpo", "reinforce_plus_plus"]
+TrainingAlgorithm: TypeAlias = Literal["gspo", "grpo"]

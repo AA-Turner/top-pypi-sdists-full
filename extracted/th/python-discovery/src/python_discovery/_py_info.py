@@ -10,7 +10,8 @@ import platform
 import sys
 from collections import OrderedDict
 from itertools import product
-from string import digits
+from os.path import normcase, realpath
+from string import Formatter, digits
 from typing import TYPE_CHECKING, ClassVar, Final, NamedTuple, TypedDict
 
 from ._py_info_collect import PythonInfoCollector
@@ -135,6 +136,9 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         pattern = self.sysconfig_paths.get(key)
         if pattern is None:
             return ""
+        if any(format_spec for _, _, format_spec, _ in Formatter().parse(pattern)):
+            msg = f"sysconfig path {key!r} contains format specifiers"
+            raise ValueError(msg)
         if config_var is None:
             config_var = self.sysconfig_vars
         else:
@@ -153,8 +157,9 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
                 for k, v in self.sysconfig_vars.items()
             },
         )
-        if not os.path.exists(path):  # pragma: no cover # broken packaging fallback
-            fallback = os.path.join(self.prefix, os.path.dirname(self.install_path("headers")))
+        # An empty headers path would make the fallback resolve to the existing prefix.
+        if not os.path.exists(path) and (headers := os.path.dirname(self.install_path("headers"))):
+            fallback = os.path.join(self.prefix, headers)
             if os.path.exists(fallback):
                 path = fallback
         return path
@@ -282,7 +287,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
             return True
         if spec.is_abs:
             return True
-        basename = os.path.basename(self.original_executable)
+        basename = os.path.basename(self.executable)
         spec_path = spec.path
         if sys.platform == "win32":
             basename, suffix = os.path.splitext(basename)
@@ -355,7 +360,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
 
     def to_dict(self) -> dict[str, InfoValue]:
         """Convert this interpreter information to a plain dictionary."""
-        data = {var: (getattr(self, var) if var != "_creators" else None) for var in vars(self)}
+        data = {name: None if name == "_creators" else value for name, value in vars(self).items()}
         version_info = data["version_info"]
         data["version_info"] = version_info._asdict() if hasattr(version_info, "_asdict") else version_info
         return data
@@ -419,7 +424,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
 
         if isinstance(proposed, PythonInfo) and resolve_to_host:
             try:
-                proposed = proposed.resolve_to_system(cache, proposed)
+                proposed = proposed.resolve_to_system(cache, proposed, env=env)
             except Exception as exception:
                 if raise_on_error:
                     raise
@@ -444,24 +449,31 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
 
         :param data: dictionary produced by :meth:`to_dict`.
         """
+        if missing := PythonInfo.__annotations__.keys() - data.keys() - {"_cache_exe_discovery", "pypy_version_info"}:
+            msg = f"missing interpreter information: {', '.join(sorted(missing))}"
+            raise ValueError(msg)
         data["version_info"] = VersionInfo(**data["version_info"])  # restore this to a named tuple structure
         result = cls.__new__(cls)  # skip __init__, data replaces the full state
         result.__dict__ = data.copy()
         return result
 
     @classmethod
-    def resolve_to_system(cls, cache: PyInfoCache | None, target: PythonInfo) -> PythonInfo:
+    def resolve_to_system(
+        cls, cache: PyInfoCache | None, target: PythonInfo, *, env: Mapping[str, str] | None = None
+    ) -> PythonInfo:
         """
         Walk virtualenv/venv prefix chains to find the underlying system interpreter.
 
         :param cache: interpreter metadata cache; when ``None`` results are not cached.
         :param target: the interpreter to resolve.
+        :param env: environment mapping; defaults to :data:`os.environ`.
         """
         start_executable = target.executable
         prefixes = OrderedDict()
         while target.system_executable is None:
             prefix = target.real_prefix or target.base_prefix or target.prefix
-            if prefix in prefixes:
+            prefix_key = normcase(realpath(prefix))
+            if prefix_key in prefixes:
                 if len(prefixes) == 1:
                     _LOGGER.info("%r links back to itself via prefixes", target)
                     target.system_executable = target.executable
@@ -471,10 +483,10 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
                 _LOGGER.error("%d: prefix=%s, info=%r", len(prefixes) + 1, prefix, target)
                 msg = "prefixes are causing a circle {}".format("|".join(prefixes.keys()))
                 raise RuntimeError(msg)
-            prefixes[prefix] = target
-            target = target.discover_exe(cache, prefix=prefix, exact=False)
+            prefixes[prefix_key] = target
+            target = target.discover_exe(cache, prefix=prefix, exact=False, env=env)
         if target.executable != target.system_executable:
-            resolved = cls.from_exe(target.system_executable, cache)
+            resolved = cls.from_exe(target.system_executable, cache, env=env)
             if resolved is not None:
                 target = resolved
         if target.executable != start_executable:
@@ -483,7 +495,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
             target.executable = start_executable
         return target
 
-    _cache_exe_discovery: ClassVar[dict[tuple[str, bool], PythonInfo]] = {}
+    _cache_exe_discovery: ClassVar[dict[tuple[str, bool, VersionInfo], PythonInfo]] = {}
 
     def discover_exe(
         self,
@@ -501,7 +513,7 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
         :param exact: when ``True``, require an exact version match.
         :param env: environment mapping; defaults to :data:`os.environ`.
         """
-        key = prefix, exact
+        key = prefix, exact, self.version_info
         if key in self._cache_exe_discovery and prefix:
             _LOGGER.debug("discover exe from cache %s - exact %s: %r", prefix, exact, self._cache_exe_discovery[key])
             return self._cache_exe_discovery[key]

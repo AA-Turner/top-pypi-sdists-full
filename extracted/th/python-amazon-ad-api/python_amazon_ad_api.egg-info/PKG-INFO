@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-amazon-ad-api
-Version: 1.4.9
+Version: 1.5.7
 Summary: Python wrapper for the Amazon Advertising API
 Home-page: https://github.com/denisneuf/python-amazon-ad-api
 Author: Daniel Alvaro
@@ -311,6 +311,14 @@ The v1 API lives under `/adsApi/v1/` and is **not** split by product: every call
 * [Brand Stores](https://python-amazon-ad-api.readthedocs.io/en/latest/v1/brand_stores.html#ad_api.api.v1.BrandStores.BrandStores.query_brand_stores)
 * [Brand Store Editions](https://python-amazon-ad-api.readthedocs.io/en/latest/v1/brand_store_editions.html#ad_api.api.v1.BrandStoreEditions.BrandStoreEditions.list_brand_store_editions)
 * [Brand Store Pages](https://python-amazon-ad-api.readthedocs.io/en/latest/v1/brand_store_pages.html#ad_api.api.v1.BrandStorePages.BrandStorePages.query_brand_store_pages)
+* [Reports](https://python-amazon-ad-api.readthedocs.io/en/latest/v1/reports.html#ad_api.api.v1.Reports.Reports.create_report)
+* [Labels](https://python-amazon-ad-api.readthedocs.io/en/latest/v1/labels.html#ad_api.api.v1.Labels.Labels.query_labels)
+* [Manager Accounts](https://python-amazon-ad-api.readthedocs.io/en/latest/v1/manager_accounts.html#ad_api.api.v1.ManagerAccounts.ManagerAccounts.query_manager_accounts)
+* [Recommendations](https://python-amazon-ad-api.readthedocs.io/en/latest/v1/recommendations.html#ad_api.api.v1.Recommendations.Recommendations.query_recommendations)
+* [Selling Accounts](https://python-amazon-ad-api.readthedocs.io/en/latest/v1/selling_accounts.html#ad_api.api.v1.SellingAccounts.SellingAccounts.query_selling_accounts)
+* [Label Object Associations](https://python-amazon-ad-api.readthedocs.io/en/latest/v1/label_object_associations.html#ad_api.api.v1.LabelObjectAssociations.LabelObjectAssociations.query_label_object_associations)
+* [Geo Locations](https://python-amazon-ad-api.readthedocs.io/en/latest/v1/geo_locations.html#ad_api.api.v1.GeoLocations.GeoLocations.create_geo_locations)
+* [Recommendation Types](https://python-amazon-ad-api.readthedocs.io/en/latest/v1/recommendation_types.html#ad_api.api.v1.RecommendationTypes.RecommendationTypes.query_sb_recommendation_types)
 
 
 ### [Modules Available Sponsored Products](https://python-amazon-ad-api.readthedocs.io/en/latest/sp.html)

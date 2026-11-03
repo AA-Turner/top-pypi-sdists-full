@@ -147,6 +147,9 @@ class WriterLeaseMixin:
         body.update({"write_epoch": self.write_epoch or 1, **self._progress.snapshot()})
         if getattr(self, "attached", False):
             body["attached"] = True
+        delivery = _delivery_body(self._client, self.id)
+        if delivery:
+            body["delivery"] = delivery  # R13: the backlog this writer leaves the worker
         if draining:
             body["draining_for_seconds"] = _LEASE_DRAIN_SECONDS
             # What is left of the close's budget, but never under
@@ -165,3 +168,4 @@ class WriterLeaseMixin:
         except Exception:  # noqa: BLE001 -- a liveness hint, never a reason a close fails
             pass
 from probe.sdk.run.summary import _summary_wire  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.run.closing.heartbeat import _delivery_body  # noqa: E402 -- pieces need each other; the front door loads this one first

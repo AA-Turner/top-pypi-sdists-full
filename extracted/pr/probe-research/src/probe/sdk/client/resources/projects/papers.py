@@ -56,20 +56,30 @@ class PapersMixin:
     # `part_of_links` (outgoing = this is part of the other).
 
     def add_project_reference(
-        self, project_id: str, to_project_id: str, *, relation: str | None = None
+        self,
+        project_id: str,
+        to_project_id: str,
+        *,
+        relation: str | None = None,
+        reason: str | None = None,
     ) -> None:
         """Record that ``project_id`` references ``to_project_id``, or, with
         ``relation="part_of"``, that it is a part of it.
 
         Idempotent, and DIRECTED: A->B and B->A are different statements, and
-        adding one does not add the other. A ``part_of`` add upgrades a
-        reference on the same pair; a plain add never downgrades a
-        ``part_of`` link. ``relation`` omitted sends what every older client
-        sent (the server's default, ``references``).
+        adding one does not add the other. ``relation`` omitted sends what
+        every older client sent (the server's default, ``references``).
+        ``reason`` (1-2 sentences, in the writer's own words) says why the two
+        are linked; a re-add with a reason replaces the stored one, a re-add
+        without one keeps it. The same link is a lineage edge: ``add_edge``
+        with ``project`` ends and relation ``references``/``part_of`` writes it
+        too.
         """
         body = {"to_project_id": to_project_id}
         if relation is not None:
             body["relation"] = relation
+        if reason is not None:
+            body["reason"] = reason
         self.transport.post(f"/v1/projects/{project_id}/references", body)
 
     def remove_project_reference(self, project_id: str, to_project_id: str) -> None:

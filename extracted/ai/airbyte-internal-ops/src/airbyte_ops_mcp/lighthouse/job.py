@@ -1,5 +1,5 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
-"""Plan and execute the Project Lighthouse daily outreach job."""
+"""Plan and execute the Project Lighthouse outreach job."""
 
 from __future__ import annotations
 
@@ -48,6 +48,7 @@ TOP3_FAILING = "top3_failing"
 HALF_FAILING = "half_failing"
 TRIGGER_ORDER = {BIGGEST_OFF: 0, TOP3_FAILING: 1, HALF_FAILING: 2}
 OPEN_STATUSES = frozenset({"new", "open", "pending", "hold"})
+LAYER2_TAG = "advance-to-layer2"
 PERSONAL_ACCOUNT_ID = "0015e000017PIPhAAO"
 PERSONAL_ACCOUNT_PURCHASES_ID = PERSONAL_ACCOUNT_ID
 LIGHTHOUSE_SLACK_CHANNEL = "C02U1H7M71A"
@@ -68,6 +69,17 @@ class LighthouseRunResult:
     def failed(self) -> bool:
         """Return whether any part of the run failed."""
         return bool(self.errors)
+
+
+def default_fire_dates(today: date) -> list[date]:
+    """Return the UTC fire dates to process for today."""
+    if today.weekday() == 0:
+        return [
+            today - timedelta(days=3),
+            today - timedelta(days=2),
+            today - timedelta(days=1),
+        ]
+    return [today - timedelta(days=1)]
 
 
 def load_trigger_sql() -> str:
@@ -494,8 +506,8 @@ def render_markdown(actions: Sequence[Mapping[str, Any]]) -> str:
     lines = [
         "# Project Lighthouse",
         "",
-        "| Org | Display name | ARR | Trigger | Reason | Action | Requester email | Connection URL |",
-        "| --- | --- | ---: | --- | --- | --- | --- | --- |",
+        "| Org | Fire date | Display name | ARR | Trigger | Reason | Action | Requester email | Connection URL |",
+        "| --- | --- | --- | ---: | --- | --- | --- | --- | --- |",
     ]
     for action in actions:
         arr = action.get("self_serve_arr")
@@ -517,6 +529,7 @@ def render_markdown(actions: Sequence[Mapping[str, Any]]) -> str:
             + " | ".join(
                 (
                     _markdown_escape(action.get("organization_id")),
+                    _markdown_escape(action.get("fire_date")),
                     _markdown_escape(action.get("display_name")),
                     arr_text,
                     _markdown_escape(action.get("trigger_type")),
@@ -529,7 +542,7 @@ def render_markdown(actions: Sequence[Mapping[str, Any]]) -> str:
             + " |"
         )
     if not actions:
-        lines.append("| — | — | — | — | No fires | — | — | — |")
+        lines.append("| — | — | — | — | — | No fires | — | — | — |")
     return "\n".join(lines)
 
 
@@ -661,7 +674,7 @@ def _requester_for_fire(
 
 def _ticket_tags(fire: Mapping[str, Any], *, no_contact: bool) -> list[str]:
     """Build Lighthouse ticket tags in stable order."""
-    tags = ["outreach", "lighthouse", f"lighthouse_{fire['trigger_type']}"]
+    tags = ["outreach", "lighthouse", LAYER2_TAG, f"lighthouse_{fire['trigger_type']}"]
     if str(fire.get("account_id") or "") == PERSONAL_ACCOUNT_ID or bool(
         fire.get("is_personal_email")
     ):
@@ -681,25 +694,32 @@ def _prod_db_credentials_available() -> bool:
 
 
 def run_lighthouse(
-    run_date: date,
+    fire_dates: Sequence[date],
     *,
     live: bool = False,
     plan_path: str | Path = "lighthouse_plan.json",
 ) -> LighthouseRunResult:
-    """Plan or execute Lighthouse actions for `run_date`.
+    """Plan or execute Lighthouse actions for `fire_dates`.
 
     Zendesk and Slack writes are impossible unless `live` is `True`.
     """
+    dates = sorted(set(fire_dates))
+    if not dates:
+        raise ValueError("At least one Lighthouse fire date is required.")
     destination = Path(plan_path)
     errors: list[str] = []
-    try:
-        fires = [_as_mapping(fire) for fire in query_fires(run_date)]
-    except Exception as exc:
-        message = (
-            f"BigQuery trigger query failed ({type(exc).__name__}: {str(exc)[:500]})."
-        )
-        logger.error(message)
-        errors.append(message)
+    fires = []
+    for fire_date in dates:
+        try:
+            fires.extend(_as_mapping(fire) for fire in query_fires(fire_date))
+        except Exception as exc:
+            message = (
+                f"BigQuery trigger query failed for {fire_date.isoformat()} "
+                f"({type(exc).__name__}: {str(exc)[:500]})."
+            )
+            logger.error(message)
+            errors.append(message)
+    if len(errors) == len(dates):
         markdown = render_markdown([])
         _write_plan(destination, [], errors)
         _write_step_summary(markdown, errors)
@@ -711,6 +731,7 @@ def run_lighthouse(
     for org_fires in grouped.values():
         org_fires.sort(
             key=lambda fire: (
+                _as_date(fire["fire_date"]),
                 TRIGGER_ORDER.get(str(fire.get("trigger_type")), 99),
                 str(fire.get("trigger_type") or ""),
             )
@@ -736,7 +757,7 @@ def run_lighthouse(
     indexed_tickets: list[dict[str, Any]] = []
     search_error = False
     if zendesk_available:
-        cutoff = run_date - timedelta(days=120)
+        cutoff = dates[0] - timedelta(days=120)
         for query in (
             f"type:ticket tags:lighthouse created>{cutoff.isoformat()}",
             "type:ticket tags:lighthouse status<solved",
@@ -800,7 +821,7 @@ def run_lighthouse(
                 other_admin_emails: list[str] = []
                 if db_credentials_present:
                     requester_contact, other_admin_emails = _requester_for_fire(
-                        fire, run_date
+                        fire, _as_date(fire["fire_date"])
                     )
                 no_contact = requester_contact is None
                 if no_contact:
@@ -820,7 +841,7 @@ def run_lighthouse(
                         fire,
                         existing_for_key=existing_for_key,
                         indexed_tickets=indexed_tickets,
-                        run_date=run_date,
+                        run_date=_as_date(fire["fire_date"]),
                     )
                     if selected_action == "skip_exists" and ticket and _is_open(ticket):
                         indexed_tickets.append(dict(ticket))
@@ -976,7 +997,7 @@ def run_lighthouse(
                             note_added = True
                         add_ticket_tags(
                             ticket_id,
-                            [f"lighthouse_{fire['trigger_type']}"],
+                            [f"lighthouse_{fire['trigger_type']}", LAYER2_TAG],
                             credentials=zendesk_credentials,
                         )
                         action_data["status"] = (

@@ -1,38 +1,15 @@
 #![allow(unsafe_code)]
 use super::Peer;
-use crate::{
-    Result,
-    process::{Birth, Exact},
-};
+use crate::Result;
+use rustix::net::{SendAncillaryBuffer, SendAncillaryMessage, SendFlags, sendmsg};
 use std::{
-    fs::File,
-    io,
+    io::{self, IoSlice},
+    mem::MaybeUninit,
     os::{
-        fd::{AsRawFd, FromRawFd, OwnedFd, RawFd},
+        fd::{AsFd, AsRawFd, FromRawFd, OwnedFd},
         unix::net::UnixStream,
     },
 };
-
-/// The peer, always this user (another is refused).
-pub fn peer_credentials(stream: &UnixStream) -> Result<Peer> {
-    let peer = peer(stream)?;
-    // SAFETY: geteuid has no memory arguments.
-    if peer.uid != unsafe { libc::geteuid() } {
-        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "peer UID differs").into());
-    }
-    Ok(peer)
-}
-
-/// Whether [`send_fd`] can reach the peer: any connected peer can receive descriptors.
-pub fn accepts_handles(_: &UnixStream) -> io::Result<()> {
-    Ok(())
-}
-
-/// The peer's birth, its pid's read now (the caller holds the stream, so the peer is alive or
-/// its pid is not yet reused before the caller opens it).
-pub fn peer_birth(stream: &UnixStream) -> Result<crate::process::Birth> {
-    crate::process::Birth::of(peer(stream)?.pid)
-}
 
 /// The peer as the kernel names it, whoever it runs as.
 #[cfg(target_os = "linux")]
@@ -90,127 +67,27 @@ pub fn peer(stream: &UnixStream) -> io::Result<Peer> {
     })
 }
 
-/// Whether the connecting process descends from this machine (an executor or anything
-/// package code started). Same-UID package code is not a sandbox, but it cannot
-/// administer the machine through its own process tree.
-pub fn peer_descends_from_machine(stream: &UnixStream) -> Result<bool> {
-    let mut pid = peer_credentials(stream)?.pid;
-    let machine = std::process::id();
-    while pid > 1 {
-        if pid == machine {
-            return Ok(true);
-        }
-        pid = crate::process::parent_of(pid)?;
-    }
-    Ok(false)
-}
-
-/// The peer pinned as a process handle (a pidfd on Linux, a kqueue on its exit on macOS).
-pub fn peer_pidfd(stream: &UnixStream) -> Result<File> {
-    let cred = peer_credentials(stream)?;
-    #[cfg(target_os = "linux")]
-    if let Some(file) = peer_pidfd_atomic(stream)? {
-        return Ok(file);
-    }
-    Ok(pidfd_of_live(cred.pid as i32)?)
-}
-
-/// Linux SO_PEERPIDFD (UAPI value 77, kernel 6.5) pins the connecting process atomically;
-/// `None` on an older kernel.
-#[cfg(target_os = "linux")]
-fn peer_pidfd_atomic(stream: &UnixStream) -> io::Result<Option<File>> {
-    let mut fd: i32 = -1;
-    let mut fd_size = std::mem::size_of::<i32>() as libc::socklen_t;
-    // SAFETY: correctly sized scalar output and size pointer.
-    if unsafe {
-        libc::getsockopt(
-            stream.as_raw_fd(),
-            libc::SOL_SOCKET,
-            77,
-            &mut fd as *mut _ as *mut libc::c_void,
-            &mut fd_size,
-        )
-    } < 0
-    {
-        let error = io::Error::last_os_error();
-        return match error.raw_os_error() {
-            Some(libc::ENOPROTOOPT | libc::EINVAL) => Ok(None),
-            _ => Err(error),
-        };
-    }
-    if fd < 0 {
-        return Err(io::Error::last_os_error());
-    }
-    // SAFETY: getsockopt handed us a new descriptor that is now ours.
-    let file = unsafe { File::from_raw_fd(fd) };
-    // SAFETY: valid descriptor; scalar close-on-exec flag.
-    if unsafe { libc::fcntl(file.as_raw_fd(), libc::F_SETFD, libc::FD_CLOEXEC) } < 0 {
-        return Err(io::Error::last_os_error());
-    }
-    Ok(Some(file))
-}
-
-/// Older kernels and macOS: pin the credential's PID by its birth, accepted only when the same
-/// birth is read on both sides of the open. A peer that exited and whose PID was reused in
-/// that instant is the remaining (negligible) window.
-fn pidfd_of_live(pid: i32) -> io::Result<File> {
-    let birth = Birth::of(u32::try_from(pid).map_err(io::Error::other)?)?;
-    Exact::open(&birth)?
-        .map(Exact::into_file)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "peer exited before it was pinned"))
-}
-
 /// One descriptor and a one-byte marker; the receiver refuses anything else.
-pub fn send_fd(stream: &UnixStream, fd: &impl AsRawFd) -> Result<()> {
-    Ok(send_rights(stream, &[fd.as_raw_fd()])?)
-}
-
-fn send_rights(stream: &UnixStream, fds: &[RawFd]) -> io::Result<()> {
-    let marker = [0u8];
-    let mut iov = libc::iovec {
-        iov_base: marker.as_ptr() as *mut libc::c_void,
-        iov_len: 1,
-    };
-    let bytes = std::mem::size_of_val(fds) as u32;
-    // SAFETY: CMSG_SPACE computes a size from a byte count.
-    let space = unsafe { libc::CMSG_SPACE(bytes) } as usize;
-    // u64 storage satisfies cmsghdr alignment.
-    let mut control = vec![0u64; space.div_ceil(8)];
-    // SAFETY: zero is a valid initial msghdr.
-    let mut message: libc::msghdr = unsafe { std::mem::zeroed() };
-    message.msg_iov = &mut iov;
-    message.msg_iovlen = 1;
-    message.msg_control = control.as_mut_ptr().cast();
-    message.msg_controllen = space as _;
-    // SAFETY: the control buffer holds one header and `bytes` of data (CMSG_SPACE above).
-    unsafe {
-        let header = libc::CMSG_FIRSTHDR(&message);
-        (*header).cmsg_level = libc::SOL_SOCKET;
-        (*header).cmsg_type = libc::SCM_RIGHTS;
-        (*header).cmsg_len = libc::CMSG_LEN(bytes) as _;
-        std::ptr::copy_nonoverlapping(
-            fds.as_ptr(),
-            libc::CMSG_DATA(header).cast::<RawFd>(),
-            fds.len(),
-        );
+pub fn send_fd(stream: &UnixStream, fd: &impl AsFd) -> Result<()> {
+    let fds = [fd.as_fd()];
+    let mut space = [MaybeUninit::uninit(); rustix::cmsg_space!(ScmRights(1))];
+    let mut control = SendAncillaryBuffer::new(&mut space);
+    if !control.push(SendAncillaryMessage::ScmRights(&fds)) {
+        return Err(io::Error::other("no room for the descriptor").into());
     }
-    // SAFETY: a live socket and a message whose buffers outlive the call.
     // macOS has no MSG_NOSIGNAL; Rust programs ignore SIGPIPE, so a closed peer is EPIPE there too.
     #[cfg(target_os = "linux")]
-    let flags = libc::MSG_NOSIGNAL;
+    let flags = SendFlags::NOSIGNAL;
     #[cfg(target_os = "macos")]
-    let flags = 0;
-    // SAFETY: a live socket and a message whose buffers outlive the call.
-    let sent = unsafe { libc::sendmsg(stream.as_raw_fd(), &message, flags) };
-    if sent < 0 {
-        return Err(io::Error::last_os_error());
-    }
-    if sent != 1 {
-        return Err(io::Error::other("descriptor marker truncated"));
+    let flags = SendFlags::empty();
+    if sendmsg(stream, &[IoSlice::new(&[0])], &mut control, flags).map_err(io::Error::from)? != 1 {
+        return Err(io::Error::other("descriptor marker truncated").into());
     }
     Ok(())
 }
 
+/// Reads the control data itself, not through rustix: macOS reports a truncated header's whole
+/// length, past the buffer, and rustix's parser trusts it.
 pub fn recv_fd(stream: &UnixStream) -> Result<OwnedFd> {
     let mut marker = [255u8];
     // usize storage satisfies cmsghdr alignment; every iteration is bounded by
@@ -283,46 +160,4 @@ pub fn recv_fd(stream: &UnixStream) -> Result<OwnedFd> {
         .into());
     }
     Ok(received.pop().unwrap())
-}
-
-/// The peer end of a lease is closed: the reader released, or its process is gone.
-#[cfg(target_os = "linux")]
-pub fn hung_up(lease: &UnixStream) -> bool {
-    let mut poll = libc::pollfd {
-        fd: lease.as_raw_fd(),
-        events: libc::POLLIN | libc::POLLRDHUP,
-        revents: 0,
-    };
-    // SAFETY: one live descriptor, instantaneous observation.
-    let ready = unsafe { libc::poll(&mut poll, 1, 0) } > 0;
-    ready && poll.revents & (libc::POLLHUP | libc::POLLRDHUP | libc::POLLERR) != 0
-}
-
-/// The peer end of a lease is closed: the reader released, or its process is gone. macOS has no
-/// POLLRDHUP: a readable lease whose peek reads nothing is at its end.
-#[cfg(target_os = "macos")]
-pub fn hung_up(lease: &UnixStream) -> bool {
-    let mut poll = libc::pollfd {
-        fd: lease.as_raw_fd(),
-        events: libc::POLLIN,
-        revents: 0,
-    };
-    // SAFETY: one live descriptor, instantaneous observation.
-    if unsafe { libc::poll(&mut poll, 1, 0) } <= 0 {
-        return false;
-    }
-    if poll.revents & (libc::POLLHUP | libc::POLLERR) != 0 {
-        return true;
-    }
-    let mut byte = 0u8;
-    // SAFETY: one writable byte, peeked without waiting.
-    let read = unsafe {
-        libc::recv(
-            lease.as_raw_fd(),
-            (&mut byte as *mut u8).cast(),
-            1,
-            libc::MSG_PEEK | libc::MSG_DONTWAIT,
-        )
-    };
-    read == 0
 }

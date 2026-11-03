@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zernio-sdk
-Version: 1.4.1478
+Version: 1.4.1496
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -381,11 +381,6 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `media.upload_large()` | Upload large file with multipart |
 | `media.upload_large_bytes()` | Upload large file from bytes |
 | `media.upload_multiple()` | Upload multiple files |
-
-### Tools
-| Method | Description |
-|--------|-------------|
-| `tools.download_tik_tok_video()` | Download a TikTok video |
 
 ### Users
 | Method | Description |
@@ -1064,6 +1059,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `creator_campaigns.activate_creator_campaign()` | Activate creator campaign |
 | `creator_campaigns.approve_campaign_submission()` | Approve campaign submission |
 | `creator_campaigns.close_creator_campaign()` | Close creator campaign |
+| `creator_campaigns.move_campaign_participant()` | Move participant to another campaign |
 | `creator_campaigns.pause_creator_campaign()` | Pause creator campaign |
 | `creator_campaigns.raise_creator_campaign_budget()` | Raise creator campaign budget |
 | `creator_campaigns.reinstate_campaign_participant()` | Reinstate campaign participant |
@@ -1083,6 +1079,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `creator_portal.get_creator_portal()` | Read a creator invite or participant page |
 | `creator_portal.join_creator_campaign()` | Join a campaign |
 | `creator_portal.recover_creator_portal_links()` | Email a creator their campaign links |
+| `creator_portal.remove_creator_account()` | Remove a connected account |
 | `creator_portal.start_creator_connect()` | Start connecting a creator account |
 | `creator_portal.start_creator_payouts()` | Start payout onboarding |
 | `creator_portal.submit_creator_post()` | Submit a post |
@@ -1503,6 +1500,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `treasury.create_transfer()` | Create a transfer |
 | `treasury.get_balance()` | Get balance |
 | `treasury.get_payout_batch()` | Get a payout batch |
+| `treasury.get_topup_card_fee()` | Get the card fee for a top-up |
 | `treasury.get_topup_receipt()` | Get a top-up receipt |
 | `treasury.get_transfer()` | Get a transfer |
 | `treasury.cancel_payout_batch()` | Cancel an unpaid payout batch |

@@ -22,13 +22,14 @@ import threading
 import weakref
 from typing import Any, Callable, Optional
 
-from ..errors import InvalidRequest
+from ..errors import InvalidRequest, MissingPackage
 from ..markers import _Marked
 from . import observe_stream as _observe
 
 _EPISODES_KEPT = 8
 _NEEDS = ("the observation format's markers (sequence_ai.Video, Depth, Tactile) need Python 3.10 or later and their "
-          "encoders: pip install 'sequence-ai[observe]'")
+          "encoders")
+_INSTALL = "pip install 'sequence-ai[observe]'"
 
 
 def holds(value: Any) -> bool:
@@ -47,7 +48,7 @@ def _codec():
         from sequence_base.codec import marked
         marked.encoder
     except (ImportError, AttributeError):
-        raise InvalidRequest(_NEEDS) from None
+        raise MissingPackage(_NEEDS, hint=_INSTALL) from None
     return marked
 
 
@@ -78,15 +79,20 @@ class Marked:
         video = []
 
         def one(path: tuple, m: _Marked) -> Any:
-            with self._lock:
-                enc = encoders.get(path)
-                if enc is None or enc.kind != m.kind:
-                    enc = encoders[path] = marked.encoder(m.kind)
+            where = "/".join(str(p) for p in path) or "the observation"
             try:
+                with self._lock:
+                    enc = encoders.get(path)
+                    if enc is None or enc.kind != m.kind:
+                        enc = encoders[path] = marked.encoder(m.kind)
                 wire = enc.encode(m.value)
             except marked.MarkedError as exc:
-                where = "/".join(str(p) for p in path) or "the observation"
                 raise InvalidRequest(f"observe(): {where}: {exc}") from None
+            except ImportError as exc:
+
+
+                raise MissingPackage(f"observe(): {where}: a {m.kind} item is encoded with {exc.name or exc}, which "
+                                     "this machine lacks", hint=_INSTALL) from None
             if wire.get("codec") == "h264":
                 video.append(path)
             return wire

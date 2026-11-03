@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
-from ..._shared import oscompat
+from ..os_backend import os_backend as oscompat
 
 
 #: First delay and ceiling (s) for every durable retry loop, doubling between. The 5 min ceiling

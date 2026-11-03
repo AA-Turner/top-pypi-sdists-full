@@ -57,12 +57,12 @@ class HostClaimsMixin:
     def _register_with_node_agent(self) -> None:
         """Tell a watcher on this box which process owns this run.
 
-        Fail-open and silent: the agent is opt-in, and a researcher who has
-        not asked for it pays one environment read. Nothing here may raise --
+        Fail-open and silent, and on by default (`PROBE_WATCHER=0` turns it
+        off; then this costs one environment read). Nothing here may raise --
         this runs while a training job is starting.
         """
         try:
-            from probe.box import registry, watch
+            from probe.sdk.run.watcher import registry, watcher as watch
 
             if not watch.enabled():
                 return
@@ -76,7 +76,7 @@ class HostClaimsMixin:
             # Every owner tries; the lease makes all but one a no-op. No run
             # can know whether it is the first on this machine, and asking the
             # server would be a round trip in the run's start path.
-            from probe.box import spawn
+            from probe.sdk.run.watcher import lease as spawn
 
             spawn.maybe_spawn()
         except Exception:  # noqa: BLE001 -- bookkeeping never touches the run
@@ -85,7 +85,7 @@ class HostClaimsMixin:
     def _deregister_with_node_agent(self) -> None:
         """The run closed itself, so its absence needs no explaining."""
         try:
-            from probe.box import registry
+            from probe.sdk.run.watcher import registry
 
             registry.deregister(self.id)
         except Exception:  # noqa: BLE001

@@ -104,17 +104,12 @@ class StatusMixin:
         # 0205: `only_if_running` skips the write when the run is already terminal, so the finalizer
         # never overwrites a verdict the job wrote itself (DESIGN.md).
         if only_if_running:
-            if getattr(self._client, "_drains_by_hand", False):
-                # An offline run: no server to ask, and nothing else writes it (it cannot be
-                # attached), so its own close is the only verdict that could be there.
-                current = getattr(self, "_closed_status", None)
-            else:
-                # RE-READ, never the cached row: trusting it let a launcher overwrite a child's `failed` (DESIGN.md).
-                try:
-                    current = self._client.get_run(self.id).get("status")
-                except Exception:
-                    # Cannot prove the run is open: do not write (the reaper ends it; a stomped verdict is lost).
-                    return None
+            # RE-READ, never the cached row: trusting it let a launcher overwrite a child's `failed` (DESIGN.md).
+            try:
+                current = self._recorded_status()
+            except Exception:
+                # Cannot prove the run is open: do not write (the reaper ends it; a stomped verdict is lost).
+                return None
             # `crashed` is the reaper's guess: a launcher holding the real exit code replaces it.
             if current in _TERMINAL_STATUSES and current != "crashed":
                 return None
@@ -155,4 +150,8 @@ class StatusMixin:
 
             daemon_channel.run_ended(self.id, status)
         return data
+
+    def _recorded_status(self) -> str | None:
+        """The run's status where its record lives (the server); an offline run reads its queue."""
+        return self._client.get_run(self.id).get("status")
 from probe.sdk.run.summary import _one_summary, _summary_wire  # noqa: E402 -- pieces need each other; the front door loads this one first

@@ -112,7 +112,7 @@ class DevicePrompt:
 
 
 #: Told of every browser approval before polling, beside ``on_prompt``: `probe wizard
-#: --json` reports it as an event (`probe.cli.json_events`). One process-wide slot, not
+#: --json` reports it as an event (`probe.core.events`). One process-wide slot, not
 #: a context variable, so approvals started on other threads reach it.
 _prompt_observer: Callable[[DevicePrompt], None] | None = None
 
@@ -127,7 +127,7 @@ def set_prompt_observer(
 
 
 #: Wraps the approval wait (token poll, prompt to answer). `probe wizard --json` makes it
-#: the one stretch SIGINT can end (`probe.cli.json_events.interruptible`). Process-wide, like the observer.
+#: the one stretch SIGINT can end (`probe.core.events.interruptible`). Process-wide, like the observer.
 _approval_wait: Callable[[], AbstractContextManager[None]] = nullcontext
 
 

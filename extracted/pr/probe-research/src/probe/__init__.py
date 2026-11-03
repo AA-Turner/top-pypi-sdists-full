@@ -29,7 +29,6 @@ The explicit API has no ambient state and is the implementation underneath:
 from __future__ import annotations
 
 import importlib
-from importlib import metadata as _metadata
 from typing import TYPE_CHECKING
 
 from . import errors
@@ -41,6 +40,7 @@ from . import errors
 # one of these attributes resolves it through .sdk (itself lazy) on first access.
 _LAZY = {
     "Authorship",
+    "DeliveryIncomplete",
     "CaptureLedger",
     "CaptureState",
     "Client",
@@ -93,6 +93,7 @@ if TYPE_CHECKING:  # eager names for type checkers / IDEs; never executed at run
     from . import expr
     from .sdk import (
         Authorship,
+        DeliveryIncomplete,
         CaptureLedger,
         CaptureState,
         Client,
@@ -120,6 +121,7 @@ if TYPE_CHECKING:  # eager names for type checkers / IDEs; never executed at run
 
 __all__ = [
     "Authorship",
+    "DeliveryIncomplete",
     "CaptureLedger",
     "CaptureState",
     "Client",
@@ -149,14 +151,6 @@ __all__ = [
     "__version__",
 ]
 
-# The distribution name, not the import name (`probe`). Renamed from `probe-agent` on
-# 2026-07-15: that name is an unrelated project on PyPI that we never owned, so
-# `pip install probe-agent` fetched a stranger's package. Keep this in step with
-# `[project].name` in pyproject.toml — a mismatch is silent, and degrades `probe
-# --version` to the dev fallback below.
-_DISTRIBUTION = "probe-research"
-
-try:  # the installed dist is the single source of version truth (pyproject)
-    __version__ = _metadata.version(_DISTRIBUTION)
-except _metadata.PackageNotFoundError:  # running from a source tree
-    __version__ = "0.0.0.dev0"
+# The distribution name and its installed version (foundation/version/version.py).
+from .foundation.version.version import DISTRIBUTION as _DISTRIBUTION  # noqa: E402, F401 -- probe._DISTRIBUTION
+from .foundation.version.version import VERSION as __version__  # noqa: E402

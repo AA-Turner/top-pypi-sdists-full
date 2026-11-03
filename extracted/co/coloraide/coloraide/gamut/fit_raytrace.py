@@ -131,7 +131,8 @@ def raytrace_box(
     tfar = math.inf
     tnear = -math.inf
     direction = []
-    ray_too_small = True
+    length = 0.0
+    magnitude = 0.0
     for i in range(3):
         a = start[i]
         b = end[i]
@@ -139,16 +140,13 @@ def raytrace_box(
         direction.append(d)
         bn = bmin[i]
         bx = bmax[i]
-        # 64-bit uses a threshold of 1e-12
-        # 32-bit should use 1e-6
-        if ray_too_small and abs(d) > alg.ATOL:
-            ray_too_small = False
+        length = max(length, abs(d))
+        magnitude = max(magnitude, abs(a), abs(b))
 
         # Non parallel case
         if d:
-            inv_d = 1 / d
-            t1 = (bn - a) * inv_d
-            t2 = (bx - a) * inv_d
+            t1 = (bn - a) / d
+            t2 = (bx - a) / d
             tnear = max(min(t1, t2), tnear)
             tfar = min(max(t1, t2), tfar)
 
@@ -157,7 +155,8 @@ def raytrace_box(
             return []
 
     # No hit
-    if ray_too_small or tnear > tfar or tfar < 0:
+    # 64-bit uses a threshold of 1e-12, 32-bit should use 1e-6
+    if (length <= magnitude * alg.ATOL) or tnear > tfar or tfar < 0:
         return []
 
     # Favor the intersection first in the direction start -> end
@@ -244,8 +243,9 @@ def css_fast_path(
 
         # Select an offset from the gamut surface according to unit type (64-bit for Python).
         # 32-bit may require 1e-6
+        # The offset on the maximum is relative to the cube size so large (HDR) cubes retain an effective offset.
         low = mn + alg.ATOL
-        high = mx + alg.ATOL
+        high = mx + alg.ATOL * max(abs(mx), 1.0)
 
         # Use an iterative process of casting rays to find the intersect with the RGB gamut
         # and correcting the intersection onto the LCh chroma reduction path.
@@ -320,12 +320,12 @@ def generic_path(
     polar = mapcolor._space.is_polar()
     achroma = mapcolor.clone()
     if polar:
-        l, c, h = achroma._space.indexes()
-        achroma[c] = 0.0
+        l, c1, c2 = achroma._space.indexes()
+        achroma[c1] = 0.0
     else:
-        l, a, b = achroma._space.indexes()
-        achroma[a] = 0.0
-        achroma[b] = 0.0
+        l, c1, c2 = achroma._space.indexes()
+        achroma[c1] = 0.0
+        achroma[c2] = 0.0
 
     # If value is provided for adaptive lightness, calculate a lightness
     # anchor point relative to the hue independent mid point. Scale lightness and
@@ -334,7 +334,7 @@ def generic_path(
         max_light = color.new('xyz-d65', WHITE).convert(pspace, in_place=True)[l]
         achroma[l] = adaptive_hue_independent(
             mapcolor[l] / max_light,
-            max(mapcolor[c] if polar else alg.rect_to_polar(mapcolor[a], mapcolor[b])[0], 0) / max_light,
+            max(mapcolor[c1] if polar else alg.rect_to_polar(mapcolor[c1], mapcolor[c2])[0], 0) / max_light,
             adaptive
         ) * max_light
 
@@ -359,14 +359,15 @@ def generic_path(
             start = mapcolor[:-1]
             end = achroma[:-1]
         else:
-            start = to_polar(mapcolor[:-1], a, b)
-            end = to_polar(achroma[:-1], a, b)
-            end[b] = start[b]
+            start = to_polar(mapcolor[:-1], c1, c2)
+            end = to_polar(achroma[:-1], c1, c2)
+            end[c2] = start[c2]
 
         # Select an offset from the gamut surface according to unit type (64-bit for Python).
         # 32-bit may require 1e-6
+        # The offset on the maximum is relative to the cube size so large (HDR) cubes retain an effective offset.
         low = mn + alg.ATOL
-        high = mx + alg.ATOL
+        high = mx + alg.ATOL * max(abs(mx), 1.0)
 
         # Use an iterative process of casting rays to find the intersect with the RGB gamut
         # and correcting the intersection onto the LCh chroma reduction path.
@@ -381,17 +382,17 @@ def generic_path(
                         if polar:
                             mapcolor[:-1] = project_onto(coords, start, end)
                         else:
-                            mapcolor[:-1] = to_rect(project_onto(to_polar(coords, a, b), start, end), a, b)
+                            mapcolor[:-1] = to_rect(project_onto(to_polar(coords, c1, c2), start, end), c1, c2)
 
                     # For constant luminance, just correct lightness and hue in LCh
                     else:
                         coords[l] = start[l]
                         if polar:
-                            coords[h] = start[h]
+                            coords[c2] = start[c2]
                         else:
-                            to_polar(coords, a, b)
-                            coords[b] = start[b]
-                            to_rect(coords, a, b)
+                            to_polar(coords, c1, c2)
+                            coords[c2] = start[c2]
+                            to_rect(coords, c1, c2)
                         mapcolor[:-1] = coords
 
                     mapcolor.convert(rspace, in_place=True)

@@ -11,7 +11,10 @@ from mne.filter import _check_coefficients, create_filter
 from mne.utils import warn
 from torch import Tensor, from_numpy, nn
 from torch.fft import fftfreq
-from torchaudio.functional import fftconvolve, filtfilt, lfilter
+
+from braindecode.functional import _real_dft, spectral_input
+from braindecode.functional._lfilter import filtfilt, lfilter
+from braindecode.functional.functions import _next_fast_len
 
 
 class FilterBankLayer(nn.Module):
@@ -21,8 +24,8 @@ class FilterBankLayer(nn.Module):
     It uses MNE's `create_filter` function to create the band-specific filters and
     applies them to multi-channel time-series data. Each filter in the bank corresponds to a
     specific frequency band and is applied to all channels of the input data. The filtering is
-    performed using FFT-based convolution via the ``torchaudio.functional`` if the method is FIR,
-    and ``torchaudio.functional`` if the method is IIR.
+    performed using FFT-based convolution if the method is FIR (one FFT of the input for all
+    bands), and ``torchaudio.functional`` if the method is IIR.
 
     The default configuration creates 9 non-overlapping frequency bands with a 4 Hz bandwidth,
     spanning from 4 Hz to 40 Hz (i.e., 4-8 Hz, 8-12 Hz, ..., 36-40 Hz). This setup is based on the
@@ -298,6 +301,8 @@ class FilterBankLayer(nn.Module):
                         forward_filter=self.forward_filter,
                     )
                 )
+        elif not self.forward_filter:
+            return self._apply_fir_bank(x)
         else:
             for fir, fir_a in zip(self.fir_list, self.fir_a_list):
                 # Pass FIR filter directly
@@ -306,74 +311,103 @@ class FilterBankLayer(nn.Module):
                         x=x,
                         filt=fir,
                         a_coeffs=fir_a,
-                        n_chans=self.n_chans,
-                        forward_filter=self.forward_filter,
                     )
                 )
 
         return torch.cat(outs, dim=1)
+
+    def _apply_fir_bank(self, x: Tensor) -> Tensor:
+        """Every band's ``fftconvolve(x, filt, mode="same")`` with one FFT of ``x``.
+
+        Each filter is shifted (zeros on the left) so that its own "same"
+        window starts where the longest filter's does; the FFT length is the
+        5-smooth ``n >= n_times + filter_length - 1`` (a linear convolution, not
+        a circular one). Equal to the per-band convolution up to float rounding.
+        HPU inputs take one direct convolution on the device instead.
+
+        Returns
+        -------
+        Tensor
+            Filtered tensor of shape (batch_size, n_bands, n_chans, n_times).
+        """
+        if _real_dft.needs_real_dft(x):
+            return self._apply_fir_bank_direct(x)
+        x_in = spectral_input(x)
+        n_times = x.shape[-1]
+        length = max([fir.shape[-1] for fir in self.fir_list])
+        start = (length - 1) // 2
+        n_fft = 2 * _next_fast_len((n_times + length) // 2)
+        bank = torch.stack(
+            [
+                torch.fft.rfft(
+                    nn.functional.pad(
+                        fir.to(x_in), [start - (fir.shape[-1] - 1) // 2, 0]
+                    ),
+                    n=n_fft,
+                )
+                for fir in self.fir_list
+            ]
+        )
+        # (batch, 1, n_chans, freq) * (n_bands, 1, freq) -> (batch, n_bands, n_chans, freq)
+        spectra = torch.fft.rfft(x_in, n=n_fft).unsqueeze(1) * bank.unsqueeze(1)
+        filtered = torch.fft.irfft(spectra, n=n_fft)[..., start : start + n_times]
+        return filtered.to(x)
+
+    def _apply_fir_bank_direct(self, x: Tensor) -> Tensor:
+        """The FIR bank as one direct convolution on the device (HPU: no complex FFT).
+
+        Every filter sits in one zero-padded kernel, shifted so that its own
+        "same" window (start ``(filter_length - 1) // 2``) lines up with the
+        others'; flipped, since ``conv1d`` is a cross-correlation.
+        """
+        x32 = x.to(torch.promote_types(x.dtype, torch.float32))
+        start, length = 0, 0
+        for fir in self.fir_list:
+            start = max(start, (fir.shape[-1] - 1) // 2)
+        for fir in self.fir_list:
+            length = max(length, start - (fir.shape[-1] - 1) // 2 + fir.shape[-1])
+        kernels = []
+        for fir in self.fir_list:
+            left = start - (fir.shape[-1] - 1) // 2
+            kernel = nn.functional.pad(
+                fir.to(x32), [left, length - left - fir.shape[-1]]
+            )
+            kernels.append(kernel.flip(-1))
+        batch, n_chans, n_times = x32.shape
+        padded = nn.functional.pad(
+            x32.reshape(batch * n_chans, 1, n_times), [length - 1 - start, start]
+        )
+        out = nn.functional.conv1d(padded, torch.stack(kernels).unsqueeze(1))
+        return out.reshape(batch, n_chans, -1, n_times).transpose(1, 2).to(x)
 
     @staticmethod
     def _apply_fir(
         x,
         filt: Tensor,
         a_coeffs: Tensor,
-        n_chans: int,
-        forward_filter: bool = False,
     ) -> Tensor:
         """
-        Apply an FIR filter to the input tensor.
+        Apply an FIR filter once in the forward direction (causal phases).
 
         Parameters
         ----------
         x : Tensor
             Input tensor of shape (batch_size, n_chans, n_times).
-        filter : dict
-            Dictionary containing IIR filter coefficients.
-            - "b": Tensor of numerator coefficients.
+        filt : Tensor
+            FIR numerator coefficients.
         a_coeffs: Tensor
             FIR denominator coefficients for one-pass filtering.
-        n_chans: int
-            Number of channels
-        forward_filter : bool
-            If True, apply the FIR coefficients once in the forward direction.
 
         Returns
         -------
         Tensor
             Filtered tensor of shape (batch_size, 1, n_chans, n_times).
         """
-        if forward_filter:
-            orig_dtype = x.dtype
-            b_coeffs = filt.double().to(x.device)
-            filtered = lfilter(
-                x.double(),
-                a_coeffs=a_coeffs.double().to(x.device),
-                b_coeffs=b_coeffs,
-                clamp=False,
-            )
-            return filtered.to(orig_dtype).unsqueeze(1)
-
-        # Expand filter coefficients to match the number of channels
-        # Original 'b' shape: (filter_length,)
-        # After unsqueeze and repeat: (n_chans, filter_length)
-        # After final unsqueeze: (1, n_chans, filter_length)
-        filt_expanded = filt.to(x.device).unsqueeze(0).repeat(n_chans, 1).unsqueeze(0)
-
-        # Perform FFT-based convolution
-        # Input x shape: (batch_size, n_chans, n_times)
-        # filt_expanded shape: (1, n_chans, filter_length)
-        # After convolution: (batch_size, n_chans, n_times)
-
-        filtered = fftconvolve(
-            x, filt_expanded, mode="same"
-        )  # Shape: (batch_size, nchans, time_points)
-
-        # Add a new dimension for the band
-        # Shape after unsqueeze: (batch_size, 1, n_chans, n_times)
-        filtered = filtered.unsqueeze(1)
-        # returning the filtered
-        return filtered
+        # spectral_input: float32 at least, on the CPU for HPU inputs (no
+        # float64 there); the output goes back with .to(x).
+        x64 = spectral_input(x).double()
+        filtered = lfilter(x64, a_coeffs.to(x64), filt.to(x64))
+        return filtered.to(x).unsqueeze(1)
 
     @staticmethod
     def _apply_iir(
@@ -402,16 +436,14 @@ class FilterBankLayer(nn.Module):
         # Run the recursion in float64 and cast back: IIR band-passes with poles
         # near the unit circle (e.g. cheby2 banks used by FBMSNet/FBCNet) diverge
         # to NaN in float32. The coefficient buffers are already float64.
-        orig_dtype = x.dtype
-        filter_fn = lfilter if forward_filter else filtfilt
-        filtered = filter_fn(
-            x.double(),
-            a_coeffs=a_coeffs.double().to(x.device),
-            b_coeffs=b_coeffs.double().to(x.device),
-            clamp=False,
-        )
+        # On the CPU for HPU inputs (spectral_input): no float64 there.
+        x64 = spectral_input(x).double()
+        if forward_filter:
+            filtered = lfilter(x64, a_coeffs.to(x64), b_coeffs.to(x64))
+        else:
+            filtered = filtfilt(x64, a_coeffs.to(x64), b_coeffs.to(x64))
         # Rearrange dimensions to (batch_size, 1, n_chans, n_times)
-        return filtered.to(orig_dtype).unsqueeze(1)
+        return filtered.to(x).unsqueeze(1)
 
 
 class GeneralizedGaussianFilter(nn.Module):
@@ -580,11 +612,6 @@ class GeneralizedGaussianFilter(nn.Module):
             requires_grad=affine_group_delay,
         )
 
-        # Construct filters from parameters and register as a buffer so
-        # torch.export / tracing treats it as a proper module buffer
-        # (it will be recomputed in forward anyway).
-        self.register_buffer("filters", self.construct_filters(), persistent=False)
-
     @staticmethod
     def exponential_power(x, mean, fwhm, shape):
         """
@@ -643,16 +670,17 @@ class GeneralizedGaussianFilter(nn.Module):
         """
         min_f_mean = self.clamp_f_mean[0] / (self.sample_rate / 2)
         max_f_mean = self.clamp_f_mean[1] / (self.sample_rate / 2)
-        f_mean = torch.clamp(self.f_mean, min=min_f_mean, max=max_f_mean)
+        f_mean = torch.clamp(self.f_mean.clone(), min=min_f_mean, max=max_f_mean)
         bandwidth = torch.clamp(
-            self.bandwidth, min=1.0 / (self.sample_rate / 2), max=1.0
+            self.bandwidth.clone(), min=1.0 / (self.sample_rate / 2), max=1.0
         )
-        shape = torch.clamp(self.shape, min=2.0, max=3.0)
+        shape = torch.clamp(self.shape.clone(), min=2.0, max=3.0)
 
-        if not torch.jit.is_scripting():
-            self.f_mean.data = f_mean
-            self.bandwidth.data = bandwidth
-            self.shape.data = shape
+        if not torch.jit.is_scripting() and not torch.jit.is_tracing():
+            with torch.no_grad():
+                self.f_mean.copy_(f_mean)
+                self.bandwidth.copy_(bandwidth)
+                self.shape.copy_(shape)
 
         # Create magnitude response with gain=1 -> (channels, freqs)
         mag_response = self.exponential_power(
@@ -700,18 +728,20 @@ class GeneralizedGaussianFilter(nn.Module):
 
         """
         # Construct filters from parameters
-        self.filters = self.construct_filters()
+        filters = self.construct_filters()
         # Preserving the original dtype.
         dtype = x.dtype
+        if _real_dft.needs_real_dft(x):
+            return self._forward_real_dft(x, filters).to(dtype)
         # Apply FFT -> (..., channels, freqs, 2)
-        x = torch.fft.rfft(x, dim=-1)
+        x = torch.fft.rfft(spectral_input(x), dim=-1)
         x = torch.view_as_real(x)  # separate real and imag
 
         # Repeat channels in case of multiple filters per channel
         x = torch.repeat_interleave(x, self.out_channels // self.in_channels, dim=-3)
 
         # Apply filters in the frequency domain
-        x = x * self.filters
+        x = x * filters
 
         # Apply inverse FFT if requested
         if self.inverse_fourier:
@@ -721,3 +751,24 @@ class GeneralizedGaussianFilter(nn.Module):
         x = x.to(dtype)
 
         return x
+
+    @torch.jit.unused
+    @_real_dft.fp32_island
+    def _forward_real_dft(self, x, filters):
+        # Real-valued equivalent of the torch.fft path above, for devices
+        # without complex tensors (Intel Gaudi / HPU), in float32 with autocast
+        # disabled. ``filters`` multiplies the real and imaginary parts
+        # element-wise, exactly like ``x * filters`` on the
+        # ``view_as_real`` layout above (not a complex multiplication).
+        # ``torch.jit.unused`` keeps this branch out of the scripted graph:
+        # CPU/CUDA never take it, and HPU does not run under torch.jit.script.
+        real, imag = _real_dft.real_rfft(x)
+        repeat = self.out_channels // self.in_channels
+        real = torch.repeat_interleave(real, repeat, dim=-2)
+        imag = torch.repeat_interleave(imag, repeat, dim=-2)
+        filters = filters.to(real.dtype)
+        out_real = real * filters[..., 0]
+        out_imag = imag * filters[..., 1]
+        if self.inverse_fourier:
+            return _real_dft.real_irfft(out_real, out_imag, n=self.sequence_length)
+        return torch.stack((out_real, out_imag), dim=-1)

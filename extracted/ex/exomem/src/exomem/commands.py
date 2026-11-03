@@ -107,6 +107,7 @@ from . import memory_refs as memory_refs_module
 from . import memory_schema as memory_schema_module
 from . import move_file as move_file_module
 from . import multi_edit as multi_edit_module
+from . import mutation_terminal as mutation_terminal_module
 from . import note as note_module
 from . import observe_memory as observe_memory_module
 from . import overview as overview_module
@@ -1815,13 +1816,13 @@ def op_bootstrap(
                     "`- supports [[Knowledge Base/Notes/Research/example-target]]`; "
                     "Dataview-style `supports:: [[...]]` fields are not relation syntax"
                 ),
-                f"write with create_note, {tools_text('observe_memory', 'write')}, edit_note, supersede_note, capture_source, preserve_evidence, or {tools_text('connect_memory', 'write')} as appropriate",
+                f"write with create_note, {tools_text('observe_memory', 'write')}, edit_note, supersede_note, capture_source, preserve_evidence, or {tools_text('connect_memory', 'write')}",
                 (
                     "inspect write warnings; response_detail='full' reveals write_feedback; "
                     "create_note(suggestions=true) also reveals suggestions"
                 ),
                 "apply any accepted links through edit_note",
-                "report the written path",
+                mutation_terminal_module.NARRATION_RULE,
             ],
             "route_by_intent": {
                 "raw_material": "capture_source",
@@ -3100,6 +3101,10 @@ def op_find(
     # these hits are lexical-only ranking. Present only during that window
     # (~30s per process start; minutes on a first-ever model download).
     warming: dict | None = None
+    from .collection_store import preview as store_preview
+
+    if store_preview.pages_unavailable(vault_root):
+        degraded.append(find_module._STORE_UNAVAILABLE_COMPONENT)
     if restricted:
         # These internal status tokens disclose pending writes before RAW admission.
         hidden_freshness = {find_module._PENDING_VISIBILITY_COMPONENT, find_module._RECALL_PROJECTION_STALE_COMPONENT}
@@ -3793,7 +3798,7 @@ def _add_source(
             )
     except add_module.AddError as e:
         # FastMCP serializes raised exceptions; we want a structured shape.
-        raise ValueError(f"{e.code}: {e.reason} (missing: {e.missing})") from e
+        raise ValueError(_leaf_error_message(e)) from e
     if result.capture_outcome != "reused":
         query_log.log_write_call(tool="add", written_path=result.path, cited_sources=[])
     return result.as_dict()
@@ -4799,9 +4804,7 @@ def op_edit(
         set_take_module.SetTakeError,
         set_frontmatter_field_module.SetFrontmatterError,
     ) as e:
-        msg = f"{e.code}: {e.reason}"
-        if getattr(e, "missing", None):
-            msg += f" (missing: {e.missing})"
+        msg = _leaf_error_message(e)
         if getattr(e, "candidates", None):
             msg += f" (candidates: {e.candidates})"
         raise ValueError(msg) from e
@@ -5003,10 +5006,10 @@ def op_replace(
             relation_review_hash=effective_relation_review_hash,
         )
     except replace_module.ReplaceError as e:
-        raise ValueError(f"{e.code}: {e.reason} (missing: {e.missing})") from e
+        raise ValueError(_leaf_error_message(e)) from e
     except note_module.NoteError as e:
         # New-page validation failed before the supersession could land.
-        raise ValueError(f"{e.code}: {e.reason} (missing: {e.missing})") from e
+        raise ValueError(_leaf_error_message(e)) from e
     if written_path := getattr(result, "new_path", None):
         query_log.log_write_call(tool="replace", written_path=written_path, cited_sources=sources)
         working_set_heat_module.note_citations(vault_root, sources or ())
@@ -5042,6 +5045,14 @@ def _replacement_review_hash(
         separators=(",", ":"),
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _leaf_error_message(error: Any) -> str:
+    """`CODE: reason`, plus the request fields the caller must add when the error names any."""
+    message = f"{error.code}: {error.reason}"
+    if missing := getattr(error, "missing", None):
+        message += f" (missing: {list(missing)})"
+    return message
 
 
 def _creation_origin(vault_root: Path, ref: str | None) -> dict[str, str | None] | None:
@@ -5182,12 +5193,12 @@ def op_link(
             origin=_creation_origin(vault_root, ref),
         )
     except link_module.LinkError as e:
-        suffix = f" (missing: {e.missing})"
+        msg = _leaf_error_message(e)
         if e.candidates:
-            suffix += f" (candidates: {e.candidates})"
+            msg += f" (candidates: {e.candidates})"
         if e.candidate_fingerprint is not None:
-            suffix += f" (candidate_fingerprint: {e.candidate_fingerprint})"
-        raise ValueError(f"{e.code}: {e.reason}{suffix}") from e
+            msg += f" (candidate_fingerprint: {e.candidate_fingerprint})"
+        raise ValueError(msg) from e
     return result.as_dict()
 
 
@@ -5285,7 +5296,7 @@ def op_preserve(
             filename, destination=str(Path(scope) / category), raw_protection=raw_protection,
         )
     except preserve_module.PreserveError as e:
-        raise ValueError(f"{e.code}: {e.reason} (missing: {e.missing})") from e
+        raise ValueError(_leaf_error_message(e)) from e
     # Same destination-scoped lookup the batch command uses, run before the
     # write: Evidence is append-only, so the same bytes under the same family
     # are one fact, and reporting the copy that is already there beats adding a
@@ -5322,7 +5333,7 @@ def op_preserve(
             raw_protection=raw_protection,
         )
     except preserve_module.PreserveError as e:
-        raise ValueError(f"{e.code}: {e.reason} (missing: {e.missing})") from e
+        raise ValueError(_leaf_error_message(e)) from e
     payload = result.as_dict()
     _note_committed_artifact_targets(payload)
     from . import semantic_writes
@@ -5587,7 +5598,7 @@ def _invoke_note(
     try:
         result = note_module.note(**arguments.arguments)
     except note_module.NoteError as e:
-        raise ValueError(f"{e.code}: {e.reason} (missing: {e.missing})") from e
+        raise ValueError(_leaf_error_message(e)) from e
     if written_path := getattr(result, "path", None):
         sources = arguments.arguments["sources"]
         query_log.log_write_call(tool="note", written_path=written_path, cited_sources=sources)
@@ -5807,7 +5818,7 @@ def op_create_file(
             relation_review_reason=relation_review_reason,
         )
     except create_file_module.CreateFileError as e:
-        raise ValueError(f"{e.code}: {e.reason}") from e
+        raise ValueError(_leaf_error_message(e)) from e
     return result.as_dict()
 
 
@@ -6855,6 +6866,11 @@ def op_activate_context(
                     # already said `absent` when it skipped the stage for the request's budget.
                     if isinstance(packet.get("generation"), dict):
                         packet["generation"].setdefault("conversation", bounded.state)
+                        # The pages the store owns were withheld together after its refusal: say so.
+                        from .collection_store import preview as store_preview
+
+                        if store_preview.pages_unavailable(vault_root):
+                            packet["generation"]["collection_store"] = activation_result_module.UNAVAILABLE
                     # Served packets include optional omissions; abstentions retain their own cause.
                     if packet.get("abstained") is False:
                         active_budget = request_budget_module.current()
@@ -7743,6 +7759,122 @@ def _op_activate_context_body(
     return packet
 
 
+def _source_of_part(vault_root: Path, path: str) -> str:
+    """The path of the Source page when `path` names one of its part pages, else `path`.
+
+    A part is the Source's own text, so reading it is reading the Source: the access decision
+    is the Source's, taken by the same read.
+    """
+    from . import extraction_parts, memory_refs
+    from .vault import parse_frontmatter, read_guarded_text
+
+    # A plain path that is not at a part's path needs no resolution here: the read resolves it
+    # once, as before parts existed. Only a ref, or a path at a part's path, is looked at first.
+    if memory_refs.parse_memory_ref(path) is None and extraction_parts.source_page_for(Path(path)) is None:
+        return path
+    try:
+        resolved = _resolve_memory_identifier(vault_root, path, serve_stale=True)
+    except (ValueError, OSError):
+        return path
+    page = Path(vault_root) / resolved
+    source = extraction_parts.source_page_for(page)
+    if source is None:
+        return path
+    try:
+        content, _guard = read_guarded_text(vault_root, page)
+    except (OSError, UnicodeError):
+        return path
+    # The same rule as search: only a page carrying `part_of` reads as its Source.
+    if "part_of" not in parse_frontmatter(content)[0]:
+        return path
+    return source.relative_to(vault_root).as_posix()
+
+
+def _window_extracted_text(vault_root: Path, result: dict, offset: int | None) -> dict:
+    """Return one window of a long Source's extracted text instead of its whole body.
+
+    Only a page released in full is windowed, and only when the released body is the stored
+    one or that body without its origin carriers: positions count the stored text, and a
+    window never shows what the release withheld. The window is part of the page, not the
+    page, so it carries no `content_hash` and cannot guard a write of the whole body.
+    """
+    from . import extraction_parts
+    from .vault import content_hash, parse_frontmatter, read_guarded_text
+
+    if offset is not None and type(offset) is not int:  # a bool is an int to Python, never an offset
+        raise ValueError("INVALID_OFFSET: offset must be a whole number of characters")
+    body = result.get("body")
+    if not (isinstance(body, str) and "content_hash" in result):
+        return _refuse_unused_offset(result, offset)
+    # Decide from what the read released before touching the file again, so an ordinary read
+    # takes exactly the one guarded read it took before parts existed.
+    released = result.get("frontmatter")
+    released = released if isinstance(released, dict) else {}
+    if not note_types.Basis(vault_root).selects(str(released.get("type") or "").casefold(), note_types.raw):
+        return _refuse_unused_offset(result, offset)
+    if (
+        extraction_parts.count_of(released) == 1
+        and len(_preserve_module().extracted_text(body)) <= extraction_parts.WINDOW_CHARS
+    ):
+        return _refuse_unused_offset(result, offset)
+    path = str(result["path"])
+    page = Path(vault_root) / path
+    try:
+        raw, _guard = read_guarded_text(vault_root, page)
+    except (OSError, UnicodeError):
+        return _refuse_unused_offset(result, offset)
+    frontmatter, stored, _ = parse_frontmatter(raw)
+    first = _preserve_module().extracted_text(stored)
+    # A read whose hash is not the file's served something other than the stored page (a
+    # projected collection summary, or a page that changed meanwhile): it passes through whole.
+    if content_hash(raw) != result["content_hash"]:
+        if offset:
+            raise ValueError("INVALID_OFFSET: this read releases the page only as a whole")
+        return result
+    # The served body has normalised line endings; a CRLF page is still the stored page.
+    served = body.replace("\r\n", "\n")
+    if served != stored.replace("\r\n", "\n") and served != provenance_module.withheld_prose(
+        stored, owner_path=path
+    ).replace("\r\n", "\n"):
+        if offset:
+            raise ValueError("INVALID_OFFSET: this read releases the page only as a whole")
+        return result
+    try:
+        window = extraction_parts.read_window(
+            vault_root,
+            page,
+            frontmatter,
+            first,
+            offset or 0,
+            withhold=lambda text: egress_module.carrier_spans_for_caller(vault_root, text, owner_path=path),
+        )
+    except ValueError as error:
+        raise ValueError(f"INVALID_OFFSET: {error}") from error
+    except OSError as error:
+        raise ValueError(
+            "PART_MISSING: part of the extracted text is missing; reconcile the vault to rebuild it"
+        ) from error
+    whole_page_only = ("content_hash", "evidence_version")
+    return {
+        **{key: value for key, value in result.items() if key not in whole_page_only},
+        "body": window.text,
+        "body_truncated": True,
+        "window": {
+            "offset": window.offset,
+            "next_offset": window.next_offset,
+            "total_chars": window.total_chars,
+            "part": window.part,
+            "parts": window.parts,
+        },
+    }
+
+
+def _refuse_unused_offset(result: dict, offset: int | None) -> dict:
+    if offset:
+        raise ValueError("INVALID_OFFSET: this page has no extracted text longer than one window")
+    return result
+
+
 def op_read_memory(
     vault_root: Path,
     path: str,
@@ -7756,6 +7888,7 @@ def op_read_memory(
     history_continuation: str | None = None,
     continuation: _OptionalViewContinuation = None,
     follow_corrections: bool = True,
+    offset: int | None = None,
 ) -> dict:
     """Read a page, exact unit, or exomem://map view.
 
@@ -7774,14 +7907,15 @@ def op_read_memory(
         history_continuation: Position from the previous revision_history envelope.
         continuation: Next-page token of a view.
         follow_corrections: False reads the historical Source; unit reads stay exact.
+        offset: Start, in characters, of a window of a long Source's extracted text; follow `window.next_offset`.
     """
     # A derived view is not a page: it is dispatched before any identifier resolves. It takes
     # `purpose` as an argument, the one the terminal guard decides it under (`egress.postfilter`).
     if context_views_module.in_view_namespace(path):
-        if unit_ref is not None or frontmatter_only or include_history or links or include_raw:
+        if unit_ref is not None or frontmatter_only or include_history or links or include_raw or offset is not None:
             raise ValueError(
                 "INVALID_VIEW_READ_OPTIONS: a derived view cannot be combined with "
-                "unit_ref, frontmatter_only, include_history, links, or include_raw"
+                "unit_ref, frontmatter_only, include_history, links, include_raw, or offset"
             )
         return context_views_module.read_view(vault_root, path, continuation=continuation, purpose=purpose)
     # `purpose` is a per-call leaf parameter, not a surface property: layer it
@@ -7803,14 +7937,15 @@ def op_read_memory(
                 history_continuation=history_continuation,
                 continuation=continuation,
                 follow_corrections=follow_corrections,
+                offset=offset,
             )
     if continuation is not None:
         raise context_views_module.invalid_continuation()
     if unit_ref is not None:
-        if frontmatter_only or links or include_raw:
+        if frontmatter_only or links or include_raw or offset is not None:
             raise ValueError(
                 "INVALID_UNIT_READ_OPTIONS: unit_ref cannot be combined with "
-                "frontmatter_only, links, or include_raw"
+                "frontmatter_only, links, include_raw, or offset"
             )
         resolved_path = _resolve_memory_identifier(vault_root, path, serve_stale=True)
         try:
@@ -7890,13 +8025,17 @@ def op_read_memory(
         return out
     result = op_get(
         vault_root,
-        path=path,
+        path=_source_of_part(vault_root, path),
         frontmatter_only=frontmatter_only,
         include_history=include_history,
         links=links,
         include_raw=include_raw,
         follow_corrections=follow_corrections,
     )
+    if not (frontmatter_only or include_raw):
+        result = _window_extracted_text(vault_root, result, offset)
+    elif offset is not None:
+        raise ValueError("INVALID_OFFSET: offset applies to the extracted text, which this read does not return")
     if include_history and "content_hash" in result:
         from . import compiled_history
 
@@ -10501,9 +10640,7 @@ def op_connect_memory(
             try:
                 result = edit_module.edit(vault_root, create_missing_section=True, **kw)
             except edit_module.EditError as e:
-                msg = f"{e.code}: {e.reason}"
-                if getattr(e, "missing", None):
-                    msg += f" (missing: {e.missing})"
+                msg = _leaf_error_message(e)
                 if getattr(e, "candidates", None):
                     msg += f" (candidates: {e.candidates})"
                 raise ValueError(msg) from e
@@ -10670,7 +10807,7 @@ def op_adopt_vault(
     return _carrying_batch_advisories(vault_root, result)
 
 
-_ADOPTION_STUDIO_ACTIONS = (  # nosemgrep: ep-word-set -- the CLI's own action names, a closed set that this module implements
+_ADOPTION_STUDIO_ACTIONS = (  # nosemgrep: ep-word-set -- adoption_studio's actions, a closed set that this module implements; CLI, MCP and REST all dispatch here
     "start",
     "status",
     "select",
@@ -10991,10 +11128,11 @@ def op_maintain_memory(
     """Maintain vault health; several modes write.
 
     Audit is read-only; fix/backfill-ids default dry-run; reconcile writes.
-    A remote fix, backfill-ids or reconcile write runs as a maintenance job: preview with
-    dry_run=true, then repeat with dry_run=false, that plan_id and a why; it returns a run_id.
+    A remote fix, backfill-ids or reconcile runs as a maintenance job and returns a run_id.
+    The owner's preview (dry_run=true) is a job: its receipt holds the plan_id. Then repeat
+    with dry_run=false, that plan_id and a why to write.
     maintenance-job reads one job's state and receipt (run_id) or lists them; the receipt's
-    next_cursor, passed as cursor, reads the written paths page by page;
+    next_cursor, passed as cursor, reads the planned or written paths page by page;
     maintenance-job-cancel (run_id, why) stops one. One job runs per vault; reconcile holds
     writes for its run. A remote collections-store-export apply returns
     MAINTENANCE_REQUIRES_CLI: run it on the host with the service stopped.
@@ -13607,6 +13745,18 @@ _PRODUCT_METADATA: dict[str, dict] = {
     "activate_context": {"surface": "primary", "actions": ("ask",), "first_run_safe": True},
     "episode_memory": {"surface": "primary", "actions": ("save",), "first_run_safe": False},
 }
+#: What each write command reports on success. A grouped command declares its verbs on its operation
+#: rows (`operation_entries`) instead. A write in neither place gets no `user_summary`, and
+#: tests/test_plain_write_outcomes.py fails until it declares one. The keys are command names.
+_COMMAND_OUTCOME_VERBS: Mapping[str, operation_entries.OutcomeVerb] = MappingProxyType({  # nosemgrep: ep-word-dict -- the registry's own command names, each mapped to a closed contract verb.
+    "add": "saved", "adopt": "saved", "audit_fix": "updated", "reconcile": "updated",
+    "edit": "updated", "replace": "replaced", "link": "saved", "preserve": "saved",
+    "note": "saved", "create_file": "saved", "move_file": "moved", "delete": "deleted",
+    "append_to_file": "updated", "recover_from_trash": "restored",
+    "remember": "saved", "edit_memory": "updated", "replace_memory": "replaced",
+    "capture_source": "saved", "preserve_evidence": "saved", "preserve_artifacts": "saved",
+    "transfer_artifact": "saved", "transfer_memory": "saved",
+})
 _MCRC = frozenset({"mcp", "rest", "cli"})
 _RC = frozenset({"rest", "cli"})
 # `get_video_frames` returns MCP image content blocks (a FastMCP ToolResult) —
@@ -13696,6 +13846,7 @@ def _build_commands() -> tuple[Command, ...]:
                 first_run_safe=bool(meta.get("first_run_safe", False)),
                 path_roles=reserved_paths_module.path_roles_for_command(name),
                 restricted_refusal_floor=name in floored,
+                outcome_verb=_COMMAND_OUTCOME_VERBS.get(name),
             )
         )
     return tuple(cmds)
@@ -14380,6 +14531,7 @@ def _build_product_commands() -> tuple[Command, ...]:
                 restricted_refusal_floor=bool(meta.get("restricted_refusal_floor", False)),
                 mcp_meta=MappingProxyType(dict(meta.get("mcp_meta", {}))),
                 executor=meta.get("executor", "cell"),
+                outcome_verb=_COMMAND_OUTCOME_VERBS.get(name),
             )
         )
     return tuple(cmds)

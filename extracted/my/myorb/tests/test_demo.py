@@ -52,6 +52,13 @@ def test_demo_shows_a_made_up_day(demo_client: TestClient):
     assert "leave at 12:08 for lunch with Pepper" in report
 
 
+def test_demo_plays_the_music_of_its_screenshots(demo_client: TestClient):
+    config = demo_client.get("/music/config").json()
+    assert config["source"] == "youtube" and config["video"] == "0GvTE_kG1yY"
+    demo_client.post("/integrations/music", data={"source": "ambient"})
+    assert demo_client.get("/music/config").json()["source"] == "ambient"
+
+
 def test_demo_asks_without_claude(demo_client: TestClient):
     asked = lines(
         demo_client.post(
@@ -115,6 +122,11 @@ def test_the_public_demo_is_open_and_changes_nothing(public_client: TestClient):
         public_client.post("/ask/decide", json={"approved": [proposal["id"]]})
     tasks = public_client.get("/panels/tasks/today").text
     assert tasks.count(">Fix the failing tests on PR #318<") == 1
+
+
+def test_the_public_demo_shows_the_tour(public_client: TestClient):
+    page = public_client.get("/").text
+    assert 'data-tour="demo"' in page and "/static/tour.js" in page
 
 
 def test_the_public_demo_starts_each_day_afresh(tmp_path: Path):

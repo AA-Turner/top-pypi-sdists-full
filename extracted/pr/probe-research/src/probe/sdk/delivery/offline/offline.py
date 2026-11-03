@@ -13,22 +13,34 @@ from typing import Any
 from ... import errors
 from ....foundation.safe_warn import safe_warn as _diagnostics
 from ...client.client import Client
+from ...client.resources.runs.home import (
+    RunHome,
+    build_missing_home_error,
+    mark_home_source,
+    print_notice,
+    resolve_run_home,
+)
 from ...settings.settings import Settings
 from ...settings.settings import resolve as resolve_settings
-from ....foundation.durable.durable import now_iso, write_text_atomic
+from ....foundation.durable.durable import file_lock, now_iso, write_text_atomic
 from ..journal.journal import Journal
 from ..journal.paths import default_root
 from ...run.run import Run
 from ...run.metrics.values import _now
-from ...run.summary import _summary_wire
+from ...run.summary import _one_summary, _summary_wire
 from ...run.handle import _UNSET
+from ...values import unstorable
 from probe.sdk.routes import WriteOp, path_for
 MANIFEST_NAME = "offline.json"
 MANIFEST_SCHEMA = "probe.offline/1"
+MANIFEST_LOCK_NAME = ".offline.lock"
 LOCAL_PREFIX = "local:"
 #: The journal op kind that opens an offline run. Only offline queues carry it and only
 #: `probe sync` drains them, so no older worker meets it.
 CREATE_KIND = "create_run"
+#: The manifest field noting the last close queued for the run: status, summary and the handle
+#: (`session_id`) that queued it (`OfflineRun._close_by_another`).
+CLOSE_NOTE_FIELD = "close"
 FALLBACK_ENV = "PROBE_INIT_FALLBACK"
 #: `metadata.offline_owner` when the recording machine had no cached identity.
 UNKNOWN_OWNER = "unknown"
@@ -89,6 +101,55 @@ class OfflineRun(Run):
     def start_heartbeat(self, *_a: Any, **_kw: Any) -> None:
         return None  # nothing to beat to
 
+    def _close_by_another(self) -> dict | None:
+        """The close another handle (a child `execute()` ran) queued after this handle's last one:
+        the manifest's note, one small file that outlives a `probe sync`, never the queue."""
+        note = (read_manifest(self.offline_dir) or {}).get(CLOSE_NOTE_FIELD)
+        if (
+            isinstance(note, dict)
+            and note.get("session_id") != self.session_id
+            and note.get("status") in _TERMINAL_STATUSES
+        ):
+            return note
+        return None
+
+    def _recorded_status(self) -> str | None:
+        """The verdict `probe sync` would deliver: another process's later close, else this
+        handle's own. Another's becomes this handle's, so the exit hook repeats it."""
+        other = self._close_by_another()
+        if other is not None:
+            self._closed_status = other["status"]
+        return getattr(self, "_closed_status", None)
+
+    def set_status(self, status: str, *, only_if_running: bool = False, **kw: Any):
+        """`Run.set_status` that notes a close it queues (`_note_close`), so a process holding this
+        run (the launcher, or its child) reads it; `only_if_running` checks that note first."""
+        if only_if_running and status in _TERMINAL_STATUSES:
+            current = self._recorded_status()
+            if current in _TERMINAL_STATUSES and current != "crashed":
+                return None
+            only_if_running = False
+        data = super().set_status(status, only_if_running=only_if_running, **kw)
+        if status in _TERMINAL_STATUSES and getattr(self, "_sends_terminal_status", True):
+            self._note_close(status, _one_summary(kw.get("summary_metrics"), kw.get("summary")))
+        return data
+
+    def execute(self, argv: list[str], *, finalize: bool = True, **kw: Any):
+        """`Run.execute`. A launch that closes the run reopens it here first, as the child's
+        `probe.init()` reopens it online: its verdict is this launch's (the child's close, else
+        its exit code), never an earlier launch's."""
+        if finalize:
+            self._closed_status = None
+        return super().execute(argv, finalize=finalize, **kw)
+
+    def _note_close(self, status: str, summary: dict | None) -> None:
+        # As the queued body is: a numpy scalar in the summary must not fail the note.
+        summary = unstorable.normalize_json(summary)
+        _note_in_manifest(
+            self.offline_dir,
+            **{CLOSE_NOTE_FIELD: {"status": status, "summary": summary, "session_id": self.session_id}},
+        )
+
     def refresh(self) -> "OfflineRun":
         """A no-op: there is no server copy to re-read yet. This handle's own
         state (config, tags, status) IS the record until `probe sync`."""
@@ -102,8 +163,10 @@ class OfflineRun(Run):
         summary: dict | None = None,
         flush_timeout: float | None = None,
         strict: bool | None = None,
+        wait: bool = True,
     ):
-        """Queue the close behind the run's writes, with the client's end time. Idempotent
+        """``wait`` is accepted for `Run.finish`'s signature: nothing here waits on a server.
+        Queue the close behind the run's writes, with the client's end time. Idempotent
         like `Run.finish`. Never waits on a server, never raises over the queue: a close the
         disk cannot take is warned about and the server closes the run when its sync grace
         ends. What the run read and wrote is hashed first (local work, at most
@@ -151,37 +214,14 @@ class OfflineRun(Run):
         )
         if dropped:
             marker["dropped_writes"] = dropped
-        earlier = getattr(self, "_closed_status", None)
-        if earlier is not None:
-            # A launcher already queued the run's verdict (`execute()`'s close): the exit hook's
-            # default `completed` must not replace it. Queued again with the end time and marker.
-            status = earlier
-        body: dict[str, Any] = {
-            "status": status,
-            "ended_at": _now(),
-            **_summary_wire({**(summary or {}), "probe_finish": marker}),
-        }
         result: dict[str, Any] = {"offline": True, "dir": str(self.offline_dir)}
-        try:
-            # `admitted`: the close is the ONE op no room check may refuse; a run that logged
-            # to the disk floor still has to end (as online).
-            self._client.journal.append_http(
-                "PATCH", path_for(WriteOp.RUN_PATCH, self.id), body, run_ref=self.id, admitted=True
-            )
+        if getattr(self, "_sends_terminal_status", True):
+            self._queue_close(status, summary, marker, result)
+        else:
+            # A child its launcher closes (`execute()`), or a non-zero rank: its data is queued,
+            # the verdict is the launcher's (or rank 0's), as online.
             self._closed_status = status
-            result["finish_queued"] = True
-            print(
-                f"probe: offline run {self.id} closed {status}; it is queued in "
-                f"{self.offline_dir} -- deliver it with `probe sync`",
-                flush=True,
-            )
-        except Exception as exc:  # noqa: BLE001 -- see the docstring
             result["finish_queued"] = False
-            _diagnostics.warn(
-                f"probe: offline run {self.id} could not queue its close "
-                f"({_diagnostics.describe(exc)}); `probe sync` will deliver its data and "
-                "the server closes the run after its sync grace"
-            )
         if dropped:
             result["dropped_writes"] = dropped
             _note_in_manifest(self.offline_dir, dropped_writes=dropped)
@@ -199,6 +239,53 @@ class OfflineRun(Run):
         if interrupted is not None:
             raise interrupted
         return result
+
+
+    def _queue_close(self, status: str, summary: dict | None, marker: dict, result: dict) -> None:
+        """Queue the run's verdict behind its writes, into ``result``; warns, never raises. A close
+        another process queued since (a child `execute()` ran) keeps its verdict, and its summary
+        is carried under this one's: the server replaces a run's summary whole."""
+        other = self._close_by_another()
+        earlier = other["status"] if other is not None else getattr(self, "_closed_status", None)
+        if earlier is not None:
+            # A verdict is already queued (`execute()`'s close, or its child's): the exit hook's
+            # default `completed` must not replace it. Queued again with the end time and marker.
+            status = earlier
+        summary = _carry_summary((other or {}).get("summary"), summary, marker)
+        body: dict[str, Any] = {"status": status, "ended_at": _now(), **_summary_wire(summary)}
+        try:
+            # `admitted`: the close is the ONE op no room check may refuse; a run that logged
+            # to the disk floor still has to end (as online).
+            self._client.journal.append_http(
+                "PATCH", path_for(WriteOp.RUN_PATCH, self.id), body, run_ref=self.id, admitted=True
+            )
+            self._closed_status = status
+            self._note_close(status, summary)
+            result["finish_queued"] = True
+            print(
+                f"probe: offline run {self.id} closed {status}; it is queued in "
+                f"{self.offline_dir} -- deliver it with `probe sync`",
+                flush=True,
+            )
+        except Exception as exc:  # noqa: BLE001 -- see `finish`
+            result["finish_queued"] = False
+            _diagnostics.warn(
+                f"probe: offline run {self.id} could not queue its close "
+                f"({_diagnostics.describe(exc)}); `probe sync` will deliver its data and "
+                "the server closes the run after its sync grace"
+            )
+
+
+def _carry_summary(earlier: dict | None, summary: dict | None, marker: dict) -> dict:
+    """``summary`` over the summary an earlier close (another process's) queued, with both
+    closes' ``probe_finish`` facts; dropped writes add up."""
+    earlier = dict(earlier or {})
+    earlier_finish = earlier.get("probe_finish") if isinstance(earlier.get("probe_finish"), dict) else {}
+    finish = {**earlier_finish, **marker}
+    dropped = int(earlier_finish.get("dropped_writes") or 0) + int(marker.get("dropped_writes") or 0)
+    if dropped:
+        finish["dropped_writes"] = dropped
+    return {**earlier, **(summary or {}), "probe_finish": finish}
 
 
 # -- recording ----------------------------------------------------------------
@@ -248,10 +335,11 @@ def open_offline_run(
     # Who recorded it. "unknown" when this machine never reached the API under its
     # credential (nothing cached): said so again at sync.
     owner = identity.get("user_id") or UNKNOWN_OWNER
+    run_home = resolve_run_home(kw.get("project"), kw.get("experiment"), settings)
     if sent is not None:
         key, body, create, home, skipped = _create_from_sent(kw, sent, sent_body, on_conflict, started_at, owner)
     else:
-        key, body, create, home, skipped = _create_from_init(kw, on_conflict, started_at, owner, settings.project)
+        key, body, create, home, skipped = _create_from_init(kw, on_conflict, started_at, owner, run_home)
     ref = local_ref(key)
     directory = offline_root(base) / key
     journal = _start_offline_queue(directory, settings, identity, key, ref, started_at, body, home, fallback)
@@ -265,6 +353,7 @@ def open_offline_run(
         "deliver it later with `probe sync`",
         flush=True,
     )
+    print_notice(run_home, None)
     if skipped or not fallback:
         _diagnostics.warn(
             "probe: an offline run records metrics, spans, artifacts, config updates, what "
@@ -273,6 +362,43 @@ def open_offline_run(
             + (f" (ignored: {', '.join(skipped)})" if skipped else "")
         )
     return run
+
+
+def attach_offline_run(
+    ref: str, *, settings: Settings | None = None, base: str | os.PathLike | None = None
+) -> OfflineRun:
+    """Join the offline run ``ref`` (``local:<key>``) another process on this machine opened:
+    `execute()` hands its child that id, as online. Writes go to the run's own queue behind the
+    opener's; no second create. Raises when no such queue is here."""
+    key = ref[len(LOCAL_PREFIX):]
+    directory = offline_root(base) / key
+    manifest = read_manifest(directory) if key and Path(key).name == key and key != ".." else None
+    if manifest is None or manifest.get("run_ref") != ref:
+        raise errors.ValidationError(
+            f"PROBE_RUN_ID={ref} names an offline run, but there is no offline queue for it in "
+            f"{offline_root(base)}: an offline run can be joined only on the machine (and outbox) "
+            "that recorded it. Unset PROBE_RUN_ID to record a new run."
+        )
+    settings = settings or resolve_settings()
+    journal = Journal(
+        directory, context={"name": manifest.get("context"), "base_url": manifest.get("base_url")}
+    )
+    body = (_read_create(journal) or {}).get("body") or {"name": manifest.get("name")}
+    run = _open_offline_handle(settings, journal, ref, key, body, manifest.get("recorded_at") or now_iso())
+    run.attached = True
+    print(f"probe: attached to offline run {ref} via PROBE_RUN_ID (queued in {directory})", flush=True)
+    return run
+
+
+def _read_create(journal: Journal) -> dict | None:
+    """The run's queued create: the queue's FIRST op (it opens the queue), one file read however
+    long the queue is. None once `probe sync` delivered it."""
+    try:
+        first = min((p for p in journal.ops_dir.iterdir() if p.name.endswith(".json")), default=None)
+        op = json.loads(first.read_text()) if first is not None else None
+    except (OSError, ValueError):
+        return None
+    return op.get("create") if isinstance(op, dict) and op.get("kind") == CREATE_KIND else None
 
 
 def _check_offline_conflict(kw: dict, sent: dict | None, fallback: bool) -> tuple[str | None, dict]:
@@ -323,10 +449,11 @@ def _create_from_sent(
 
 
 def _create_from_init(
-    kw: dict, on_conflict: str | None, started_at: str, owner: str, ambient_project: str | None
+    kw: dict, on_conflict: str | None, started_at: str, owner: str, run_home: RunHome
 ) -> tuple[str, dict, dict, dict, list[str]]:
     """The create built from ``probe.init()``'s keywords, refusing ones an offline run cannot take.
-    With no project or experiment named it takes this computer's (as online), else refuses."""
+    With no project or experiment named it takes ``run_home`` (`resolve_run_home`, as online),
+    else refuses."""
     intent = kw.pop("intent", None)
     skipped = sorted(k for k in _SKIPPED_FIELDS if kw.pop(k, None) is not None)
     home = {k: kw.pop(k, None) for k in _HOME_FIELDS}
@@ -341,13 +468,16 @@ def _create_from_init(
         )
     if home["experiment_name"] is not None and home["question"] is None:
         raise errors.ValidationError("experiment_name only titles an experiment question= creates")
+    if not home["experiment"] and not home["project"]:
+        home["project"], home["experiment"] = run_home.project, run_home.experiment
+    if not home["experiment"] and not home["project"]:
+        # Offline: no daemon pick to wait for and no projects to list; the fix for this case.
+        raise build_missing_home_error()
+    # After the home: a session home's experiment can hold the group (as online).
     if create_kw.get("group_id") is not None and not home["experiment"]:
         raise errors.ValidationError("a group needs an experiment: name the experiment or drop the group")
-    if not home["experiment"] and not home["project"]:
-        home["project"] = ambient_project
-    if not home["experiment"] and not home["project"]:
-        raise errors.ProjectRequired()
     key = uuid.uuid4().hex
+    mark_home_source(run_home, create_kw)
     metadata = dict(create_kw.pop("metadata", None) or {})
     if intent is not None:
         metadata["intent"] = str(intent).strip()
@@ -454,13 +584,18 @@ def _offline_body(body: dict, *, started_at: str, owner: str) -> dict:
 
 def _note_in_manifest(directory: Path, **fields: Any) -> None:
     """Best effort: record ``fields`` in the queue's manifest (a full disk may
-    refuse; the close already carries the same facts)."""
+    refuse; the close already carries the same facts). Under a lock: a launcher, its
+    child and the child's ranks may note at once. Never recreates a deleted queue."""
     try:
-        manifest = read_manifest(directory)
-        if manifest is None:
+        if not (directory / MANIFEST_NAME).is_file():
             return
-        manifest.update(fields)
-        write_text_atomic(directory / MANIFEST_NAME, json.dumps(manifest, indent=2) + "\n", mode=0o600)
+        with file_lock(directory / MANIFEST_LOCK_NAME):
+            manifest = read_manifest(directory)
+            if manifest is None:
+                return
+            manifest.update(fields)
+            text = json.dumps(manifest, indent=2, default=str) + "\n"
+            write_text_atomic(directory / MANIFEST_NAME, text, mode=0o600)
     except Exception:  # noqa: BLE001 -- evidence, never a failure of the close
         pass
 
@@ -477,4 +612,5 @@ def _context_name() -> str | None:
 def fallback_enabled() -> bool:
     return os.environ.get(FALLBACK_ENV, "").strip().lower() == "offline"
 from probe.sdk.delivery.offline.queue import OFFLINE_DIRNAME, _OFFLINE_CONFLICT, read_manifest  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.run.closing.status import _TERMINAL_STATUSES  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.offline.client import OfflineClient  # noqa: E402 -- pieces need each other; the front door loads this one first

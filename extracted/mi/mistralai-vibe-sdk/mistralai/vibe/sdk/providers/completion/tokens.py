@@ -74,7 +74,10 @@ def estimate_context_tokens(
 
 def _estimate_message_tokens(message: Message) -> int:
     token_count = (
-        4 + _estimate_text_tokens(message.role) + _estimate_content_tokens(message.content)
+        4
+        + _estimate_text_tokens(message.role)
+        + _estimate_content_tokens(message.content)
+        + _estimate_text_tokens(message.reasoning_content)
     )
     if message.tool_call_id:
         token_count += _estimate_text_tokens(message.tool_call_id)

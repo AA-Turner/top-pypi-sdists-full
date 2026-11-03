@@ -83,20 +83,17 @@ class DeploymentsClient:
         else:
             self._backend = _GatewayDeployBackend(api_key, base)
 
-    def submit(self, request: DeploymentRequest, *, override: bool = False,
-               scaling: tuple[str, ...] = ()) -> Accepted:
+    def submit(self, request: DeploymentRequest, *, override: bool = False) -> Accepted:
 
 
 
+        return self._backend.submit(request, override=override)
 
-        return self._backend.submit(request, override=override, scaling=scaling)
-
-    def validate(self, request: DeploymentRequest, *, override: bool = False,
-                 scaling: tuple[str, ...] = ()) -> Optional[dict]:
+    def validate(self, request: DeploymentRequest, *, override: bool = False) -> Optional[dict]:
 
 
 
-        return self._backend.validate(request, override=override, scaling=scaling)
+        return self._backend.validate(request, override=override)
 
     def status(self, deployment_id: str) -> DeploymentStatusResponse:
         return self._backend.status(deployment_id)
@@ -154,8 +151,7 @@ class _GatewayDeployBackend:
             transport=RetryReads(),
         )
 
-    def submit(self, request: DeploymentRequest, *, override: bool = False,
-               scaling: tuple[str, ...] = ()) -> Accepted:
+    def submit(self, request: DeploymentRequest, *, override: bool = False) -> Accepted:
         """POST /v1/deployments. 202 → Accepted (building), with the platform's notice when it gives one. Any other
         answer is a FAILURE, raised as the one mapping makes it and never treated as submitted (goal 12): a bad payload
         or an unknown or foreign secret is InvalidRequest (goal 10), a missing key AuthError, a taken name Conflict.
@@ -170,7 +166,7 @@ class _GatewayDeployBackend:
 
 
                 r = c.post("/v1/deployments", content=request.model_dump_json(exclude_none=True),
-                           params=_params(override, scaling))
+                           params=_params(override))
         except httpx.TransportError as exc:
 
 
@@ -186,8 +182,7 @@ class _GatewayDeployBackend:
 
             return Accepted(deployment_id=request.name, notice=notice, unread=True)
 
-    def validate(self, request: DeploymentRequest, *, override: bool = False,
-                 scaling: tuple[str, ...] = ()) -> Optional[dict]:
+    def validate(self, request: DeploymentRequest, *, override: bool = False) -> Optional[dict]:
         """POST /v1/deployments/validate: what the deploy of this body would answer, without the deploy - the same
         refusals as submit()'s, raised by the same mapping (a 404 is a refusal: a volume not uploaded), and on
         acceptance its answer {"ok", "name", "state", "contract"}. None when it cannot be asked (no answer) or its
@@ -197,7 +192,7 @@ class _GatewayDeployBackend:
         try:
             with self._client() as c:
                 r = c.post("/v1/deployments/validate", content=request.model_dump_json(exclude_none=True),
-                           params=_params(override, scaling))
+                           params=_params(override))
         except httpx.TransportError:
             return None
         raise_for(r)
@@ -223,10 +218,9 @@ class _GatewayDeployBackend:
             raise InternalError(f"gateway returned a malformed status for deployment {deployment_id!r}") from None
 
 
-def _params(override: bool, scaling: tuple[str, ...]) -> dict | None:
-    """The deploy's query: --override, and the scaling fields it sets on a deployment that runs."""
-    out = {**({"override": "true"} if override else {}), **({"scaling": ",".join(scaling)} if scaling else {})}
-    return out or None
+def _params(override: bool) -> dict | None:
+    """The deploy's query: --override."""
+    return {"override": "true"} if override else None
 
 
 def _api_key(api_key: str | None, base_url: str | None = None) -> Any:

@@ -16,13 +16,14 @@
 
 # pylint: disable=missing-docstring
 
-import os
 import pathlib
 import tempfile
 import shlex
 import sys
 
 import pytest
+
+import phonemizer
 
 from phonemizer.backend import EspeakMbrolaBackend, FestivalBackend
 from phonemizer import main, backend, logger
@@ -44,7 +45,7 @@ def _test(text, expected_output, args=''):
             output = foutput.read().decode()
 
         # silly fix for windows
-        assert output.replace('\r', '').strip(os.linesep) \
+        assert output.replace('\r', '').strip('\n') \
             == expected_output.replace('\r', '')
 
 
@@ -54,14 +55,37 @@ def test_help():
         main.main()
 
 
-def test_version():
+def test_version(capsys):
     sys.argv = ['foo', '--version']
     main.main()
+    # the version of the package, whatever its distribution name (see #209)
+    assert capsys.readouterr().out.startswith(
+        f'phonemizer-{phonemizer.__version__}\n')
 
 
-def test_list_languages():
+def test_list_languages(capsys):
     sys.argv = ['foo', '--list-languages']
     main.main()
+    out = capsys.readouterr().out
+    assert 'supported languages for espeak are:' in out
+    assert 'None' not in out
+
+
+def test_list_languages_missing_backend(monkeypatch):
+    # an optional backend not installed must not hide the others
+    class Backends(dict):
+        def __getitem__(self, key):
+            if key == 'segments':
+                raise ImportError('segments is not installed')
+            return super().__getitem__(key)
+
+    backends = Backends(main.BACKENDS.items())
+    monkeypatch.setattr(main, 'BACKENDS', backends)
+    out = main.list_languages(None)
+    assert 'supported languages for espeak are:' in out
+    assert 'segments backend is not installed' in out
+    with pytest.raises(ImportError):
+        main.list_languages('segments')
 
 
 def test_readme():
@@ -79,24 +103,27 @@ def test_readme_festival():
 
 
 @pytest.mark.skipif(
-    not FestivalBackend.is_available() or backend.FestivalBackend.version() <= (2, 1),
-    reason='festival not installed or is festival-2.1 (gives different results than further versions '
+    not FestivalBackend.is_available() or backend.FestivalBackend.version() < (2, 4),
+    reason='festival not installed or older than 2.4 (gives different results '
     'for syllable boundaries)')
 def test_readme_festival_syll():
+    # pylint: disable=import-outside-toplevel
+    from test.test_festival import HELLO
+    hello = ''.join(' '.join(syllable) + ' ;esyll ' for syllable in HELLO)
     _test('hello world',
-          'hh ax ;esyll l ow ;esyll ;eword w er l d ;esyll ;eword ',
+          f'{hello};eword w er l d ;esyll ;eword ',
           "-p ' ' -s ';esyll ' -w ';eword ' -b festival -l en-us")
 
 
 @pytest.mark.parametrize('njobs', [1, 6])
 def test_njobs(njobs):
     _test(
-        os.linesep.join((
+        '\n'.join((
             'hello world',
             'goodbye',
             'third line',
             'yet another')),
-        os.linesep.join((
+        '\n'.join((
             'h-ə-l-oʊ w-ɜː-l-d',
             'ɡ-ʊ-d-b-aɪ',
             'θ-ɜː-d l-aɪ-n',

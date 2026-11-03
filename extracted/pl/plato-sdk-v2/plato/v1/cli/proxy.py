@@ -19,7 +19,6 @@ import typer
 
 from plato._generated.api.v2.sessions import add_ssh_key as sessions_add_ssh_key
 from plato._generated.models import AddSSHKeyRequest
-from plato.utils.ssh import gateway_proxy_command
 from plato.v1.cli.ssh import generate_ssh_key_pair
 from plato.v1.cli.utils import console, get_http_client, get_sandbox_state, require_api_key, save_sandbox_state
 
@@ -201,7 +200,9 @@ def ssh(
     if no_verify:
         verify_flag = "-verify_quiet"
 
-    proxy_cmd = gateway_proxy_command(gateway_host, sni, port=gateway_port, verify_flag=verify_flag)
+    proxy_cmd = (
+        f"openssl s_client -quiet -connect {gateway_host}:{gateway_port} -servername {sni} {verify_flag} 2>/dev/null"
+    )
 
     # Build SSH command
     ssh_cmd = ["ssh", "-o", f"ProxyCommand={proxy_cmd}"]

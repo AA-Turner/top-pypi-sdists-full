@@ -6,7 +6,14 @@ import asyncio
 import concurrent.futures
 import datetime
 from functools import partial
-from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
+from collections.abc import (
+    Callable,
+    Generator,
+    Iterable,
+    Iterator,
+    Mapping,
+    Sequence,
+)
 from dataclasses import dataclass
 import json as _json
 import logging
@@ -29,9 +36,12 @@ import numpy as np
 
 from river_client import __version__
 from river_client.capacity import CapacityStatus, _CapacityMonitor
+from river_client.losses import LOSS_NAME as CUSTOM_LOSS_NAME
 from river_client.losses import CustomLoss, Loss
+from river_client._nested_codec import encoded_size as _nested_encoded_size
 from river_client._nested_codec import from_bytes as _nested_from_bytes
 from river_client._nested_codec import to_bytes as _nested_to_bytes
+from river_client._nested_codec import write_into as _nested_write_into
 from river_client._proto import pb2, pb2_grpc
 from river_client.images import (
     Image,
@@ -292,16 +302,14 @@ def _forward_backward_request_size(
 
 def _forward_backward_request_plan(
     request: pb2.ForwardBackwardRequest,
-    datums: Iterable[pb2.Datum],
+    datum_field_sizes: Iterable[int],
 ) -> _ForwardBackwardRequestPlan:
-    """Measure a datum stream without building one message containing all of it."""
+    """Plan a request from its datums' wire sizes (see ``_datum_field_size``)."""
     source_input = request.forward_backward_input
     if source_input.data:
         raise ValueError("forward/backward request plan requires an input without data")
     static_input_size = source_input.ByteSize()
-    datum_field_sizes = tuple(
-        _length_delimited_field_size(datum.ByteSize()) for datum in datums
-    )
+    datum_field_sizes = tuple(datum_field_sizes)
     total_size = _forward_backward_request_size(
         request,
         static_input_size=static_input_size,
@@ -321,10 +329,293 @@ def _forward_backward_request_plan(
     )
 
 
+def _wire_datum(sample: dict) -> dict:
+    """Return the Nested value a training sample is encoded as.
+
+    See ``Session._encode_datum`` for the two accepted sample forms.
+    """
+    if "model_input" in sample:
+        return _chunked_wire_datum(sample)
+    return _flat_wire_datum(sample)
+
+
+def _flat_wire_datum(sample: dict) -> dict:
+    """Encode the legacy flat (text-only) training datum.
+
+    Each value is converted to a numpy array (with dtype inference
+    on Python lists) so Nested produces compact array payloads.
+    """
+    input_ids = sample.get("input_ids")
+    if input_ids is None:
+        raise ValueError(
+            "Sample must have 'input_ids' (or 'model_input' for multimodal samples)"
+        )
+
+    datum_dict: dict = {}
+    for key, value in sample.items():
+        if value is None:
+            continue
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            # Nested has no native ``bytes`` type and ``np.array(b)``
+            # produces a ``|S<N>`` dtype the codec rejects. Convert
+            # to a 1-D ``uint8`` array (mirroring the image-chunks
+            # workaround); the worker side calls ``.tobytes()`` to
+            # recover the original bytes.
+            value = np.frombuffer(bytes(value), dtype=np.uint8)
+        elif not isinstance(value, np.ndarray):
+            if isinstance(value, list):
+                # Infer dtype from the first scalar leaf: float →
+                # float32, else int64.  Descend through nesting so a
+                # 2-D list (e.g. top-K cross_entropy ``weights`` of
+                # shape [T, K]) is typed by its elements, not
+                # mis-bucketed to int64 (which would silently
+                # truncate fractional weights to zero).
+                leaf = value[0] if value else None
+                while isinstance(leaf, list):
+                    leaf = leaf[0] if leaf else None
+                if isinstance(leaf, float):
+                    value = np.array(value, dtype=np.float32)
+                else:
+                    value = np.array(value, dtype=np.int64)
+            else:
+                value = np.array(value)
+        datum_dict[key] = value
+
+    if not isinstance(datum_dict["input_ids"], np.ndarray):
+        datum_dict["input_ids"] = np.array(datum_dict["input_ids"], dtype=np.int64)
+
+    if "attention_mask" not in datum_dict:
+        datum_dict["attention_mask"] = np.ones_like(datum_dict["input_ids"])
+
+    return datum_dict
+
+
+def _chunked_wire_datum(sample: dict) -> dict:
+    """Encode a multimodal (chunked) training datum.
+
+    ``model_input`` is a list of dicts that the Nested codec walks
+    natively (``_TAG_LIST`` of ``_TAG_DICT``). ``ImageChunk.data``
+    is converted from ``bytes`` to a 1-D ``uint8`` array since
+    Nested has no native ``bytes`` type; the worker reconstitutes
+    the bytes via ``.tobytes()`` before handing them to PIL.
+    """
+    chunks = sample["model_input"]
+    if not isinstance(chunks, list):
+        raise ValueError(
+            f"'model_input' must be a list of chunk dicts; got {type(chunks)!r}"
+        )
+
+    wire_chunks: list[dict] = []
+    for idx, chunk in enumerate(chunks):
+        if not isinstance(chunk, dict) or "type" not in chunk:
+            raise ValueError(
+                f"chunk[{idx}] must be a dict with a 'type' field; got {chunk!r}"
+            )
+        ctype = chunk["type"]
+        if ctype == "text":
+            tokens = chunk.get("tokens")
+            if tokens is None:
+                raise ValueError(f"text chunk[{idx}] missing 'tokens'")
+            wire_chunks.append(
+                {
+                    "type": "text",
+                    "tokens": np.asarray(tokens, dtype=np.int64),
+                }
+            )
+        elif ctype == "image":
+            data = chunk.get("data")
+            if isinstance(data, ImageHandle):
+                wire_data = {"image_handle": data.id}
+            elif isinstance(data, (bytes, bytearray)):
+                wire_data = {"data": np.frombuffer(bytes(data), dtype=np.uint8)}
+            elif isinstance(data, np.ndarray) and data.dtype == np.uint8:
+                wire_data = {"data": data}
+            else:
+                raise ValueError(
+                    f"image chunk[{idx}] 'data' must be bytes or "
+                    f"uint8 ndarray; got {type(data)!r}"
+                )
+            fmt = chunk.get("format", "png")
+            expected = int(chunk.get("expected_tokens", 0))
+            wire_chunks.append(
+                {
+                    "type": "image",
+                    **wire_data,
+                    "format": str(fmt),
+                    "expected_tokens": np.asarray(expected, dtype=np.int64),
+                }
+            )
+        else:
+            raise ValueError(
+                f"chunk[{idx}] has unsupported type {ctype!r} "
+                "(expected 'text' or 'image')"
+            )
+
+    datum_dict: dict = {"model_input": wire_chunks}
+    for key, value in sample.items():
+        if key == "model_input" or value is None:
+            continue
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            value = np.frombuffer(bytes(value), dtype=np.uint8)
+        elif not isinstance(value, np.ndarray):
+            if isinstance(value, list):
+                # Restored matrix columns are nested lists, as in the flat encoder.
+                leaf = value[0] if value else None
+                while isinstance(leaf, list):
+                    leaf = leaf[0] if leaf else None
+                if isinstance(leaf, float):
+                    value = np.array(value, dtype=np.float32)
+                else:
+                    value = np.array(value, dtype=np.int64)
+            else:
+                value = np.array(value)
+        datum_dict[key] = value
+
+    return datum_dict
+
+
+def _datum_field_size(wire: dict) -> int:
+    """Wire size of the ``ForwardBackwardInput.data`` entry that holds ``wire``."""
+    return _length_delimited_field_size(
+        _length_delimited_field_size(_nested_encoded_size(wire))
+    )
+
+
+def _put_varint(view: memoryview, offset: int, value: int) -> int:
+    while value >= 1 << 7:
+        view[offset] = (value & 0x7F) | 0x80
+        value >>= 7
+        offset += 1
+    view[offset] = value
+    return offset + 1
+
+
+def _data_changed() -> RiverError:
+    return RiverError(
+        "forward_backward data changed while the request was being prepared"
+    )
+
+
+# Tags of the length-delimited fields a serialized request is assembled from:
+# ForwardBackwardRequest.forward_backward_input (3), ForwardBackwardInput.data
+# (1) and Datum.data (1).
+_INPUT_FIELD_TAG = 3 << 3 | 2
+_DATA_FIELD_TAG = 1 << 3 | 2
+
+
+@dataclass
+class _ForwardBackwardPiece:
+    """One forward/backward request whose datums are encoded only when sent.
+
+    ``request`` holds every setting except the data; callers may change its
+    sequence ID and ``init_gradients`` before sending. Each sample is encoded
+    once, directly into the outgoing message or buffer, so the request is never
+    held both as raw samples and as an encoded copy.
+    """
+
+    request: pb2.ForwardBackwardRequest
+    data: Sequence[dict]
+    datum_field_sizes: tuple[int, ...]
+    strip_routing: bool = False
+
+    @property
+    def size(self) -> int:
+        return _forward_backward_request_size(
+            self.request,
+            static_input_size=self.request.forward_backward_input.ByteSize(),
+            datum_field_size=sum(self.datum_field_sizes),
+        )
+
+    def without_routing(self) -> _ForwardBackwardPiece:
+        """The same request with trainer-computed routing and no flip metric."""
+        request = pb2.ForwardBackwardRequest()
+        request.CopyFrom(self.request)
+        request.forward_backward_input.force_routing_replay = ""
+        request.forward_backward_input.compute_expert_flip_metric = False
+        piece = _ForwardBackwardPiece(request, self.data, (), strip_routing=True)
+        piece.datum_field_sizes = tuple(
+            _datum_field_size(piece._wire(sample)) for sample in self.data
+        )
+        return piece
+
+    def message(self) -> pb2.ForwardBackwardRequest:
+        message = pb2.ForwardBackwardRequest()
+        message.CopyFrom(self.request)
+        data = message.forward_backward_input.data
+        for wire, _ in self._wires():
+            data.add(data=_nested_to_bytes(wire))
+        return message
+
+    def serialize(self) -> bytearray:
+        """Return the serialized request, writing each datum in place."""
+        head = pb2.ForwardBackwardRequest()
+        tail = pb2.ForwardBackwardRequest()
+        for field, value in self.request.ListFields():
+            if field.number != 3:
+                setattr(head if field.number < 3 else tail, field.name, value)
+        head_bytes, tail_bytes = head.SerializeToString(), tail.SerializeToString()
+        static = self.request.forward_backward_input.SerializeToString()
+        input_size = sum(self.datum_field_sizes) + len(static)
+        buffer = bytearray(
+            len(head_bytes) + _length_delimited_field_size(input_size) + len(tail_bytes)
+        )
+        view = memoryview(buffer)
+        offset = len(head_bytes)
+        view[:offset] = head_bytes
+        view[offset] = _INPUT_FIELD_TAG
+        offset = _put_varint(view, offset + 1, input_size)
+        for wire, size in self._wires():
+            view[offset] = _DATA_FIELD_TAG
+            offset = _put_varint(view, offset + 1, _length_delimited_field_size(size))
+            view[offset] = _DATA_FIELD_TAG
+            offset = _put_varint(view, offset + 1, size)
+            offset = _nested_write_into(view, offset, wire)
+        for raw in (static, tail_bytes):
+            view[offset : offset + len(raw)] = raw
+            offset += len(raw)
+        if offset != len(buffer):
+            raise _data_changed()
+        return buffer
+
+    def _wire(self, sample: dict) -> dict:
+        wire = _wire_datum(sample)
+        if self.strip_routing:
+            wire = {
+                k: v for k, v in wire.items() if not k.startswith("expert_routing_")
+            }
+        return wire
+
+    def _wires(self) -> Iterator[tuple[dict, int]]:
+        """Yield each sample's wire value and payload size, as planned."""
+        if len(self.data) != len(self.datum_field_sizes):
+            raise _data_changed()
+        for sample, planned in zip(self.data, self.datum_field_sizes, strict=True):
+            wire = self._wire(sample)
+            size = _nested_encoded_size(wire)
+            if (
+                _length_delimited_field_size(_length_delimited_field_size(size))
+                != planned
+            ):
+                raise _data_changed()
+            yield wire, size
+
+
+def _sendable(
+    piece: _ForwardBackwardPiece,
+) -> pb2.ForwardBackwardRequest | _ForwardBackwardPiece:
+    """Requests under the upload threshold go inline as one message."""
+    return piece.message() if piece.size < _UPLOAD_THRESHOLD_BYTES else piece
+
+
 def _merge_forward_backward_sub_batch_results(
-    results: list[ForwardResult], chunk_sizes: list[int]
+    results: list[ForwardResult], chunk_sizes: list[int], *, custom: bool = False
 ) -> ForwardResult:
-    """Restore the logical batch's result from sequential sub-batches."""
+    """Restore the logical batch's result from sequential sub-batches.
+
+    A custom loss (``custom``) reduces within each example and reports the
+    sum over the request's examples as ``loss`` and its declared ``custom/``
+    metrics, so those add across sub-batches.
+    """
     if not results:
         raise RiverError("forward_backward sub-batch plan was empty")
     if len(results) == 1:
@@ -343,10 +634,18 @@ def _merge_forward_backward_sub_batch_results(
         if values:
             metrics[key] = max(values)
 
-    # The server reports loss as its sum-loss divided by the number of valid
-    # datums. A failing datum fails the whole sub-request, so the submitted
-    # datum count is the correct denominator for every successful result.
-    if all("loss" in result.metrics for result in results):
+    if custom:
+        for key in {
+            key
+            for result in results
+            for key in result.metrics
+            if key == "loss" or key.startswith("custom/")
+        }:
+            metrics[key] = math.fsum(result.metrics.get(key, 0.0) for result in results)
+    # The server reports a built-in loss as its sum-loss divided by the number
+    # of valid datums. A failing datum fails the whole sub-request, so the
+    # submitted datum count is the correct denominator for every result.
+    elif all("loss" in result.metrics for result in results):
         total_items = sum(chunk_sizes)
         metrics["loss"] = (
             sum(
@@ -1395,7 +1694,7 @@ class Model:
     def get_server_capabilities(self) -> ServerCapabilities:
         """Read the endpoint's public protocol support (used by RL preflight)."""
         capabilities = self._session._client.get_server_capabilities(
-            model_name=self._requested_base_model
+            model_name=self._requested_base_model, full_weight=self._full_weight
         )
         if self._requested_base_model == self.base_model:
             return capabilities
@@ -1514,14 +1813,14 @@ class Model:
             raise ValueError(
                 "custom loss constants belong in the callable, not loss_fn_config"
             )
-        from ._loss_capture import LOSS_NAME, encode_custom_loss_batch
+        from ._loss_capture import encode_custom_loss_batch
 
         prepared = encode_custom_loss_batch(
             data,
             inputs=custom.inputs,
             graph=custom._graph,
         )
-        return prepared, LOSS_NAME, loss_config
+        return prepared, CUSTOM_LOSS_NAME, loss_config
 
     # --- Training operations ---
 
@@ -1637,7 +1936,8 @@ class Model:
         sub-batch, so the total operation can take up to the number of chunks
         times ``timeout``. Split requests return only metrics the client can
         combine exactly across sub-batches; per-sub-batch-only metrics are
-        omitted.
+        omitted. A CustomLoss reduces within each example, so its split
+        ``loss`` and ``custom/`` metrics are sums over every sub-batch.
         """
         data, loss_fn, loss_config = self._encode_loss_request(
             data, loss_fn, loss_config
@@ -1659,7 +1959,6 @@ class Model:
             chunk = self._session._single_forward_backward_chunk(request, data, plan)
             result = self._submit_forward_backward_request(
                 chunk,
-                request_size=chunk.ByteSize(),
                 timeout=timeout,
                 allow_routing_fallback=allow_routing_fallback,
             ).result()
@@ -1819,7 +2118,6 @@ class Model:
         chunk = self._session._single_forward_backward_chunk(request, data, plan)
         fb, optim = self._submit_train_step_from_forward_backward_request(
             chunk,
-            request_size=chunk.ByteSize(),
             lr=lr,
             beta1=beta1,
             beta2=beta2,
@@ -1881,8 +2179,8 @@ class Model:
             force_routing_replay=force_routing_replay,
         )
         if plan.maximum_total_size > _FORWARD_BACKWARD_SUB_BATCH_BYTES:
-            # Repacked custom losses were rejected above; these slices index
-            # the caller's original datums, not a transformed batch.
+            # Custom-loss encoding keeps one datum per example, so these
+            # slices index the caller's datums.
             raise _ForwardBackwardNeedsSubBatches(
                 "forward_backward batch exceeds the 1 GiB upload limit; use "
                 "forward_backward() so the client can submit accumulated "
@@ -1893,7 +2191,6 @@ class Model:
         chunk = self._session._single_forward_backward_chunk(request, data, plan)
         return self._submit_forward_backward_request(
             chunk,
-            request_size=chunk.ByteSize(),
             timeout=timeout,
             allow_routing_fallback=allow_routing_fallback,
         )
@@ -1925,52 +2222,30 @@ class Model:
         if expected_policy_id is not None:
             request.expected_policy_id = expected_policy_id
         plan = self._session._plan_forward_backward_request(request, data)
-        if (
-            loss_fn == "loss_graph_v1"
-            and plan.maximum_total_size > _FORWARD_BACKWARD_SUB_BATCH_BYTES
-        ):
-            raise RiverError(
-                "custom loss exceeds the 1 GiB upload limit; automatic request splitting "
-                "is not implemented. Submit smaller batches of complete examples."
-            )
         return request, plan
 
     def _submit_forward_backward_request(
         self,
-        request: pb2.ForwardBackwardRequest,
+        piece: _ForwardBackwardPiece,
         *,
-        request_size: int,
         timeout: float,
         allow_routing_fallback: bool = False,
     ) -> PendingOp:
         try:
             request_id = self._session._submit_forward_backward_request(
-                request, request_size=request_size, timeout=timeout
+                _sendable(piece), request_size=piece.size, timeout=timeout
             )
         except RiverConnectionError as error:
             if not (
                 allow_routing_fallback
-                and request.forward_backward_input.force_routing_replay
+                and piece.request.forward_backward_input.force_routing_replay
                 and _routing_capture_unavailable(error)
             ):
                 raise
             # No request was admitted, so reuse its sequence ID and gradient
             # reset flag. Never retry after PendingOp.result(): GPU work may
             # already have run. This also keeps earlier upload chunks intact.
-            fallback = pb2.ForwardBackwardRequest()
-            fallback.CopyFrom(request)
-            fb = fallback.forward_backward_input
-            fb.force_routing_replay = ""
-            fb.compute_expert_flip_metric = False
-            for datum in fb.data:
-                values = _nested_from_bytes(datum.data)
-                datum.data = _nested_to_bytes(
-                    {
-                        k: v
-                        for k, v in values.items()
-                        if not k.startswith("expert_routing_")
-                    }
-                )
+            fallback = piece.without_routing()
             warnings.warn(
                 "Saved routing captures are unavailable; retrying this backward "
                 "request with trainer-computed routing and no expert-flip metric.",
@@ -1978,7 +2253,7 @@ class Model:
                 stacklevel=2,
             )
             request_id = self._session._submit_forward_backward_request(
-                fallback, request_size=fallback.ByteSize(), timeout=timeout
+                _sendable(fallback), request_size=fallback.size, timeout=timeout
             )
         return PendingOp(
             request_id=request_id,
@@ -2002,18 +2277,21 @@ class Model:
         for chunk_index, (chunk, chunk_size) in enumerate(
             self._session._iter_forward_backward_sub_batches(request, data, plan)
         ):
-            chunk.seq_id = self._next_seq_id()
+            chunk.request.seq_id = self._next_seq_id()
             if chunk_index:
-                chunk.forward_backward_input.init_gradients = False
+                chunk.request.forward_backward_input.init_gradients = False
             result = self._submit_forward_backward_request(
                 chunk,
-                request_size=chunk.ByteSize(),
                 timeout=timeout,
                 allow_routing_fallback=allow_routing_fallback,
             ).result()
             results.append(cast("ForwardResult", result))
             chunk_sizes.append(chunk_size)
-        return _merge_forward_backward_sub_batch_results(results, chunk_sizes)
+        return _merge_forward_backward_sub_batch_results(
+            results,
+            chunk_sizes,
+            custom=request.forward_backward_input.loss_fn == CUSTOM_LOSS_NAME,
+        )
 
     def submit_optim_step(
         self,
@@ -2121,7 +2399,6 @@ class Model:
         chunk = self._session._single_forward_backward_chunk(request, data, plan)
         return self._submit_train_step_from_forward_backward_request(
             chunk,
-            request_size=chunk.ByteSize(),
             lr=lr,
             beta1=beta1,
             beta2=beta2,
@@ -2148,9 +2425,8 @@ class Model:
 
     def _submit_train_step_from_forward_backward_request(
         self,
-        request: pb2.ForwardBackwardRequest,
+        request: _ForwardBackwardPiece,
         *,
-        request_size: int,
         lr: float,
         beta1: float,
         beta2: float,
@@ -2159,9 +2435,7 @@ class Model:
         grad_clip_norm: float | None,
         timeout: float,
     ) -> tuple[PendingOp, PendingOp]:
-        fb = self._submit_forward_backward_request(
-            request, request_size=request_size, timeout=timeout
-        )
+        fb = self._submit_forward_backward_request(request, timeout=timeout)
         optim = self.submit_optim_step(
             lr,
             beta1=beta1,
@@ -2792,10 +3066,12 @@ class Session:
                 self._sampling_capability_stub = stub
 
     def get_server_capabilities(
-        self, *, model_name: str | None = None
+        self, *, model_name: str | None = None, full_weight: bool | None = None
     ) -> ServerCapabilities:
         """Read protocol support, optionally for one authorized model."""
-        return self._client.get_server_capabilities(model_name=model_name)
+        return self._client.get_server_capabilities(
+            model_name=model_name, full_weight=full_weight
+        )
 
     @property
     def _live_stub(self) -> pb2_grpc.RiverServiceStub:
@@ -3115,7 +3391,13 @@ class Session:
 
         # Send request and wait for result
         response = self._client._rpc_with_retry(
-            lambda: self._live_stub.CreateModel(req, metadata=self._live_metadata),
+            lambda: self._live_stub.CreateModel(
+                req,
+                metadata=[
+                    *self._live_metadata,
+                    ("x-river-training-mode", "full_weight" if full_weight else "lora"),
+                ],
+            ),
             context="Creating model",
             heartbeat_check=self._check_heartbeat_health,
         )
@@ -3647,144 +3929,13 @@ class Session:
         ``advantages`` for RL losses) are passed through in both
         forms.
         """
-        if "model_input" in sample:
-            return self._encode_chunked_datum(sample)
-        return self._encode_flat_datum(sample)
+        return pb2.Datum(data=_nested_to_bytes(_wire_datum(sample)))
 
     def _encode_flat_datum(self, sample: dict) -> pb2.Datum:
-        """Encode the legacy flat (text-only) training datum.
-
-        Each value is converted to a numpy array (with dtype inference
-        on Python lists) so Nested produces compact array payloads.
-        """
-        input_ids = sample.get("input_ids")
-        if input_ids is None:
-            raise ValueError(
-                "Sample must have 'input_ids' (or 'model_input' for multimodal samples)"
-            )
-
-        datum_dict: dict = {}
-        for key, value in sample.items():
-            if value is None:
-                continue
-            if isinstance(value, (bytes, bytearray, memoryview)):
-                # Nested has no native ``bytes`` type and ``np.array(b)``
-                # produces a ``|S<N>`` dtype the codec rejects. Convert
-                # to a 1-D ``uint8`` array (mirroring the image-chunks
-                # workaround); the worker side calls ``.tobytes()`` to
-                # recover the original bytes.
-                value = np.frombuffer(bytes(value), dtype=np.uint8)
-            elif not isinstance(value, np.ndarray):
-                if isinstance(value, list):
-                    # Infer dtype from the first scalar leaf: float →
-                    # float32, else int64.  Descend through nesting so a
-                    # 2-D list (e.g. top-K cross_entropy ``weights`` of
-                    # shape [T, K]) is typed by its elements, not
-                    # mis-bucketed to int64 (which would silently
-                    # truncate fractional weights to zero).
-                    leaf = value[0] if value else None
-                    while isinstance(leaf, list):
-                        leaf = leaf[0] if leaf else None
-                    if isinstance(leaf, float):
-                        value = np.array(value, dtype=np.float32)
-                    else:
-                        value = np.array(value, dtype=np.int64)
-                else:
-                    value = np.array(value)
-            datum_dict[key] = value
-
-        if not isinstance(datum_dict["input_ids"], np.ndarray):
-            datum_dict["input_ids"] = np.array(datum_dict["input_ids"], dtype=np.int64)
-
-        if "attention_mask" not in datum_dict:
-            datum_dict["attention_mask"] = np.ones_like(datum_dict["input_ids"])
-
-        encoded = _nested_to_bytes(datum_dict)
-        return pb2.Datum(data=encoded)
+        return pb2.Datum(data=_nested_to_bytes(_flat_wire_datum(sample)))
 
     def _encode_chunked_datum(self, sample: dict) -> pb2.Datum:
-        """Encode a multimodal (chunked) training datum.
-
-        ``model_input`` is a list of dicts that the Nested codec walks
-        natively (``_TAG_LIST`` of ``_TAG_DICT``). ``ImageChunk.data``
-        is converted from ``bytes`` to a 1-D ``uint8`` array since
-        Nested has no native ``bytes`` type; the worker reconstitutes
-        the bytes via ``.tobytes()`` before handing them to PIL.
-        """
-        chunks = sample["model_input"]
-        if not isinstance(chunks, list):
-            raise ValueError(
-                f"'model_input' must be a list of chunk dicts; got {type(chunks)!r}"
-            )
-
-        wire_chunks: list[dict] = []
-        for idx, chunk in enumerate(chunks):
-            if not isinstance(chunk, dict) or "type" not in chunk:
-                raise ValueError(
-                    f"chunk[{idx}] must be a dict with a 'type' field; got {chunk!r}"
-                )
-            ctype = chunk["type"]
-            if ctype == "text":
-                tokens = chunk.get("tokens")
-                if tokens is None:
-                    raise ValueError(f"text chunk[{idx}] missing 'tokens'")
-                wire_chunks.append(
-                    {
-                        "type": "text",
-                        "tokens": np.asarray(tokens, dtype=np.int64),
-                    }
-                )
-            elif ctype == "image":
-                data = chunk.get("data")
-                if isinstance(data, ImageHandle):
-                    wire_data = {"image_handle": data.id}
-                elif isinstance(data, (bytes, bytearray)):
-                    wire_data = {"data": np.frombuffer(bytes(data), dtype=np.uint8)}
-                elif isinstance(data, np.ndarray) and data.dtype == np.uint8:
-                    wire_data = {"data": data}
-                else:
-                    raise ValueError(
-                        f"image chunk[{idx}] 'data' must be bytes or "
-                        f"uint8 ndarray; got {type(data)!r}"
-                    )
-                fmt = chunk.get("format", "png")
-                expected = int(chunk.get("expected_tokens", 0))
-                wire_chunks.append(
-                    {
-                        "type": "image",
-                        **wire_data,
-                        "format": str(fmt),
-                        "expected_tokens": np.asarray(expected, dtype=np.int64),
-                    }
-                )
-            else:
-                raise ValueError(
-                    f"chunk[{idx}] has unsupported type {ctype!r} "
-                    "(expected 'text' or 'image')"
-                )
-
-        datum_dict: dict = {"model_input": wire_chunks}
-        for key, value in sample.items():
-            if key == "model_input" or value is None:
-                continue
-            if isinstance(value, (bytes, bytearray, memoryview)):
-                value = np.frombuffer(bytes(value), dtype=np.uint8)
-            elif not isinstance(value, np.ndarray):
-                if isinstance(value, list):
-                    # Restored matrix columns are nested lists, as in the flat encoder.
-                    leaf = value[0] if value else None
-                    while isinstance(leaf, list):
-                        leaf = leaf[0] if leaf else None
-                    if isinstance(leaf, float):
-                        value = np.array(value, dtype=np.float32)
-                    else:
-                        value = np.array(value, dtype=np.int64)
-                else:
-                    value = np.array(value)
-            datum_dict[key] = value
-
-        encoded = _nested_to_bytes(datum_dict)
-        return pb2.Datum(data=encoded)
+        return pb2.Datum(data=_nested_to_bytes(_chunked_wire_datum(sample)))
 
     def _forward(
         self,
@@ -3855,11 +4006,9 @@ class Session:
                 "Model.forward_backward() so the client can submit accumulated "
                 "sub-batches sequentially"
             )
-        request = self._single_forward_backward_chunk(request, data, plan)
+        piece = self._single_forward_backward_chunk(request, data, plan)
         return self._submit_forward_backward_request(
-            request,
-            request_size=request.ByteSize(),
-            timeout=timeout,
+            _sendable(piece), request_size=piece.size, timeout=timeout
         )
 
     def _build_forward_backward_request(
@@ -3906,22 +4055,21 @@ class Session:
         request: pb2.ForwardBackwardRequest,
         data: list[dict],
     ) -> _ForwardBackwardRequestPlan:
-        """Measure raw samples without constructing one batch-sized protobuf.
+        """Measure raw samples' wire sizes without encoding them.
 
-        Planning and chunk construction both encode each datum. That intentional
-        two-pass trade-off keeps peak memory bounded by the raw batch plus one
-        sub-batch instead of retaining a second, fully encoded multi-GiB batch.
+        Each datum is encoded once, when its sub-batch is sent, so memory stays
+        bounded by the raw batch plus one sub-batch.
         """
         return _forward_backward_request_plan(
-            request, (self._encode_datum(datum) for datum in data)
+            request, (_datum_field_size(_wire_datum(datum)) for datum in data)
         )
 
     def _single_forward_backward_chunk(
         self,
         request: pb2.ForwardBackwardRequest,
-        data: list[dict],
+        data: Sequence[dict],
         plan: _ForwardBackwardRequestPlan,
-    ) -> pb2.ForwardBackwardRequest:
+    ) -> _ForwardBackwardPiece:
         """Build the one expected chunk and verify planning did not split it."""
         chunks = self._iter_forward_backward_sub_batches(request, data, plan)
         chunk, _ = next(chunks)
@@ -3933,12 +4081,12 @@ class Session:
 
     def _submit_forward_backward_request(
         self,
-        request: pb2.ForwardBackwardRequest,
+        request: pb2.ForwardBackwardRequest | _ForwardBackwardPiece,
         *,
         request_size: int | None = None,
         timeout: float | None,
     ) -> str:
-        """Send an already encoded forward/backward request."""
+        """Send a forward/backward request, uploading large bodies in chunks."""
         req = self._maybe_upload_request(request, request_size=request_size)
         response = self._client._rpc_with_retry(
             lambda: self._live_stub.ForwardBackward(
@@ -3952,10 +4100,10 @@ class Session:
     def _iter_forward_backward_sub_batches(
         self,
         request: pb2.ForwardBackwardRequest,
-        data: list[dict],
+        data: Sequence[dict],
         plan: _ForwardBackwardRequestPlan,
-    ) -> Iterator[tuple[pb2.ForwardBackwardRequest, int]]:
-        """Encode raw samples into request-sized chunks one at a time."""
+    ) -> Iterator[tuple[_ForwardBackwardPiece, int]]:
+        """Split samples into request-sized pieces; nothing is encoded yet."""
         source_input = request.forward_backward_input
 
         def new_chunk() -> pb2.ForwardBackwardRequest:
@@ -3971,38 +4119,17 @@ class Session:
                 chunk.seq_id = request.seq_id
             return chunk
 
-        data_iterator = iter(data)
+        if len(data) != len(plan.datum_field_sizes):
+            raise _data_changed()
         for sub_batch in plan.sub_batch_slices(request):
-            chunk = new_chunk()
-            for planned_datum_field_size in plan.datum_field_sizes[sub_batch]:
-                try:
-                    raw_datum = next(data_iterator)
-                except StopIteration as error:
-                    raise RiverError(
-                        "forward_backward data changed while the request was being prepared"
-                    ) from error
-                datum = self._encode_datum(raw_datum)
-                if (
-                    _length_delimited_field_size(datum.ByteSize())
-                    != planned_datum_field_size
-                ):
-                    raise RiverError(
-                        "forward_backward data changed while the request was being prepared"
-                    )
-                chunk.forward_backward_input.data.append(datum)
-            yield chunk, sub_batch.stop - sub_batch.start
-
-        try:
-            next(data_iterator)
-        except StopIteration:
-            return
-        raise RiverError(
-            "forward_backward data changed while the request was being prepared"
-        )
+            piece = _ForwardBackwardPiece(
+                new_chunk(), data[sub_batch], plan.datum_field_sizes[sub_batch]
+            )
+            yield piece, sub_batch.stop - sub_batch.start
 
     def _maybe_upload_request(
         self,
-        req: pb2.ForwardBackwardRequest,
+        req: pb2.ForwardBackwardRequest | _ForwardBackwardPiece,
         *,
         request_size: int | None = None,
     ) -> pb2.ForwardBackwardRequest:
@@ -4018,24 +4145,38 @@ class Session:
         predate the upload API (UNIMPLEMENTED), use the inline path. Set
         ``RIVER_REQUIRE_CHUNKED_UPLOAD=1`` to fail instead of falling back
         inline when a request crosses the threshold.
+
+        A ``_ForwardBackwardPiece`` is serialized straight into the upload body,
+        or built as a message only when it is sent inline.
         """
+        piece = req if isinstance(req, _ForwardBackwardPiece) else None
+        envelope = req if piece is None else piece.request
+
+        def inline() -> pb2.ForwardBackwardRequest:
+            return req if piece is None else piece.message()
+
         if self._client._chunked_upload_unsupported:
             if _REQUIRE_CHUNKED_UPLOAD:
                 raise RiverConnectionError(
                     "Chunked upload is required but this API server does not support it",
                     status_code="UNIMPLEMENTED",
                 )
-            return req
-        size = req.ByteSize() if request_size is None else request_size
+            return inline()
+        if request_size is not None:
+            size = request_size
+        elif piece is not None:
+            size = piece.size
+        else:
+            size = req.ByteSize()
         if size < _UPLOAD_THRESHOLD_BYTES:
-            return req
+            return inline()
         chunk_bytes = max(_UPLOAD_CHUNK_BYTES, -(-size // _UPLOAD_MAX_CHUNKS))
         chunk_count = -(-size // chunk_bytes)
         try:
             created = self._client._rpc(
                 lambda: self._live_stub.CreateUpload(
                     pb2.CreateUploadRequest(
-                        model_id=req.model_id,
+                        model_id=envelope.model_id,
                         total_size=size,
                         chunk_count=chunk_count,
                     ),
@@ -4048,7 +4189,7 @@ class Session:
                 self._client._chunked_upload_unsupported = True
                 if _REQUIRE_CHUNKED_UPLOAD:
                     raise
-                return req
+                return inline()
             if _REQUIRE_CHUNKED_UPLOAD:
                 raise
             # Chunking is an optimization: a failed session bootstrap (e.g.
@@ -4058,8 +4199,12 @@ class Session:
             _logger.warning(
                 "Chunked upload unavailable (%s); sending request inline", error
             )
-            return req
-        body = req.SerializeToString()
+            return inline()
+        body = memoryview(
+            req.SerializeToString() if piece is None else piece.serialize()
+        )
+        if len(body) != size:
+            raise _data_changed()
         parallelism = max(
             1,
             min(
@@ -4074,7 +4219,7 @@ class Session:
             chunk = pb2.UploadChunkRequest(
                 upload_id=created.upload_id,
                 chunk_index=index,
-                data=body[index * chunk_bytes : (index + 1) * chunk_bytes],
+                data=bytes(body[index * chunk_bytes : (index + 1) * chunk_bytes]),
             )
             for attempt in range(_UPLOAD_CHUNK_RETRIES):
                 try:
@@ -4091,27 +4236,29 @@ class Session:
                         ) from None
                     time.sleep(min(2.0 * (attempt + 1), 8.0))
 
-        # More workers than connections: chunks assigned to the same
-        # connection run as concurrent HTTP/2 streams, so one chunk's wire
-        # transfer overlaps the previous chunk's server-side storage write.
-        # With one stream per connection the pipe would sit idle for the
-        # duration of every storage write.
+        # Two workers per connection: chunks assigned to the same connection
+        # run as concurrent HTTP/2 streams, so one chunk's wire transfer
+        # overlaps the previous chunk's server-side storage write. With one
+        # stream per connection the pipe would sit idle for the duration of
+        # every storage write. Each worker holds one chunk's copy of the body.
         try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=chunk_count) as pool:
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=min(chunk_count, 2 * parallelism)
+            ) as pool:
                 list(pool.map(send, range(chunk_count)))
         except RiverConnectionError as error:
             if _REQUIRE_CHUNKED_UPLOAD:
                 raise
             # Same principle as above; the abandoned session expires on TTL.
             _logger.warning("Chunked upload failed (%s); sending request inline", error)
-            return req
+            return inline()
         thin = pb2.ForwardBackwardRequest(
-            model_id=req.model_id, upload_id=created.upload_id
+            model_id=envelope.model_id, upload_id=created.upload_id
         )
-        if req.HasField("expected_policy_id"):
-            thin.expected_policy_id = req.expected_policy_id
-        if req.HasField("seq_id"):
-            thin.seq_id = req.seq_id
+        if envelope.HasField("expected_policy_id"):
+            thin.expected_policy_id = envelope.expected_policy_id
+        if envelope.HasField("seq_id"):
+            thin.seq_id = envelope.seq_id
         return thin
 
     def _submit_optim_step(
@@ -5378,17 +5525,31 @@ class Client:
         return list(self.get_server_capabilities().supported_models)
 
     def get_server_capabilities(
-        self, *, model_name: str | None = None
+        self, *, model_name: str | None = None, full_weight: bool | None = None
     ) -> ServerCapabilities:
         """Read public feature contracts, optionally for one authorized model.
 
         This checks protocol support, not current model capacity or queue state.
         Results are fetched fresh so a new run detects an endpoint change.
+        Set full_weight to select one training mode; None keeps the endpoint's
+        default discovery. Older servers ignore this selection and return their
+        existing conservative capabilities. Mode-aware servers advertise
+        training_mode_capabilities_v1. Model handles select their mode for you.
         """
+
+        def metadata():
+            headers = self._get_metadata()
+            if full_weight is not None:
+                headers = [
+                    *headers,
+                    ("x-river-training-mode", "full_weight" if full_weight else "lora"),
+                ]
+            return headers
+
         response = self._rpc(
             lambda: self._get_stub().GetServerCapabilities(
                 pb2.GetServerCapabilitiesRequest(model_name=model_name or ""),
-                metadata=self._get_metadata(),
+                metadata=metadata(),
                 timeout=self._timeout,
             ),
             context="Get capabilities",

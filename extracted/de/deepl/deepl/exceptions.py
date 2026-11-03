@@ -29,7 +29,14 @@ class DeepLException(Exception):
 
 
 class AuthorizationException(DeepLException):
-    """Authorization failed, check your authentication key."""
+    """Authorization failed (HTTP 401 or 403), check your authentication
+    key."""
+
+    pass
+
+
+class NotFoundException(DeepLException):
+    """The requested resource was not found (HTTP 404)."""
 
     pass
 
@@ -69,14 +76,31 @@ class DocumentTranslationException(DeepLException):
     """Error occurred while translating document.
 
     :param message: Message describing the error that occurred.
-    :param document_handle: The document handle of the associated document.
+    :param document_handle: The document handle of the associated document,
+        or None if the error occurred before the document was uploaded.
+    :param should_retry: True if the request would normally be retried
+        following this error; copied from a DeepLException cause.
+    :param http_status_code: The HTTP status code of a DeepLException cause,
+        if it has one, otherwise None.
     """
 
-    def __init__(self, message: str, document_handle: DocumentHandle):
-        super().__init__(message)
+    def __init__(
+        self,
+        message: str,
+        document_handle: Optional[DocumentHandle],
+        should_retry: bool = False,
+        http_status_code: Optional[int] = None,
+    ):
+        super().__init__(
+            message,
+            should_retry=should_retry,
+            http_status_code=http_status_code,
+        )
         self.document_handle = document_handle
 
     def __str__(self):
+        if self.document_handle is None:
+            return super().__str__()
         return f"{super().__str__()}, document handle: {self.document_handle}"
 
     @property
@@ -90,8 +114,13 @@ class DocumentTranslationException(DeepLException):
         return self.document_handle
 
 
-class GlossaryNotFoundException(DeepLException):
-    """The specified glossary was not found."""
+class GlossaryNotFoundException(NotFoundException):
+    """The specified glossary was not found.
+
+    .. deprecated::
+        Catch NotFoundException instead, which is raised for every HTTP 404.
+        This subclass will be removed in the next major version.
+    """
 
     pass
 

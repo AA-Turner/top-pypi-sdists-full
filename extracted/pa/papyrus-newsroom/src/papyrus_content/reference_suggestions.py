@@ -5,12 +5,17 @@ See docs/idea-context-packs.md section 3.2. The Reference's own ``reference_summ
 filters. How many neighbours to keep is decided by the largest drop between consecutive similarities (the knee) unless a
 caller supplies a calibrated cut. Every kept neighbour is written as a ``suggested`` row; a person's earlier decision is never
 overwritten and a rejected neighbour is never offered again.
+
+The Reference being suggested for may be accepted or still pending: a pending Reference has a ``reference_summary`` vector too (context only, marked
+``curationStatus: pending``), and the Related section for it is filled from that vector. The neighbours are always accepted References: pending vectors are in
+the index but this module never queries them, so a pending Reference is never suggested as related to another.
 """
 
 from __future__ import annotations
 
 from typing import Any, Callable, Protocol
 
+from papyrus_knowledge_query.concept_kinds import is_concept
 from papyrus_knowledge_query.vector_index import reference_summary_vector_key
 
 from .reference_links import RELATED_TO, link_concept, link_references
@@ -20,6 +25,7 @@ SUGGESTION_ACTOR = "auto:vector"
 SUGGESTION_CLASSIFIER_ID = "vector:text-embedding-3-small"
 S3_VECTORS_MAX_TOP_K = 100
 REFERENCE_SUMMARY_VECTOR_KIND = "reference_summary"
+NEIGHBOUR_STATUS = "accepted"   # only accepted References are offered as neighbours; pending ones are indexed so they can be the query, never the answer
 CONCEPT_VECTOR_KINDS = ("concept_card", "ontology_concept_profile")
 EXCLUDED_RELATION_STATES = ("current", "rejected")
 
@@ -108,6 +114,7 @@ def suggest_for(
     dry_run: bool = False,
     actor: str = SUGGESTION_ACTOR,
     now: str | None = None,
+    concept_kinds: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     """Suggests related References and concepts for one Reference, given by record id or lineage id.
 
@@ -134,7 +141,7 @@ def suggest_for(
 
     reference_clauses: list[dict[str, Any]] = [
         {"vectorKind": {"$eq": REFERENCE_SUMMARY_VECTOR_KIND}},
-        {"curationStatus": {"$eq": "accepted"}},
+        {"curationStatus": {"$eq": NEIGHBOUR_STATUS}},
     ]
     if corpus:
         reference_clauses.append({"corpusId": {"$eq": corpus}})
@@ -151,6 +158,8 @@ def suggest_for(
         result["references"].append(_kept(candidate, outcome, calibration, "reference"))
 
     concept_matches = vector_provider.query_by_vector(query_vector, S3_VECTORS_MAX_TOP_K, {"vectorKind": {"$in": list(CONCEPT_VECTOR_KINDS)}})
+    # A card written before bookkeeping nodes were left out may still be in the index (the router cannot delete vectors): not a concept to offer.
+    concept_matches = [match for match in concept_matches if is_concept((match.get("metadata") or {}).get("nodeKind"), (match.get("metadata") or {}).get("nodeKey"), concept_kinds)]
     concepts = _best_by_lineage(concept_matches, _concept_lineage, excluded)
     choose_count = cut or (calibration.cut("concept", knee_cut_count) if calibration is not None else None) or knee_cut_count
     for candidate in concepts[: choose_count([c["similarity"] for c in concepts])]:

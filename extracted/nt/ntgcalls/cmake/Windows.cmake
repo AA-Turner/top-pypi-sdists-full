@@ -7,8 +7,10 @@ target_compile_definitions(${target_name} PRIVATE
 )
 target_compile_definitions(${target_name} PUBLIC
     WEBRTC_WIN
+    _LIBCPP_DISABLE_AVAILABILITY
+    _LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS
+    BOOST_NO_CXX98_FUNCTION_BASE
     RTC_ENABLE_H265
-    _ITERATOR_DEBUG_LEVEL=0
     NDEBUG
 )
 target_compile_options(${target_name} PRIVATE /utf-8 /bigobj)
@@ -30,5 +32,6 @@ if (import_libraries)
         shcore.lib
         bcrypt.lib
         ntdll.lib
+        userenv.lib
     )
 endif ()

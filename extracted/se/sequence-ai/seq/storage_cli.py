@@ -195,19 +195,7 @@ def _cmd_volume(args: argparse.Namespace) -> int:
                 print(f"deleted {args.path} from {args.name}; it is now v{info.get('version')}")
                 return 0
 
-
-            try:
-                client.delete(args.name, force=bool(getattr(args, "yes", False)))
-            except Conflict as exc:
-                held = (exc.details or {}).get("versions") if isinstance(exc.details, dict) else None
-                if not held:
-                    raise
-                print(f"{args.name} holds the own copies of {len(held)} version(s), which could no longer be built "
-                      "again exactly as they are without it (they keep serving):", file=sys.stderr)
-                for v in held:
-                    print(f"  {v}", file=sys.stderr)
-                print(f"delete it anyway: seq volume rm {args.name} --yes", file=sys.stderr)
-                return 1
+            client.delete(args.name)
             print(f"deleted {args.name} for good")
             return 0
     except KeyboardInterrupt:

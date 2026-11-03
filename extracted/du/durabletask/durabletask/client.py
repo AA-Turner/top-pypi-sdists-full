@@ -10,7 +10,7 @@ from collections.abc import AsyncIterable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Generic, Protocol, TypeVar, cast, overload
+from typing import Any, Generic, Protocol, Self, TypeVar, cast, overload
 
 import grpc
 import grpc.aio
@@ -197,6 +197,7 @@ class OrchestrationQuery:
     max_instance_count: int | None = (1 << 31) - 1
     fetch_inputs_and_outputs: bool = False
     instance_id_prefix: str | None = None
+    task_hub_names: list[str] | None = None
 
 
 @dataclass
@@ -620,7 +621,7 @@ class TaskHubGrpcClient:
                 retired_channel.close()
             current_channel.close()
 
-    def __enter__(self) -> "TaskHubGrpcClient":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *args: object) -> None:
@@ -1105,7 +1106,7 @@ class AsyncTaskHubGrpcClient:
             if channel is not None:
                 await channel.close()
 
-    async def __aenter__(self) -> "AsyncTaskHubGrpcClient":
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *args: object) -> None:

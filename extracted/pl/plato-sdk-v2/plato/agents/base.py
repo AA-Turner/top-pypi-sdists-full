@@ -16,11 +16,6 @@ from plato.agents.browser_tooling import (
     AGENT_BROWSER_INSTRUCTIONS,
     AGENT_BROWSER_PATH_EXPORT,
 )
-from plato.agents.computer_use_mcp import (
-    SANDBOX_FILE_TOOLS_INSTRUCTIONS,
-    ComputerUseMcp,
-    computer_use_mcp_instructions,
-)
 from plato.agents.config import AgentConfig
 from plato.agents.schema import get_agent_schema
 from plato.runtimes.config import RuntimeConfig
@@ -47,6 +42,7 @@ def register_agent(name: str | None = None):
     def decorator(cls: type[BaseAgent]) -> type[BaseAgent]:
         agent_name = name or getattr(cls, "name", cls.__name__.lower().replace("agent", ""))
         _AGENT_REGISTRY[agent_name] = cls
+        logger.debug(f"Registered agent: {agent_name} -> {cls.__name__}")
         return cls
 
     return decorator
@@ -118,17 +114,10 @@ class BaseAgent(ABC, Generic[ConfigT]):
                     return args[0]
         return AgentConfig
 
-    #: The distribution the agent is published as (``pyproject`` ``name``), when
-    #: it differs from the import package (``grok-build`` vs ``grok_build_agent``).
-    distribution: ClassVar[str | None] = None
-
     @classmethod
     def get_version(cls) -> str:
         """Get version from package metadata."""
-        candidates = [cls.__module__.split(".")[0], f"plato-agent-{cls.name}"]
-        if cls.distribution:
-            candidates.insert(0, cls.distribution)
-        for pkg_name in candidates:
+        for pkg_name in [cls.__module__.split(".")[0], f"plato-agent-{cls.name}"]:
             try:
                 return importlib.metadata.version(pkg_name)
             except importlib.metadata.PackageNotFoundError:
@@ -170,34 +159,6 @@ class BaseAgent(ABC, Generic[ConfigT]):
             return AGENT_BROWSER_INSTRUCTIONS
         return f"{prompt}\n\n{AGENT_BROWSER_INSTRUCTIONS}"
 
-    def _append_computer_use_mcp_prompt(self, prompt: str | None) -> str | None:
-        """Append the computer-use MCP block to a system prompt when opted in.
-
-        Returns ``prompt`` unchanged when ``config.computer_use_mcp_enabled``
-        is False. When True, appends the shared block so the model knows the
-        ``computer`` MCP server drives a separate remote Ubuntu desktop VM,
-        plus the file-tool block when an ssh sandbox puts those tools on it.
-        """
-        if not self.config.computer_use_mcp_enabled:
-            return prompt
-        block = computer_use_mcp_instructions(self.config)
-        if self.config.computer_use_ssh_host:
-            block = f"{block}\n\n{SANDBOX_FILE_TOOLS_INSTRUCTIONS}"
-        if not prompt:
-            return block
-        return f"{prompt}\n\n{block}"
-
-    async def _start_computer_use_mcp(self):
-        """Boot the local computer-use MCP server when opted in.
-
-        Returns a started ``ComputerUseMcp`` handle (close it in the agent's
-        teardown path), or None when ``computer_use_mcp_enabled`` is off.
-        """
-        handle = ComputerUseMcp.from_config(self.config, logger=self.logger)
-        if handle is not None:
-            await handle.start()
-        return handle
-
     @classmethod
     def reset_commands(cls, workspace_paths: list[str]) -> list[str]:
         """Return shell commands to reset VM state before the next pooled task."""
@@ -230,20 +191,3 @@ class BaseAgent(ABC, Generic[ConfigT]):
             RuntimeError: If agent execution fails.
         """
         pass
-
-    async def compact(self, instruction: str) -> None:
-        """Compact the agent's live session (first-class compaction op).
-
-        Invoked (instead of :meth:`run`) when the world requests a mid-session
-        compaction — e.g. ``AgentTask`` between continuation/review cycles. The
-        default delegates to :meth:`run`, which is correct for CLIs that honor a
-        ``/compact <focus>`` instruction natively (e.g. Claude Code). Agents
-        whose compaction is NOT message-driven (e.g. opencode, which compacts
-        via a server endpoint) override this to trigger it directly.
-
-        Args:
-            instruction: The compaction request/focus. For the default
-                (run-based) path this is the literal ``/compact …`` message;
-                native overrides may use it as a focus hint or ignore it.
-        """
-        await self.run(instruction)

@@ -17,6 +17,7 @@ from bitfab.processor_payload import finalize_span_payload, finalize_trace_paylo
 from bitfab.serialize import to_json_safe_report
 from bitfab.span_origin import make_span_origin
 from bitfab.timestamp import now_iso_timestamp
+from bitfab.trace_payload import RAW_TRACE_KEY
 
 if TYPE_CHECKING:
     from langchain_core.callbacks import BaseCallbackHandler
@@ -568,19 +569,19 @@ class BitfabLangGraphCallbackHandler(BaseCallbackHandler):
         *,
         completed: bool,
     ) -> dict[str, Any]:
-        external_trace: dict[str, Any] = {
+        raw_trace: dict[str, Any] = {
             "id": root_span["trace_id"],
             "started_at": root_span["started_at"],
         }
         if completed:
-            external_trace["ended_at"] = root_span.get("ended_at", _now_iso())
+            raw_trace["ended_at"] = root_span.get("ended_at", _now_iso())
 
         return {
             "id": root_span["trace_id"],
             "type": "sdk-function",
             "source": "python-sdk-langgraph",
             "traceFunctionKey": self._trace_function_key,
-            "externalTrace": external_trace,
+            RAW_TRACE_KEY: raw_trace,
             "completed": completed,
         }
 
@@ -714,7 +715,7 @@ class BitfabLangGraphCallbackHandler(BaseCallbackHandler):
         payload = finalize_span_payload(payload, extra_dropped=span_info.get("dropped"))
 
         try:
-            self._http_client.send_external_span(payload)
+            self._http_client.send_span(payload)
         except Exception as e:
             logger.error("Bitfab: Failed to send LangGraph span: %s", e, exc_info=True)
 
@@ -733,7 +734,7 @@ class BitfabLangGraphCallbackHandler(BaseCallbackHandler):
         trace_data = finalize_trace_payload(trace_data, logger)
 
         try:
-            self._http_client.send_external_trace(trace_data)
+            self._http_client.send_trace(trace_data)
         except Exception as e:
             logger.error("Bitfab: Failed to send LangGraph trace: %s", e, exc_info=True)
 
@@ -745,7 +746,7 @@ class BitfabLangGraphCallbackHandler(BaseCallbackHandler):
         trace_data = finalize_trace_payload(trace_data, logger)
 
         try:
-            self._http_client.send_external_trace(trace_data)
+            self._http_client.send_trace(trace_data)
         except Exception as e:
             logger.error(
                 "Bitfab: Failed to send LangGraph trace start: %s",

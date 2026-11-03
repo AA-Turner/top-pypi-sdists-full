@@ -102,6 +102,12 @@ def sync_detailed(
     with 403, so a script or agent can't change the filters the user
     sees. Each save is logged with the user agent.
 
+    A save whose top-level `rev` is lower than the saved copy's is
+    ignored and still answers 204. A page that is closing sends its last
+    save beside one already in flight, so the older one can arrive
+    last, and it must not replace the newer copy. A body with no `rev`,
+    or a saved copy with none, is always stored.
+
     Args:
         body (FilterState): The dashboard/Insights filter bar's own saved shape (and the
             Branches page's status, forge, advisories and search, in a `branches` group) —
@@ -116,10 +122,13 @@ def sync_detailed(
             of one. At most 20 values and 1000 characters in each, with no
             control character other than the separator; a save over either is
             refused. This server stores and
-            returns it verbatim, byte for byte, and apart from those limits never parses or
-            validates its shape — the same "opaque blob, not this layer's
-            concern" treatment WebAuthnCeremonyOptions above gets, so a
-            client-side shape change here never needs a matching spec change.
+            returns it verbatim, byte for byte. Apart from those limits it reads
+            one field: a top-level numeric `rev`, used to ignore a save whose
+            `rev` is lower than the saved copy's (a missing or non-numeric `rev`
+            is never ignored). It validates nothing else about the shape — the
+            same "opaque blob, not this layer's concern" treatment
+            WebAuthnCeremonyOptions above gets for every other field, so a
+            client-side shape change there never needs a matching spec change.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -162,6 +171,12 @@ def sync(
     with 403, so a script or agent can't change the filters the user
     sees. Each save is logged with the user agent.
 
+    A save whose top-level `rev` is lower than the saved copy's is
+    ignored and still answers 204. A page that is closing sends its last
+    save beside one already in flight, so the older one can arrive
+    last, and it must not replace the newer copy. A body with no `rev`,
+    or a saved copy with none, is always stored.
+
     Args:
         body (FilterState): The dashboard/Insights filter bar's own saved shape (and the
             Branches page's status, forge, advisories and search, in a `branches` group) —
@@ -176,10 +191,13 @@ def sync(
             of one. At most 20 values and 1000 characters in each, with no
             control character other than the separator; a save over either is
             refused. This server stores and
-            returns it verbatim, byte for byte, and apart from those limits never parses or
-            validates its shape — the same "opaque blob, not this layer's
-            concern" treatment WebAuthnCeremonyOptions above gets, so a
-            client-side shape change here never needs a matching spec change.
+            returns it verbatim, byte for byte. Apart from those limits it reads
+            one field: a top-level numeric `rev`, used to ignore a save whose
+            `rev` is lower than the saved copy's (a missing or non-numeric `rev`
+            is never ignored). It validates nothing else about the shape — the
+            same "opaque blob, not this layer's concern" treatment
+            WebAuthnCeremonyOptions above gets for every other field, so a
+            client-side shape change there never needs a matching spec change.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -217,6 +235,12 @@ async def asyncio_detailed(
     with 403, so a script or agent can't change the filters the user
     sees. Each save is logged with the user agent.
 
+    A save whose top-level `rev` is lower than the saved copy's is
+    ignored and still answers 204. A page that is closing sends its last
+    save beside one already in flight, so the older one can arrive
+    last, and it must not replace the newer copy. A body with no `rev`,
+    or a saved copy with none, is always stored.
+
     Args:
         body (FilterState): The dashboard/Insights filter bar's own saved shape (and the
             Branches page's status, forge, advisories and search, in a `branches` group) —
@@ -231,10 +255,13 @@ async def asyncio_detailed(
             of one. At most 20 values and 1000 characters in each, with no
             control character other than the separator; a save over either is
             refused. This server stores and
-            returns it verbatim, byte for byte, and apart from those limits never parses or
-            validates its shape — the same "opaque blob, not this layer's
-            concern" treatment WebAuthnCeremonyOptions above gets, so a
-            client-side shape change here never needs a matching spec change.
+            returns it verbatim, byte for byte. Apart from those limits it reads
+            one field: a top-level numeric `rev`, used to ignore a save whose
+            `rev` is lower than the saved copy's (a missing or non-numeric `rev`
+            is never ignored). It validates nothing else about the shape — the
+            same "opaque blob, not this layer's concern" treatment
+            WebAuthnCeremonyOptions above gets for every other field, so a
+            client-side shape change there never needs a matching spec change.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -277,6 +304,12 @@ async def asyncio(
     with 403, so a script or agent can't change the filters the user
     sees. Each save is logged with the user agent.
 
+    A save whose top-level `rev` is lower than the saved copy's is
+    ignored and still answers 204. A page that is closing sends its last
+    save beside one already in flight, so the older one can arrive
+    last, and it must not replace the newer copy. A body with no `rev`,
+    or a saved copy with none, is always stored.
+
     Args:
         body (FilterState): The dashboard/Insights filter bar's own saved shape (and the
             Branches page's status, forge, advisories and search, in a `branches` group) —
@@ -291,10 +324,13 @@ async def asyncio(
             of one. At most 20 values and 1000 characters in each, with no
             control character other than the separator; a save over either is
             refused. This server stores and
-            returns it verbatim, byte for byte, and apart from those limits never parses or
-            validates its shape — the same "opaque blob, not this layer's
-            concern" treatment WebAuthnCeremonyOptions above gets, so a
-            client-side shape change here never needs a matching spec change.
+            returns it verbatim, byte for byte. Apart from those limits it reads
+            one field: a top-level numeric `rev`, used to ignore a save whose
+            `rev` is lower than the saved copy's (a missing or non-numeric `rev`
+            is never ignored). It validates nothing else about the shape — the
+            same "opaque blob, not this layer's concern" treatment
+            WebAuthnCeremonyOptions above gets for every other field, so a
+            client-side shape change there never needs a matching spec change.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

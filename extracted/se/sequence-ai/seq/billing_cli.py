@@ -21,6 +21,7 @@ from typing import Any, Callable
 from urllib.parse import quote
 
 from seq.deployments_cli import _call
+from sequence_ai._core.money import money, whole
 
 Echo = Callable[[str], Any] | None
 
@@ -43,11 +44,14 @@ def _count(n: int, noun: str) -> str:
 
 
 def _usd(v: Any) -> str:
+    """An amount by the docs' one rule, as every other command and the console say it (sequence_ai money: four decimals
+    under $1, a negative one's sign first); "—" for one the platform did not say. Before, two decimals always - a
+    $0.0042 line read $0.00 - and a minus sign of its own."""
     try:
         x = float(v)
     except (TypeError, ValueError):
         return "—"
-    return f"{'−' if x < 0 else ''}${abs(x):,.2f}"
+    return money(x)
 
 
 def _balance(base_url: str | None) -> float | None:
@@ -190,7 +194,7 @@ def billing_plan(plan: str | None = None, *, base_url: str | None = None, echo: 
         for p in out.get("plans") or []:
             mark = "*" if p.get("plan") == mine else " "
             _say(echo, f"  {mark} {str(p.get('display_name') or p.get('plan') or ''):10} "
-                       f"{_usd(p.get('monthly_fee_usd'))}/month, {_usd(p.get('monthly_free_credit_usd'))} free credit "
+                       f"{whole(p.get('monthly_fee_usd'))}/month, {whole(p.get('monthly_free_credit_usd'))} free credit "
                        f"a month, {p.get('max_policies', '—')} policies, {p.get('max_gpus', '—')} GPUs")
         return out
     out = _call("POST", "/v1/billing/plan", base_url, {"plan": plan}, person=True) or {}
@@ -256,4 +260,17 @@ def billing_details(change: bool = False, *, base_url: str | None = None, echo: 
             _say(echo, f"{k.replace('_', ' '):9} {v}")
     if out.get("can_change"):
         _say(echo, "`seq billing details --change` opens the page to change them")
+    return out
+
+
+def billing_card(*, base_url: str | None = None, echo: Echo = None, opener: Callable[[str], Any] | None = None) -> dict:
+    """`seq billing card`: the payment method this month's bill goes to, added or made the default on the page the
+    platform hands it (POST /v1/billing/details, the page `seq billing details --change` opens too) - opened in your
+    browser, as a top-up's payment page is: no card is ever typed here. Billing is postpaid: usage past the monthly
+    credit needs one.
+
+"""
+    out = _call("POST", "/v1/billing/details", base_url, person=True) or {}
+    _say(echo, "add the payment method your month's bill goes to, or make another the default, on this page:")
+    _open(out.get("url"), echo, opener)
     return out

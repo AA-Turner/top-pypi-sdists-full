@@ -9,13 +9,13 @@ def _post_batch(entries: list[dict]) -> None:
     """The core's wire shape over the SDK's TLS trust, so telemetry and SDK writes agree
     on a proxy's certificate (plan item (l)).
 
-    A running Probe service takes the batch when it can (plan Q5, `service_handoff.telemetry`;
+    A running Probe service takes the batch when it can (plan Q5, `handoff.telemetry`;
     not with proxy or certificate settings, which its sender lacks), so an exiting training
     process never waits on PostHog; it answers within 0.25 s or this POSTs. Each entry gets a
     `uuid` first, so a batch both send counts once."""
-    from probe.sdk.delivery.outbox.drainers import service_handoff
+    from probe.foundation.service_api import handoff
 
-    service_handoff.stamp(entries)
-    if service_handoff.telemetry(entries):
+    handoff.stamp(entries)
+    if handoff.telemetry(entries):
         return
     core.post_batch(entries, context=ssl_context())

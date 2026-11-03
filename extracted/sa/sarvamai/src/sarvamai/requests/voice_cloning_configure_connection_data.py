@@ -13,10 +13,15 @@ from ..types.voice_cloning_configure_connection_data_target_language_code import
 
 
 class VoiceCloningConfigureConnectionDataParams(typing_extensions.TypedDict):
-    target_language_code: VoiceCloningConfigureConnectionDataTargetLanguageCode
+    target_language_code: typing_extensions.NotRequired[VoiceCloningConfigureConnectionDataTargetLanguageCode]
     """
     BCP-47 language code for the synthesized output. The cloned voice can speak any
-    supported language, regardless of the reference clip's language.
+    supported language, regardless of the reference clip's language. Omit it to
+    detect the language from the first buffered text. Detection is locked for the
+    rest of the session; send a new config with an explicit code to change language.
+    Detection can be wrong on short or code-mixed text. Romanized Indic and Urdu
+    return 400. Short Assamese without ৰ or ৱ is often detected as Bengali — pass
+    `as-IN`.
     """
 
     voice_id: typing_extensions.NotRequired[str]

@@ -1,9 +1,10 @@
-from typing import Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.check_schema_contracts_json_body_language import CheckSchemaContractsJsonBodyLanguage
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="CheckSchemaContractsJsonBody")
 
@@ -14,16 +15,20 @@ class CheckSchemaContractsJsonBody:
     Attributes:
         language (CheckSchemaContractsJsonBodyLanguage):
         content (str):
+        path (Union[Unset, str]): The script's path. A `// materialize` that names no table writes the
+            table named after the script, so without it such a target is not checked.
     """
 
     language: CheckSchemaContractsJsonBodyLanguage
     content: str
+    path: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         language = self.language.value
 
         content = self.content
+        path = self.path
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -33,6 +38,8 @@ class CheckSchemaContractsJsonBody:
                 "content": content,
             }
         )
+        if path is not UNSET:
+            field_dict["path"] = path
 
         return field_dict
 
@@ -43,9 +50,12 @@ class CheckSchemaContractsJsonBody:
 
         content = d.pop("content")
 
+        path = d.pop("path", UNSET)
+
         check_schema_contracts_json_body = cls(
             language=language,
             content=content,
+            path=path,
         )
 
         check_schema_contracts_json_body.additional_properties = d

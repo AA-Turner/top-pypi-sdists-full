@@ -14,17 +14,30 @@ the LICENSE Of this file is APACHE-2.0.
 """
 
 import math
+import warnings
+from functools import partial
 from typing import Any, Dict, Optional, Tuple, Type
 
 import torch
 import torch.fft as fft
 import torch.nn as nn
 import torch.nn.functional as F
-from einops import rearrange
 
+from braindecode.functional import (
+    apply_rotary,
+    init_weights_,
+    rotary_angles,
+    rotary_frequencies,
+    spectral_input,
+)
 from braindecode.models.base import EEGModuleMixin
+from braindecode.models.signal_jepa import _GroupNorm
 from braindecode.models.util import extract_channel_locations_from_chs_info
-from braindecode.modules.layers import DropPath
+from braindecode.modules import PreNormBlock, TimmMlp
+from braindecode.modules.blocks import PatchTokenizer
+
+# Weight initialization of the reference implementation.
+_init_weights = partial(init_weights_, weights={nn.Linear: nn.init.xavier_normal_})
 
 
 class LUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
@@ -88,6 +101,9 @@ class LUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
 
     Parameters
     ----------
+    on_non_divisible : {"pad", "crop", "error"}, default="pad"
+        How :class:`~braindecode.modules.PatchTokenizer` treats a time axis that
+        is not a multiple of ``patch_size`` (right zero-pad, crop, or raise).
     patch_size : int
         Number of time samples per patch. Default: 40.
     num_queries : int
@@ -108,6 +124,9 @@ class LUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
         Normalization layer class. Default: nn.LayerNorm.
     drop_path : float
         Stochastic depth rate. Default: 0.0.
+    attn_drop : float
+        Dropout rate on the attention weights of the transformer encoder
+        blocks (the original LUNA uses 0). Default: 0.0.
 
     References
     ----------
@@ -138,6 +157,9 @@ class LUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
         drop_prob_chan: float = 0.0,
         attn_drop: float = 0.0,
         activation: Type[nn.Module] = nn.GELU,
+        on_non_divisible: str = "pad",
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
         super().__init__(
             n_outputs=n_outputs,
@@ -146,6 +168,8 @@ class LUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
             sfreq=sfreq,
             chs_info=chs_info,
             input_window_seconds=input_window_seconds,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
 
@@ -165,6 +189,11 @@ class LUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
         self.embed_dim = embed_dim
         self.num_queries = num_queries
         self.patch_size = patch_size
+        self.tokenizer = PatchTokenizer(
+            patch_size=patch_size,
+            n_times=self.n_times if self._n_times is not None else patch_size,
+            on_non_divisible=on_non_divisible,
+        )
         self.patch_embed_size = embed_dim
         self.num_heads = num_heads
         self.depth = depth
@@ -176,13 +205,15 @@ class LUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
 
         # Layers
         self.patch_embed = _PatchEmbedNetwork(
-            embed_dim=self.embed_dim, patch_size=self.patch_size
+            embed_dim=self.embed_dim,
+            patch_size=self.patch_size,
+            on_non_divisible=on_non_divisible,
         )
         self.freq_embed = _FrequencyFeatureEmbedder(
             embed_dim=self.embed_dim, patch_size=self.patch_size
         )
         # For weight loading, we omit the normalization here to match parameter count
-        self.channel_location_embedder = _Mlp(
+        self.channel_location_embedder = TimmMlp(
             in_features=int(self.patch_embed_size),
             out_features=int(self.patch_embed_size),
             hidden_features=int(self.patch_embed_size * 2),
@@ -199,15 +230,25 @@ class LUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
         )
         self.blocks = nn.ModuleList(
             [
-                _RotaryTransformerBlock(
-                    dim=int(self.embed_dim * self.num_queries),
-                    num_heads=int(self.num_heads * self.num_queries),
-                    mlp_ratio=self.mlp_ratio,
-                    qkv_bias=True,
-                    drop=0.0,
-                    attn_drop=0.0,
-                    drop_path=self.drop_path,
+                PreNormBlock(
+                    int(self.embed_dim * self.num_queries),
+                    _RotarySelfAttentionBlock(
+                        dim=int(self.embed_dim * self.num_queries),
+                        num_heads=int(self.num_heads * self.num_queries),
+                        qkv_bias=True,
+                        qk_scale=None,
+                        attn_drop=self.attn_drop,
+                        proj_drop=0.0,
+                    ),
+                    _FeedForwardBlock(
+                        dim=int(self.embed_dim * self.num_queries),
+                        hidden_dim=int(
+                            int(self.embed_dim * self.num_queries) * self.mlp_ratio
+                        ),
+                        dropout=0.0,
+                    ),
                     norm_layer=norm_layer,
+                    drop_path=self.drop_path,
                 )
                 for i in range(depth)
             ]
@@ -236,22 +277,30 @@ class LUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
                 False  # no use of mask token for classification
             )
 
-        self.initialize_weights()
+        self._init_parameters()
 
-    def initialize_weights(self) -> None:
+    def _init_parameters(self) -> None:
         self.cross_attn.initialize_weights()
         trunc_normal_(self.mask_token, std=0.02)
-        self.apply(self._init_weights)
+        self.apply(_init_weights)
         self.fix_init_weight()
 
-    def _init_weights(self, m: nn.Module) -> None:
-        if isinstance(m, nn.Linear):
-            torch.nn.init.xavier_normal_(m.weight)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
+    def initialize_weights(self) -> None:
+        """Re-run LUNA's own weight initialization.
+
+        .. deprecated:: 2.0
+            ``initialize_weights`` was renamed to the private
+            ``_init_parameters`` and will be removed in a future release.
+            Use :meth:`reset_parameters`, which first resets every layer to
+            its PyTorch default and then applies this initialization.
+        """
+        warnings.warn(
+            "LUNA.initialize_weights() is deprecated and will be removed in a "
+            "future release; use LUNA.reset_parameters() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self._init_parameters()
 
     def fix_init_weight(self) -> None:
         def rescale(param: torch.Tensor, layer_id: int) -> None:
@@ -268,6 +317,9 @@ class LUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
         mask: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         num_channels = channel_locations.shape[1]
+        x_signal = self.tokenizer.prepare_input(x_signal)
+        if mask is not None:
+            mask = self.tokenizer.prepare_input(mask)
         num_patches_per_channel = x_signal.shape[-1] // self.patch_size
         x_patched = self.patch_embed(x_signal)
         freq_embed = self.freq_embed(x_signal)
@@ -278,14 +330,18 @@ class LUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
             mask_tokens = self.mask_token.repeat(
                 x_masked.shape[0], x_masked.shape[1], 1
             )  # (B, N, D) N = C * num_patches_per_channel
-            mask = rearrange(
-                mask, "B C (S P) -> B (C S) P", P=self.patch_size
-            )  # (B, C, T) -> (B, N, P)
+            # (B, C, T) -> (B, N, P)
+            mask = mask.unflatten(-1, (-1, self.patch_size)).flatten(1, 2)
             mask = (
                 (mask.sum(dim=-1) > 0).unsqueeze(-1).float()
             )  # (B, N, 1), since a patch is either fully masked or not
-            x_masked = torch.where(mask.bool(), mask_tokens, x_masked)
+            x_masked = torch.where(mask.to(torch.bool), mask_tokens, x_masked)
 
+        dtype = channel_locations.dtype
+        # Normalise in at least float32: the 1e-8 below underflows float16.
+        channel_locations = channel_locations.to(
+            torch.promote_types(dtype, torch.float32)
+        )
         channel_min = torch.min(channel_locations, dim=1, keepdim=True)[0]
         channel_max = torch.max(channel_locations, dim=1, keepdim=True)[0]
         channel_locations = (channel_locations - channel_min) / (
@@ -299,10 +355,13 @@ class LUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
 
         channel_locations = nerf_positional_encoding(
             channel_locations, self.patch_embed_size
-        )
+        ).to(dtype)
         channel_locations_emb = self.channel_location_embedder(channel_locations)
 
-        x_tokenized = rearrange(x_masked, "B (C t) D -> (B t) C D", C=num_channels)
+        # (B, C * t, D) -> (B * t, C, D)
+        x_tokenized = (
+            x_masked.unflatten(1, (num_channels, -1)).transpose(1, 2).flatten(0, 1)
+        )
         channel_locations_emb = (
             channel_locations_emb.repeat_interleave(  # was repeat(), wrong dim ordering
                 num_patches_per_channel, dim=0
@@ -335,20 +394,27 @@ class LUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
             x_signal, channel_locations, mask=mask
         )
         x, _ = self.cross_attn(x)
-        x = rearrange(x, "(B t) Q D -> B t (Q D)", B=B)
-        num_patches = x.shape[1]
-
+        x = x.unflatten(0, (B, -1)).flatten(2)  # (B * t, Q, D) -> (B, t, Q * D)
         for blk in self.blocks:
             x = blk(x)
         x_latent = self.norm(x)
 
         if self.num_classes > 0:
             return self.final_layer(x_latent)
+        return self._reconstruct(x_latent, channel_locations_emb, channel_names)
 
+    @torch.jit.unused
+    def _reconstruct(
+        self,
+        x_latent: torch.Tensor,
+        channel_locations_emb: torch.Tensor,
+        channel_names: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        # Reconstruction head (num_classes == 0): eager only, so the classifier scripts.
         if channel_names is None:
             raise ValueError("channel_names must be provided for reconstruction tasks.")
         channel_emb = self.channel_emb(channel_names)
-        channel_emb = channel_emb.repeat(num_patches, 1, 1)
+        channel_emb = channel_emb.repeat(x_latent.shape[1], 1, 1)
         decoder_queries = channel_locations_emb + channel_emb
         return self.decoder_head(x_latent, decoder_queries)
 
@@ -390,7 +456,10 @@ class LUNA(EEGModuleMixin, nn.Module, license="apache-2.0"):
                 channel_info, num_channels=num_channels
             )
             if locs is not None and len(locs) == num_channels:
-                return torch.from_numpy(locs).float()
+                locs = torch.from_numpy(locs).float()
+                # MNE stores NaN for a channel without a position.
+                if locs.isfinite().all():
+                    return locs
 
         # Fallback: generate default linear spacing along x-axis
         positions = torch.linspace(-1.0, 1.0, steps=num_channels, dtype=torch.float32)
@@ -429,7 +498,8 @@ def nerf_positional_encoding(coords: torch.Tensor, embed_size: int) -> torch.Ten
     device = coords.device
     freqs = embed_size // (2 * dim)
     leftover = embed_size - freqs * 2 * dim
-    freq_bands = 2.0 ** torch.arange(freqs, device=device).float()
+    work = torch.promote_types(coords.dtype, torch.float32)
+    freq_bands = 2.0 ** torch.arange(freqs, device=device, dtype=work)
     scaled_coords = coords.unsqueeze(-1) * freq_bands.view(
         1, 1, 1, -1
     )  # (N, C, dim, freqs)
@@ -443,7 +513,8 @@ def nerf_positional_encoding(coords: torch.Tensor, embed_size: int) -> torch.Ten
     if leftover > 0:
         pad = torch.zeros(N, C, leftover, device=device, dtype=coords.dtype)
         encoded = torch.cat([encoded, pad], dim=-1)
-    return encoded
+    # Sin/cos run in float32 at least (float32 frequency bands); return coords' dtype.
+    return encoded.to(coords.dtype)
 
 
 class _ChannelEmbeddings(nn.Module):
@@ -470,9 +541,6 @@ class _ChannelEmbeddings(nn.Module):
     def forward(self, indices: torch.Tensor) -> torch.Tensor:
         return self.embeddings(indices)
 
-    def initialize_weights(self) -> None:
-        torch.init.normal_(self.embeddings.weight, std=2.0)
-
 
 class _FrequencyFeatureEmbedder(nn.Module):
     r"""
@@ -486,7 +554,7 @@ class _FrequencyFeatureEmbedder(nn.Module):
         self.patch_size = patch_size
         self.embed_dim = embed_dim
         in_features = 2 * (patch_size // 2 + 1)
-        self.frequency_to_embed = _Mlp(
+        self.frequency_to_embed = TimmMlp(
             in_features=in_features,
             hidden_features=int(4 * in_features),
             out_features=embed_dim,
@@ -506,18 +574,18 @@ class _FrequencyFeatureEmbedder(nn.Module):
         x = x.view(B, C, S, self.patch_size)
 
         freq_representation = fft.rfft(
-            x, dim=-1
+            spectral_input(x), dim=-1
         )  # (B, C, num_patches, patch_size // 2 + 1)
         magnitude = torch.abs(freq_representation)
         phase = torch.angle(freq_representation)
 
         # Concatenate magnitude and phase along the frequency axis (last dimension)
-        freq_features = torch.cat((magnitude, phase), dim=-1)
+        freq_features = torch.cat((magnitude, phase), dim=-1).to(x)
         # Map frequency features to embedding dimension
         embedded = self.frequency_to_embed(
             freq_features
         )  # (B, C, num_patches, embed_dim)
-        embedded = rearrange(embedded, "B C t D -> B (C t) D")
+        embedded = embedded.flatten(1, 2)  # (B, C * num_patches, embed_dim)
         return embedded
 
 
@@ -541,20 +609,18 @@ class _RotarySelfAttentionBlock(nn.Module):
 
         self.qkv_proj = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.attn_drop = attn_drop
-        self.attn_drop_fn = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
-    def _rotate_queries_or_keys(self, tensor: torch.Tensor) -> torch.Tensor:
-        """Apply full-head RoPE without concatenating empty boundary views."""
+    def _rotary_tables(self, tensor: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Build RoPE tables for one forward; no cache, the frequencies may train."""
         seq_len = tensor.shape[-2]
         positions = torch.arange(seq_len, device=tensor.device, dtype=tensor.dtype)
         freqs = self.rotary_emb(positions)
 
-        pairs = tensor.reshape(*tensor.shape[:-1], -1, 2)
-        rotated = torch.stack((-pairs[..., 1], pairs[..., 0]), dim=-1).flatten(-2)
-        transformed = tensor * freqs.cos() + rotated * freqs.sin()
-        return transformed.to(tensor.dtype)
+        # Keep the full-head reshape (including its empty-input boundary).
+        tensor.reshape(list(tensor.shape[:-1]) + [-1, 2])
+        return freqs.cos(), freqs.sin()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, N, C = x.shape
@@ -563,21 +629,20 @@ class _RotarySelfAttentionBlock(nn.Module):
             .reshape(B, N, 3, self.num_heads, C // self.num_heads)
             .permute(2, 0, 3, 1, 4)
         )  # (K, B, H, N, D)
-        q, k, v = qkv[0], qkv[1], qkv[2]
-        q = self._rotate_queries_or_keys(q)
-        k = self._rotate_queries_or_keys(k)
-        # Calculate attention scores
-        attn_weights = (q @ k.transpose(-2, -1)) * self.scale  # (B, H, N, N)
-
-        # Apply softmax to get attention probabilities
-        attn_weights = torch.softmax(attn_weights, dim=-1)
-
-        # Apply dropout
-        attn_weights = self.attn_drop_fn(attn_weights)
-
-        # Apply attention weights to values
-        attn = attn_weights @ v  # (B, H, N, D)
-        attn = rearrange(attn, "B H N D -> B N (H D)")
+        # unbind, not qkv[0..2]: the backward of three selects writes three
+        # zero-filled copies of the whole qkv tensor and sums them.
+        q, k, v = qkv.unbind(0)
+        cos, sin = self._rotary_tables(q)  # k has the shape of q
+        q = apply_rotary(q, cos, sin).to(q.dtype)
+        k = apply_rotary(k, cos, sin).to(k.dtype)
+        attn = F.scaled_dot_product_attention(
+            q,
+            k,
+            v,
+            dropout_p=self.attn_drop if self.training else 0.0,
+            scale=self.scale,
+        )  # (B, H, N, D)
+        attn = attn.transpose(1, 2).flatten(2)  # (B, N, H * D)
         return self.proj_drop(self.proj(attn))
 
 
@@ -586,14 +651,10 @@ class _RotaryEmbedding(nn.Module):
 
     def __init__(self, dim: int, theta: float = 10000.0) -> None:
         super().__init__()
-        frequencies = 1.0 / (
-            theta ** (torch.arange(0, dim, 2, dtype=torch.float32) / dim)
-        )
-        self.freqs = nn.Parameter(frequencies, requires_grad=False)
+        self.freqs = nn.Parameter(rotary_frequencies(dim, theta), requires_grad=False)
 
     def forward(self, positions: torch.Tensor) -> torch.Tensor:
-        angles = positions.to(self.freqs.dtype).unsqueeze(-1) * self.freqs
-        return angles.repeat_interleave(2, dim=-1)
+        return rotary_angles(positions.to(self.freqs.dtype), self.freqs)
 
 
 class _FeedForwardBlock(nn.Module):
@@ -613,42 +674,6 @@ class _FeedForwardBlock(nn.Module):
         x = self.norm(x)
         x = self.fc2(x)
         x = self.dropout2(x)
-        return x
-
-
-class _RotaryTransformerBlock(nn.Module):
-    def __init__(
-        self,
-        dim: int,
-        num_heads: int,
-        mlp_ratio: float = 4.0,
-        qkv_bias: bool = False,
-        qk_scale: Optional[float] = None,
-        drop: float = 0.0,
-        attn_drop: float = 0.0,
-        drop_path: float = 0.0,
-        norm_layer: Type[nn.Module] = nn.LayerNorm,
-    ) -> None:
-        super().__init__()
-        self.norm1 = norm_layer(dim)
-        self.attn = _RotarySelfAttentionBlock(
-            dim=dim,
-            num_heads=num_heads,
-            qkv_bias=qkv_bias,
-            qk_scale=qk_scale,
-            attn_drop=attn_drop,
-            proj_drop=drop,
-        )
-        self.drop_path1 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
-        self.drop_path2 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
-        self.norm2 = norm_layer(dim)
-        self.mlp = _FeedForwardBlock(
-            dim=dim, hidden_dim=int(dim * mlp_ratio), dropout=drop
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.drop_path1(self.attn(self.norm1(x)))
-        x = x + self.drop_path2(self.mlp(self.norm2(x)))
         return x
 
 
@@ -679,7 +704,7 @@ class _PatchReconstructionHeadWithQueries(nn.Module):
             num_layers=1,
         )
         self.norm = nn.LayerNorm(embed_dim)
-        self.decoder_linear = _Mlp(
+        self.decoder_linear = TimmMlp(
             embed_dim, int(embed_dim * 4), input_dim, act_layer=nn.GELU, drop=0.0
         )  # nn.Linear(embed_dim, input_dim, bias=True)
 
@@ -690,11 +715,12 @@ class _PatchReconstructionHeadWithQueries(nn.Module):
         """
 
         B, num_patches, embed_dim = enc.shape
-        enc = rearrange(enc, "B t (Q D) -> (B t) Q D", Q=self.num_queries)
+        enc = enc.unflatten(-1, (self.num_queries, -1)).flatten(0, 1)  # (B * t, Q, D)
         out = self.decoder_pred(decoder_queries, enc)  # (B*t, C, D)
         out = self.norm(out)
         out = self.decoder_linear(out)  # (B*t, C, patch_size)
-        out = rearrange(out, "(B t) C P -> B C (t P)", B=B)
+        # (B * t, C, P) -> (B, C, t * P)
+        out = out.unflatten(0, (B, -1)).permute(0, 2, 1, 3).flatten(2)
         return out
 
 
@@ -716,7 +742,7 @@ class _ClassificationHeadWithQueries(nn.Module):
         self.decoder_attn = nn.MultiheadAttention(
             self.embed_dim, num_heads, batch_first=True, dropout=drop_decoder
         )
-        self.decoder_ffn = _Mlp(
+        self.decoder_ffn = TimmMlp(
             in_features=self.embed_dim,
             hidden_features=int(self.embed_dim * 4),
             out_features=num_classes,
@@ -769,7 +795,7 @@ class _CrossAttentionBlock(nn.Module):
         )
         self.temperature = nn.Parameter(torch.tensor(1.0), requires_grad=False)
 
-        self.ffn = _Mlp(
+        self.ffn = TimmMlp(
             input_embed_dim,
             ff_dim,
             output_embed_dim,
@@ -793,19 +819,9 @@ class _CrossAttentionBlock(nn.Module):
 
     def initialize_weights(self) -> None:
         torch.nn.init.orthogonal_(self.query_embed, gain=1.0)
-        self.apply(self._init_weights)
+        self.apply(_init_weights)
 
-    def _init_weights(self, m: nn.Module) -> None:
-        if isinstance(m, nn.Linear):
-            # we use xavier_uniform following official JAX ViT:
-            torch.nn.init.xavier_normal_(m.weight)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # x is the input with shape (batch_size*num_patches, num_channels, embed_dim)
         batch_size, _, _ = x.size()
         queries = self.query_embed.repeat(batch_size, 1, 1)
@@ -826,10 +842,15 @@ class _CrossAttentionBlock(nn.Module):
 
 
 class _PatchEmbedNetwork(nn.Module):
-    def __init__(self, embed_dim: int = 64, patch_size: int = 40) -> None:
+    def __init__(
+        self, embed_dim: int = 64, patch_size: int = 40, on_non_divisible: str = "pad"
+    ) -> None:
         super().__init__()
         self.patch_size = patch_size
         self.embed_dim = embed_dim
+        self.tokenizer = PatchTokenizer(
+            patch_size=patch_size, n_times=patch_size, on_non_divisible=on_non_divisible
+        )
         self.in_channels = 1
         self.out_channels = int(embed_dim // 4)
         self.groups = 4
@@ -842,7 +863,7 @@ class _PatchEmbedNetwork(nn.Module):
                 stride=(1, self.kernel_size // 2),
                 padding=(0, self.kernel_size // 2 - 1),
             ),
-            nn.GroupNorm(self.groups, self.out_channels),
+            _GroupNorm(self.groups, self.out_channels),
             nn.GELU(),
             nn.Conv2d(
                 in_channels=self.out_channels,
@@ -851,7 +872,7 @@ class _PatchEmbedNetwork(nn.Module):
                 stride=(1, 1),
                 padding=(0, 1),
             ),
-            nn.GroupNorm(self.groups, self.out_channels),
+            _GroupNorm(self.groups, self.out_channels),
             nn.GELU(),
             nn.Conv2d(
                 in_channels=self.out_channels,
@@ -860,48 +881,18 @@ class _PatchEmbedNetwork(nn.Module):
                 stride=(1, 1),
                 padding=(0, 1),
             ),
-            nn.GroupNorm(self.groups, self.out_channels),
+            _GroupNorm(self.groups, self.out_channels),
             nn.GELU(),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         x: (B, C, T)
-        output: (B, C*S, D) where S = T//patch_size, D = embed_dim
+        output: (B, C*S, D) where D = embed_dim and S = ceil(T / patch_size)
+        for ``on_non_divisible="pad"``, T // patch_size otherwise
         """
-        x = rearrange(x, "B C (S P) -> B (C S) P", P=self.patch_size)
+        x = self.tokenizer(x).flatten(1, 2)  # (B, C * S, P)
         x = x.unsqueeze(1)
         x = self.proj_in(x)
-        x = rearrange(x, "B E CS D -> B CS (D E)")
-        return x
-
-
-class _Mlp(nn.Module):
-    r"""MLP as used in Vision Transformer, MLP-Mixer and related networks.
-
-    Code copied from timm.models.mlp.Mlp
-    """
-
-    def __init__(
-        self,
-        in_features,
-        hidden_features=None,
-        out_features=None,
-        act_layer=nn.GELU,
-        drop=0.0,
-    ):
-        super().__init__()
-        out_features = out_features or in_features
-        hidden_features = hidden_features or in_features
-        self.fc1 = nn.Linear(in_features, hidden_features)
-        self.act = act_layer()
-        self.fc2 = nn.Linear(hidden_features, out_features)
-        self.drop = nn.Dropout(drop)
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.act(x)
-        x = self.drop(x)
-        x = self.fc2(x)
-        x = self.drop(x)
+        x = x.permute(0, 2, 3, 1).flatten(2)  # (B, CS, D * E)
         return x

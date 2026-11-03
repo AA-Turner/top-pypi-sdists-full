@@ -9,13 +9,14 @@
 from __future__ import annotations
 
 import math
-from collections import deque
+from typing import Callable, Optional
 
 import torch
+import torch.nn.functional as F
 from einops.layers.torch import Rearrange
-from torch import nn
+from torch import Tensor, nn
 
-from braindecode.functional import drop_path
+from braindecode.functional import drop_path, sinusoidal_positional_encoding
 
 
 class Ensure4d(nn.Module):
@@ -62,6 +63,8 @@ class Chomp1d(nn.Module):
         return "chomp_size={}".format(self.chomp_size)
 
     def forward(self, x):
+        if self.chomp_size == 0:
+            return x.contiguous()
         return x[:, :, : -self.chomp_size].contiguous()
 
 
@@ -110,8 +113,8 @@ class TimeDistributed(nn.Module):
             Shape (batch_size, seq_len, output_size).
         """
         b, s, c, t = x.shape
-        out = self.module(x.view(b * s, c, t))
-        return out.view(b, s, -1)
+        out = self.module(x.reshape(b * s, c, t))
+        return out.reshape(b, s, -1)
 
 
 class DropPath(nn.Module):
@@ -161,6 +164,238 @@ class DropPath(nn.Module):
     # Utility function to print DropPath module
     def extra_repr(self) -> str:
         return f"p={self.drop_prob}"
+
+
+class Residual(nn.Module):
+    """Residual connection ``x + drop_path(fn(x))``.
+
+    The usual pre-norm transformer sub-layer: the normalization, if any, is
+    part of ``fn``.
+
+    Parameters
+    ----------
+    fn : torch.nn.Module
+        The sub-layer.
+    drop_path : float
+        Stochastic depth rate of the sub-layer's output (:class:`DropPath`).
+        ``0`` (default) disables it.
+    """
+
+    def __init__(self, fn: nn.Module, drop_path: float = 0.0):
+        super().__init__()
+        self.fn = fn
+        self.drop_path = DropPath(drop_path) if drop_path else nn.Identity()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x + self.drop_path(self.fn(x))
+
+
+class PostNormResidual(nn.Module):
+    """Post-norm residual connection ``LayerNorm(dropout(module(x)) + x)``.
+
+    Parameters
+    ----------
+    module : torch.nn.Module
+        The sub-layer.
+    dim : int
+        Size of the last dimension, normalized by the LayerNorm.
+    drop_prob : float
+        Dropout rate on the sub-layer's output.
+    """
+
+    def __init__(self, module: nn.Module, dim: int, drop_prob: float):
+        super().__init__()
+        self.module = module
+        self.drop = nn.Dropout(drop_prob)
+        self.layernorm = nn.LayerNorm(dim)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.layernorm(self.drop(self.module(x)) + x)
+
+
+class PreNormBlock(nn.Module):
+    """Pre-norm transformer block with timm's parameter names.
+
+    ``x = x + drop_path(gamma_1 * attn(norm1(x)))`` then
+    ``x = x + drop_path(gamma_2 * mlp(norm2(x)))``, as in ViT/MAE/BEiT
+    checkpoints (``norm1``, ``attn``, ``norm2``, ``mlp``; ``gamma_1``,
+    ``gamma_2`` with layer scale). EEGPT, EEGDINO, LUNA and NeuroRVQ use it,
+    so their released weights load with the same keys.
+
+    Parameters
+    ----------
+    dim : int
+        Token width, normalized by ``norm1`` and ``norm2``.
+    attn : torch.nn.Module
+        Token-mixing sub-layer, ``(batch, seq, dim) -> (batch, seq, dim)``.
+    mlp : torch.nn.Module
+        Feed-forward sub-layer, same shape.
+    norm_layer : type of torch.nn.Module, default=torch.nn.LayerNorm
+        Called as ``norm_layer(dim)``.
+    drop_path : float, default=0.0
+        Stochastic depth rate on both sub-layer outputs (:class:`DropPath`);
+        ``0`` disables it.
+    layer_scale : float, optional
+        Initial value of the per-feature ``gamma_1``/``gamma_2`` scales
+        (CaiT/BEiT layer scale); ``None`` adds no such parameters.
+
+    Examples
+    --------
+    >>> import torch
+    >>> from torch import nn
+    >>> from braindecode.modules import PreNormBlock, TimmAttention, TimmMlp
+    >>> block = PreNormBlock(16, TimmAttention(16, 4), TimmMlp(16, 32))
+    >>> block(torch.randn(2, 5, 16)).shape
+    torch.Size([2, 5, 16])
+    """
+
+    def __init__(
+        self,
+        dim: int,
+        attn: nn.Module,
+        mlp: nn.Module,
+        norm_layer: Callable[[int], nn.Module] = nn.LayerNorm,
+        drop_path: float = 0.0,
+        layer_scale: Optional[float] = None,
+    ):
+        super().__init__()
+        self.norm1 = norm_layer(dim)
+        self.attn = attn
+        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+        self.norm2 = norm_layer(dim)
+        self.mlp = mlp
+        self.gamma_1: Optional[nn.Parameter]
+        self.gamma_2: Optional[nn.Parameter]
+        if layer_scale is not None:
+            self.gamma_1 = nn.Parameter(layer_scale * torch.ones(dim))
+            self.gamma_2 = nn.Parameter(layer_scale * torch.ones(dim))
+        else:
+            self.gamma_1 = None
+            self.gamma_2 = None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        y = self.attn(self.norm1(x))
+        assert isinstance(y, torch.Tensor)  # narrows a Union return for TorchScript
+        if self.gamma_1 is not None:
+            y = self.gamma_1 * y
+        x = x + self.drop_path(y)
+        y = self.mlp(self.norm2(x))
+        if self.gamma_2 is not None:
+            y = self.gamma_2 * y
+        return x + self.drop_path(y)
+
+
+class LearnedPositionalEncoding(nn.Module):
+    """Learned additive positional encoding, ``dropout(x + encoding[:, :seq])``.
+
+    The ``encoding`` parameter is drawn from ``N(0, 1)``, shape
+    ``(1, length, dim)``; a shorter sequence uses its first rows. CTNet and
+    MSCFormer use it, so their released weights load with the same keys.
+
+    Parameters
+    ----------
+    length : int
+        Largest sequence length.
+    dim : int
+        Token width.
+    drop_prob : float, default=0.0
+        Dropout after the addition.
+    """
+
+    def __init__(self, length: int, dim: int, drop_prob: float = 0.0):
+        super().__init__()
+        self.dropout = nn.Dropout(drop_prob)
+        self.encoding = nn.Parameter(torch.randn(1, length, dim))
+
+    def forward(self, x: Tensor) -> Tensor:
+        """``(batch, seq, dim) -> (batch, seq, dim)``."""
+        return self.dropout(x + self.encoding[:, : x.size(1), :])
+
+
+class SinusoidalPositionalEncoding(nn.Module):
+    """Fixed sinusoidal positional encoding, ``dropout(x + pe[:, :seq])``.
+
+    The table ``pe`` of shape ``(1, max_len, dim)`` comes from
+    :func:`braindecode.functional.sinusoidal_positional_encoding`.
+
+    Parameters
+    ----------
+    max_len : int
+        Largest sequence length.
+    dim : int
+        Token width.
+    drop_prob : float, default=0.0
+        Dropout after the addition.
+    persistent : bool, default=False
+        Store the table in the ``state_dict`` (released BIOT and MEDFormer
+        checkpoints carry it).
+    """
+
+    def __init__(
+        self, max_len: int, dim: int, drop_prob: float = 0.0, persistent: bool = False
+    ):
+        super().__init__()
+        self.dropout = nn.Dropout(drop_prob)
+        pe = sinusoidal_positional_encoding(max_len, dim).unsqueeze(0)
+        self.pe: Tensor
+        self.register_buffer("pe", pe, persistent=persistent)
+
+    def forward(self, x: Tensor) -> Tensor:
+        """``(batch, seq, dim) -> (batch, seq, dim)``."""
+        return self.dropout(x + self.pe[:, : x.size(1)])
+
+
+class PreNormTransformerBlock(nn.Sequential):
+    """Pre-norm transformer block as a plain ``Sequential`` of two residuals.
+
+    ``Residual(LayerNorm -> attn -> Dropout)`` then
+    ``Residual(LayerNorm -> ffn -> Dropout)``; the children are indexed
+    (``0.fn.0``, ``0.fn.1``, ...), as in EEGConformer's released layout.
+    EEGConformer and MIRepNet use it.
+
+    Parameters
+    ----------
+    dim : int
+        Token width, normalized before each sub-layer.
+    attn : torch.nn.Module
+        Token-mixing sub-layer, ``(batch, seq, dim) -> (batch, seq, dim)``.
+    ffn : torch.nn.Module
+        Feed-forward sub-layer, same shape.
+    drop_prob : float
+        Dropout after each sub-layer.
+    """
+
+    def __init__(self, dim: int, attn: nn.Module, ffn: nn.Module, drop_prob: float):
+        super().__init__(
+            Residual(nn.Sequential(nn.LayerNorm(dim), attn, nn.Dropout(drop_prob))),
+            Residual(nn.Sequential(nn.LayerNorm(dim), ffn, nn.Dropout(drop_prob))),
+        )
+
+
+class PostNormTransformerBlock(nn.Module):
+    """Post-norm transformer block: ``attention`` then ``feed_forward``, each a
+    :class:`PostNormResidual` (``LayerNorm(dropout(sub-layer(x)) + x)``).
+    CTNet and MSCFormer use it.
+
+    Parameters
+    ----------
+    dim : int
+        Token width, normalized after each sub-layer.
+    attn : torch.nn.Module
+        Token-mixing sub-layer, ``(batch, seq, dim) -> (batch, seq, dim)``.
+    ffn : torch.nn.Module
+        Feed-forward sub-layer, same shape.
+    drop_prob : float
+        Dropout on each sub-layer's output.
+    """
+
+    def __init__(self, dim: int, attn: nn.Module, ffn: nn.Module, drop_prob: float):
+        super().__init__()
+        self.attention = PostNormResidual(attn, dim, drop_prob)
+        self.feed_forward = PostNormResidual(ffn, dim, drop_prob)
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.feed_forward(self.attention(x))
 
 
 class SqueezeFinalOutput(nn.Module):
@@ -253,24 +488,16 @@ class FourierEmb(nn.Module):
         pos = 2 * math.pi * freqs / width
         self.register_buffer("pos", pos)
 
-    @staticmethod
-    def _outer_sum(x: torch.Tensor) -> torch.Tensor:
-        # Outer sum over the last (n_dims) axes -> grid of size n_freqs**n_dims.
-        inds = deque([slice(None)] + [None] * (x.shape[-1] - 1))
-        out = x[..., 0][(...,) + tuple(inds)]
-        for i in range(1, x.shape[-1]):
-            inds.rotate()
-            out = out + x[..., i][(...,) + tuple(inds)]
-        return out
-
     def forward(self, positions: torch.Tensor) -> torch.Tensor:
         # positions: (B, n_chans, 2) in [0, 1].
-        *o, d = positions.shape
+        d = positions.shape[-1]
         if d != self.n_dims:
             raise ValueError(f"Expected {self.n_dims} positions, got {d}.")
         positions = positions + self.margin
-        locs = torch.einsum("bcd,f->bcfd", positions, self.pos)
-        loc_grid = self._outer_sum(locs).view(*o, -1)  # (B, n_chans, n_freqs**2)
+        locs = torch.einsum("bcd,f->bcfd", [positions, self.pos])
+        # Outer sum over the n_dims = 2 axes -> grid of n_freqs**2 frequencies.
+        loc_grid = locs[..., 0].unsqueeze(-1) + locs[..., 1].unsqueeze(-2)
+        loc_grid = loc_grid.flatten(positions.dim() - 1)  # (B, n_chans, n_freqs**2)
         emb = torch.cat([torch.cos(loc_grid), torch.sin(loc_grid)], dim=-1)
         return emb  # (B, n_chans, (n_freqs**2)*2) == (..., dimension)
 
@@ -325,18 +552,55 @@ class ChannelMerger(nn.Module):
         # score_offset lives on ``positions``' device (the invalid_mask is derived
         # from positions) and in ``x``'s dtype (so the final ``weights @ x`` works
         # under half precision); numerics-neutral in the usual fp32 same-device case.
-        score_offset = torch.zeros(B, C, device=positions.device, dtype=x.dtype)
+        score_offset = torch.zeros((B, C), device=positions.device, dtype=x.dtype)
         invalid_mask = (positions == self.invalid_value).all(dim=-1)
         score_offset = score_offset.masked_fill(invalid_mask, float("-inf"))
-        if self.training and self.dropout:
-            center = torch.rand(self.n_dims, device=positions.device)
-            banned = (positions[:, :, : self.n_dims] - center).norm(
-                dim=-1
-            ) <= self.dropout
+        if self.training and self.dropout != 0.0:
+            center = torch.rand((self.n_dims,), device=positions.device)
+            distance = positions[:, :, : self.n_dims] - center
+            banned = torch.linalg.vector_norm(distance, 2, dim=-1) <= self.dropout
             score_offset = score_offset.masked_fill(banned, float("-inf"))
         heads = self.heads[None].expand(B, -1, -1)  # (B, out, pos_dim)
-        scores = torch.einsum("bcd,bod->boc", embedding, heads)  # (B, out, n_chans)
+        # (B, out, n_chans)
+        scores = torch.einsum("bcd,bod->boc", [embedding, heads])
         scores = scores + score_offset[:, None]
         weights = torch.softmax(scores, dim=2).nan_to_num()  # over n_chans
-        out = weights @ x  # (B, out, n_chans) @ (B, n_chans, T) -> (B, out, T)
+        # (B, out, n_chans) @ (B, n_chans, T) -> (B, out, T). On HPU as
+        # (x^T @ weights^T)^T: Gaudi's lazy-mode graph compiler fails on
+        # ``weights @ x`` feeding a convolution's backward.
+        if x.device.type == "hpu":
+            out = (x.transpose(1, 2) @ weights.transpose(1, 2)).transpose(1, 2)
+        else:
+            out = weights @ x
         return out  # (B, out_channels, T)
+
+
+@torch.jit.unused
+def _hpu_fused_rms_norm(x: Tensor, weight: Tensor, eps: Optional[float]) -> Tensor:
+    from habana_frameworks.torch.hpex.normalization import FusedRMSNorm
+
+    return FusedRMSNorm.apply(
+        x, weight, torch.finfo(x.dtype).eps if eps is None else eps
+    )
+
+
+class RMSNorm(nn.RMSNorm):
+    """:class:`torch.nn.RMSNorm`; Gaudi's fused kernel on HPU.
+
+    On HPU, torch's RMSNorm runs op by op (square, mean, rsqrt, two products,
+    and their backward ops). With a weight over the last dimension, in float32
+    or bfloat16, the bridge's fused kernel runs it instead. Same parameters and
+    state dict; other devices are unchanged.
+    """
+
+    def forward(self, x: Tensor) -> Tensor:
+        if (
+            not torch.jit.is_scripting()
+            and x.device.type == "hpu"
+            and self.weight is not None
+            and len(self.normalized_shape) == 1
+            and x.dtype == self.weight.dtype
+            and (x.dtype == torch.float32 or x.dtype == torch.bfloat16)
+        ):
+            return _hpu_fused_rms_norm(x, self.weight, self.eps)
+        return F.rms_norm(x, self.normalized_shape, self.weight, self.eps)

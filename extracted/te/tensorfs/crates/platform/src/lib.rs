@@ -15,12 +15,13 @@ pub mod handles;
 pub mod ipc;
 pub mod lock;
 pub mod memory;
+#[cfg(unix)]
+pub mod net;
 pub mod paths;
 pub mod process;
 #[cfg(feature = "fetch")]
 pub mod release;
 pub mod service;
-pub mod shm;
 pub mod tail;
 pub mod tools;
 pub mod watch;

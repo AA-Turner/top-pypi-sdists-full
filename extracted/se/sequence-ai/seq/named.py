@@ -3,7 +3,8 @@ A policy class's methods as the worker calls them, and how it builds the class: 
 what the worker hands each method, init= is how the class is built, and naming methods on @seq.policy is refused,
 saying how it is written now.
 
-    @seq.policy(gpu="L4", weights="hf://org/model", init={"cfg": seq.config("deploy.yml", ckpt_dir="{weights}")})
+    @seq.policy(hz=15, gpu="L4", weights="hf://org/model",
+                init={"cfg": seq.config("deploy.yml", ckpt_dir="{weights}")})
     class Policy(Model):                   # your repository's class, as it is, subclassed in seq_policy.py
         @seq.observe
         def update_obs(self, obs):
@@ -43,7 +44,7 @@ from seq.errors import PolicyDefinitionError
 __all__ = ["PER_STEP", "check", "constructor", "inputs_by_name", "per_step"]
 
 
-_DECORATOR = {"infer": "seq.infer", "observe": "seq.observe", "reset": "seq.reset", "end": "seq.on_episode",
+_DECORATOR = {"infer": "seq.infer", "observe": "seq.observe", "end": "seq.on_episode",
               "sample": "seq.sample"}
 
 
@@ -150,9 +151,9 @@ def _check_benchmark_forms(cls: type, value: Any, worlds: int | None, error: typ
 
 
 def check(cls: type, bindings: dict[SeqFlags, str], *, planner: bool = False) -> None:
-    """Each marked method held to what the worker hands it: an episode's end the episode alone or nothing (ends);
-    observe each observation, infer nothing in a class that observes (its observations went to observe), reset and
-    sample nothing. An infer of a class that does not observe is held by the registry's own check, to an observation
+    """Each marked method held to what the worker hands it: @seq.on_episode the episode alone, as the episode begins
+    and as it ends (ends); observe each observation, infer nothing in a class that observes (its observations went to
+    observe), sample nothing. An infer of a class that does not observe is held by the registry's own check, to an observation
     (registry._check_infer_signature). The words are sequence-base's, the worker's own when it loads a class.
     """
     name = bindings.get(SeqFlags.ON_EPISODE)
@@ -163,7 +164,6 @@ def check(cls: type, bindings: dict[SeqFlags, str], *, planner: bool = False) ->
     _takes(cls, "observe", bindings.get(SeqFlags.OBSERVE), 1)
     if SeqFlags.OBSERVE in bindings:
         _takes(cls, "infer", bindings.get(SeqFlags.INFER), 0)
-    _takes(cls, "reset", bindings.get(SeqFlags.RESET), 0)
     _takes(cls, "sample", bindings.get(SeqFlags.SAMPLE), 0, planner=planner)
 
 
@@ -236,7 +236,6 @@ def _takes(cls: type, arg: str, name: str | None, positional: int, *, planner: b
                "infer": "the act's inputs - or each of them by name, to a method that takes two or more arguments "
                         "without a default" if positional else
                "nothing but its platform arguments (episode=) - its observations went to @seq.observe",
-               "reset": "nothing",
                "sample": "nothing - it returns its sample group, each member's robots' observations or a member "
                          "planner's state" if planner else "nothing - it returns the episode's calls"}[arg]
         raise PolicyDefinitionError(f"{cls.__name__}.{name}{sig} (@{_DECORATOR[arg]}): the worker hands it {hands} "

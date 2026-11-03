@@ -3,9 +3,9 @@
 # pylint: disable=missing-docstring
 # pylint: disable=redefined-outer-name
 
-import pytest
-
 import re
+
+import pytest
 
 from phonemizer import phonemize
 from phonemizer.backend.espeak.words_mismatch import Ignore
@@ -18,14 +18,34 @@ def text():
 
 
 def test_count_words():
-    # pylint: disable=protected-access
-    count_words = lambda phn: Ignore._count_words(
-        phn, wordsep=default_separator.word)
+    def count_words(phn):
+        # pylint: disable=protected-access
+        return Ignore._count_words(phn, wordsep=default_separator.word)
+
     assert count_words(['']) == [0]
     assert count_words(['a']) == [1]
     assert count_words(['aaa']) == [1]
     assert count_words([' aaa  ']) == [1]
     assert count_words([' a  a \taa  ']) == [3]
+
+
+def test_count_words_whitespaces():
+    # pylint: disable=protected-access
+    text = ['', ' a ', 'a　b\tc', ' a b  c ']
+    assert Ignore._count_words(text) == [0, 1, 3, 3]
+
+
+@pytest.mark.parametrize('wordsep, expected', [
+    (' | ', [0, 1, 1, 2]),
+    ('|', [0, 1, 3, 3]),
+    # an empty separator splits between each character
+    ('', [0, 1, 8, 9]),
+    (re.compile(r'\s*\|\s*'), [0, 1, 3, 3]),
+])
+def test_count_words_separators(wordsep, expected):
+    # pylint: disable=protected-access
+    text = ['', ' a ', ' a　| b |c\t', 'a | b|c | ']
+    assert Ignore._count_words(text, wordsep) == expected
 
 
 def test_bad():
@@ -77,3 +97,18 @@ def test_custom_separator(caplog):
     assert phn == 't ɹ aɪ |'
     messages = [msg[2] for msg in caplog.record_tuples]
     assert len(messages) == 0
+
+
+# from https://github.com/bootphon/phonemizer/issues/181
+@pytest.mark.parametrize('text, expected', [
+    (['Fine, I have been busy', 'Hello', 'Good morning'],
+     ['', 'həloʊ ', 'ɡʊd mɔːɹnɪŋ ']),
+    (['Hello, how are you?', 'I have been busy'],
+     ['həloʊ, haʊ ɑːɹ juː? ', '']),
+    (['Hello, how are you?', '!!', 'Good morning.'],
+     ['həloʊ, haʊ ɑːɹ juː? ', '!! ', 'ɡʊd mɔːɹnɪŋ. '])])
+def test_remove_preserve_punctuation(text, expected):
+    phn = phonemize(
+        text, backend='espeak', language='en-us', words_mismatch='remove',
+        preserve_punctuation=True)
+    assert phn == expected

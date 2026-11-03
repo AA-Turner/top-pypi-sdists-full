@@ -99,9 +99,26 @@ class _Reader:
 
 
 def to_bytes(value: Any) -> bytes:
-    output = bytearray(_HEADER)
-    _write_value(output, value)
+    output = bytearray(encoded_size(value))
+    write_into(output, 0, value)
     return bytes(output)
+
+
+def encoded_size(value: Any) -> int:
+    """Return the exact size of ``to_bytes(value)`` without encoding it."""
+    return _measure(len(_HEADER), value)
+
+
+def write_into(output: bytearray | memoryview, offset: int, value: Any) -> int:
+    """Encode ``value`` into ``output`` at ``offset`` and return the end offset.
+
+    ``output`` must have ``encoded_size(value)`` bytes free at ``offset``.
+    Alignment padding is relative to ``offset``, as in a standalone payload.
+    """
+    view = memoryview(output)
+    end = offset + len(_HEADER)
+    view[offset:end] = _HEADER
+    return offset + _write_value(view, offset, end - offset, value)
 
 
 def from_bytes(data: bytes | bytearray | memoryview) -> Any:
@@ -120,70 +137,109 @@ def from_bytes(data: bytes | bytearray | memoryview) -> Any:
     return value
 
 
-def _write_value(output: bytearray, value: Any) -> None:
+def _measure(position: int, value: Any) -> int:
+    """Return the payload position after ``value``, starting at ``position``."""
     if isinstance(value, np.ndarray):
-        _write_array(output, value)
-    elif isinstance(value, str):
-        _write_string(output, value)
-    elif isinstance(value, Mapping):
-        _write_dict(output, value)
-    elif _is_sequence(value):
-        _write_list(output, value)
-    else:
-        _write_array(output, np.asarray(value))
+        _, dtype = _wire_dtype(value.dtype)
+        # Scalars are written as one-element vectors (np.ascontiguousarray).
+        position += 3 + 8 * max(value.ndim, 1) + 8
+        return _align_to_eight(position) + value.size * dtype.itemsize
+    if isinstance(value, str):
+        position = _align_to_eight(position + 3 + 4 + 8)
+        return position + len(value.encode("utf-8"))
+    if isinstance(value, Mapping):
+        position += 1 + 4
+        for key in value:
+            if not isinstance(key, str):
+                raise TypeError("nested dict keys must be strings")
+            position = _measure(position + 2 + len(key.encode("utf-8")), value[key])
+        return position
+    if _is_sequence(value):
+        position += 1 + 4
+        for item in value:
+            position = _measure(position, item)
+        return position
+    return _measure(position, np.asarray(value))
 
 
-def _write_array(output: bytearray, array: np.ndarray) -> None:
+def _write_value(view: memoryview, base: int, position: int, value: Any) -> int:
+    """Write ``value`` at payload ``position``; ``base`` is the payload start."""
+    if isinstance(value, np.ndarray):
+        return _write_array(view, base, position, value)
+    if isinstance(value, str):
+        return _write_string(view, base, position, value)
+    if isinstance(value, Mapping):
+        return _write_dict(view, base, position, value)
+    if _is_sequence(value):
+        return _write_list(view, base, position, value)
+    return _write_array(view, base, position, np.asarray(value))
+
+
+def _put(view: memoryview, base: int, position: int, raw) -> int:
+    end = position + len(raw)
+    view[base + position : base + end] = raw
+    return end
+
+
+def _pad(view: memoryview, base: int, position: int) -> int:
+    end = _align_to_eight(position)
+    view[base + position : base + end] = bytes(end - position)
+    return end
+
+
+def _write_array(view: memoryview, base: int, position: int, array: np.ndarray) -> int:
     dtype_code, wire_dtype = _wire_dtype(array.dtype)
+    # Scalars become one-element vectors here. Raw bytes come straight from
+    # the contiguous little-endian array; no intermediate bytes object is made.
     wire_array = np.ascontiguousarray(array, dtype=wire_dtype)
-    raw = wire_array.tobytes(order="C")
-    checksum = xxhash.xxh64_intdigest(raw, seed=_CHECKSUM_SEED)
-
     if wire_array.ndim > 255:
         raise ValueError(f"too many nested array dimensions: {wire_array.ndim}")
+    raw = wire_array.reshape(-1).view(np.uint8)
+    checksum = xxhash.xxh64_intdigest(raw, seed=_CHECKSUM_SEED)
+    header = struct.pack(
+        f"<BBB{wire_array.ndim}QQ",
+        _TAG_ARRAY,
+        dtype_code,
+        wire_array.ndim,
+        *wire_array.shape,
+        checksum,
+    )
+    position = _pad(view, base, _put(view, base, position, header))
+    return _put(view, base, position, raw)
 
-    output.append(_TAG_ARRAY)
-    output.append(dtype_code)
-    output.append(wire_array.ndim)
-    for dim in wire_array.shape:
-        output.extend(struct.pack("<Q", int(dim)))
-    output.extend(struct.pack("<Q", checksum))
-    _pad_to_eight(output)
-    output.extend(raw)
 
-
-def _write_string(output: bytearray, value: str) -> None:
+def _write_string(view: memoryview, base: int, position: int, value: str) -> int:
     raw = value.encode("utf-8")
     checksum = xxhash.xxh64_intdigest(raw, seed=_CHECKSUM_SEED)
-
-    output.append(_TAG_ARRAY)
-    output.append(_DTYPE_STRING)
-    output.append(0)
-    output.extend(struct.pack("<I", len(raw)))
-    output.extend(struct.pack("<Q", checksum))
-    _pad_to_eight(output)
-    output.extend(raw)
+    header = struct.pack("<BBBIQ", _TAG_ARRAY, _DTYPE_STRING, 0, len(raw), checksum)
+    position = _pad(view, base, _put(view, base, position, header))
+    return _put(view, base, position, raw)
 
 
-def _write_dict(output: bytearray, value: Mapping[Any, Any]) -> None:
-    output.append(_TAG_DICT)
-    output.extend(struct.pack("<I", len(value)))
+def _write_dict(
+    view: memoryview, base: int, position: int, value: Mapping[Any, Any]
+) -> int:
+    position = _put(view, base, position, struct.pack("<BI", _TAG_DICT, len(value)))
     for key, item in value.items():
         if not isinstance(key, str):
             raise TypeError("nested dict keys must be strings")
         encoded_key = key.encode("utf-8")
         if len(encoded_key) > 65535:
             raise ValueError("nested dict key is too long")
-        output.extend(struct.pack("<H", len(encoded_key)))
-        output.extend(encoded_key)
-        _write_value(output, item)
+        position = _put(
+            view, base, position, struct.pack("<H", len(encoded_key)) + encoded_key
+        )
+        position = _write_value(view, base, position, item)
+    return position
 
 
-def _write_list(output: bytearray, value: Sequence[Any]) -> None:
-    output.append(_TAG_LIST)
-    output.extend(struct.pack("<I", len(value)))
+def _write_list(
+    view: memoryview, base: int, position: int, value: Sequence[Any]
+) -> int:
+    position = _put(view, base, position, struct.pack("<BI", _TAG_LIST, len(value)))
     for item in value:
-        _write_value(output, item)
+        position = _write_value(view, base, position, item)
+    return position
 
 
 def _read_value(reader: _Reader) -> Any:
@@ -247,10 +303,6 @@ def _verify_checksum(data: bytes, checksum: int) -> None:
     actual = xxhash.xxh64_intdigest(data, seed=_CHECKSUM_SEED)
     if actual != checksum:
         raise ValueError("nested payload checksum mismatch")
-
-
-def _pad_to_eight(output: bytearray) -> None:
-    output.extend(b"\0" * (_align_to_eight(len(output)) - len(output)))
 
 
 def _align_to_eight(offset: int) -> int:

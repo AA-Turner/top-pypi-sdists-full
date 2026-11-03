@@ -8,7 +8,6 @@
 //! available. For instance, during decompression Pco will try to fill the entire `&mut [T]`
 //! passed in, returning an insufficient data error if the `&[u8]` passed in is not long enough.
 
-#![allow(clippy::uninit_vec)]
 #![allow(clippy::manual_non_exhaustive)] // sometimes we want to ban explicit construction within the crate too
 #![deny(clippy::unused_unit)]
 #![deny(dead_code)]
@@ -20,6 +19,7 @@ struct ReadmeDoctest;
 pub use chunk_config::{ChunkConfig, DeltaSpec, ModeSpec, PagingSpec};
 pub use constants::{DEFAULT_COMPRESSION_LEVEL, DEFAULT_MAX_PAGE_N, FULL_BATCH_N};
 pub use progress::Progress;
+pub use scratch::DecompressorScratch;
 
 pub mod data_types;
 /// for inspecting certain types of Pco metadata
@@ -52,11 +52,37 @@ mod page_latent_decompressor;
 mod progress;
 mod read_write_uint;
 mod sampling;
-mod scratch_array;
+mod scratch;
 mod sort_utils;
 
 #[cfg(test)]
 mod tests;
+
+// To ensure our tests surface uninitialized memory issues, since some default
+// allocators fill with 0, we make the allocator write uncommon values instead.
+#[cfg(test)]
+mod poisoning_allocator {
+  use std::alloc::{GlobalAlloc, Layout, System};
+
+  struct Poisoning;
+
+  unsafe impl GlobalAlloc for Poisoning {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+      let ptr = System.alloc(layout);
+      if !ptr.is_null() {
+        ptr.write_bytes(0xab, layout.size());
+      }
+      ptr
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+      System.dealloc(ptr, layout)
+    }
+  }
+
+  #[global_allocator]
+  static ALLOCATOR: Poisoning = Poisoning;
+}
 
 #[cfg(feature = "bench")]
 mod bench_utils;

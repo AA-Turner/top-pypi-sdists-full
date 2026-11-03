@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+from contextlib import suppress
 from datetime import datetime
 from typing import Optional, Any, Sequence
 from urllib.parse import quote, unquote, urlparse
@@ -53,12 +54,16 @@ class DBConnection:
 
     @classmethod
     def open(cls, db_url: Optional[str] = None) -> "DBConnection":
-        """Independent connection (safe for multi-threaded dashboard reads)."""
+        """Non-singleton connection for dashboard reads (autocommit on server DBs)."""
         conn = object.__new__(cls)
         conn._db_url = db_url
         conn._connection = None
         conn._dialect = "postgres"
         conn._initialize_connection()
+        raw = conn._connection
+        if conn._dialect != "sqlite" and raw is not None:
+            with suppress(Exception):
+                raw.autocommit = True
         return conn
 
     @classmethod

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: power-grid-model
-Version: 1.13.217
+Version: 1.13.218
 Summary: Python/C++ library for distribution power system analysis
 Author-Email: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
 License-Expression: MPL-2.0
@@ -69,6 +69,8 @@ For various conversions to the power-grid-model, refer to the
 [power-grid-model-io](https://github.com/PowerGridModel/power-grid-model-io) repository.
 For an extended python interface to the the power-grid-model, refer to the
 [power-grid-model-ds](https://github.com/PowerGridModel/power-grid-model-ds) repository.
+For an officially supported set of AI agent skills to make optimal use of the power-grid-model, refer to the
+[power-grid-model-ai](https://github.com/PowerGridModel/power-grid-model-ai) repository.
 
 ```{note}
 Want to be updated on the latest news and releases? Subscribe to the Power Grid Model mailing list by sending an (empty)

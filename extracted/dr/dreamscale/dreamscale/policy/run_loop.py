@@ -675,6 +675,11 @@ def _hold_position_action(
         hold_action = getattr(observation, "hold_action", None)
         if hold_action is not None:
             return tuple(float(value) for value in hold_action)
+        state = getattr(observation, "state", None)
+        if contract.hold_indices and state is not None:
+            # The measured pose in the action layout (RuntimeContract.hold_indices).
+            return tuple(0.0 if index < 0 else float(state[index])
+                         for index in contract.hold_indices)
         joint_positions = getattr(observation, "joint_positions", None)
         if joint_positions is not None:
             return tuple(float(value) for value in joint_positions)

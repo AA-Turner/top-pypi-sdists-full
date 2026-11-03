@@ -24,6 +24,7 @@ use super::types::{CallbackMessage, OneshotMap, RecordLandingZone};
 use super::{ZerobusStream, STREAM_TEARDOWN_DRAIN_TIMEOUT_MS};
 use crate::databricks::zerobus::zerobus_client::ZerobusClient;
 use crate::errors::should_retry_initial_connection;
+use crate::grpc_status::{GrpcCode, GrpcStatus};
 use crate::{
     EncodedBatch, HeadersProvider, OffsetId, StreamConfigurationOptions, TableProperties,
     ZerobusError, ZerobusResult,
@@ -142,7 +143,7 @@ impl ZerobusStream {
                         )
                         .await
                         .map_err(|_| {
-                            ZerobusError::CreateStreamError(tonic::Status::deadline_exceeded(
+                            ZerobusError::CreateStreamError(GrpcStatus::deadline_exceeded(
                                 "Stream creation timed out",
                             ))
                         })
@@ -284,6 +285,7 @@ impl ZerobusStream {
                 options.clone(),
                 server_error_tx.clone(),
                 recv_drain_token.clone(),
+                per_stream_token.clone(),
                 callback_tx.clone(),
                 initial_last_acked_offset,
             ));
@@ -320,8 +322,12 @@ impl ZerobusStream {
                 }
                 send_result = &mut send_task => {
                     // Draining the recv_task prevents RST_STREAM(CANCEL) from being sent alongside END_STREAM.
-                    if matches!(send_result, Ok(Ok(()))) && cancellation_token.is_cancelled() {
-                        recv_drain_token.cancel();
+                    // The receiver also cancels `per_stream_token` to half-close. Let it apply the
+                    // final acks before it is aborted and `reset_observe` runs.
+                    if matches!(send_result, Ok(Ok(()))) {
+                        if cancellation_token.is_cancelled() {
+                            recv_drain_token.cancel();
+                        }
                         let _ = tokio::time::timeout(
                             Duration::from_millis(STREAM_TEARDOWN_DRAIN_TIMEOUT_MS),
                             &mut recv_task,
@@ -346,7 +352,7 @@ impl ZerobusStream {
                     // Mapping this to pass certain e2e tests.
                     // TODO: Remove this once we fix tests.
                     ZerobusError::StreamClosedError(status)
-                        if status.code() == tonic::Code::InvalidArgument =>
+                        if status.code() == GrpcCode::InvalidArgument =>
                     {
                         ZerobusError::InvalidArgument(status.message().to_string())
                     }
@@ -507,8 +513,6 @@ mod tests {
     use std::sync::Arc;
     use std::task::{Context, Poll, Wake, Waker};
 
-    use smallvec::smallvec;
-
     use super::super::types::IngestRequest;
     use super::*;
     use crate::landing_zone::LandingZone;
@@ -532,7 +536,7 @@ mod tests {
         let callback_tx = None;
 
         let reservation = landing_zone.reserve_capacity().await;
-        let batch = EncodedBatch::Proto(smallvec![b"admitted".to_vec()]);
+        let batch = EncodedBatch::Proto(vec![b"admitted".to_vec()].into());
 
         // Model an ingest that has entered its ordering section but has not
         // enqueued yet. Polling the failure future explicitly proves that it
@@ -575,7 +579,7 @@ mod tests {
         is_closed.store(false, Ordering::Relaxed);
         let terminal_token = CancellationToken::new();
         let (server_error_tx, _) = tokio::sync::watch::channel(None);
-        let batch = EncodedBatch::Proto(smallvec![b"recoverable".to_vec()]);
+        let batch = EncodedBatch::Proto(vec![b"recoverable".to_vec()].into());
         let reservation = landing_zone.reserve_capacity().await;
         landing_zone.enqueue_reserved(
             Box::new(IngestRequest {

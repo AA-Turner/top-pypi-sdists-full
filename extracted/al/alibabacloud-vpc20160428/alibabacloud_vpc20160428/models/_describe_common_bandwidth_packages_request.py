@@ -27,42 +27,41 @@ class DescribeCommonBandwidthPackagesRequest(DaraModel):
     ):
         # The ID of the Internet Shared Bandwidth instance.
         self.bandwidth_package_id = bandwidth_package_id
-        # Specifies whether to perform a dry run. Valid values:
+        # Specifies whether to only precheck the request. Valid values:
         # 
-        # - **true**: Sends a check request without querying instance information. The system checks whether the required parameters are specified, whether the request format is valid, and whether the instance status is valid. If the check fails, the corresponding error is returned. If the check succeeds, `DryRunOperation` is returned.
+        # - **true**: prechecks the request without querying the instance information. The system checks whether required parameters are specified, the request format, and the instance status. If the request fails the precheck, the corresponding error is returned. If the request passes the precheck, the `DryRunOperation` error code is returned.
         # 
-        # - **false** (default): Sends a normal request. After the request passes the check, an HTTP 2xx status code is returned and the operation is performed.
+        # - **false** (default): sends the request. If the request passes the precheck, the HTTP 2xx status code is returned and the operation is performed.
         self.dry_run = dry_run
-        # Specifies whether to include pending subscription data. Valid values:
-        # -  **false** (default): Does not include pending subscription data.
-        # - **true**: Includes pending subscription data.
+        # Specifies whether to include subscription data that has not taken effect. Valid values:
+        # - **false** (default): Does not include subscription data that has not taken effect.
+        # - **true**: Includes subscription data that has not taken effect.
         self.include_reservation_data = include_reservation_data
         # The name of the Internet Shared Bandwidth instance.
-        # The name must be 0 to 128 characters in length and cannot start with `http://` or `https://`.
+        # The name must be 0 to 128 characters in length, and cannot start with `http://` or `https://`.
         self.name = name
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The page number of the list. Default value: **1**.
+        # The page number. Default value: **1**.
         self.page_number = page_number
-        # The number of entries per page for paging queries. Maximum value: **50**. Default value: **10**.
+        # The number of entries per page. Maximum value: **50**. Default value: **10**.
         self.page_size = page_size
         # The region ID of the Internet Shared Bandwidth instance. 
-        # 
         # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the region ID.
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The resource group ID.
+        # The ID of the resource group.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
         # Specifies whether to enable Anti-DDoS (Enhanced). Valid values:
-        # - **false**: Disabled.
-        # - **true**: Enabled.
+        # - **false**: does not enable Anti-DDoS (Enhanced).
+        # - **true**: enables Anti-DDoS (Enhanced).
         # 
-        # > This parameter is deprecated.
+        # **[Deprecated]**
         self.security_protection_enabled = security_protection_enabled
-        # The list of tags associated with the Internet Shared Bandwidth instance.
+        # The tags of the Internet Shared Bandwidth instance.
         self.tag = tag
 
     def validate(self):
@@ -177,13 +176,13 @@ class DescribeCommonBandwidthPackagesRequestTag(DaraModel):
         key: str = None,
         value: str = None,
     ):
-        # The tag key of the resource. You can specify up to 20 tag keys. The tag key cannot be an empty string.
+        # The tag key of the resource. You can specify up to 20 tag keys. If you specify this parameter, you cannot specify an empty string.
         # 
         # A tag key can be up to 128 characters in length. It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
         self.key = key
-        # The tag value of the resource. You can specify up to 20 tag values. The tag value can be an empty string.
+        # The tag value of the resource. You can specify up to 20 tag values. If you specify this parameter, you can specify an empty string.
         # 
-        # The tag value can be up to 128 characters in length. It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
+        # A tag value can be up to 128 characters in length. It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
         self.value = value
 
     def validate(self):

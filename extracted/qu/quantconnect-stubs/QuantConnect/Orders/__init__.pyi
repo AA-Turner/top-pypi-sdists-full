@@ -1268,6 +1268,14 @@ class Order(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @property
+    def group_id(self) -> typing.Optional[int]:
+        """
+        The id of the group of orders this order belongs to if it is a combo order leg, null otherwise.
+        Synonym of group_order_manager.Orders.GroupOrderManager.Id
+        """
+        ...
+
+    @property
     def contingency(self) -> QuantConnect.Orders.OrderContingency:
         """
         The contingency of this order, if any: the set of contingent orders it belongs to (OCO, OTO, OUO, brackets)
@@ -1460,161 +1468,21 @@ class Order(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class GroupOrderExtensions(System.Object):
-    """Group (combo) orders extension methods for easiest combo order manipulation"""
-
-    @staticmethod
-    def get_error_message(securities: System.Collections.Generic.Dictionary[QuantConnect.Orders.Order, QuantConnect.Securities.Security], has_sufficient_buying_power_result: QuantConnect.Securities.HasSufficientBuyingPowerForOrderResult) -> str:
-        """
-        Returns an error string message saying there is insufficient buying power for the given orders associated with their respective
-        securities
-        """
-        ...
-
-    @staticmethod
-    def get_group_quantity_by_each_leg_quantity(leg_quantity: typing.List[float], order_direction: QuantConnect.Orders.OrderDirection) -> float:
-        """
-        Calculates the greatest common divisor (GCD) of the provided leg quantities
-        and returns it as a signed quantity based on the OrderDirection.
-        
-        :param leg_quantity: A collection of leg quantities.
-        :param order_direction: Determines the sign of the returned quantity:
-        OrderDirection.BUY returns a positive quantity,
-        OrderDirection.SELL returns a negative quantity.
-        :returns: The greatest common divisor of the leg quantities, signed according to order_direction.
-        """
-        ...
-
-    @staticmethod
-    def get_order_leg_group_quantity(leg_ratio: float, group_order_manager: QuantConnect.Orders.GroupOrderManager) -> float:
-        """
-        Gets the combo order leg group quantity, that is, the total number of shares to be bought/sold from this leg,
-        from its ratio and the group order quantity
-        
-        :param leg_ratio: The leg ratio
-        :param group_order_manager: The group order manager
-        :returns: The total number of shares to be bought/sold from this leg.
-        """
-        ...
-
-    @staticmethod
-    def get_order_leg_ratio(leg_group_quantity: float, group_order_manager: QuantConnect.Orders.GroupOrderManager) -> float:
-        """
-        Gets the combo order leg ratio from its group quantity and the group order quantity
-        
-        :param leg_group_quantity: The total number of shares to be bought/sold from this leg, that is, the result of the let ratio times the group quantity
-        :param group_order_manager: The group order manager
-        :returns: The ratio of this combo order leg.
-        """
-        ...
-
-    @staticmethod
-    def try_get_group_orders(order: QuantConnect.Orders.Order, order_provider: typing.Callable[[int], QuantConnect.Orders.Order], orders: typing.Optional[typing.List[QuantConnect.Orders.Order]]) -> typing.Tuple[bool, typing.List[QuantConnect.Orders.Order]]:
-        """
-        Gets the grouped orders (legs) of a group order
-        
-        :param order: Target order, which can be any of the legs of the combo
-        :param order_provider: Order provider to use to access the existing orders
-        :param orders: List of orders in the combo
-        :returns: False if any of the orders in the combo is not yet found in the order provider. True otherwise.
-        """
-        ...
-
-    @staticmethod
-    def try_get_group_orders_securities(orders: typing.List[QuantConnect.Orders.Order], security_provider: QuantConnect.Securities.ISecurityProvider, securities: typing.Optional[System.Collections.Generic.Dictionary[QuantConnect.Orders.Order, QuantConnect.Securities.Security]]) -> typing.Tuple[bool, System.Collections.Generic.Dictionary[QuantConnect.Orders.Order, QuantConnect.Securities.Security]]:
-        """
-        Gets the securities corresponding to each order in the group
-        
-        :param orders: List of orders to map
-        :param security_provider: The security provider to use
-        :param securities: The resulting map of order to security
-        :returns: True if the mapping is successful, false otherwise.
-        """
-        ...
-
-
-class LimitIfTouchedOrder(QuantConnect.Orders.Order):
-    """
-    In effect, a LimitIfTouchedOrder behaves opposite to the StopLimitOrder;
-    after a trigger price is touched, a limit order is set for some user-defined value above (below)
-    the trigger when selling (buying).
-    https://www.interactivebrokers.ca/en/index.php?f=45318
-    """
+class CancelOrderRequest(QuantConnect.Orders.OrderRequest):
+    """Defines a request to cancel an order"""
 
     @property
-    def type(self) -> QuantConnect.Orders.OrderType:
-        """Order Type"""
+    def order_request_type(self) -> QuantConnect.Orders.OrderRequestType:
+        """Gets Orders.OrderRequestType.Cancel"""
         ...
 
-    @property
-    def trigger_price(self) -> float:
-        """The price which, when touched, will trigger the setting of a limit order at limit_price."""
-        ...
-
-    @property
-    def limit_price(self) -> float:
-        """The price at which to set the limit order following trigger_price being touched."""
-        ...
-
-    @property
-    def trigger_touched(self) -> bool:
-        """Whether or not the trigger_price has been touched."""
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, trigger_price: typing.Optional[float], limit_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], order_id: int, tag: str) -> None:
         """
-        New LimitIfTouchedOrder constructor.
+        Initializes a new instance of the CancelOrderRequest class
         
-        :param symbol: Symbol asset we're seeking to trade
-        :param quantity: Quantity of the asset we're seeking to trade
-        :param limit_price: Maximum price to fill the order
-        :param time: Time the order was placed
-        :param trigger_price: Price which must be touched in order to then set a limit order
-        :param tag: User defined data tag for this order
-        :param properties: The order properties for this order
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default constructor for JSON Deserialization:"""
-        ...
-
-    def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
-        """
-        Modifies the state of this order to match the update request
-        
-        :param request: The request to update this order object
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Orders.Order:
-        """
-        Creates a deep-copy clone of this order
-        
-        :returns: A copy of this order.
-        """
-        ...
-
-    def get_default_tag(self) -> str:
-        """
-        Gets the default tag for this order
-        
-        :returns: The default tag.
-        """
-        ...
-
-    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
-        """
-        Gets the order value in units of the security's quote currency for a single unit.
-        A single unit here is a single share of stock, or a single barrel of oil, or the
-        cost of a single share in an option contract.
-        
-        
-        This Class is protected.
-        
-        :param security: The security matching this order's symbol
+        :param time: The time this cancelation was requested
+        :param order_id: The order id to be canceled
+        :param tag: A new tag for the order
         """
         ...
 
@@ -1624,6 +1492,265 @@ class LimitIfTouchedOrder(QuantConnect.Orders.Order):
         
         :returns: A string that represents the current object.
         """
+        ...
+
+
+class OrderField(IntEnum):
+    """Specifies an order field that does not apply to all order types"""
+
+    LIMIT_PRICE = 0
+    """The limit price for a LimitOrder, StopLimitOrder or LimitIfTouchedOrder (0)"""
+
+    STOP_PRICE = 1
+    """The stop price for stop orders (StopMarketOrder, StopLimitOrder) (1)"""
+
+    TRIGGER_PRICE = 2
+    """The trigger price for a LimitIfTouchedOrder (2)"""
+
+    TRAILING_AMOUNT = 3
+    """The trailing amount for a TrailingStopOrder (3)"""
+
+    TRAILING_AS_PERCENTAGE = 4
+    """Whether the trailing amount for a TrailingStopOrder is a percentage or an absolute currency value (4)"""
+
+
+class _Typed_OrderTicket_Get(typing.Generic[QuantConnect_Orders_OrderTicket_Get_T]):
+    """"""
+
+    @overload
+    def __call__(self, field: QuantConnect.Orders.OrderField) -> QuantConnect_Orders_OrderTicket_Get_T:
+        """
+        Gets the specified field from the ticket and tries to convert it to the specified type
+        
+        :param field: The order field to get
+        :returns: The value of the field.
+        """
+        ...
+
+
+class _OrderTicket_Get:
+    """"""
+
+    @overload
+    def __call__(self, field: QuantConnect.Orders.OrderField) -> float:
+        """
+        Gets the specified field from the ticket
+        
+        :param field: The order field to get
+        :returns: The value of the field.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Orders_OrderTicket_Get_T]) -> QuantConnect.Orders._Typed_OrderTicket_Get[QuantConnect_Orders_OrderTicket_Get_T]:
+        ...
+
+
+class OrderResponseErrorCode(IntEnum):
+    """Error detail code"""
+
+    NONE = 0
+    """No error (0)"""
+
+    PROCESSING_ERROR = -1
+    """Unknown error (-1)"""
+
+    ORDER_ALREADY_EXISTS = -2
+    """Cannot submit because order already exists (-2)"""
+
+    INSUFFICIENT_BUYING_POWER = -3
+    """Not enough money to to submit order (-3)"""
+
+    BROKERAGE_MODEL_REFUSED_TO_SUBMIT_ORDER = -4
+    """Internal logic invalidated submit order (-4)"""
+
+    BROKERAGE_FAILED_TO_SUBMIT_ORDER = -5
+    """Brokerage submit error (-5)"""
+
+    BROKERAGE_FAILED_TO_UPDATE_ORDER = -6
+    """Brokerage update error (-6)"""
+
+    BROKERAGE_HANDLER_REFUSED_TO_UPDATE_ORDER = -7
+    """Internal logic invalidated update order (-7)"""
+
+    BROKERAGE_FAILED_TO_CANCEL_ORDER = -8
+    """Brokerage cancel error (-8)"""
+
+    INVALID_ORDER_STATUS = -9
+    """Only pending orders can be canceled (-9)"""
+
+    UNABLE_TO_FIND_ORDER = -10
+    """Missing order (-10)"""
+
+    ORDER_QUANTITY_ZERO = -11
+    """Cannot submit or update orders with zero quantity (-11)"""
+
+    UNSUPPORTED_REQUEST_TYPE = -12
+    """This type of request is unsupported (-12)"""
+
+    PRE_ORDER_CHECKS_ERROR = -13
+    """Unknown error during pre order request validation (-13)"""
+
+    MISSING_SECURITY = -14
+    """Security is missing. Probably did not subscribe (-14)"""
+
+    EXCHANGE_NOT_OPEN = -15
+    """Some order types require open exchange (-15)"""
+
+    SECURITY_PRICE_ZERO = -16
+    """Zero security price is probably due to bad data (-16)"""
+
+    FOREX_BASE_AND_QUOTE_CURRENCIES_REQUIRED = -17
+    """Need both currencies in cashbook to trade a pair (-17)"""
+
+    FOREX_CONVERSION_RATE_ZERO = -18
+    """Need conversion rate to account currency (-18)"""
+
+    SECURITY_HAS_NO_DATA = -19
+    """Should not attempt trading without at least one data point (-19)"""
+
+    EXCEEDED_MAXIMUM_ORDERS = -20
+    """Transaction manager's cache is full (-20)"""
+
+    MARKET_ON_CLOSE_ORDER_TOO_LATE = -21
+    """Below buffer time for MOC order to be placed before exchange closes. 15.5 minutes by default (-21)"""
+
+    INVALID_REQUEST = -22
+    """Request is invalid or null (-22)"""
+
+    REQUEST_CANCELED = -23
+    """Request was canceled by user (-23)"""
+
+    ALGORITHM_WARMING_UP = -24
+    """All orders are invalidated while algorithm is warming up (-24)"""
+
+    BROKERAGE_MODEL_REFUSED_TO_UPDATE_ORDER = -25
+    """Internal logic invalidated update order (-25)"""
+
+    QUOTE_CURRENCY_REQUIRED = -26
+    """Need quote currency in cashbook to trade (-26)"""
+
+    CONVERSION_RATE_ZERO = -27
+    """Need conversion rate to account currency (-27)"""
+
+    NON_TRADABLE_SECURITY = -28
+    """The order's symbol references a non-tradable security (-28)"""
+
+    NON_EXERCISABLE_SECURITY = -29
+    """The order's symbol references a non-exercisable security (-29)"""
+
+    ORDER_QUANTITY_LESS_THAN_LOT_SIZE = -30
+    """Cannot submit or update orders with quantity that is less than lot size (-30)"""
+
+    EXCEEDS_SHORTABLE_QUANTITY = -31
+    """The order's quantity exceeds the max shortable quantity set by the brokerage (-31)"""
+
+    INVALID_NEW_ORDER_STATUS = -32
+    """Cannot update/cancel orders with OrderStatus.New (-32)"""
+
+    EUROPEAN_OPTION_NOT_EXPIRED_ON_EXERCISE = -33
+    """Exercise time before expiry for European options (-33)"""
+
+    OPTION_ORDER_ON_STOCK_SPLIT = -34
+    """Option order is invalid due to underlying stock split (-34)"""
+
+    MARKET_ON_OPEN_NOT_ALLOWED_DURING_REGULAR_HOURS = -35
+    """
+    The Market On Open order was submitted during regular market hours,
+    which is not allowed. This order type must be submitted before the market opens.
+    """
+
+
+class OrderResponse(System.Object):
+    """
+    Represents a response to an OrderRequest. See OrderRequest.response property for
+    a specific request's response value
+    """
+
+    @property
+    def order_id(self) -> int:
+        """Gets the order id"""
+        ...
+
+    @property
+    def error_message(self) -> str:
+        """
+        Gets the error message if the error_code does not equal OrderResponseErrorCode.NONE, otherwise
+        gets string.Empty
+        """
+        ...
+
+    @property
+    def error_code(self) -> QuantConnect.Orders.OrderResponseErrorCode:
+        """Gets the error code for this response."""
+        ...
+
+    @property
+    def is_success(self) -> bool:
+        """
+        Gets true if this response represents a successful request, false otherwise
+        If this is an unprocessed response, IsSuccess will return false.
+        """
+        ...
+
+    @property
+    def is_error(self) -> bool:
+        """Gets true if this response represents an error, false otherwise"""
+        ...
+
+    @property
+    def is_processed(self) -> bool:
+        """Gets true if this response has been processed, false otherwise"""
+        ...
+
+    UNPROCESSED: QuantConnect.Orders.OrderResponse = ...
+    """Gets an OrderResponse for a request that has not yet been processed"""
+
+    @staticmethod
+    def error(request: QuantConnect.Orders.OrderRequest, error_code: QuantConnect.Orders.OrderResponseErrorCode, error_message: str) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create an error response from a request"""
+        ...
+
+    @staticmethod
+    def invalid_new_status(request: QuantConnect.Orders.OrderRequest, order: QuantConnect.Orders.Order) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create an error response due to the "New" order status"""
+        ...
+
+    @staticmethod
+    def invalid_status(request: QuantConnect.Orders.OrderRequest, order: QuantConnect.Orders.Order) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create an error response due to an invalid order status"""
+        ...
+
+    @staticmethod
+    def missing_security(request: QuantConnect.Orders.SubmitOrderRequest) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create an error response due to a missing security"""
+        ...
+
+    @staticmethod
+    def success(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create a successful response from a request"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+    @staticmethod
+    def unable_to_find_order(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create an error response due to a bad order id"""
+        ...
+
+    @staticmethod
+    def warming_up(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create an error response due to algorithm still in warmup mode"""
+        ...
+
+    @staticmethod
+    def zero_quantity(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create an error response due to a zero order quantity"""
         ...
 
 
@@ -1664,6 +1791,15 @@ class OrderEvent(System.Object):
 
     @utc_time.setter
     def utc_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def time(self) -> datetime.datetime:
+        """The date and time of this event (UTC). Synonym of utc_time"""
+        ...
+
+    @time.setter
+    def time(self, value: datetime.datetime) -> None:
         ...
 
     @property
@@ -1726,12 +1862,41 @@ class OrderEvent(System.Object):
         ...
 
     @property
+    def order_type(self) -> typing.Optional[QuantConnect.Orders.OrderType]:
+        """
+        The type of the order this event comes from. Null for events built from the order id alone
+        until the transaction handler stamps it, and for payloads that predate this property
+        """
+        ...
+
+    @order_type.setter
+    def order_type(self, value: typing.Optional[QuantConnect.Orders.OrderType]) -> None:
+        ...
+
+    @property
+    def group_id(self) -> typing.Optional[int]:
+        """The id of the group of orders the order belongs to if it is a combo order leg, null otherwise"""
+        ...
+
+    @group_id.setter
+    def group_id(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
     def message(self) -> str:
         """Any message from the exchange."""
         ...
 
     @message.setter
     def message(self, value: str) -> None:
+        ...
+
+    @property
+    def tag(self) -> str:
+        """
+        The tag of the order this event comes from. Null for events built from the order id alone
+        until the transaction handler stamps it, and for deserialized events
+        """
         ...
 
     @property
@@ -1876,6 +2041,444 @@ class OrderEvent(System.Object):
 
     def short_to_string(self) -> str:
         """Returns a short string that represents the current object."""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+
+class OrderTicket(System.Object):
+    """
+    Provides a single reference to an order for the algorithm to maintain. As the order gets
+    updated this ticket will also get updated
+    """
+
+    @property
+    def order_id(self) -> int:
+        """Gets the order id of this ticket"""
+        ...
+
+    @property
+    def status(self) -> QuantConnect.Orders.OrderStatus:
+        """Gets the current status of this order ticket"""
+        ...
+
+    @property
+    def symbol(self) -> QuantConnect.Symbol:
+        """Gets the symbol being ordered"""
+        ...
+
+    @property
+    def security_type(self) -> QuantConnect.SecurityType:
+        """Gets the symbol's security_type"""
+        ...
+
+    @property
+    def quantity(self) -> float:
+        """Gets the number of units ordered"""
+        ...
+
+    @property
+    def average_fill_price(self) -> float:
+        """
+        Gets the average fill price for this ticket. If no fills have been processed
+        then this will return a value of zero.
+        """
+        ...
+
+    @property
+    def quantity_filled(self) -> float:
+        """
+        Gets the total qantity filled for this ticket. If no fills have been processed
+        then this will return a value of zero.
+        """
+        ...
+
+    @property
+    def quantity_remaining(self) -> float:
+        """
+        Gets the remaining quantity for this order ticket.
+        This is the difference between the total quantity ordered and the total quantity filled.
+        """
+        ...
+
+    @property
+    def time(self) -> datetime.datetime:
+        """Gets the time this order was last updated"""
+        ...
+
+    @property
+    def order_type(self) -> QuantConnect.Orders.OrderType:
+        """Gets the type of order"""
+        ...
+
+    @property
+    def tag(self) -> str:
+        """Gets the order's current tag"""
+        ...
+
+    @property
+    def contingency(self) -> QuantConnect.Orders.OrderContingency:
+        """
+        Gets the current contingency of this order: the set of contingent orders it belongs to (OCO, OTO, OUO, brackets)
+        and how it relates to them. Null if it's not a contingent order
+        """
+        ...
+
+    @property
+    def submit_request(self) -> QuantConnect.Orders.SubmitOrderRequest:
+        """Gets the SubmitOrderRequest that initiated this order"""
+        ...
+
+    @property
+    def update_requests(self) -> typing.Sequence[QuantConnect.Orders.UpdateOrderRequest]:
+        """
+        Gets a list of UpdateOrderRequest containing an item for each
+        UpdateOrderRequest that was sent for this order id
+        """
+        ...
+
+    @property
+    def cancel_request(self) -> QuantConnect.Orders.CancelOrderRequest:
+        """
+        Gets the CancelOrderRequest if this order was canceled. If this order
+        was not canceled, this will return null
+        """
+        ...
+
+    @property
+    def order_events(self) -> typing.Sequence[QuantConnect.Orders.OrderEvent]:
+        """Gets a list of all order events for this ticket"""
+        ...
+
+    @property
+    def order_closed(self) -> System.Threading.WaitHandle:
+        """Gets a wait handle that can be used to wait until this order has filled"""
+        ...
+
+    @property
+    def has_order(self) -> bool:
+        """Returns true if the order has been set for this ticket"""
+        ...
+
+    @property
+    def order_set(self) -> System.Threading.WaitHandle:
+        """Gets a wait handle that can be used to wait until the order has been set"""
+        ...
+
+    @property
+    def get(self) -> QuantConnect.Orders._OrderTicket_Get:
+        ...
+
+    def __init__(self, transaction_manager: QuantConnect.Securities.SecurityTransactionManager, submit_request: QuantConnect.Orders.SubmitOrderRequest) -> None:
+        """
+        Initializes a new instance of the OrderTicket class
+        
+        :param transaction_manager: The transaction manager used for submitting updates and cancels for this ticket
+        :param submit_request: The order request that initiated this order ticket
+        """
+        ...
+
+    def cancel(self, tag: str = None) -> QuantConnect.Orders.OrderResponse:
+        """Submits a new request to cancel this order"""
+        ...
+
+    def get_most_recent_order_request(self) -> QuantConnect.Orders.OrderRequest:
+        """
+        Gets the most recent OrderRequest for this ticket
+        
+        :returns: The most recent OrderRequest for this ticket.
+        """
+        ...
+
+    def get_most_recent_order_response(self) -> QuantConnect.Orders.OrderResponse:
+        """
+        Gets the most recent OrderResponse for this ticket
+        
+        :returns: The most recent OrderResponse for this ticket.
+        """
+        ...
+
+    @staticmethod
+    def invalid_cancel_order_id(transaction_manager: QuantConnect.Securities.SecurityTransactionManager, request: QuantConnect.Orders.CancelOrderRequest) -> QuantConnect.Orders.OrderTicket:
+        """Creates a new OrderTicket that represents trying to cancel an order for which no ticket exists"""
+        ...
+
+    @staticmethod
+    def invalid_submit_request(transaction_manager: QuantConnect.Securities.SecurityTransactionManager, request: QuantConnect.Orders.SubmitOrderRequest, response: QuantConnect.Orders.OrderResponse) -> QuantConnect.Orders.OrderTicket:
+        """Creates a new OrderTicket that represents trying to submit a new order that had errors embodied in the response"""
+        ...
+
+    @staticmethod
+    def invalid_update_order_id(transaction_manager: QuantConnect.Securities.SecurityTransactionManager, request: QuantConnect.Orders.UpdateOrderRequest) -> QuantConnect.Orders.OrderTicket:
+        """Creates a new OrderTicket that represents trying to update an order for which no ticket exists"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+    def update(self, fields: QuantConnect.Orders.UpdateOrderFields) -> QuantConnect.Orders.OrderResponse:
+        """
+        Submits an UpdateOrderRequest with the SecurityTransactionManager to update
+        the ticket with data specified in fields
+        
+        :param fields: Defines what properties of the order should be updated
+        :returns: The OrderResponse from updating the order.
+        """
+        ...
+
+    def update_limit_price(self, limit_price: float, tag: str = None) -> QuantConnect.Orders.OrderResponse:
+        """
+        Submits an UpdateOrderRequest with the SecurityTransactionManager to update
+        the ticker with limit price specified in limit_price and with tag specified in tag
+        
+        :param limit_price: The new limit price for this order ticket
+        :param tag: The new tag for this order ticket
+        :returns: OrderResponse from updating the order.
+        """
+        ...
+
+    def update_quantity(self, quantity: float, tag: str = None) -> QuantConnect.Orders.OrderResponse:
+        """
+        Submits an UpdateOrderRequest with the SecurityTransactionManager to update
+        the ticket with quantity specified in quantity and with tag specified in quantity
+        
+        :param quantity: The new quantity for this order ticket
+        :param tag: The new tag for this order ticket
+        :returns: OrderResponse from updating the order.
+        """
+        ...
+
+    def update_stop_price(self, stop_price: float, tag: str = None) -> QuantConnect.Orders.OrderResponse:
+        """
+        Submits an UpdateOrderRequest with the SecurityTransactionManager to update
+        the ticker with stop price specified in stop_price and with tag specified in tag
+        
+        :param stop_price: The new stop price  for this order ticket
+        :param tag: The new tag for this order ticket
+        :returns: OrderResponse from updating the order.
+        """
+        ...
+
+    def update_stop_trailing_amount(self, trailing_amount: float, tag: str = None) -> QuantConnect.Orders.OrderResponse:
+        """
+        Submits an UpdateOrderRequest with the SecurityTransactionManager to update
+        the ticker with stop trailing amount specified in trailing_amount and with tag specified in tag
+        
+        :param trailing_amount: The new trailing amount for this order ticket
+        :param tag: The new tag for this order ticket
+        :returns: OrderResponse from updating the order.
+        """
+        ...
+
+    def update_tag(self, tag: str) -> QuantConnect.Orders.OrderResponse:
+        """
+        Submits an UpdateOrderRequest with the SecurityTransactionManager to update
+        the ticket with tag specified in tag
+        
+        :param tag: The new tag for this order ticket
+        :returns: OrderResponse from updating the order.
+        """
+        ...
+
+    def update_trigger_price(self, trigger_price: float, tag: str = None) -> QuantConnect.Orders.OrderResponse:
+        """
+        Submits an UpdateOrderRequest with the SecurityTransactionManager to update
+        the ticker with trigger price specified in trigger_price and with tag specified in tag
+        
+        :param trigger_price: The new price which, when touched, will trigger the setting of a limit order.
+        :param tag: The new tag for this order ticket
+        :returns: OrderResponse from updating the order.
+        """
+        ...
+
+
+class GroupOrderExtensions(System.Object):
+    """Group (combo) orders extension methods for easiest combo order manipulation"""
+
+    @staticmethod
+    def get_error_message(securities: System.Collections.Generic.Dictionary[QuantConnect.Orders.Order, QuantConnect.Securities.Security], has_sufficient_buying_power_result: QuantConnect.Securities.HasSufficientBuyingPowerForOrderResult) -> str:
+        """
+        Returns an error string message saying there is insufficient buying power for the given orders associated with their respective
+        securities
+        """
+        ...
+
+    @staticmethod
+    def get_group_id(tickets: typing.List[QuantConnect.Orders.OrderTicket]) -> typing.Optional[int]:
+        """
+        Gets the id of the group of orders the given combo order leg tickets belong to, null if there are no tickets
+        
+        :param tickets: The combo order leg tickets
+        :returns: The group order manager id of the first ticket.
+        """
+        ...
+
+    @staticmethod
+    def get_group_quantity_by_each_leg_quantity(leg_quantity: typing.List[float], order_direction: QuantConnect.Orders.OrderDirection) -> float:
+        """
+        Calculates the greatest common divisor (GCD) of the provided leg quantities
+        and returns it as a signed quantity based on the OrderDirection.
+        
+        :param leg_quantity: A collection of leg quantities.
+        :param order_direction: Determines the sign of the returned quantity:
+        OrderDirection.BUY returns a positive quantity,
+        OrderDirection.SELL returns a negative quantity.
+        :returns: The greatest common divisor of the leg quantities, signed according to order_direction.
+        """
+        ...
+
+    @staticmethod
+    def get_order_leg_group_quantity(leg_ratio: float, group_order_manager: QuantConnect.Orders.GroupOrderManager) -> float:
+        """
+        Gets the combo order leg group quantity, that is, the total number of shares to be bought/sold from this leg,
+        from its ratio and the group order quantity
+        
+        :param leg_ratio: The leg ratio
+        :param group_order_manager: The group order manager
+        :returns: The total number of shares to be bought/sold from this leg.
+        """
+        ...
+
+    @staticmethod
+    def get_order_leg_ratio(leg_group_quantity: float, group_order_manager: QuantConnect.Orders.GroupOrderManager) -> float:
+        """
+        Gets the combo order leg ratio from its group quantity and the group order quantity
+        
+        :param leg_group_quantity: The total number of shares to be bought/sold from this leg, that is, the result of the let ratio times the group quantity
+        :param group_order_manager: The group order manager
+        :returns: The ratio of this combo order leg.
+        """
+        ...
+
+    @staticmethod
+    def is_filled(tickets: typing.List[QuantConnect.Orders.OrderTicket]) -> bool:
+        """
+        Determines whether every one of the given combo order leg tickets is filled
+        
+        :param tickets: The combo order leg tickets
+        :returns: True if there is at least one ticket and all of them are filled.
+        """
+        ...
+
+    @staticmethod
+    def try_get_group_orders(order: QuantConnect.Orders.Order, order_provider: typing.Callable[[int], QuantConnect.Orders.Order], orders: typing.Optional[typing.List[QuantConnect.Orders.Order]]) -> typing.Tuple[bool, typing.List[QuantConnect.Orders.Order]]:
+        """
+        Gets the grouped orders (legs) of a group order
+        
+        :param order: Target order, which can be any of the legs of the combo
+        :param order_provider: Order provider to use to access the existing orders
+        :param orders: List of orders in the combo
+        :returns: False if any of the orders in the combo is not yet found in the order provider. True otherwise.
+        """
+        ...
+
+    @staticmethod
+    def try_get_group_orders_securities(orders: typing.List[QuantConnect.Orders.Order], security_provider: QuantConnect.Securities.ISecurityProvider, securities: typing.Optional[System.Collections.Generic.Dictionary[QuantConnect.Orders.Order, QuantConnect.Securities.Security]]) -> typing.Tuple[bool, System.Collections.Generic.Dictionary[QuantConnect.Orders.Order, QuantConnect.Securities.Security]]:
+        """
+        Gets the securities corresponding to each order in the group
+        
+        :param orders: List of orders to map
+        :param security_provider: The security provider to use
+        :param securities: The resulting map of order to security
+        :returns: True if the mapping is successful, false otherwise.
+        """
+        ...
+
+
+class LimitIfTouchedOrder(QuantConnect.Orders.Order):
+    """
+    In effect, a LimitIfTouchedOrder behaves opposite to the StopLimitOrder;
+    after a trigger price is touched, a limit order is set for some user-defined value above (below)
+    the trigger when selling (buying).
+    https://www.interactivebrokers.ca/en/index.php?f=45318
+    """
+
+    @property
+    def type(self) -> QuantConnect.Orders.OrderType:
+        """Order Type"""
+        ...
+
+    @property
+    def trigger_price(self) -> float:
+        """The price which, when touched, will trigger the setting of a limit order at limit_price."""
+        ...
+
+    @property
+    def limit_price(self) -> float:
+        """The price at which to set the limit order following trigger_price being touched."""
+        ...
+
+    @property
+    def trigger_touched(self) -> bool:
+        """Whether or not the trigger_price has been touched."""
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, trigger_price: typing.Optional[float], limit_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
+        """
+        New LimitIfTouchedOrder constructor.
+        
+        :param symbol: Symbol asset we're seeking to trade
+        :param quantity: Quantity of the asset we're seeking to trade
+        :param limit_price: Maximum price to fill the order
+        :param time: Time the order was placed
+        :param trigger_price: Price which must be touched in order to then set a limit order
+        :param tag: User defined data tag for this order
+        :param properties: The order properties for this order
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON Deserialization:"""
+        ...
+
+    def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
+        """
+        Modifies the state of this order to match the update request
+        
+        :param request: The request to update this order object
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Orders.Order:
+        """
+        Creates a deep-copy clone of this order
+        
+        :returns: A copy of this order.
+        """
+        ...
+
+    def get_default_tag(self) -> str:
+        """
+        Gets the default tag for this order
+        
+        :returns: The default tag.
+        """
+        ...
+
+    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
+        """
+        Gets the order value in units of the security's quote currency for a single unit.
+        A single unit here is a single share of stock, or a single barrel of oil, or the
+        cost of a single share in an option contract.
+        
+        
+        This Class is protected.
+        
+        :param security: The security matching this order's symbol
+        """
         ...
 
     def to_string(self) -> str:
@@ -2272,121 +2875,6 @@ class OrdersResponseWrapper(QuantConnect.Api.RestResponse):
         ...
 
 
-class OrderResponseErrorCode(IntEnum):
-    """Error detail code"""
-
-    NONE = 0
-    """No error (0)"""
-
-    PROCESSING_ERROR = -1
-    """Unknown error (-1)"""
-
-    ORDER_ALREADY_EXISTS = -2
-    """Cannot submit because order already exists (-2)"""
-
-    INSUFFICIENT_BUYING_POWER = -3
-    """Not enough money to to submit order (-3)"""
-
-    BROKERAGE_MODEL_REFUSED_TO_SUBMIT_ORDER = -4
-    """Internal logic invalidated submit order (-4)"""
-
-    BROKERAGE_FAILED_TO_SUBMIT_ORDER = -5
-    """Brokerage submit error (-5)"""
-
-    BROKERAGE_FAILED_TO_UPDATE_ORDER = -6
-    """Brokerage update error (-6)"""
-
-    BROKERAGE_HANDLER_REFUSED_TO_UPDATE_ORDER = -7
-    """Internal logic invalidated update order (-7)"""
-
-    BROKERAGE_FAILED_TO_CANCEL_ORDER = -8
-    """Brokerage cancel error (-8)"""
-
-    INVALID_ORDER_STATUS = -9
-    """Only pending orders can be canceled (-9)"""
-
-    UNABLE_TO_FIND_ORDER = -10
-    """Missing order (-10)"""
-
-    ORDER_QUANTITY_ZERO = -11
-    """Cannot submit or update orders with zero quantity (-11)"""
-
-    UNSUPPORTED_REQUEST_TYPE = -12
-    """This type of request is unsupported (-12)"""
-
-    PRE_ORDER_CHECKS_ERROR = -13
-    """Unknown error during pre order request validation (-13)"""
-
-    MISSING_SECURITY = -14
-    """Security is missing. Probably did not subscribe (-14)"""
-
-    EXCHANGE_NOT_OPEN = -15
-    """Some order types require open exchange (-15)"""
-
-    SECURITY_PRICE_ZERO = -16
-    """Zero security price is probably due to bad data (-16)"""
-
-    FOREX_BASE_AND_QUOTE_CURRENCIES_REQUIRED = -17
-    """Need both currencies in cashbook to trade a pair (-17)"""
-
-    FOREX_CONVERSION_RATE_ZERO = -18
-    """Need conversion rate to account currency (-18)"""
-
-    SECURITY_HAS_NO_DATA = -19
-    """Should not attempt trading without at least one data point (-19)"""
-
-    EXCEEDED_MAXIMUM_ORDERS = -20
-    """Transaction manager's cache is full (-20)"""
-
-    MARKET_ON_CLOSE_ORDER_TOO_LATE = -21
-    """Below buffer time for MOC order to be placed before exchange closes. 15.5 minutes by default (-21)"""
-
-    INVALID_REQUEST = -22
-    """Request is invalid or null (-22)"""
-
-    REQUEST_CANCELED = -23
-    """Request was canceled by user (-23)"""
-
-    ALGORITHM_WARMING_UP = -24
-    """All orders are invalidated while algorithm is warming up (-24)"""
-
-    BROKERAGE_MODEL_REFUSED_TO_UPDATE_ORDER = -25
-    """Internal logic invalidated update order (-25)"""
-
-    QUOTE_CURRENCY_REQUIRED = -26
-    """Need quote currency in cashbook to trade (-26)"""
-
-    CONVERSION_RATE_ZERO = -27
-    """Need conversion rate to account currency (-27)"""
-
-    NON_TRADABLE_SECURITY = -28
-    """The order's symbol references a non-tradable security (-28)"""
-
-    NON_EXERCISABLE_SECURITY = -29
-    """The order's symbol references a non-exercisable security (-29)"""
-
-    ORDER_QUANTITY_LESS_THAN_LOT_SIZE = -30
-    """Cannot submit or update orders with quantity that is less than lot size (-30)"""
-
-    EXCEEDS_SHORTABLE_QUANTITY = -31
-    """The order's quantity exceeds the max shortable quantity set by the brokerage (-31)"""
-
-    INVALID_NEW_ORDER_STATUS = -32
-    """Cannot update/cancel orders with OrderStatus.New (-32)"""
-
-    EUROPEAN_OPTION_NOT_EXPIRED_ON_EXERCISE = -33
-    """Exercise time before expiry for European options (-33)"""
-
-    OPTION_ORDER_ON_STOCK_SPLIT = -34
-    """Option order is invalid due to underlying stock split (-34)"""
-
-    MARKET_ON_OPEN_NOT_ALLOWED_DURING_REGULAR_HOURS = -35
-    """
-    The Market On Open order was submitted during regular market hours,
-    which is not allowed. This order type must be submitted before the market opens.
-    """
-
-
 class BrokerageOrderIdChangedEvent(System.Object):
     """Event used when the brokerage order id has changed"""
 
@@ -2707,100 +3195,6 @@ class EzeOrderProperties(QuantConnect.Orders.OrderProperties):
         ...
 
 
-class OrderResponse(System.Object):
-    """
-    Represents a response to an OrderRequest. See OrderRequest.response property for
-    a specific request's response value
-    """
-
-    @property
-    def order_id(self) -> int:
-        """Gets the order id"""
-        ...
-
-    @property
-    def error_message(self) -> str:
-        """
-        Gets the error message if the error_code does not equal OrderResponseErrorCode.NONE, otherwise
-        gets string.Empty
-        """
-        ...
-
-    @property
-    def error_code(self) -> QuantConnect.Orders.OrderResponseErrorCode:
-        """Gets the error code for this response."""
-        ...
-
-    @property
-    def is_success(self) -> bool:
-        """
-        Gets true if this response represents a successful request, false otherwise
-        If this is an unprocessed response, IsSuccess will return false.
-        """
-        ...
-
-    @property
-    def is_error(self) -> bool:
-        """Gets true if this response represents an error, false otherwise"""
-        ...
-
-    @property
-    def is_processed(self) -> bool:
-        """Gets true if this response has been processed, false otherwise"""
-        ...
-
-    UNPROCESSED: QuantConnect.Orders.OrderResponse = ...
-    """Gets an OrderResponse for a request that has not yet been processed"""
-
-    @staticmethod
-    def error(request: QuantConnect.Orders.OrderRequest, error_code: QuantConnect.Orders.OrderResponseErrorCode, error_message: str) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create an error response from a request"""
-        ...
-
-    @staticmethod
-    def invalid_new_status(request: QuantConnect.Orders.OrderRequest, order: QuantConnect.Orders.Order) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create an error response due to the "New" order status"""
-        ...
-
-    @staticmethod
-    def invalid_status(request: QuantConnect.Orders.OrderRequest, order: QuantConnect.Orders.Order) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create an error response due to an invalid order status"""
-        ...
-
-    @staticmethod
-    def missing_security(request: QuantConnect.Orders.SubmitOrderRequest) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create an error response due to a missing security"""
-        ...
-
-    @staticmethod
-    def success(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create a successful response from a request"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-    @staticmethod
-    def unable_to_find_order(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create an error response due to a bad order id"""
-        ...
-
-    @staticmethod
-    def warming_up(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create an error response due to algorithm still in warmup mode"""
-        ...
-
-    @staticmethod
-    def zero_quantity(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create an error response due to a zero order quantity"""
-        ...
-
-
 class MarketOnCloseOrder(QuantConnect.Orders.Order):
     """Market on close order type - submits a market order on exchange close"""
 
@@ -2889,25 +3283,6 @@ class WolverineOrderProperties(QuantConnect.Orders.OrderProperties):
     @position_side.setter
     def position_side(self, value: typing.Optional[QuantConnect.Orders.OrderPosition]) -> None:
         ...
-
-
-class OrderField(IntEnum):
-    """Specifies an order field that does not apply to all order types"""
-
-    LIMIT_PRICE = 0
-    """The limit price for a LimitOrder, StopLimitOrder or LimitIfTouchedOrder (0)"""
-
-    STOP_PRICE = 1
-    """The stop price for stop orders (StopMarketOrder, StopLimitOrder) (1)"""
-
-    TRIGGER_PRICE = 2
-    """The trigger price for a LimitIfTouchedOrder (2)"""
-
-    TRAILING_AMOUNT = 3
-    """The trailing amount for a TrailingStopOrder (3)"""
-
-    TRAILING_AS_PERCENTAGE = 4
-    """Whether the trailing amount for a TrailingStopOrder is a percentage or an absolute currency value (4)"""
 
 
 class ContingentOrderCache(System.Object):
@@ -4136,33 +4511,6 @@ class ComboLimitOrder(QuantConnect.Orders.ComboOrder):
         ...
 
 
-class CancelOrderRequest(QuantConnect.Orders.OrderRequest):
-    """Defines a request to cancel an order"""
-
-    @property
-    def order_request_type(self) -> QuantConnect.Orders.OrderRequestType:
-        """Gets Orders.OrderRequestType.Cancel"""
-        ...
-
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], order_id: int, tag: str) -> None:
-        """
-        Initializes a new instance of the CancelOrderRequest class
-        
-        :param time: The time this cancelation was requested
-        :param order_id: The order id to be canceled
-        :param tag: A new tag for the order
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-
 class MarketOnOpenOrder(QuantConnect.Orders.Order):
     """Market on Open order type, submits a market order when the exchange opens"""
 
@@ -4325,288 +4673,6 @@ class FTXOrderProperties(QuantConnect.Orders.OrderProperties):
 
     def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
         """Returns a new instance clone of this object"""
-        ...
-
-
-class _Typed_OrderTicket_Get(typing.Generic[QuantConnect_Orders_OrderTicket_Get_T]):
-    """"""
-
-    @overload
-    def __call__(self, field: QuantConnect.Orders.OrderField) -> QuantConnect_Orders_OrderTicket_Get_T:
-        """
-        Gets the specified field from the ticket and tries to convert it to the specified type
-        
-        :param field: The order field to get
-        :returns: The value of the field.
-        """
-        ...
-
-
-class _OrderTicket_Get:
-    """"""
-
-    @overload
-    def __call__(self, field: QuantConnect.Orders.OrderField) -> float:
-        """
-        Gets the specified field from the ticket
-        
-        :param field: The order field to get
-        :returns: The value of the field.
-        """
-        ...
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Orders_OrderTicket_Get_T]) -> QuantConnect.Orders._Typed_OrderTicket_Get[QuantConnect_Orders_OrderTicket_Get_T]:
-        ...
-
-
-class OrderTicket(System.Object):
-    """
-    Provides a single reference to an order for the algorithm to maintain. As the order gets
-    updated this ticket will also get updated
-    """
-
-    @property
-    def order_id(self) -> int:
-        """Gets the order id of this ticket"""
-        ...
-
-    @property
-    def status(self) -> QuantConnect.Orders.OrderStatus:
-        """Gets the current status of this order ticket"""
-        ...
-
-    @property
-    def symbol(self) -> QuantConnect.Symbol:
-        """Gets the symbol being ordered"""
-        ...
-
-    @property
-    def security_type(self) -> QuantConnect.SecurityType:
-        """Gets the symbol's security_type"""
-        ...
-
-    @property
-    def quantity(self) -> float:
-        """Gets the number of units ordered"""
-        ...
-
-    @property
-    def average_fill_price(self) -> float:
-        """
-        Gets the average fill price for this ticket. If no fills have been processed
-        then this will return a value of zero.
-        """
-        ...
-
-    @property
-    def quantity_filled(self) -> float:
-        """
-        Gets the total qantity filled for this ticket. If no fills have been processed
-        then this will return a value of zero.
-        """
-        ...
-
-    @property
-    def quantity_remaining(self) -> float:
-        """
-        Gets the remaining quantity for this order ticket.
-        This is the difference between the total quantity ordered and the total quantity filled.
-        """
-        ...
-
-    @property
-    def time(self) -> datetime.datetime:
-        """Gets the time this order was last updated"""
-        ...
-
-    @property
-    def order_type(self) -> QuantConnect.Orders.OrderType:
-        """Gets the type of order"""
-        ...
-
-    @property
-    def tag(self) -> str:
-        """Gets the order's current tag"""
-        ...
-
-    @property
-    def contingency(self) -> QuantConnect.Orders.OrderContingency:
-        """
-        Gets the current contingency of this order: the set of contingent orders it belongs to (OCO, OTO, OUO, brackets)
-        and how it relates to them. Null if it's not a contingent order
-        """
-        ...
-
-    @property
-    def submit_request(self) -> QuantConnect.Orders.SubmitOrderRequest:
-        """Gets the SubmitOrderRequest that initiated this order"""
-        ...
-
-    @property
-    def update_requests(self) -> typing.Sequence[QuantConnect.Orders.UpdateOrderRequest]:
-        """
-        Gets a list of UpdateOrderRequest containing an item for each
-        UpdateOrderRequest that was sent for this order id
-        """
-        ...
-
-    @property
-    def cancel_request(self) -> QuantConnect.Orders.CancelOrderRequest:
-        """
-        Gets the CancelOrderRequest if this order was canceled. If this order
-        was not canceled, this will return null
-        """
-        ...
-
-    @property
-    def order_events(self) -> typing.Sequence[QuantConnect.Orders.OrderEvent]:
-        """Gets a list of all order events for this ticket"""
-        ...
-
-    @property
-    def order_closed(self) -> System.Threading.WaitHandle:
-        """Gets a wait handle that can be used to wait until this order has filled"""
-        ...
-
-    @property
-    def has_order(self) -> bool:
-        """Returns true if the order has been set for this ticket"""
-        ...
-
-    @property
-    def order_set(self) -> System.Threading.WaitHandle:
-        """Gets a wait handle that can be used to wait until the order has been set"""
-        ...
-
-    @property
-    def get(self) -> QuantConnect.Orders._OrderTicket_Get:
-        ...
-
-    def __init__(self, transaction_manager: QuantConnect.Securities.SecurityTransactionManager, submit_request: QuantConnect.Orders.SubmitOrderRequest) -> None:
-        """
-        Initializes a new instance of the OrderTicket class
-        
-        :param transaction_manager: The transaction manager used for submitting updates and cancels for this ticket
-        :param submit_request: The order request that initiated this order ticket
-        """
-        ...
-
-    def cancel(self, tag: str = None) -> QuantConnect.Orders.OrderResponse:
-        """Submits a new request to cancel this order"""
-        ...
-
-    def get_most_recent_order_request(self) -> QuantConnect.Orders.OrderRequest:
-        """
-        Gets the most recent OrderRequest for this ticket
-        
-        :returns: The most recent OrderRequest for this ticket.
-        """
-        ...
-
-    def get_most_recent_order_response(self) -> QuantConnect.Orders.OrderResponse:
-        """
-        Gets the most recent OrderResponse for this ticket
-        
-        :returns: The most recent OrderResponse for this ticket.
-        """
-        ...
-
-    @staticmethod
-    def invalid_cancel_order_id(transaction_manager: QuantConnect.Securities.SecurityTransactionManager, request: QuantConnect.Orders.CancelOrderRequest) -> QuantConnect.Orders.OrderTicket:
-        """Creates a new OrderTicket that represents trying to cancel an order for which no ticket exists"""
-        ...
-
-    @staticmethod
-    def invalid_submit_request(transaction_manager: QuantConnect.Securities.SecurityTransactionManager, request: QuantConnect.Orders.SubmitOrderRequest, response: QuantConnect.Orders.OrderResponse) -> QuantConnect.Orders.OrderTicket:
-        """Creates a new OrderTicket that represents trying to submit a new order that had errors embodied in the response"""
-        ...
-
-    @staticmethod
-    def invalid_update_order_id(transaction_manager: QuantConnect.Securities.SecurityTransactionManager, request: QuantConnect.Orders.UpdateOrderRequest) -> QuantConnect.Orders.OrderTicket:
-        """Creates a new OrderTicket that represents trying to update an order for which no ticket exists"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-    def update(self, fields: QuantConnect.Orders.UpdateOrderFields) -> QuantConnect.Orders.OrderResponse:
-        """
-        Submits an UpdateOrderRequest with the SecurityTransactionManager to update
-        the ticket with data specified in fields
-        
-        :param fields: Defines what properties of the order should be updated
-        :returns: The OrderResponse from updating the order.
-        """
-        ...
-
-    def update_limit_price(self, limit_price: float, tag: str = None) -> QuantConnect.Orders.OrderResponse:
-        """
-        Submits an UpdateOrderRequest with the SecurityTransactionManager to update
-        the ticker with limit price specified in limit_price and with tag specified in tag
-        
-        :param limit_price: The new limit price for this order ticket
-        :param tag: The new tag for this order ticket
-        :returns: OrderResponse from updating the order.
-        """
-        ...
-
-    def update_quantity(self, quantity: float, tag: str = None) -> QuantConnect.Orders.OrderResponse:
-        """
-        Submits an UpdateOrderRequest with the SecurityTransactionManager to update
-        the ticket with quantity specified in quantity and with tag specified in quantity
-        
-        :param quantity: The new quantity for this order ticket
-        :param tag: The new tag for this order ticket
-        :returns: OrderResponse from updating the order.
-        """
-        ...
-
-    def update_stop_price(self, stop_price: float, tag: str = None) -> QuantConnect.Orders.OrderResponse:
-        """
-        Submits an UpdateOrderRequest with the SecurityTransactionManager to update
-        the ticker with stop price specified in stop_price and with tag specified in tag
-        
-        :param stop_price: The new stop price  for this order ticket
-        :param tag: The new tag for this order ticket
-        :returns: OrderResponse from updating the order.
-        """
-        ...
-
-    def update_stop_trailing_amount(self, trailing_amount: float, tag: str = None) -> QuantConnect.Orders.OrderResponse:
-        """
-        Submits an UpdateOrderRequest with the SecurityTransactionManager to update
-        the ticker with stop trailing amount specified in trailing_amount and with tag specified in tag
-        
-        :param trailing_amount: The new trailing amount for this order ticket
-        :param tag: The new tag for this order ticket
-        :returns: OrderResponse from updating the order.
-        """
-        ...
-
-    def update_tag(self, tag: str) -> QuantConnect.Orders.OrderResponse:
-        """
-        Submits an UpdateOrderRequest with the SecurityTransactionManager to update
-        the ticket with tag specified in tag
-        
-        :param tag: The new tag for this order ticket
-        :returns: OrderResponse from updating the order.
-        """
-        ...
-
-    def update_trigger_price(self, trigger_price: float, tag: str = None) -> QuantConnect.Orders.OrderResponse:
-        """
-        Submits an UpdateOrderRequest with the SecurityTransactionManager to update
-        the ticker with trigger price specified in trigger_price and with tag specified in tag
-        
-        :param trigger_price: The new price which, when touched, will trigger the setting of a limit order.
-        :param tag: The new tag for this order ticket
-        :returns: OrderResponse from updating the order.
-        """
         ...
 
 

@@ -15,7 +15,8 @@ class EditVariable:
     """
     Attributes:
         path (Union[Unset, str]): The path to the variable
-        value (Union[Unset, str]): The new value of the variable
+        value (Union[Unset, str]): The new value of the variable. Accepts an `$external:vault://<path>[#<key>]`
+            reference for a secret, as in CreateVariable.
         is_secret (Union[Unset, bool]): Whether the variable is a secret
         description (Union[Unset, str]): The new description of the variable
         value_valid_until (Union[Unset, None, datetime.datetime]): When the value stored in this variable stops working.

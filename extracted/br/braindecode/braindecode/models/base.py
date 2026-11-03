@@ -5,10 +5,13 @@
 
 from __future__ import annotations
 
+import functools
+import inspect
 import json
+import logging
 import warnings
 from collections import OrderedDict
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Dict, Iterable, Optional, Type, Union
 
 import numpy as np
@@ -19,11 +22,13 @@ from torchinfo import ModelStatistics, summary
 
 from braindecode.models.util import (
     _EEG_PARAMS,
-    _IMPORT_ADAPTER,
     build_model_config,
+    resolve_config_type,
     resolve_type_kwargs,
     track_model_init_kwargs,
 )
+from braindecode.modules.channels import ChannelLayer
+from braindecode.modules.parametrization import make_parametrizations_scriptable
 from braindecode.version import __version__
 
 huggingface_hub = _soft_import(
@@ -31,6 +36,78 @@ huggingface_hub = _soft_import(
 )
 
 HAS_HF_HUB = huggingface_hub is not False
+log = logging.getLogger(__name__)
+
+# __init__ args that from_pretrained fills from config.json when not given.
+_GEOMETRY_KWARGS = (
+    "n_outputs",
+    "n_chans",
+    "chs_info",
+    "n_times",
+    "input_window_seconds",
+    "sfreq",
+)
+
+
+def _validate_weights_filename(filename):
+    """Accept portable relative weight paths, including nested subfolders."""
+    if (
+        not isinstance(filename, str)
+        or not filename
+        or "\x00" in filename
+        or "\\" in filename
+        or PurePosixPath(filename).is_absolute()
+        or PureWindowsPath(filename).drive
+        or any(part in ("", ".", "..") for part in filename.split("/"))
+    ):
+        raise ValueError("filename must be a relative weight path without traversal")
+
+
+def _load_card_data(pretrained_model_name_or_path, **kwargs):
+    """Metadata of a checkpoint's model card (``README.md``), or None.
+
+    Best effort: the card is informational, so a missing or unreadable card
+    (offline, no README, bad YAML) never blocks loading the weights.
+    """
+    keys = ("revision", "cache_dir", "force_download", "token", "local_files_only")
+    try:
+        card = Path(pretrained_model_name_or_path) / "README.md"
+        if not card.parent.is_dir():
+            card = huggingface_hub.hf_hub_download(
+                str(pretrained_model_name_or_path),
+                "README.md",
+                **{k: kwargs[k] for k in keys if k in kwargs},
+            )
+        return huggingface_hub.ModelCard.load(card, ignore_metadata_errors=True).data
+    except Exception:
+        return None
+
+
+def _local_weights_path(model_id, filename):
+    """Reject local weight paths (including symlinks) outside the model folder."""
+    root = Path(model_id).resolve()
+    path = (root / filename).resolve()
+    if not path.is_relative_to(root):
+        raise ValueError("Weights file must resolve inside the model directory")
+    return path
+
+
+def _too_short_input_error(exc: RuntimeError, input_shape) -> Optional[ValueError]:
+    """ValueError for a layer that found the input too short, else None."""
+    if not str(exc).endswith(
+        (
+            "Output size is too small",
+            "Kernel size can't be greater than actual input size",
+        )
+    ):
+        return None
+    return ValueError(
+        "During model prediction RuntimeError was thrown showing that at some "
+        f"layer `{str(exc).split('.')[-1]}` (see above in the stacktrace). This "
+        "could be caused by providing too small `n_times`/`input_window_seconds`. "
+        "Model may require longer chunks of signal in the input than "
+        f"{input_shape}."
+    )
 
 
 _HF_INSTALL_HINT = (
@@ -89,6 +166,27 @@ class _BraindecodeDocstringMeta(NumpyDocstringInheritanceInitMeta):
             track_model_init_kwargs(cls)
 
 
+def _new_head_follows_model(reset_head):
+    """Wrap a ``reset_head`` so that the modules it creates take the model's
+    floating dtype, device and train/eval mode (a new ``nn.Linear`` is float32
+    on the CPU in training mode, whatever the model)."""
+
+    @functools.wraps(reset_head)
+    def wrapper(self, *args, **kwargs):
+        ref = next((p for p in self.parameters() if p.is_floating_point()), None)
+        before = {id(t) for t in self.parameters()} | {id(t) for t in self.buffers()}
+        out = reset_head(self, *args, **kwargs)
+        if ref is not None:
+            for module in self.modules():
+                tensors = [*module.parameters(), *module.buffers()]
+                if tensors and not any(id(t) in before for t in tensors):
+                    module.to(device=ref.device, dtype=ref.dtype)
+                    module.train(self.training)
+        return out
+
+    return wrapper
+
+
 class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
     """
     Mixin class for all EEG models in braindecode.
@@ -113,6 +211,17 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
         Length of the input window in seconds.
     sfreq : float
         Sampling frequency of the EEG recordings.
+    channel_strategy : str, default="native"
+        How any montage reaches the backbone (pretrained models only; see
+        :doc:`/user_guide/channel_strategies`). ``"native"`` keeps the model as
+        it is. ``"exact"``, ``"zero"``, ``"nearest"``, ``"idw"``, ``"spline"``,
+        ``"field"``, ``"source"``, ``"region"``, ``"wiener"`` (call
+        ``model.channel_layer.fit`` first) or ``"latent"`` map the montage of ``chs_info`` (or of the
+        ``chs_info`` given to ``forward``) onto the backbone's channels with a
+        :class:`~braindecode.modules.ChannelLayer`. Saved in the config.
+        ``model(x)`` and ``model.forward(x)`` both apply the layer.
+    channel_strategy_kwargs : dict or None, default=None
+        Options of the strategy (e.g. ``{"reg": 1e-2}`` for ``"spline"``).
 
     Raises
     ------
@@ -124,6 +233,11 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
     If some input signal-related parameters are not specified,
     there will be an attempt to infer them from the other parameters.
     """
+
+    #: Hub model card metadata (:class:`huggingface_hub.ModelCardData`) of the
+    #: checkpoint, set by :meth:`from_pretrained` when the card can be read,
+    #: e.g. ``model.card_data.datasets`` lists the data the weights saw.
+    card_data = None
 
     #: Template for model-specific Hub integration notes appended by
     #: ``__init_subclass__``.  ``{name}`` is replaced with the concrete
@@ -147,10 +261,11 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
         model = {name}(n_chans=22, n_outputs=4, n_times=1000)
         # ... training code ...
 
-        # Push to the Hub
+        # Push to the Hub; ``datasets`` and ``base_model`` go to the card
         model.push_to_hub(
             repo_id="username/my-{name_lower}-model",
             commit_message="Initial model upload",
+            model_card_kwargs={{"datasets": ["BNCI2014_001"]}},
         )
 
     **Loading a model from the Hub:**
@@ -161,6 +276,8 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
 
         # Load pretrained model
         model = {name}.from_pretrained("username/my-{name_lower}-model")
+        # Data the weights were trained on, from the Hub model card
+        print(model.card_data.datasets if model.card_data else None)
 
         # Load with a different number of outputs (head is rebuilt automatically)
         model = {name}.from_pretrained("username/my-{name_lower}-model", n_outputs=4)
@@ -216,6 +333,9 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
     def __init_subclass__(cls, **kwargs):
         license = kwargs.pop("license", "bsd-3-clause")
 
+        if "reset_head" in cls.__dict__:
+            cls.reset_head = _new_head_follows_model(cls.__dict__["reset_head"])
+
         # TorchScript only honours ``__jit_ignored_attributes__`` for
         # properties defined directly on the concrete class: it collects them
         # with ``vars(type(module))``, which skips inherited ones. Rebinding
@@ -263,7 +383,7 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
             type,
             (
                 lambda t: f"{t.__module__}.{t.__qualname__}",
-                lambda data: _IMPORT_ADAPTER.validate_python(data),
+                resolve_config_type,
             ),
         )
 
@@ -286,6 +406,8 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
         n_times: Optional[int] = None,  # type: ignore[assignment]
         input_window_seconds: Optional[float] = None,  # type: ignore[assignment]
         sfreq: Optional[float] = None,  # type: ignore[assignment]
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: Optional[dict] = None,
     ):
         # Deserialize chs_info if it comes as a list of dicts (from Hub)
         if chs_info is not None and isinstance(chs_info, list):
@@ -307,6 +429,26 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
         ):
             raise ValueError(
                 f"{n_times=} different from {input_window_seconds=} * {sfreq=}"
+            )
+        layer = None
+        if channel_strategy != "native":  # the backbone is built on the target
+            target = self._channel_target or chs_info
+            if target is None:
+                raise ValueError(
+                    f"channel_strategy={channel_strategy!r} needs chs_info."
+                )
+            target = [
+                c
+                if isinstance(c, dict)
+                else {"ch_name": c, "kind": "eeg", "loc": np.zeros(12)}
+                for c in target
+            ]
+            kwargs = channel_strategy_kwargs or {}
+            layer = ChannelLayer(target, channel_strategy, chs_info, **kwargs)
+            chs_info, n_chans = layer.target, None
+        elif channel_strategy_kwargs:
+            raise ValueError(
+                "channel_strategy='native' takes no channel_strategy_kwargs."
             )
 
         self._input_window_seconds = input_window_seconds  # type: ignore[assignment]
@@ -334,6 +476,22 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
                 setattr(self, key, val)
 
         super().__init__()
+        if layer is not None:
+            self.channel_layer = layer
+            # Instance attribute: model(x) and model.forward(x) both map x.
+            setattr(self, "forward", self._channel_forward)
+
+    def _channel_forward(self, *args, chs_info=None, ch_names=None, **kwargs):
+        """``forward`` under a channel strategy: map ``x`` (recorded with
+        ``chs_info``, default the model's) onto the target, then run the backbone."""
+        if chs_info is None and ch_names is not None:  # LaBraM: names of x's channels
+            chs_info = [{"ch_name": n} for n in ch_names]
+        if args:
+            args = (self.channel_layer(args[0], chs_info)[0], *args[1:])
+        else:  # x by keyword: the backbone's first input (x, X, eeg...)
+            x = list(inspect.signature(type(self).forward).parameters)[1]
+            kwargs[x] = self.channel_layer(kwargs[x], chs_info)[0]
+        return type(self).forward(self, *args, **kwargs)
 
     @property
     def n_outputs(self) -> int:
@@ -370,7 +528,7 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
             and self._input_window_seconds is not None
             and self._sfreq is not None
         ):
-            return round(self._input_window_seconds * self._sfreq)
+            return int(round(self._input_window_seconds * self._sfreq))
         elif self._n_times is None:
             raise ValueError(
                 "n_times could not be inferred. "
@@ -391,6 +549,8 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
                 "input_window_seconds could not be inferred. "
                 "Either specify input_window_seconds or n_times and sfreq."
             )
+        if torch.jit.is_scripting():  # may be an int, e.g. from a Hub config
+            return float(self._input_window_seconds)
         return self._input_window_seconds
 
     @property
@@ -406,12 +566,30 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
                 "sfreq could not be inferred. "
                 "Either specify sfreq or input_window_seconds and n_times."
             )
+        if torch.jit.is_scripting():  # may be an int, e.g. from a Hub config
+            return float(self._sfreq)
         return self._sfreq
 
     @property
     def input_shape(self) -> tuple[int, int, int]:
         """Input data shape."""
         return (1, self.n_chans, self.n_times)
+
+    def __prepare_scriptable__(self):
+        # Called by torch.jit.script before compiling the model.
+        return make_parametrizations_scriptable(self)
+
+    def __call__(self, *args, **kwargs):
+        # An input shorter than the layers need raises ValueError, not a torch
+        # RuntimeError from deep inside forward.
+        try:
+            return super().__call__(*args, **kwargs)
+        except RuntimeError as exc:
+            shape = tuple(args[0].shape) if args and hasattr(args[0], "shape") else None
+            error = _too_short_input_error(exc, shape)
+            if error is None:
+                raise
+            raise error from exc
 
     def get_output_shape(self) -> tuple[int, ...]:
         """Returns shape of neural network output for batch size equal 1.
@@ -421,33 +599,33 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
         output_shape : tuple[int, ...]
             shape of the network output for `batch_size==1` (1, ...)
         """
+        # Run in eval mode, so that the probe input does not update BatchNorm
+        # running stats or draw dropout masks; restore each module's own mode
+        # afterwards (some may have been put in eval mode on purpose).
+        modes = {module: module.training for module in self.modules()}
+        self.eval()
         with torch.inference_mode():
             try:
                 return tuple(
-                    self.forward(  # type: ignore
+                    type(self)
+                    .forward(  # the backbone, on its own channels
+                        self,
                         torch.zeros(
                             self.input_shape,
                             dtype=next(self.parameters()).dtype,  # type: ignore
                             device=next(self.parameters()).device,  # type: ignore
-                        )
-                    ).shape
+                        ),
+                    )
+                    .shape
                 )
             except RuntimeError as exc:
-                if str(exc).endswith(
-                    (
-                        "Output size is too small",
-                        "Kernel size can't be greater than actual input size",
-                    )
-                ):
-                    msg = (
-                        "During model prediction RuntimeError was thrown showing that at some "
-                        f"layer `{str(exc).split('.')[-1]}` (see above in the stacktrace). This "
-                        "could be caused by providing too small `n_times`/`input_window_seconds`. "
-                        "Model may require longer chunks of signal in the input than "
-                        f"{self.input_shape}."
-                    )
-                    raise ValueError(msg) from exc
-                raise exc
+                error = _too_short_input_error(exc, self.input_shape)
+                if error is None:
+                    raise
+                raise error from exc
+            finally:
+                for module, training in modes.items():
+                    module.training = training
 
     def get_config(self) -> dict:
         """Return a JSON-serializable dict of all ``__init__`` parameters.
@@ -516,8 +694,27 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
         """
         config = dict(config)  # shallow copy
         config.pop("braindecode_version", None)
+        cls._fill_legacy_defaults(config)
         resolve_type_kwargs(cls, config)
         return cls(**config)
+
+    @classmethod
+    def _fill_legacy_defaults(cls, kwargs: dict) -> None:
+        """Rebuild configs saved before ``on_non_divisible`` existed as they were.
+
+        Models that used to crop a time axis not divisible by their patch size
+        set ``_legacy_on_non_divisible = "crop"``. A saved config or checkpoint
+        without the ``on_non_divisible`` key then loads with ``"crop"``, so its
+        head and position tables keep their shapes; a new model defaults to
+        ``"pad"``.
+        """
+        legacy = getattr(cls, "_legacy_on_non_divisible", None)
+        if legacy is None or "on_non_divisible" in kwargs:
+            return
+        # A subclass with its own signature may not take the argument.
+        params = inspect.signature(cls.__init__).parameters.values()
+        if any(p.name == "on_non_divisible" or p.kind is p.VAR_KEYWORD for p in params):
+            kwargs["on_non_divisible"] = legacy
 
     def _set_n_outputs(self, n_outputs: int) -> None:
         """Record a new ``n_outputs`` on the model and its saved configs.
@@ -537,12 +734,59 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
         if n_outputs <= 0:
             raise ValueError(f"n_outputs must be positive; got {n_outputs}.")
         self._n_outputs = n_outputs
+        self._update_init_kwargs(n_outputs=n_outputs)
+
+    def _update_init_kwargs(self, **init_kwargs) -> None:
+        """Record constructor arguments that change after construction.
+
+        Helper for :meth:`reset_head` implementations that also change a
+        constructor argument, for example turning a feature extractor into a
+        classifier. Keeps the braindecode init kwargs and the Hugging Face hub
+        config in sync, so :meth:`get_config` and ``save_pretrained`` rebuild
+        the architecture the model actually has.
+
+        Parameters
+        ----------
+        **init_kwargs
+            Constructor argument names mapped to their new values.
+        """
         for config in (
             getattr(self, "_braindecode_init_kwargs", None),
             getattr(self, "_hub_mixin_config", None),
         ):
-            if config is not None and "n_outputs" in config:
-                config["n_outputs"] = n_outputs
+            if config is None:
+                continue
+            for name, value in init_kwargs.items():
+                if name in config:
+                    config[name] = value
+
+    def reset_parameters(self) -> None:
+        """Draw new initial weights, the way the constructor does.
+
+        Every submodule with a ``reset_parameters`` method (PyTorch layers,
+        and blocks with their own initialization) is reset, children before
+        parents, then the model applies its own initialization
+        (:meth:`_init_parameters`). Seed with :func:`torch.manual_seed` for a
+        reproducible draw.
+        """
+
+        def reset(module):
+            if module is self:
+                return
+            # PyTorch layers use reset_parameters; nn.MultiheadAttention and
+            # nn.Transformer use _reset_parameters.
+            for name in ("reset_parameters", "_reset_parameters"):
+                if callable(getattr(module, name, None)):
+                    getattr(module, name)()
+                    break
+
+        self.apply(reset)
+        self._init_parameters()
+
+    def _init_parameters(self) -> None:
+        """Model-specific initialization, run by the constructor after the
+        layers are built and by :meth:`reset_parameters`. The default keeps the
+        layers' PyTorch initialization."""
 
     def reset_head(self, n_outputs):
         """Replace the classification head for a new number of outputs.
@@ -550,6 +794,10 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
         This is called automatically by :meth:`from_pretrained` when the
         user passes an ``n_outputs`` that differs from the saved config.
         Override in subclasses that need a model-specific head structure.
+        Implementations keep changed constructor arguments in sync with
+        ``self._update_init_kwargs``, so that a saved model can be loaded
+        back. Implementations requiring positive outputs can also use
+        ``self._set_n_outputs`` to validate and record the new value.
 
         Parameters
         ----------
@@ -573,6 +821,9 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
         )
 
     mapping: Optional[Dict[str, str]] = None
+    #: Channels the backbone consumes under a ``channel_strategy`` (names or
+    #: ``chs_info``); ``None``: the model's own ``chs_info``.
+    _channel_target: Optional[list] = None
 
     def load_state_dict(self, state_dict, *args, **kwargs):
         mapping = self.mapping if self.mapping else {}
@@ -582,7 +833,10 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
                 new_state_dict[mapping[k]] = v
             else:
                 new_state_dict[k] = v
-
+        # A backbone checkpoint has no weights for a trainable channel layer.
+        for k, v in super().state_dict().items():
+            if k.startswith("channel_layer.") and k not in new_state_dict:
+                new_state_dict[k] = v
         return super().load_state_dict(new_state_dict, *args, **kwargs)
 
     def to_dense_prediction_model(self, axis: tuple[int, ...] | int = (2, 3)) -> None:
@@ -757,6 +1011,62 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
     if HAS_HF_HUB:
 
         @classmethod
+        def _decode_arg(cls, expected_type, value):
+            # Hub eagerly decodes plain/optional type fields before overrides.
+            # Defer only our default decoder to the effective-kwargs resolver;
+            # explicitly registered application coders retain Hub's behavior.
+            if (
+                expected_type in (type, Optional[type])
+                and next(
+                    decoder
+                    for coder_type, (_, decoder) in cls._hub_mixin_coders.items()
+                    if issubclass(type, coder_type)
+                )
+                is resolve_config_type
+            ):
+                return value
+            return super()._decode_arg(expected_type, value)
+
+        @classmethod
+        def from_pretrained(cls, *args, **kwargs):
+            if kwargs.get("filename") is not None:
+                _validate_weights_filename(kwargs["filename"])
+            # The Hub mixin fills only the __init__ args whose keys are absent,
+            # so drop explicit Nones (e.g. forwarded by a wrapper) to let the
+            # saved values fill them. Then pin the derived geometry arg so it
+            # cannot clash with the caller's one (e.g. caller chs_info vs saved
+            # n_chans) in __init__'s checks.
+            for key in _GEOMETRY_KWARGS:
+                if key in kwargs and kwargs[key] is None:
+                    del kwargs[key]
+            if "chs_info" in kwargs:
+                kwargs.setdefault("n_chans", len(kwargs["chs_info"]))
+            elif "n_chans" in kwargs:
+                kwargs.setdefault("chs_info", None)
+            if "n_times" in kwargs or "sfreq" in kwargs:
+                kwargs.setdefault("input_window_seconds", None)
+            model = super().from_pretrained(*args, **kwargs)
+            card_data = _load_card_data(*args, **kwargs)
+            if card_data is not None:
+                model.card_data = card_data
+                if card_data.datasets:
+                    log.info(
+                        "%s weights were trained on (model card): %s",
+                        cls.__name__,
+                        card_data.datasets,
+                    )
+            return model
+
+        def generate_model_card(self, *args, **kwargs):
+            # ``model_card_kwargs`` only fill the card's Jinja template; also
+            # write these two to its YAML header so the Hub indexes them.
+            card = super().generate_model_card(*args, **kwargs)
+            for key in ("datasets", "base_model"):
+                if key in kwargs:
+                    setattr(card.data, key, kwargs[key])
+            return card
+
+        @classmethod
         def _from_pretrained(
             cls,
             *,
@@ -772,6 +1082,11 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
         ):
             model_kwargs.pop("braindecode_version", None)
             filename = model_kwargs.pop("filename", None)
+            if filename is not None:
+                _validate_weights_filename(filename)
+            # The Hub mixin passes only the keys of config.json (plus the
+            # caller's), so a missing key means a pre-on_non_divisible save.
+            cls._fill_legacy_defaults(model_kwargs)
             resolve_type_kwargs(cls, model_kwargs)
 
             # Read saved n_outputs from config.json to detect when the
@@ -807,15 +1122,11 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
             ):
                 model_kwargs["n_outputs"] = saved_n_outputs
 
-            # If a custom filename is provided, temporarily override the
-            # HuggingFace constant so the parent class downloads the
-            # correct file (e.g. "LUNA_base.safetensors" instead of
-            # "model.safetensors").
-            hf_constants = huggingface_hub.constants
-            _orig_safetensors = hf_constants.SAFETENSORS_SINGLE_FILE
-            if filename is not None:
-                hf_constants.SAFETENSORS_SINGLE_FILE = filename
-            try:
+            if filename is None:
+                # The parent selects only safetensors for local directories;
+                # its legacy pickle fallback is remote-only.
+                if Path(model_id).is_dir():
+                    _local_weights_path(model_id, "model.safetensors")
                 model = super()._from_pretrained(  # type: ignore
                     model_id=model_id,
                     revision=revision,
@@ -827,8 +1138,31 @@ class EEGModuleMixin(_BaseHubMixin, metaclass=_BraindecodeDocstringMeta):
                     strict=strict,
                     **model_kwargs,
                 )
-            finally:
-                hf_constants.SAFETENSORS_SINGLE_FILE = _orig_safetensors
+            else:
+                # Hub <1.0 forwards these download options to _from_pretrained.
+                # They are not constructor kwargs; only pass them to versions
+                # of hf_hub_download that supplied them in the first place.
+                download_kwargs = {
+                    key: model_kwargs.pop(key)
+                    for key in ("proxies", "resume_download")
+                    if key in model_kwargs
+                }
+                if Path(model_id).is_dir():
+                    model_file = str(_local_weights_path(model_id, filename))
+                else:
+                    model_file = huggingface_hub.hf_hub_download(
+                        repo_id=model_id,
+                        filename=filename,
+                        revision=revision,
+                        cache_dir=cache_dir,
+                        force_download=force_download,
+                        token=token,
+                        local_files_only=local_files_only,
+                        **download_kwargs,
+                    )
+                model = cls._load_as_safetensor(
+                    cls(**model_kwargs), model_file, map_location, strict
+                )
 
             if (
                 saved_n_outputs is not None

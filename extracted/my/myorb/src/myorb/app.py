@@ -13,7 +13,7 @@ from granian.utils.proxies import wrap_asgi_with_proxy_headers
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PrefixLoader, select_autoescape
 from starlette.responses import Response
 
-from myorb import __version__, demo, music, profile, voice
+from myorb import __version__, demo, music, profile, tour, voice
 from myorb.activity import routes as activity_routes
 from myorb.activity.changes import WidgetWatch
 from myorb.ask import routes as ask_routes
@@ -42,6 +42,7 @@ from myorb.profile import DEFAULT_ASSISTANT, DEFAULT_COLOR, load_profile, orb_hu
 from myorb.tasks import routes as task_routes
 from myorb.templating import register_filters
 from myorb.timezone import resolve_timezone
+from myorb.tour import Tour, tour_middleware
 from myorb.web import releases
 from myorb.web.routes import app_context, router
 
@@ -101,6 +102,7 @@ def create_templates(plugins: dict[str, Plugin], timezone: tzinfo) -> Jinja2Temp
             "assistant": getattr(request.app.state, "assistant", DEFAULT_ASSISTANT),
             "demo": request.app.state.settings.demo,
             "public_demo": request.app.state.settings.public_demo,
+            "tour": request.app.state.settings.tour,
             "ai_name": getattr(request.app.state, "ai_name", "Claude"),
             "orb_hue": orb_hue(color),
         }
@@ -141,6 +143,8 @@ def create_app(
         await app.state.paces.load(app.state.sessionmaker, app.state.secret_box)
         for plugin in plugins.values():
             await plugin.connections_changed(app.state.connections)
+        if app.state.tour is not None:
+            await app.state.tour.load(app)
         if settings.public_demo:
             await demo.name_the_public_demo(app.state.sessionmaker, app.state.secret_box)
         if settings.demo:
@@ -158,8 +162,9 @@ def create_app(
             app, brief.id, brief.language
         )
         scheduler = asyncio.create_task(app.state.brief.run_scheduler())
-        # What changed in this version and the ones before: read once after an upgrade.
-        notes = asyncio.create_task(releases.fetch(app))
+        # What changed in this version and the ones before: read once after an upgrade. Not by
+        # the tour's demo, which has no Versions of its own to show.
+        notes = asyncio.create_task(asyncio.sleep(0) if settings.tour else releases.fetch(app))
         background = [
             asyncio.create_task(job)
             for plugin in plugins.values()
@@ -190,6 +195,8 @@ def create_app(
         notes.cancel()
         for job in background:
             job.cancel()
+        if app.state.tour is not None:
+            await app.state.tour.close()
         await app.state.http.aclose()
         await engine.dispose()
 
@@ -203,6 +210,10 @@ def create_app(
     app.state.widget_watch = WidgetWatch()
     app.state.ask_conversations = Conversations()
     app.state.templates = create_templates(plugins, app.state.timezone)
+    # After setup, a demo shows the tour (tour.py); a demo has none of its own.
+    app.state.tour = None if settings.demo else Tour(settings, http_transport)
+    # Inside the sign-in check: the demo answers only a signed-in user.
+    app.middleware("http")(tour_middleware)
     app.middleware("http")(auth_middleware)
     app.middleware("http")(untransformed_pages)
     app.mount("/static", RevalidatedStaticFiles(directory=WEB_DIR / "static"), name="static")
@@ -217,6 +228,7 @@ def create_app(
     app.include_router(activity_routes.router)
     app.include_router(ask_routes.router)
     app.include_router(releases.router)
+    app.include_router(tour.router)
     for plugin in plugins.values():
         if (plugin_router := plugin.router()) is not None:
             app.include_router(plugin_router)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthengine-api
-Version: 1.7.50
+Version: 1.7.51
 Summary: Earth Engine Python API
 Author-email: Google LLC <noreply@google.com>
 License: Apache-2.0
@@ -40,7 +40,7 @@ Requires-Dist: numpy; extra == "tests"
 Dynamic: license-file
 
 Visit the [Google Earth Engine Python installation page](https://developers.google.com/earth-engine/python_install)
-for set up instructions.
+for setup instructions.
 
 Note that some classes and algorithms are loaded dynamically and are not
 included as part of the Python package or visible in the

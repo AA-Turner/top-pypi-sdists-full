@@ -19,8 +19,8 @@ class CarrierAcquisition:
     resolution_hz : float, default 0.0
         Desired FFT frequency resolution, Hz. <= 0.0 is a sentinel meaning
         "auto": symbol_rate_hz/10.0. The block is
-        round(sample_rate_hz/resolution_hz) samples, floored at 3 -- the
-        shortest whose default Hann window has any gain.
+        round(sample_rate_hz/resolution_hz) samples, floored at 3 -- a block of
+        1 or 2 gives no usable estimate (#1959).
     zero_pad : int, default 4
         PSD zero-pad factor (>= 1); see psd_core.h.
     window : Literal["hann", "kaiser", "blackman-harris"], default "hann"
@@ -307,8 +307,14 @@ class Acquisition:
     ----------
     code : NDArray[np.uint8]
         PN chips (0/1), length code_len.
-    spc : int, default 4
-        Samples per chip (>= 1).
+    sample_rate : float, default 4000000.0
+        The rate of the samples pushed, Hz. One code period is then `n =
+        sample_rate * code_len / chip_rate` samples, which must be a whole
+        number of at least code_len: the search's transforms are n points long,
+        so a smooth n (a power of two, dp_acq_period_samples()) is what makes
+        them fast. When n is a multiple of code_len each chip is held n /
+        code_len samples; otherwise each sample takes the chip its centre falls
+        in, and the correlation shape is measured from that replica.
     chip_rate : float, default 1000000.0
         Chip rate in Hz (> 0).
     symbol_rate : float, default 1000.0
@@ -333,13 +339,24 @@ class Acquisition:
         One of ``"mean"``, ``"median"``, ``"min"``, ``"max"``.
     code_only_epochs : int, default 1
         Whole code-only epochs a waveform's code-only window holds at any chip
-        phase (floor(W_symbols * chips_per_symbol / sf) - 1; design §2.1) --
-        the engine allows a coherent depth to accommodate such waveforms. 1 =
-        no window: a coherent depth of 1.
+        phase (floor(W_symbols * chips_per_symbol / sf) - 1;
+        docs/design/async-dsss-receiver.md §2.1) -- the engine allows a
+        coherent depth to accommodate such waveforms. 1 = no window: a coherent
+        depth of 1.
     doppler_rate : float, default 0.0
         Doppler rate in Hz/s the coherent depth is bounded against (the drift
         over one block stays inside half a slow-time row); 0 leaves the window
         as the only bound.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``Acquisition: invalid
+        parameter (need chip_rate > 0 and a sample_rate whose code period,
+        sample_rate * len(code) / chip_rate, is a whole number of samples, at
+        least len(code); a finite cn0_dbhz; 0 < pfa < 1 and 0 < pd < 1; a
+        finite doppler_uncertainty >= 0 and doppler_rate >= 0; code_only_epochs
+        >= 1)``.
 
     Warns
     -----
@@ -358,12 +375,16 @@ class Acquisition:
     >>> s0 = np.repeat(np.where(code & 1, -1.0, 1.0), 4).astype(
     ...     np.complex64)
     >>> burst = np.tile(np.roll(s0, 17), 23).astype(np.complex64)
-    >>> a = Acquisition(code, spc=4, chip_rate=1e6, cn0_dbhz=50.0)
+    >>> a = Acquisition(code, sample_rate=4e6, chip_rate=1e6, cn0_dbhz=50.0)
     >>> a.push(burst)[0][:2]    # detects (Doppler-window bin, code phase)
-    (0, 17)
+    (0, 18)
+    >>> (a.code_bins, a.lag_bins)  # 124 samples, read on 128 columns
+    (124, 128)
+    >>> round(18 * a.code_bins / a.lag_bins, 2)  # column 18, in samples
+    17.44
     >>> a.coherent_bins            # no window given: one epoch
     1
-    >>> b = Acquisition(code, spc=4, chip_rate=1e6, cn0_dbhz=50.0,
+    >>> b = Acquisition(code, sample_rate=4e6, chip_rate=1e6, cn0_dbhz=50.0,
     ...                 code_only_epochs=7)
     >>> b.coherent_bins            # (7 + 1) // 2: a whole block fits
     4
@@ -373,7 +394,7 @@ class Acquisition:
     def __init__(
         self,
         code: npt.NDArray[np.uint8] | bytes | bytearray | memoryview,
-        spc: int = 4,
+        sample_rate: float = 4000000.0,
         chip_rate: float = 1000000.0,
         symbol_rate: float = 1000.0,
         cn0_dbhz: float = 50.0,
@@ -403,11 +424,11 @@ class Acquisition:
         >>> s0 = np.repeat(np.where(code & 1, -1.0, 1.0), 4).astype(
         ...     np.complex64)
         >>> burst = np.tile(np.roll(s0, 17), 23).astype(np.complex64)
-        >>> a = Acquisition(code, spc=4, chip_rate=1e6, cn0_dbhz=50.0)
+        >>> a = Acquisition(code, sample_rate=4e6, chip_rate=1e6, cn0_dbhz=50.0)
         >>> _ = a.push(burst[:100])   # a partial frame, buffered mid-stream
         >>> a.reset()                 # drop it before it can bias a detection
-        >>> a.push(burst)[0][:2]      # (Doppler bin, code phase)
-        (0, 17)
+        >>> a.push(burst)[0][:2]      # (Doppler bin, code phase column)
+        (0, 18)
 
         """
 
@@ -457,15 +478,15 @@ class Acquisition:
         ...                      length=5).generate(31)).astype(np.uint8)
         >>> s0 = np.repeat(np.where(code & 1, -1.0, 1.0), 4).astype(
         ...     np.complex64)
-        >>> a = Acquisition(code, spc=4, chip_rate=1e6, cn0_dbhz=50.0,
+        >>> a = Acquisition(code, sample_rate=4e6, chip_rate=1e6, cn0_dbhz=50.0,
         ...                 doppler_uncertainty=40e3)
-        >>> fs = 1e6 * 4                    # sample rate = chip_rate * spc
+        >>> fs = 4e6                        # the sample_rate passed above
         >>> t = np.arange(a.code_bins * a.n_noncoh)
         >>> carrier = np.exp(2j * np.pi * (a.doppler_res_hz / fs) * t)
         >>> sig = (np.tile(np.roll(s0, 17), a.n_noncoh)
         ...        * carrier).astype(np.complex64)
-        >>> a.push(sig)[0][:2]              # (Doppler-window bin, code phase)
-        (1, 17)
+        >>> a.push(sig)[0][:2]              # (Doppler-window bin, lag column)
+        (1, 18)
 
         """
 
@@ -514,13 +535,13 @@ class Acquisition:
         ...                      length=5).generate(31)).astype(np.uint8)
         >>> s0 = np.repeat(np.where(code & 1, -1.0, 1.0), 4).astype(
         ...     np.complex64)
-        >>> a = Acquisition(code, spc=4, chip_rate=1e6, cn0_dbhz=50.0)
+        >>> a = Acquisition(code, sample_rate=4e6, chip_rate=1e6, cn0_dbhz=50.0)
         >>> a.configure_search_raw(doppler_bins=1, n_noncoh=4)  # pin the grid
         >>> a.doppler_bins, a.n_noncoh
         (1, 4)
         >>> burst = np.tile(np.roll(s0, 17), 4).astype(np.complex64)
         >>> a.push(burst)[0][:2]      # detects at the pinned grid
-        (0, 17)
+        (0, 18)
 
         """
 
@@ -571,7 +592,7 @@ class Acquisition:
         >>> import numpy as np
         >>> from doppler.acquire import Acquisition
         >>> code = (np.arange(31) * 5 % 2).astype(np.uint8)
-        >>> a = Acquisition(code, spc=2, chip_rate=1e6, symbol_rate=1e3,
+        >>> a = Acquisition(code, sample_rate=2e6, chip_rate=1e6, symbol_rate=1e3,
         ...                 cn0_dbhz=50.0, doppler_uncertainty=50e3)
         >>> a.max_peaks
         1
@@ -587,7 +608,8 @@ class Acquisition:
         window tile's epochs are shifted along the code axis by the drift the
         tile's own frequency implies before the slow-time transform (inside a
         coherent block of D epochs), and the hand-off advances the hit's code
-        phase by the drift over half the dwell (design section 12.11, 12.12).
+        phase by the drift over half the dwell
+        (docs/design/async-dsss-receiver-measurements.md §12.11, §12.12).
         Config, not running state: not in the state blob, so a resumed engine
         wants it set again. 0.0 (the default) = uncoupled, the engine as it ran
         without it. Raises ValueError for a carrier that is neither 0 nor
@@ -635,7 +657,7 @@ class Acquisition:
         >>> from doppler.acquire import Acquisition
         >>> from doppler.wfm import Gold
         >>> code = np.asarray(Gold().generate(1023)).astype(np.uint8)
-        >>> a = Acquisition(code, spc=2, chip_rate=5e6, symbol_rate=2700.0,
+        >>> a = Acquisition(code, sample_rate=1e7, chip_rate=5e6, symbol_rate=2700.0,
         ...                 cn0_dbhz=45.0, doppler_uncertainty=50e3)
         >>> a.carrier_freq_hz
         0.0
@@ -646,19 +668,22 @@ class Acquisition:
         """
 
     def set_threads(self, n: int) -> None:
-        """Set how many threads the searcher fans its tiles across (design
-        §2.3: a roll per thread on persistent workers).
+        """Set how many threads the searcher fans its tiles across
+        (docs/design/acq-surface.md §13: a roll per thread on persistent
+        workers).
 
         A continuous engine is created with a pool of the machine's online
         cores when it has more than one tile; a burst engine, and a single-tile
         one, run serially. This sets the count: 0 auto-selects the online core
         count, 1 runs everything on the calling thread, n runs on n workers
-        (the caller included). The workers are created here, once, and parked
-        between pushes; nothing is created per push. The surface is
-        bit-identical at every count -- the tiles are independent after the one
-        forward transform and each writes its own rows -- so this changes the
-        cost of a push and nothing about its result. Setup path, never hot; not
-        while another thread is inside push().
+        (the caller included) -- but never more than `window_bins`: every fan
+        hands out one tile a task, so a worker past that only wakes and waits.
+        The workers are created here, once, and parked between pushes; nothing
+        is created per push. The surface is bit-identical at every count -- the
+        tiles are independent after the one forward transform and each writes
+        its own rows -- so this changes the cost of a push and nothing about
+        its result. Setup path, never hot; not while another thread is inside
+        push().
 
         Parameters
         ----------
@@ -678,7 +703,7 @@ class Acquisition:
         >>> from doppler.wfm import PN, mls_poly
         >>> code = np.asarray(
         ...     PN(poly=mls_poly(9), seed=1, length=9).generate(511), np.uint8)
-        >>> a = Acquisition(code, spc=2, chip_rate=1e6, cn0_dbhz=50.0,
+        >>> a = Acquisition(code, sample_rate=2e6, chip_rate=1e6, cn0_dbhz=50.0,
         ...                 doppler_uncertainty=4000.0)
         >>> a.threads >= 1               # a pool, sized to the machine
         True
@@ -695,7 +720,7 @@ class Acquisition:
         decim: int = 1,
     ) -> None:
         """Attach (or detach) a telemetry context and register the engine's
-        probes on it (design §2.4).
+        probes on it (docs/design/async-dsss-receiver.md §2.4).
 
         Registers ten probes, emitted once per DECIDED dwell (a coherent dump,
         or the dwell that completes `n_noncoh` looks) and further thinned by
@@ -742,7 +767,7 @@ class Acquisition:
         >>> from doppler.wfm import PN, mls_poly
         >>> code = np.asarray(
         ...     PN(poly=mls_poly(9), seed=1, length=9).generate(511), np.uint8)
-        >>> a = Acquisition(code, spc=2, chip_rate=1e6, cn0_dbhz=50.0)
+        >>> a = Acquisition(code, sample_rate=2e6, chip_rate=1e6, cn0_dbhz=50.0)
         >>> tlm = Telemetry(1 << 12)
         >>> a.set_telemetry(tlm, "acq")
         >>> sorted(tlm.probe_names)[:3]
@@ -759,7 +784,7 @@ class Acquisition:
 
         Copies the surface the last dwell was decided on into out, row-major
         `surface_rows` (Doppler: tiles, or interpolated slow-time rows) by
-        `code_bins` (code phase), every cell divided by the same CFAR reference
+        `lag_bins` (code phase), every cell divided by the same CFAR reference
         the gate used — so a cell reads as its own test statistic, to a float
         rounding (the SIMD build's fast-math may take a reciprocal in this loop
         and a divide in the gate's), and the gate (`threshold`, or `eta_nc` on
@@ -772,12 +797,12 @@ class Acquisition:
         Parameters
         ----------
         out : npt.NDArray[np.float32]
-            At least `surface_rows * code_bins` floats.
+            At least `surface_rows * lag_bins` floats.
 
         Returns
         -------
         int
-            Cells written (`surface_rows * code_bins`), or 0 when no dwell has
+            Cells written (`surface_rows * lag_bins`), or 0 when no dwell has
             been decided with `keep_surface` set, or out is too small.
 
         Examples
@@ -787,14 +812,16 @@ class Acquisition:
         >>> from doppler.wfm import PN, mls_poly
         >>> code = np.asarray(
         ...     PN(poly=mls_poly(9), seed=1, length=9).generate(511), np.uint8)
-        >>> a = Acquisition(code, spc=2, chip_rate=1e6, cn0_dbhz=50.0)
+        >>> a = Acquisition(code, sample_rate=2e6, chip_rate=1e6, cn0_dbhz=50.0)
         >>> a.keep_surface = 1
         >>> x = np.zeros(a.n_noncoh * 511 * 2, dtype=np.complex64)
         >>> _ = a.push(x)
-        >>> s = np.empty(a.surface_rows * a.code_bins, dtype=np.float32)
+        >>> s = np.empty(a.surface_rows * a.lag_bins, dtype=np.float32)
         >>> a.surface(s) == s.size
         True
-        >>> s.reshape(a.surface_rows, a.code_bins).shape == (a.surface_rows, 1022)
+        >>> a.code_bins, a.lag_bins  # 1022 is 2 x 7 x 73: read on 1024 lags
+        (1022, 1024)
+        >>> s.reshape(a.surface_rows, a.lag_bins).shape == (a.surface_rows, 1024)
         True
 
         """
@@ -824,7 +851,7 @@ class Acquisition:
         >>> from doppler.wfm import PN, mls_poly
         >>> code = np.asarray(
         ...     PN(poly=mls_poly(9), seed=1, length=9).generate(511), np.uint8)
-        >>> a = Acquisition(code, spc=2, chip_rate=1e6, cn0_dbhz=50.0,
+        >>> a = Acquisition(code, sample_rate=2e6, chip_rate=1e6, cn0_dbhz=50.0,
         ...                 doppler_uncertainty=4000.0)
         >>> f = np.empty(a.surface_rows, dtype=np.float64)
         >>> a.surface_doppler_hz(f) == a.surface_rows
@@ -844,12 +871,12 @@ class Acquisition:
         Parameters
         ----------
         out : npt.NDArray[np.float64]
-            At least `code_bins` doubles.
+            At least `lag_bins` doubles.
 
         Returns
         -------
         int
-            Values written (`code_bins`), or 0 if out is too small.
+            Values written (`lag_bins`), or 0 if out is too small.
 
         Examples
         --------
@@ -858,11 +885,11 @@ class Acquisition:
         >>> from doppler.wfm import PN, mls_poly
         >>> code = np.asarray(
         ...     PN(poly=mls_poly(9), seed=1, length=9).generate(511), np.uint8)
-        >>> a = Acquisition(code, spc=2, chip_rate=1e6, cn0_dbhz=50.0)
-        >>> c = np.empty(a.code_bins, dtype=np.float64)
-        >>> a.surface_chip_phase(c) == a.code_bins
+        >>> a = Acquisition(code, sample_rate=2e6, chip_rate=1e6, cn0_dbhz=50.0)
+        >>> c = np.empty(a.lag_bins, dtype=np.float64)
+        >>> a.surface_chip_phase(c) == a.lag_bins
         True
-        >>> bool(c[0] == 0.0 and c[1] == 510.5)
+        >>> bool(c[0] == 0.0 and c[1] == 511 - 511 / 1024)
         True
 
         """
@@ -872,7 +899,7 @@ class Acquisition:
         phase per cell, before the magnitude the gate reads.
 
         Copies the coherent sum the last dwell was decided on into out,
-        row-major `surface_rows` x `code_bins` like dp_acq_surface(), in the
+        row-major `surface_rows` x `lag_bins` like dp_acq_surface(), in the
         correlation's own units rather than the gate's. A cell's phase is the
         carrier at the block's middle, relative to its tile's centre; its
         neighbours along the code axis are complex early and late arms, so a
@@ -885,12 +912,12 @@ class Acquisition:
         Parameters
         ----------
         out : npt.NDArray[np.complex64]
-            At least `surface_rows * code_bins` complex floats.
+            At least `surface_rows * lag_bins` complex floats.
 
         Returns
         -------
         int
-            Cells written (`surface_rows * code_bins`), or 0 when no dwell has
+            Cells written (`surface_rows * lag_bins`), or 0 when no dwell has
             been decided, the path is non-coherent, or out is too small.
 
         Examples
@@ -902,15 +929,15 @@ class Acquisition:
         ...                      length=5).generate(31)).astype(np.uint8)
         >>> s0 = np.repeat(np.where(code & 1, -1.0, 1.0), 4).astype(
         ...     np.complex64)
-        >>> a = Acquisition(code, spc=4, chip_rate=1e6, cn0_dbhz=70.0)
+        >>> a = Acquisition(code, sample_rate=4e6, chip_rate=1e6, cn0_dbhz=70.0)
         >>> a.n_noncoh                 # one look: the dwell is the coherent dump
         1
         >>> _ = a.push(np.roll(s0, 17).astype(np.complex64))
-        >>> sc = np.empty(a.surface_rows * a.code_bins, dtype=np.complex64)
+        >>> sc = np.empty(a.surface_rows * a.lag_bins, dtype=np.complex64)
         >>> a.surface_complex(sc) == sc.size
         True
-        >>> int(np.argmax(np.abs(sc)) % a.code_bins)   # the peak's code phase
-        17
+        >>> int(np.argmax(np.abs(sc)) % a.lag_bins)   # the peak's lag column
+        18
 
         """
 
@@ -924,16 +951,16 @@ class Acquisition:
         correlations at a code phase, the despread stream at epoch rate.
 
         The block-coherent engine gathers every tile's correlation row for
-        `coherent_bins` epochs before its slow-time transform (file doc, design
-        §2.3). This copies the `coherent_bins` values at column col of tile
-        tile into out, in epoch order: each epoch's complex prompt at that code
-        phase, rolled to the tile's centre frequency and shifted to the block's
-        middle by the tile's code-rate hypothesis, so the phase is continuous
-        along the column for an emitter at the tile's centre and rotates at its
-        offset from it. At an emitter's cell this is what a despreader
-        produces, one value per epoch, phase included
-        (docs/design/async-dsss-receiver-measurements.md §12.21). Valid once a
-        block is whole, until the next epoch is pushed.
+        `coherent_bins` epochs before its slow-time transform (file doc,
+        docs/design/acq-surface.md §4). This copies the `coherent_bins` values
+        at column col of tile tile into out, in epoch order: each epoch's
+        complex prompt at that code phase, rolled to the tile's centre
+        frequency and shifted to the block's middle by the tile's code-rate
+        hypothesis, so the phase is continuous along the column for an emitter
+        at the tile's centre and rotates at its offset from it. At an emitter's
+        cell this is what a despreader produces, one value per epoch, phase
+        included (docs/design/async-dsss-receiver-measurements.md §12.21).
+        Valid once a block is whole, until the next epoch is pushed.
 
         Parameters
         ----------
@@ -941,7 +968,7 @@ class Acquisition:
             Tile index, `0 … window_bins-1` (native FFT order, the order the
             surface's rows are cut in).
         col : int
-            Code-phase column, `0 … code_bins-1`.
+            Code-phase column, `0 … lag_bins-1`.
         out : npt.NDArray[np.complex64]
             At least `coherent_bins` complex floats.
 
@@ -961,7 +988,7 @@ class Acquisition:
         ...                      length=5).generate(31)).astype(np.uint8)
         >>> s0 = np.repeat(np.where(code & 1, -1.0, 1.0), 4).astype(
         ...     np.complex64)
-        >>> b = Acquisition(code, spc=4, chip_rate=1e6, cn0_dbhz=60.0,
+        >>> b = Acquisition(code, sample_rate=4e6, chip_rate=1e6, cn0_dbhz=60.0,
         ...                 doppler_uncertainty=40e3, code_only_epochs=7)
         >>> b.coherent_bins                    # (7 + 1) // 2
         4
@@ -1011,7 +1038,7 @@ class Acquisition:
         ...                      length=5).generate(31)).astype(np.uint8)
         >>> s0 = np.repeat(np.where(code & 1, -1.0, 1.0), 4).astype(
         ...     np.complex64)
-        >>> b = Acquisition(code, spc=4, chip_rate=1e6, cn0_dbhz=60.0,
+        >>> b = Acquisition(code, sample_rate=4e6, chip_rate=1e6, cn0_dbhz=60.0,
         ...                 doppler_uncertainty=40e3, code_only_epochs=7)
         >>> blk = np.tile(np.roll(s0, 17), b.coherent_bins).astype(np.complex64)
         >>> _ = b.push(blk)
@@ -1094,7 +1121,18 @@ class Acquisition:
 
     @property
     def code_bins(self) -> int:
-        """Code-phase hypotheses searched (= sf*spc, one code period)."""
+        """One code period in samples, sample_rate * sf / chip_rate: the length
+        of every forward transform and of a raw epoch.
+        """
+
+    @property
+    def lag_bins(self) -> int:
+        """Code-phase columns of the surface. Equal to code_bins unless
+        code_bins is not 7-smooth; then the correlation is read on the next
+        power of two, an exact interpolation that keeps the inverse transforms
+        fast. Column c is a lag of c * code_bins / lag_bins samples;
+        surface_chip_phase() gives each column in chips.
+        """
 
     @property
     def doppler_bins(self) -> int:
@@ -1106,18 +1144,14 @@ class Acquisition:
 
     @property
     def coherent_bins(self) -> int:
-        """The block-coherent depth D inside every window tile (design §2.3):
-        epochs per block and Doppler rows per tile. 1 without a code-only
-        window.
+        """The block-coherent depth D inside every window tile
+        (docs/design/acq-surface.md §4): epochs per block and Doppler rows per
+        tile. 1 without a code-only window.
         """
 
     @property
     def sf(self) -> int:
         """Chips per PN segment, inferred from len(code)."""
-
-    @property
-    def spc(self) -> int:
-        """Samples per chip (chip-rate oversample factor)."""
 
     @property
     def n_noncoh(self) -> int:
@@ -1172,7 +1206,9 @@ class Acquisition:
 
     @property
     def fs(self) -> float:
-        """Sample rate (Hz) = chip_rate * spc."""
+        """Sample rate (Hz) the engine searches at: chip_rate * code_bins /
+        sf.
+        """
 
     @property
     def chip_rate(self) -> float:
@@ -1219,9 +1255,9 @@ class Acquisition:
     @property
     def threads(self) -> int:
         """Workers the searcher fans its tiles across, the calling thread
-        included (design §2.3); 1 = serial. Set with set_threads(); a
-        continuous engine with more than one tile starts at the machine's
-        online core count.
+        included (docs/design/acq-surface.md §13); 1 = serial. Set with
+        set_threads(); a continuous engine with more than one tile starts at
+        the machine's online core count.
         """
 
     @property
@@ -1236,7 +1272,7 @@ class Acquisition:
     def surface_rows(self) -> int:
         """Rows of the surface `surface()` returns: the Doppler axis in surface
         units (tiles x interpolated slow-time rows); its columns are
-        `code_bins`.
+        `lag_bins`.
         """
 
     @property
@@ -1252,7 +1288,7 @@ class Acquisition:
     @property
     def n_held(self) -> int:
         """Picks of the last decided dwell held as same-code-phase twins rather
-        than listed (design §7.1).
+        than listed (docs/design/async-dsss-receiver.md §7.1).
         """
 
     @property
@@ -1262,8 +1298,8 @@ class Acquisition:
         over the total power of its code-phase column across every Doppler row
         and tile. Near 1 for a clean single emitter, even one straddling two
         tiles; about 0.5 when a data transition splits it into twins two or
-        more tiles away; lower when a coherent block straddles data (design
-        §2.4).
+        more tiles away; lower when a coherent block straddles data
+        (docs/design/async-dsss-receiver.md §2.4).
         """
 
     def destroy(self) -> None:

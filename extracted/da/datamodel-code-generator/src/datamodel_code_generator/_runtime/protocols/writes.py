@@ -7,7 +7,7 @@ helper's plan loads them, since they need the operation runtime every generated 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, Generic, TypeAlias
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeAlias
 
 from typing_extensions import TypeVar
 
@@ -15,16 +15,34 @@ from ..client.operations import BodyMedia, ParameterSpec
 from ..client.paths import dot_segment, path_segments
 from ..model_codecs.errors import ParameterEncodingError
 from ..model_codecs.media import json_bytes as _json_bytes
+from ..model_codecs.parameters import parameter_key
 from ..model_codecs.unset import UNSET
 from .records import BodyTarget, ParameterTarget, QuerystringTarget
 from .values import Patch, written
 
 if TYPE_CHECKING:
+    from abc import abstractmethod
     from collections.abc import Callable, Iterable, Mapping, Sequence
+    from typing import Protocol
 
     from ..client.operations import OperationPlan
     from ..model_codecs.media import JSONValue
+    from .errors import Refuse
     from .records import RequestTarget, Selector
+
+    class DottedPaths(Protocol):
+        """An operation a helper writes read values into, with the path segments they are written to."""
+
+        @property
+        @abstractmethod
+        def call(self) -> OperationPlan[Any]:
+            """Return the operation whose parameters encode the values."""
+
+        @property
+        @abstractmethod
+        def dotted(self) -> ReadPaths:
+            """Return the path segments a read value is written to, as `read_paths` gives them."""
+
 
 __all__ = (
     "PatchedMedia",
@@ -34,13 +52,17 @@ __all__ = (
     "ReadPaths",
     "Targeted",
     "Writes",
+    "caller_texts",
+    "dotted_path",
     "dotted_read",
     "dotted_write",
     "position",
     "query_written",
     "read_paths",
+    "refuse_dotted",
     "targeted",
     "targeted_writes",
+    "written_names",
 )
 
 T = TypeVar("T")
@@ -105,15 +127,11 @@ class ReadMedia(BodyMedia):
 
 def position(call: OperationPlan[T], location: str, name: str) -> int:
     """Return the argument position of a declared parameter, matching a header's name without regard to case."""
-
-    def key(value: str) -> str:
-        return value.lower() if location == "header" else value
-
-    wanted = key(name)
+    wanted = parameter_key(location, name)
     return next(
         index
         for index, spec in enumerate(call.parameters)
-        if spec.plan.location == location and key(spec.plan.name) == wanted
+        if parameter_key(spec.plan.location, spec.plan.name) == wanted
     )
 
 
@@ -124,13 +142,12 @@ def targeted(
 
     A write is a parameter's argument position without a pointer, a querystring's position with a pointer into its
     value, or no position with a pointer into the JSON body, every media of which is JSON. The header and query names
-    written follow, which a call's options must not patch. The values written skip their codecs, since the server
-    chose them.
+    written follow (`written_names`), which a call's options must not patch. The values written skip their codecs,
+    since the server chose them.
     """
     parameters = list(call.parameters)
     writes: list[tuple[int | None, str | None]] = []
-    headers: set[str] = set()
-    queries: set[str] = set()
+    targets = tuple(targets)
     patched = False
     for target in targets:
         if isinstance(target, BodyTarget):
@@ -141,10 +158,6 @@ def targeted(
             index, pointer = position(call, "querystring", target.name), target.pointer
         else:
             index, pointer = position(call, target.location, target.name), None
-            if (location := target.location) == "header":
-                headers.add(target.name.lower())
-            elif location == "query":
-                queries.add(target.name)
         spec = parameters[index]
         parameters[index] = (
             replace(spec, codec=None)
@@ -162,7 +175,38 @@ def targeted(
             ),
         )
     called = replace(call, parameters=tuple(parameters), body=body)
-    return called, tuple(writes), frozenset(headers), frozenset(queries)
+    headers, queries = written_names(targets)
+    return called, tuple(writes), headers, queries
+
+
+def written_names(
+    targets: Iterable[RequestTarget] = (),
+    children: Iterable[Targeted[Any] | None] = (),
+    *,
+    row: Literal["named", "legacy-upload-size-query"] = "named",
+) -> tuple[frozenset[str], frozenset[str]]:
+    """Return the header names, in lower case, and the query names a helper writes, which call options must not patch.
+
+    A header or query parameter target names its parameter; a path or cookie parameter, a querystring and the body name
+    none. Each child operation adds the names it writes, and None stands for one the helper does not declare. Row
+    `legacy-upload-size-query` names a parameter target in any location but a header as a query, as an upload helper
+    names the target its create call writes the content's size into.
+    """
+    headers: set[str] = set()
+    queries: set[str] = set()
+    for target in targets:
+        if not isinstance(target, ParameterTarget):
+            continue
+        location, key = parameter_key(target.location, target.name)
+        if location == "header":
+            headers.add(key)
+        elif location == "query" or row == "legacy-upload-size-query":
+            queries.add(key)
+    for child in children:
+        if child is not None:
+            headers.update(child.headers)
+            queries.update(child.queries)
+    return frozenset(headers), frozenset(queries)
 
 
 def query_written(call: OperationPlan[T], writes: Writes, name: str) -> bool:
@@ -233,6 +277,38 @@ def dotted_read(
     return next((read for name, read in reads if texts[name]), reads[0][1])
 
 
+def caller_texts(
+    parameters: Sequence[ParameterSpec], dotted: ReadPaths, arguments: tuple[object, ...]
+) -> dict[str, str]:
+    """Return the texts of the caller's path arguments in a segment a read value is written to, by parameter name.
+
+    Each argument is encoded again by its parameter's codec, without validation.
+    """
+    return {
+        name: parameters[position].path_text(parameters[position].dump(arguments[position]))
+        for _, parts in dotted
+        for name, index, _, position in parts
+        if index is None
+    }
+
+
+def dotted_path(
+    parameters: Sequence[ParameterSpec],
+    dotted: ReadPaths,
+    written: tuple[JSONValue, ...],
+    callers: Callable[[], Mapping[str, str]] = dict,
+) -> Selector | None:
+    """Return the selector of the first read value that makes a path segment a dot segment once encoded, or None."""
+    return next(
+        (
+            read
+            for segment, parts in dotted
+            if (read := dotted_read(parameters, segment, parts, written, callers)) is not None
+        ),
+        None,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class Targeted(Generic[T]):
     """An operation that sends only the values a helper writes into its targets, and where each value goes.
@@ -257,6 +333,10 @@ class Targeted(Generic[T]):
         """
         return written(self.writes, (UNSET,) * len(self.call.parameters), UNSET, values)
 
+    def sent(self, values: tuple[JSONValue, ...]) -> Callable[[], tuple[tuple[object, ...], object, None]]:
+        """Return the request a child call sends writing the values, whatever their holder holds later."""
+        return lambda: (*self.request(values), None)
+
 
 def targeted_writes(
     call: OperationPlan[T],
@@ -272,14 +352,27 @@ def targeted_writes(
     return Targeted(*targeted(call, (target for target, _ in sources)), read_paths(call, sources))
 
 
-def dotted_write(targeted: Targeted[Any], written: tuple[JSONValue, ...]) -> Selector | None:
-    """Return the selector of a read value that makes a path segment a dot segment once encoded, or None."""
-    parameters = targeted.call.parameters
-    return next(
-        (
-            read
-            for segment, parts in targeted.dotted
-            if (read := dotted_read(parameters, segment, parts, written, dict)) is not None
-        ),
-        None,
-    )
+def dotted_write(
+    targeted: DottedPaths, written: tuple[JSONValue, ...], callers: Callable[[], Mapping[str, str]] = dict
+) -> Selector | None:
+    """Return the selector of a read value that makes a path segment a dot segment once encoded, or None.
+
+    `targeted` is a targeted operation or a helper's plan; the caller's own path arguments keep the texts `callers`
+    gives.
+    """
+    return dotted_path(targeted.call.parameters, targeted.dotted, written, callers)
+
+
+def refuse_dotted(
+    targeted: DottedPaths,
+    written: tuple[JSONValue, ...],
+    refuse: Refuse,
+    callers: Callable[[], Mapping[str, str]] = dict,
+) -> None:
+    """Refuse a read value that makes a path segment a dot segment once encoded, as a value a server gave.
+
+    `targeted` is a targeted operation or a helper's plan; the caller's own path arguments keep the texts `callers`
+    gives.
+    """
+    if (read := dotted_write(targeted, written, callers)) is not None:
+        raise refuse(read, "value")

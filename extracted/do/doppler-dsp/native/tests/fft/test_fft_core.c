@@ -1,0 +1,331 @@
+#include "doppler/dp_complex.h"
+#include "doppler/fft/fft_core.h"
+#include "dp_test.h"
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define TOL64 1e-9
+#define TOL32 5e-4f
+
+static inline int
+ceq64 (double _Complex a, double _Complex b)
+{
+  return fabs (creal (a) - creal (b)) < TOL64
+         && fabs (cimag (a) - cimag (b)) < TOL64;
+}
+
+static inline int
+ceq32 (float _Complex a, float _Complex b)
+{
+  return fabsf (crealf (a) - crealf (b)) < TOL32
+         && fabsf (cimagf (a) - cimagf (b)) < TOL32;
+}
+
+int
+main (void)
+{
+  const size_t N = 16;
+
+  /* ── lifecycle ──────────────────────────────────────────────────── */
+  {
+    dp_fft_state_t *obj = dp_fft_create (N, -1, 1);
+    DP_CHECK (obj != NULL);
+    DP_CHECK (obj->n == N);
+    DP_CHECK (obj->sign == -1);
+    DP_CHECK (obj->plan_f64 != NULL);
+    DP_CHECK (obj->plan_f32 != NULL);
+    dp_fft_reset (obj); /* no-op; must not crash */
+    dp_fft_destroy (obj);
+    dp_fft_destroy (NULL); /* must not crash */
+  }
+
+  /* ── CF64 forward/inverse round-trip ────────────────────────────── */
+  {
+    dp_fft_state_t *fwd = dp_fft_create (N, -1, 1);
+    dp_fft_state_t *inv = dp_fft_create (N, +1, 1);
+    DP_CHECK (fwd != NULL && inv != NULL);
+
+    double _Complex in[16], spec[16], rec[16];
+    for (size_t i = 0; i < N; i++)
+      in[i] = (double)(i + 1) + 0.0 * I;
+
+    dp_fft_execute_cf64 (fwd, in, N, spec, N);
+    dp_fft_execute_cf64 (inv, spec, N, rec, N);
+
+    /* IDFT without normalisation: rec[k] == N * in[k] */
+    for (size_t i = 0; i < N; i++)
+      DP_CHECK (ceq64 (rec[i], (double)N * in[i]));
+
+    dp_fft_destroy (fwd);
+    dp_fft_destroy (inv);
+  }
+
+  /* ── CF32 forward/inverse round-trip ────────────────────────────── */
+  {
+    dp_fft_state_t *fwd = dp_fft_create (N, -1, 1);
+    dp_fft_state_t *inv = dp_fft_create (N, +1, 1);
+    DP_CHECK (fwd != NULL && inv != NULL);
+
+    float _Complex in[16], spec[16], rec[16];
+    for (size_t i = 0; i < N; i++)
+      in[i] = (float)(i + 1) + 0.0f * I;
+
+    dp_fft_execute_cf32 (fwd, in, N, spec, N);
+    dp_fft_execute_cf32 (inv, spec, N, rec, N);
+
+    for (size_t i = 0; i < N; i++)
+      DP_CHECK (ceq32 (rec[i], (float)N * in[i]));
+
+    dp_fft_destroy (fwd);
+    dp_fft_destroy (inv);
+  }
+
+  /* ── DC tone: only bin 0 is non-zero ────────────────────────────── */
+  {
+    dp_fft_state_t *obj = dp_fft_create (N, -1, 1);
+    double _Complex in[16], out[16];
+    for (size_t i = 0; i < N; i++)
+      in[i] = 1.0 + 0.0 * I;
+    dp_fft_execute_cf64 (obj, in, N, out, N);
+
+    /* bin 0 = N; all others = 0 */
+    DP_CHECK (ceq64 (out[0], (double)N + 0.0 * I));
+    for (size_t k = 1; k < N; k++)
+      DP_CHECK (ceq64 (out[k], 0.0 + 0.0 * I));
+    dp_fft_destroy (obj);
+  }
+
+  /* ── inplace CF64 matches out-of-place ──────────────────────────── */
+  {
+    dp_fft_state_t *obj = dp_fft_create (N, -1, 1);
+    double _Complex in[16], out_oop[16], out_ip[16];
+    for (size_t i = 0; i < N; i++)
+      in[i] = (double)i - 7.5 + (double)i * I;
+
+    dp_fft_execute_cf64 (obj, in, N, out_oop, N);
+    dp_fft_execute_inplace_cf64 (obj, in, N, out_ip, N);
+
+    for (size_t k = 0; k < N; k++)
+      DP_CHECK (ceq64 (out_ip[k], out_oop[k]));
+    dp_fft_destroy (obj);
+  }
+
+  /* ── inplace CF32 matches out-of-place ──────────────────────────── */
+  {
+    dp_fft_state_t *obj = dp_fft_create (N, -1, 1);
+    float _Complex in[16], out_oop[16], out_ip[16];
+    for (size_t i = 0; i < N; i++)
+      in[i] = (float)i - 7.5f + (float)i * I;
+
+    dp_fft_execute_cf32 (obj, in, N, out_oop, N);
+    dp_fft_execute_inplace_cf32 (obj, in, N, out_ip, N);
+
+    for (size_t k = 0; k < N; k++)
+      DP_CHECK (ceq32 (out_ip[k], out_oop[k]));
+    dp_fft_destroy (obj);
+  }
+
+  /* ── max_out always returns n ────────────────────────────────────── */
+  {
+    dp_fft_state_t *obj = dp_fft_create (N, -1, 1);
+    DP_CHECK (dp_fft_execute_cf64_max_out (obj) == N);
+    DP_CHECK (dp_fft_execute_cf32_max_out (obj) == N);
+    DP_CHECK (dp_fft_execute_inplace_cf64_max_out (obj) == N);
+    DP_CHECK (dp_fft_execute_inplace_cf32_max_out (obj) == N);
+    dp_fft_destroy (obj);
+  }
+
+  /* ── short out: prefix of the full transform, nothing past max_out ──
+   * The plan is fixed at n and writes all n bins, so a short buffer is
+   * served from scratch and truncated -- see fft_core.c.  The canary
+   * proves the tail is never touched. */
+  {
+    dp_fft_state_t *obj = dp_fft_create (N, -1, 1);
+    double _Complex in[16], full[16], part[16];
+    float _Complex in32[16], full32[16], part32[16];
+    for (size_t i = 0; i < N; i++)
+      {
+        in[i]   = (double)(i % 7) - 3.0 + (double)(i % 5) * I;
+        in32[i] = (float)(i % 7) - 3.0f + (float)(i % 5) * I;
+      }
+    const double _Complex CANARY  = -12345.0 - 6789.0 * I;
+    const float _Complex CANARY32 = -12345.0f - 6789.0f * I;
+    const size_t K                = 4;
+
+    dp_fft_execute_cf64 (obj, in, N, full, N);
+    for (size_t k = 0; k < N; k++)
+      part[k] = CANARY;
+    DP_CHECK (dp_fft_execute_cf64 (obj, in, N, part, K) == K);
+    for (size_t k = 0; k < K; k++)
+      DP_CHECK (ceq64 (part[k], full[k]));
+    for (size_t k = K; k < N; k++)
+      DP_CHECK (ceq64 (part[k], CANARY));
+
+    dp_fft_execute_inplace_cf64 (obj, in, N, full, N);
+    for (size_t k = 0; k < N; k++)
+      part[k] = CANARY;
+    DP_CHECK (dp_fft_execute_inplace_cf64 (obj, in, N, part, K) == K);
+    for (size_t k = 0; k < K; k++)
+      DP_CHECK (ceq64 (part[k], full[k]));
+    for (size_t k = K; k < N; k++)
+      DP_CHECK (ceq64 (part[k], CANARY));
+
+    dp_fft_execute_cf32 (obj, in32, N, full32, N);
+    for (size_t k = 0; k < N; k++)
+      part32[k] = CANARY32;
+    DP_CHECK (dp_fft_execute_cf32 (obj, in32, N, part32, K) == K);
+    for (size_t k = 0; k < K; k++)
+      DP_CHECK (ceq32 (part32[k], full32[k]));
+    for (size_t k = K; k < N; k++)
+      DP_CHECK (ceq32 (part32[k], CANARY32));
+
+    dp_fft_execute_inplace_cf32 (obj, in32, N, full32, N);
+    for (size_t k = 0; k < N; k++)
+      part32[k] = CANARY32;
+    DP_CHECK (dp_fft_execute_inplace_cf32 (obj, in32, N, part32, K) == K);
+    for (size_t k = 0; k < K; k++)
+      DP_CHECK (ceq32 (part32[k], full32[k]));
+    for (size_t k = K; k < N; k++)
+      DP_CHECK (ceq32 (part32[k], CANARY32));
+
+    /* max_out == 0 writes nothing at all. */
+    for (size_t k = 0; k < N; k++)
+      part[k] = CANARY;
+    DP_CHECK (dp_fft_execute_cf64 (obj, in, N, part, 0) == 0);
+    for (size_t k = 0; k < N; k++)
+      DP_CHECK (ceq64 (part[k], CANARY));
+
+    dp_fft_destroy (obj);
+  }
+
+  /* ── n_in must equal n: any other length is REFUSED (#1925) ──────────
+   * The plan reads state->n samples whatever n_in was, so a shorter array
+   * was a heap over-read and a longer one silently truncated. Each call
+   * below hands over a heap array of EXACTLY the wrong length -- under ASan
+   * a regression is a report, not a lucky read -- and an out buffer
+   * pre-filled with a canary, which a refusal must leave alone. */
+  {
+    const size_t    bad[] = { 0, 1, N - 1, N + 1, 2 * N };
+    dp_fft_state_t *obj   = dp_fft_create (N, -1, 1);
+    DP_CHECK (obj != NULL);
+    for (size_t k = 0; k < sizeof bad / sizeof *bad; k++)
+      {
+        const size_t     m  = bad[k];
+        float _Complex  *in = (float _Complex *)calloc (m ? m : 1, sizeof *in);
+        double _Complex *in64
+            = (double _Complex *)calloc (m ? m : 1, sizeof *in64);
+        int16_t *in16 = (int16_t *)calloc (2 * (m ? m : 1), sizeof *in16);
+        int8_t  *in8  = (int8_t *)calloc (2 * (m ? m : 1), sizeof *in8);
+        float _Complex out[2 * 16 + 1];
+        double _Complex out64[2 * 16 + 1];
+        for (size_t i = 0; i < 2 * N + 1; i++)
+          out[i] = out64[i] = CMPLXF (-7.0f, -7.0f);
+        DP_CHECK (dp_fft_execute_cf32 (obj, in, m, out, N) == SIZE_MAX);
+        DP_CHECK (dp_fft_execute_cf64 (obj, in64, m, out64, N) == SIZE_MAX);
+        DP_CHECK (dp_fft_execute_inplace_cf32 (obj, in, m, out, N)
+                  == SIZE_MAX);
+        DP_CHECK (dp_fft_execute_inplace_cf64 (obj, in64, m, out64, N)
+                  == SIZE_MAX);
+        DP_CHECK (dp_fft_execute_ci16 (obj, in16, m, out) == SIZE_MAX);
+        DP_CHECK (dp_fft_execute_ci8 (obj, in8, m, out) == SIZE_MAX);
+        int untouched = 1;
+        for (size_t i = 0; i < 2 * N + 1; i++)
+          untouched &= crealf (out[i]) == -7.0f && creal (out64[i]) == -7.0;
+        DP_CHECK (untouched);
+        free (in);
+        free (in64);
+        free (in16);
+        free (in8);
+      }
+    /* and the right length still works, on the same object */
+    float _Complex x[16], y[16];
+    for (size_t i = 0; i < N; i++)
+      x[i] = (i == 0) ? 1.0f : 0.0f;
+    DP_CHECK (dp_fft_execute_cf32 (obj, x, N, y, N) == N);
+    DP_CHECK (dp_nearf (crealf (y[3]), 1.0f, 1e-6f));
+    dp_fft_destroy (obj);
+  }
+
+  /* dp_fft_smooth_floor(): against the 7-smooth numbers built from their
+     definition, 2^a 3^b 5^c 7^d, not by the function's own divide-out
+     walk. */
+  {
+    enum
+    {
+      LIM = 4096
+    };
+    static unsigned char is_smooth[LIM + 1];
+    for (size_t p2 = 1; p2 <= LIM; p2 *= 2)
+      for (size_t p3 = p2; p3 <= LIM; p3 *= 3)
+        for (size_t p5 = p3; p5 <= LIM; p5 *= 5)
+          for (size_t p7 = p5; p7 <= LIM; p7 *= 7)
+            is_smooth[p7] = 1;
+    size_t expect = 0, bad = 0;
+    for (size_t n = 0; n <= LIM; n++)
+      {
+        if (is_smooth[n])
+          expect = n;
+        bad += dp_fft_smooth_floor (n) != expect;
+      }
+    DP_CHECK (bad == 0);
+    /* The design point that motivated it (doppler#2457). */
+    DP_CHECK (dp_fft_smooth_floor (94) == 90);
+  }
+
+  /* dp_fft_pad_spectrum: a sequence's spectrum padded k-fold and inverted
+     gives the sequence back at every k-th output, exactly (unnormalised
+     inverses, so both are n times it), and m == n is a copy. Even and odd
+     n: the even one has a Nyquist bin, split between +n/2 and -n/2. The
+     split changes nothing ON the grid (both halves land on the same
+     value there); BETWEEN points it is what keeps a real sequence's
+     interpolation real, so the input is real and every output's imaginary
+     part is checked. Sabotage, each red: keep the whole Nyquist bin at
+     +n/2 (the even row's imaginary parts), shift the high half by
+     m - n - 1 (both rows). */
+  {
+    const size_t ns[2] = { 6, 7 };
+    for (int t = 0; t < 2; t++)
+      {
+        const size_t n = ns[t], m = 3 * n;
+        float _Complex x[7], X[7], Q[21], y[21];
+        dp_fft_state_t *f = dp_fft_create (n, -1, 1);
+        dp_fft_state_t *g = dp_fft_create (m, +1, 1);
+        DP_REQUIRE (f && g);
+        for (size_t k = 0; k < n; k++)
+          x[k] = (float)(3 * k * k % 7) - 2.5f; /* X[n/2] = -3 at n = 6 */
+        dp_fft_execute_cf32 (f, x, n, X, n);
+        if (n % 2 == 0)
+          DP_REQUIRE (cabsf (X[n / 2]) > 1.0f); /* the split has work */
+        dp_fft_pad_spectrum (X, n, Q, m);
+        dp_fft_execute_cf32 (g, Q, m, y, m);
+        double err = 0.0;
+        for (size_t k = 0; k < n; k++)
+          err = fmax (err, cabs (y[3 * k] - (float)n * x[k]));
+        DP_CHECK (err < 1e-4);
+        double im = 0.0;
+        for (size_t k = 0; k < m; k++)
+          im = fmax (im, fabs (cimagf (y[k])));
+        DP_CHECK (im < 1e-4);
+        dp_fft_pad_spectrum (X, n, Q, n);
+        DP_CHECK (memcmp (Q, X, n * sizeof *X) == 0);
+        dp_fft_destroy (f);
+        dp_fft_destroy (g);
+      }
+    /* Outside the domain -- no bins, or no room -- nothing is written:
+       n == 0 used to split a Nyquist bin at q[m], past the end. */
+    float _Complex in[4] = { 1, 2, 3, 4 }, out[4];
+    for (size_t k = 0; k < 4; k++)
+      out[k] = 7.0f;
+    dp_fft_pad_spectrum (in, 0, out, 2);
+    dp_fft_pad_spectrum (in, 4, out, 2);
+    int untouched = 1;
+    for (size_t k = 0; k < 4; k++)
+      untouched &= out[k] == 7.0f;
+    DP_CHECK_MSG (untouched, "a pad outside its domain writes nothing");
+  }
+
+  DP_TEST_END ("test_fft_core");
+}

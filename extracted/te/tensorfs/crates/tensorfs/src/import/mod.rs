@@ -258,6 +258,8 @@ pub struct Imported {
     pub adapters: BTreeMap<String, crate::family::Adapter>,
     /// What the family check found, a line each.
     pub notes: Vec<String>,
+    /// What no format read, kept with its keys as they are: why, source by source.
+    pub unread: Vec<String>,
 }
 
 impl Imported {
@@ -295,6 +297,11 @@ impl Imported {
             };
             let by_component = (self.file_metadata.iter()).map(|(c, m)| (c.clone(), strings(m)));
             out.insert(FILE_METADATA.into(), Value::Map(by_component.collect()));
+        }
+        // What the loader reads to say why a construction cannot use it.
+        if self.format.formats.iter().any(|f| f == AS_IS) {
+            out.insert("normalized".into(), Value::Bool(false));
+            out.insert("converters".into(), texts(&self.unread));
         }
         if let Some(family) = &self.family {
             out.insert(crate::family::FAMILY.into(), family.value());
@@ -776,14 +783,24 @@ pub fn convert(req: &Request, sink: &mut dyn Sink) -> Result<Imported> {
         let listing = remote::Scope::new(req.access, req.stop).list(&remote::parse(raw)?)?;
         pinned.push(listing.pinned.clone());
         let read = |m: &remote::Member| remote::Scope::new(req.access, req.stop).read_small(m);
-        for m in remote::select(listing, req.source_variant, remote::Files::All, &read)? {
-            if members.iter().any(|o| o.path == m.path) {
-                return refuse(
-                    Code::DUPLICATE_KEY,
-                    format!("two sources both hold {}", m.path),
-                );
+        let ggufs: Vec<String> = (listing.members.iter()).map(|m| m.path.clone()).filter(|p| is_gguf(p)).collect();
+        let selected = remote::select(listing, req.source_variant, remote::Files::All, &read)?;
+        if let (true, Some(taken)) = (ggufs.len() > 1, selected.iter().find(|m| is_gguf(&m.path))) {
+            let others = ggufs.iter().filter(|p| **p != taken.path).map(String::as_str).collect::<Vec<_>>().join(", ");
+            progress(&format!("warning: {} GGUF files: taking {}. Name another by its path to take it instead: {others}", ggufs.len(), taken.path), 0, 0);
+        }
+        for m in selected {
+            match members.iter().find(|o| o.path == m.path) {
+                None => members.push(m),
+                Some(o) if o.sha256.is_some() && o.sha256 == m.sha256 => {}
+                Some(_) if remote::weights(&m.path) => {
+                    return refuse(
+                        Code::DUPLICATE_KEY,
+                        format!("two sources both hold {} with other bytes", m.path),
+                    );
+                }
+                Some(_) => progress(&format!("warning: two sources both hold {}: keeping the first", m.path), 0, 0),
             }
-            members.push(m);
         }
     }
     let id = digest(&[
@@ -846,7 +863,8 @@ pub fn convert(req: &Request, sink: &mut dyn Sink) -> Result<Imported> {
         }
     };
     let identity = |g: &source::Group| component(&g.folder, &g.stem);
-    let mut planned = engine::plan(&set, tables, &recognized, &identity)?;
+    let mut skipped = Vec::new();
+    let mut planned = engine::plan(&set, tables, &recognized, &identity, &mut skipped)?;
     let (mut files, mut filled, mut versions) = documents(&set, &recognized, &planned, req, &area)?;
     let sources: BTreeMap<String, &source::Group> = (recognized.claims.iter())
         .map(|c| (c.name.clone(), &set.groups[c.group]))
@@ -894,18 +912,22 @@ pub fn convert(req: &Request, sink: &mut dyn Sink) -> Result<Imported> {
         }
         ggufs_planned.push((p.file, component, plan));
     }
+    // Paul, 09-28: a layout no format reads is stored as it is, never refused here. A package that
+    // reads its keys raw can use it; one that cannot says so when it loads.
     if !unknown.is_empty() && !as_is {
         let built_in: Vec<&str> = tables.iter().map(|t| t.name.as_str()).collect();
-        return refuse(
-            Code::UNREGISTERED_FINGERPRINT,
-            format!(
-                "no format reads this layout, so the runtime could not use it: {}. Name a format to \
-                 see what the source lacks (--source-format <format>; built in: {}), or keep it \
-                 unconverted for code that reads its keys raw (--source-format {AS_IS})",
+        progress(
+            &format!(
+                "warning: no format reads this layout, so its keys are kept as they are, and only code that \
+                 reads them raw can use it: {}. Name a format to see what the source lacks (--source-format \
+                 <format>; built in: {})",
                 unknown.join("; "),
                 built_in.join(", ")
             ),
+            0,
+            0,
         );
+        formats.push(AS_IS.to_owned());
     }
     let mut tensored: Vec<String> = Vec::new();
     let names = (planned.iter().map(|p| &p.component)).chain(ggufs_planned.iter().map(|g| &g.1));
@@ -939,6 +961,9 @@ pub fn convert(req: &Request, sink: &mut dyn Sink) -> Result<Imported> {
     // What it was verified as, for the run's record.
     for note in &checked.notes {
         progress(&format!("family: {note}"), 0, 0);
+    }
+    for note in &skipped {
+        progress(&format!("warning: {note}"), 0, 0);
     }
     stopped(req)?;
     // Nothing refused: the bulk lands, each download resuming from its header.
@@ -1033,6 +1058,7 @@ pub fn convert(req: &Request, sink: &mut dyn Sink) -> Result<Imported> {
         family: checked.family,
         adapters: checked.adapters,
         notes: checked.notes,
+        unread: unknown,
     };
     // Reports completed conversion before publication: even the final progress callback
     // can refuse without committing a header. This is the final cooperative cancellation

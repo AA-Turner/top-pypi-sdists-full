@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fcm-django
-Version: 3.2.0
+Version: 3.2.1
 Summary: Send push notifications to mobile devices and browsers through FCM in Django.
 Author-email: xTrinch <mojca.rojko@gmail.com>
 License-Expression: MIT
@@ -363,9 +363,7 @@ Subscribing or Unsubscribing Users to topic
 
     # Finally you can send a message to that topic
     from firebase_admin.messaging import Message
-    message = Message(..., topic="A topic")
-    # You can still use .filter() or any methods that return QuerySet (from the chain)
-    FCMDevice.objects.send_message(message)
+    FCMDevice.send_topic_message(Message(...), "TOPIC NAME")
 
     # Unsubscribing
     FCMDevice.objects.all().handle_topic_subscription(False, topic="TOPIC NAME")
@@ -377,6 +375,7 @@ Sending messages to topic
 
 .. code-block:: python
 
+    from firebase_admin.messaging import Message
     from fcm_django.models import FCMDevice
 
     FCMDevice.send_topic_message(Message(data={...}), "TOPIC NAME")
@@ -580,7 +579,6 @@ Packaging for PyPi
 
 - run `source env/bin/activate`
 - run `rm -rf dist/`
-- run `python3 -m pip install build twine`
 - run `python3 -m build`
 - run `twine upload dist/*`
 

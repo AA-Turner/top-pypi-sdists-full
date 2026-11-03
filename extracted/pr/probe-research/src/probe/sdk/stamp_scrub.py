@@ -24,7 +24,7 @@ scrubber at each boundary: more than its cache holds, so nearly every one was a
 full scan (the (k) review measured 23,743 of them).
 
 Kept out of ``redaction.py`` on purpose: that file is copied verbatim to the
-server and to prbe-knowledge (``scripts/sync_credential_scrubber.py``).
+server and to prbe-knowledge (``scripts/codegen/sync_credential_scrubber.py``).
 Stdlib-only, like everything on the enqueue path.
 """
 

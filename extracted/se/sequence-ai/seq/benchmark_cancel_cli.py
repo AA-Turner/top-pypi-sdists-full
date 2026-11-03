@@ -1,8 +1,10 @@
 """
 `seq benchmark cancel <name>`: the benchmark's registration in flight stops now.
 
-Its check's machine, if its check began, ends at once, and none of it is billed; the version it was registering is
-marked failed (canceled), and an eval runs the version before it, when one passed its check. Before it, the only stop
+Its check's machine, if its check began, ends at once, and what its machines ran until then is billed, as GCE and AWS
+bill a machine stopped; the
+version it was registering is marked failed (canceled), and an eval runs the version before it, when one passed its
+check. Before it, the only stop
 was `seq benchmark rm`, which deleted the benchmark - a version that passed its check too.
 
 What it says is how far the registration got (the platform's `stage` and `check_started`): c-toy-cpu, canceled in its
@@ -22,11 +24,11 @@ def cancel(name: str, *, base_url: str | None = None, echo: Callable[[str], None
     what = f"the registration of {out.get('name') or name} v{out.get('version')}"
     stage, started = out.get("stage"), out.get("check_started")
     if started:
-        echo(f"canceled {what} in its check: its check's machine is ended and none of its check is billed")
+        echo(f"canceled {what} in its check: its check's machine is ended, and what ran until now is billed")
     else:
         where = (", while its check waited for its card" if stage == "card" else
                  f", in its {stage} step" if stage else "")
-        echo(f"canceled {what} before its check started{where}; nothing of it is billed")
+        echo(f"canceled {what} before its check started{where}; what ran until now is billed")
     if out.get("runs") is not None:
         echo(f"  evals of {out.get('name') or name} run v{out['runs']}, the version before it")
     else:

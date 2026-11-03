@@ -11,10 +11,12 @@ TUH Abnormal EEG Corpus.
 from __future__ import annotations
 
 import glob
+import json
 import os
 import re
 import warnings
 from datetime import datetime, timezone
+from functools import cache
 from pathlib import Path
 from typing import Iterable, Literal
 from unittest import mock
@@ -25,6 +27,7 @@ import pandas as pd
 from joblib import Parallel, delayed
 
 from braindecode.datasets.base import BaseConcatDataset, RawDataset
+from braindecode.util import resolve_montage_name
 
 
 class TUH(BaseConcatDataset):
@@ -119,7 +122,8 @@ class TUH(BaseConcatDataset):
                 # Assume it is an integer specifying number
                 # of recordings to load
                 recording_ids = range(recording_ids)
-            descriptions = descriptions[recording_ids]
+            # select by chronological position, not by (file listing) label
+            descriptions = descriptions.iloc[:, list(recording_ids)]
 
         # workaround to ensure warnings are suppressed when running in parallel
         def create_dataset(*args, **kwargs):
@@ -182,9 +186,8 @@ class TUH(BaseConcatDataset):
         }
         raw.rename_channels(mapping_strip)
 
-        montage1005 = mne.channels.make_standard_montage("standard_1005")
         mapping_eeg_names = {
-            c.upper(): c for c in montage1005.ch_names if c.upper() in raw.ch_names
+            c.upper(): c for c in _standard_1005().ch_names if c.upper() in raw.ch_names
         }
 
         # Set channels whose type could not be inferred (defaulted to "eeg") to "misc":
@@ -207,8 +210,7 @@ class TUH(BaseConcatDataset):
 
     @staticmethod
     def _set_montage(raw):
-        montage = mne.channels.make_standard_montage("standard_1005")
-        raw.set_montage(montage, on_missing="ignore")
+        raw.set_montage(_standard_1005(), on_missing="ignore")
 
     @staticmethod
     def _create_dataset(
@@ -240,7 +242,11 @@ class TUH(BaseConcatDataset):
         # file paths, use this instead as before
         if "year" in description:
             meas_date = meas_date.replace(*description[["year", "month", "day"]])
-        raw.set_meas_date(meas_date)
+        # FIF (e.g. preprocess(..., save_dir=...)) stores dates from 1901-12-13 to
+        # 2038-01-19 only: undated recordings (year 1 above) and de-identified ones
+        # (TUAB has 1899-12-30) keep their date in the description only.
+        in_fif_range = -(2**31) <= meas_date.timestamp() < 2**31
+        raw.set_meas_date(meas_date if in_fif_range else None)
 
         d = {
             "age": int(age),
@@ -250,9 +256,9 @@ class TUH(BaseConcatDataset):
         # if not, get it from meas_date in raw.info and add to description
         # if meas_date is None, create fake one
         if "year" not in description:
-            d["year"] = raw.info["meas_date"].year
-            d["month"] = raw.info["meas_date"].month
-            d["day"] = raw.info["meas_date"].day
+            d["year"] = meas_date.year
+            d["month"] = meas_date.month
+            d["day"] = meas_date.day
 
         # read info relevant for preprocessing from raw without loading it
         if add_physician_reports:
@@ -262,6 +268,12 @@ class TUH(BaseConcatDataset):
         description = pd.concat([description, additional_description])
         base_dataset = RawDataset(raw, description, target_name=target_name)
         return base_dataset
+
+
+@cache
+def _standard_1005():
+    # Built once per process: set_montage copies the montage before using it.
+    return mne.channels.make_standard_montage(resolve_montage_name("standard_1005"))
 
 
 def _create_description(file_paths, version, ds_name):
@@ -276,15 +288,15 @@ def _sort_chronologically(descriptions):
     # last resort, we use path to sort (always available):
     sort_cols = ["year", "month", "day", "subject", "session", "segment", "path"]
     available_cols = [col for col in sort_cols if col in descriptions.index]
-    descriptions.sort_values(available_cols, axis=1, inplace=True)
-    return descriptions
+    return descriptions.sort_values(available_cols, axis=1)
 
 
 def _read_date(file_path):
     date_path = file_path.replace(".edf", "_date.txt")
     # if date file exists, read it
     if os.path.exists(date_path):
-        description = pd.read_json(date_path, typ="series").to_dict()
+        with open(date_path) as f:
+            description = json.load(f)
     # otherwise read edf file, extract date and store to file
     else:
         raw = mne.io.read_raw_edf(file_path, preload=False, verbose="error")
@@ -810,7 +822,8 @@ def _get_header(*args, **kwargs):
     for paths_dict in [_TUH_EEG_PATHS, _TUH_EEG_ABNORMAL_PATHS, _TUH_EEG_EVENTS_PATHS]:
         for version_dict in paths_dict.values():
             all_paths.update(version_dict)
-    return all_paths[args[0]]
+    # Mock keys use POSIX separators; pathlib emits backslashes on Windows.
+    return all_paths[os.fspath(args[0]).replace("\\", "/")]
 
 
 _TUH_EEG_PATHS = {

@@ -6,7 +6,8 @@ import pickle
 import ssl
 import time
 from collections import deque
-from typing import BinaryIO, Callable, Deque, Optional, Union, cast
+from collections.abc import Callable
+from typing import Any, BinaryIO, cast
 from urllib.parse import urlparse
 
 import aioquic
@@ -35,7 +36,7 @@ except ImportError:
 
 logger = logging.getLogger("client")
 
-HttpConnection = Union[H0Connection, H3Connection]
+HttpConnection = H0Connection | H3Connection
 
 USER_AGENT = "aioquic/" + aioquic.__version__
 
@@ -57,7 +58,7 @@ class HttpRequest:
         method: str,
         url: URL,
         content: bytes = b"",
-        headers: Optional[dict] = None,
+        headers: dict | None = None,
     ) -> None:
         if headers is None:
             headers = {}
@@ -73,9 +74,9 @@ class WebSocket:
         self, http: HttpConnection, stream_id: int, transmit: Callable[[], None]
     ) -> None:
         self.http = http
-        self.queue: asyncio.Queue[Optional[str]] = asyncio.Queue()
+        self.queue: asyncio.Queue[str | None] = asyncio.Queue()
         self.stream_id = stream_id
-        self.subprotocol: Optional[str] = None
+        self.subprotocol: str | None = None
         self.transmit = transmit
         self.websocket = wsproto.Connection(wsproto.ConnectionType.CLIENT)
 
@@ -133,14 +134,14 @@ class WebSocket:
 
 
 class HttpClient(QuicConnectionProtocol):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         self.key_update = False
-        self.pushes: dict[int, Deque[H3Event]] = {}
-        self._http: Optional[HttpConnection] = None
-        self._request_events: dict[int, Deque[H3Event]] = {}
-        self._request_waiter: dict[int, asyncio.Future[Deque[H3Event]]] = {}
+        self.pushes: dict[int, deque[H3Event]] = {}
+        self._http: HttpConnection | None = None
+        self._request_events: dict[int, deque[H3Event]] = {}
+        self._request_waiter: dict[int, asyncio.Future[deque[H3Event]]] = {}
         self._websockets: dict[int, WebSocket] = {}
 
         if self._quic.configuration.alpn_protocols[0].startswith("hq-"):
@@ -148,7 +149,7 @@ class HttpClient(QuicConnectionProtocol):
         else:
             self._http = H3Connection(self._quic)
 
-    async def get(self, url: str, headers: Optional[dict] = None) -> Deque[H3Event]:
+    async def get(self, url: str, headers: dict | None = None) -> deque[H3Event]:
         """
         Perform a GET request.
         """
@@ -157,8 +158,8 @@ class HttpClient(QuicConnectionProtocol):
         )
 
     async def post(
-        self, url: str, data: bytes, headers: Optional[dict] = None
-    ) -> Deque[H3Event]:
+        self, url: str, data: bytes, headers: dict | None = None
+    ) -> deque[H3Event]:
         """
         Perform a POST request.
         """
@@ -167,7 +168,7 @@ class HttpClient(QuicConnectionProtocol):
         )
 
     async def websocket(
-        self, url: str, subprotocols: Optional[list[str]] = None
+        self, url: str, subprotocols: list[str] | None = None
     ) -> WebSocket:
         """
         Open a WebSocket.
@@ -245,7 +246,7 @@ class HttpClient(QuicConnectionProtocol):
                 websocket.connection_terminated()
             self._websockets.clear()
 
-    async def _request(self, request: HttpRequest) -> Deque[H3Event]:
+    async def _request(self, request: HttpRequest) -> deque[H3Event]:
         stream_id = self._quic.get_next_available_stream_id()
         self._http.send_headers(
             stream_id=stream_id,
@@ -275,9 +276,9 @@ class HttpClient(QuicConnectionProtocol):
 async def perform_http_request(
     client: HttpClient,
     url: str,
-    data: Optional[str],
+    data: str | None,
     include: bool,
-    output_dir: Optional[str],
+    output_dir: str | None,
 ) -> None:
     # perform request
     start = time.time()
@@ -303,8 +304,12 @@ async def perform_http_request(
         if isinstance(http_event, DataReceived):
             octets += len(http_event.data)
     logger.info(
-        "Response received for %s %s : %d bytes in %.1f s (%.3f Mbps)"
-        % (method, urlparse(url).path, octets, elapsed, octets * 8 / elapsed / 1000000)
+        "Response received for %s %s : %d bytes in %.1f s (%.3f Mbps)",
+        method,
+        urlparse(url).path,
+        octets,
+        elapsed,
+        octets * 8 / elapsed / 1000000,
     )
 
     # output response
@@ -321,7 +326,7 @@ async def perform_http_request(
 def process_http_pushes(
     client: HttpClient,
     include: bool,
-    output_dir: Optional[str],
+    output_dir: str | None,
 ) -> None:
     for _, http_events in client.pushes.items():
         method = ""
@@ -350,7 +355,7 @@ def process_http_pushes(
 
 
 def write_response(
-    http_events: Deque[H3Event], output_file: BinaryIO, include: bool
+    http_events: deque[H3Event], output_file: BinaryIO, include: bool
 ) -> None:
     for http_event in http_events:
         if isinstance(http_event, HeadersReceived) and include:
@@ -377,9 +382,9 @@ def save_session_ticket(ticket: SessionTicket) -> None:
 async def main(
     configuration: QuicConfiguration,
     urls: list[str],
-    data: Optional[str],
+    data: str | None,
     include: bool,
-    output_dir: Optional[str],
+    output_dir: str | None,
     local_port: int,
     key_update: bool,
     zero_rtt: bool,
@@ -411,7 +416,7 @@ async def main(
 
         # reconstruct url with new hostname and port
         _p = _p._replace(scheme=_scheme)
-        _p = _p._replace(netloc="{}:{}".format(_host, _port))
+        _p = _p._replace(netloc=f"{_host}:{_port}")
         _p = urlparse(_p.geturl())
         urls[i] = _p.geturl()
 
@@ -432,7 +437,7 @@ async def main(
 
             # send some messages and receive reply
             for i in range(2):
-                message = "Hello {}, WebSocket!".format(i)
+                message = f"Hello {i}, WebSocket!"
                 print("> " + message)
                 await ws.send(message)
 
@@ -515,12 +520,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max-data",
         type=int,
-        help="connection-wide flow control limit (default: %d)" % defaults.max_data,
+        help=f"connection-wide flow control limit (default: {defaults.max_data})",
     )
     parser.add_argument(
         "--max-stream-data",
         type=int,
-        help="per-stream flow control limit (default: %d)" % defaults.max_stream_data,
+        help=f"per-stream flow control limit (default: {defaults.max_stream_data})",
     )
     parser.add_argument(
         "--negotiate-v2",
@@ -583,7 +588,7 @@ if __name__ == "__main__":
     )
 
     if args.output_dir is not None and not os.path.isdir(args.output_dir):
-        raise Exception("%s is not a directory" % args.output_dir)
+        raise Exception(f"{args.output_dir} is not a directory")
 
     # prepare configuration
     configuration = QuicConfiguration(

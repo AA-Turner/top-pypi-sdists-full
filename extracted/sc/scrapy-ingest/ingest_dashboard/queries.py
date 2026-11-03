@@ -6,12 +6,13 @@ import json
 import threading
 from typing import Any
 
-from scrapy_ingest.export.items import _internal_job_pk, _job_id_query
+from scrapy_ingest.export.items import _internal_job_pk, _job_id_query, search_job_pk
 from scrapy_ingest.jobs.show import (
     _fetchall,
     _KEYS,
     fetch_job,
 )
+from scrapy_ingest.jobs.sql import jobs_from_clause, jobs_select_sql, spider_name_filter_clause
 
 from .serializers import serialize_value
 
@@ -40,6 +41,32 @@ def _serialize_stats_value(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_serialize_stats_value(v) for v in value]
     return serialize_value(value)
+
+
+def _parse_json_obj(raw: Any) -> dict[str, Any] | None:
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(raw, dict):
+        return None
+    return {str(k): serialize_value(v) for k, v in raw.items()}
+
+
+def _parse_spider_args(raw: Any) -> dict[str, Any] | None:
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+    if isinstance(raw, list):
+        return {"start_urls": [serialize_value(u) for u in raw]}
+    return _parse_json_obj(raw)
 
 
 def _parse_job_stats(raw: Any) -> dict[str, Any] | None:
@@ -78,48 +105,36 @@ def _like_pattern(value: str, dialect: str) -> str:
 def _dashboard_sql_list_filters(settings, status=None, spider=None):
     clauses, params = [], []
     if status:
-        clauses.append("status = %s")
+        clauses.append("j.status = %s")
         params.append(status)
     if spider:
         needle = spider.strip()
         if needle:
             dialect = getattr(settings, "db_dialect", "postgres") or "postgres"
-            pattern = _like_pattern(needle, dialect)
-            if dialect == "postgres":
-                clauses.append("spider_name ILIKE %s ESCAPE E'\\\\'")
-            else:
-                clauses.append("spider_name LIKE %s")
-            params.append(pattern)
+            clauses.append(spider_name_filter_clause(settings))
+            params.append(_like_pattern(needle, dialect))
     if not clauses:
         return "", ()
     return f" WHERE {' AND '.join(clauses)}", tuple(params)
 
 
-def _dashboard_search_filters(status=None, spider=None):
-    filters = []
-    if status:
-        filters.append({"term": {"status": status}})
-    if spider:
-        needle = spider.strip()
-        if needle:
-            filters.append(
-                {
-                    "wildcard": {
-                        "spider_name": {
-                            "value": f"*{needle}*",
-                            "case_insensitive": True,
-                        }
-                    }
-                }
-            )
-    return filters
+def _search_query(client, settings, status=None, spider=None) -> dict[str, Any]:
+    from scrapy_ingest.database.search_helpers import search_jobs_query
+
+    return search_jobs_query(client, settings, status=status, spider=spider)
 
 
-def _search_query(status=None, spider=None) -> dict[str, Any]:
-    filters = _dashboard_search_filters(status, spider)
-    if not filters:
-        return {"match_all": {}}
-    return {"bool": {"filter": list(filters)}}
+def _search_jobs_payload(client, settings, rows):
+    names = client.spider_names_by_id(
+        settings.db_spiders_table, {d.get("spider_id") for d in rows}
+    )
+    items = []
+    for d in rows:
+        norm = _normalize_search_job_row(d)
+        row = {k: serialize_value(norm.get(k)) for k in _KEYS if k != "spider_name"}
+        row["spider_name"] = names.get(int(norm.get("spider_id") or 0), "")
+        items.append(row)
+    return items
 
 
 def _page_payload(items, page, page_size, total):
@@ -181,7 +196,7 @@ def _search_page(client, index, query, page, page_size, sort):
     ], total
 
 
-def _search_dashboard(client, index, query):
+def _search_dashboard(client, index, query, *, spiders_index=None):
     from scrapy_ingest.database.search import _ignore_cluster_warnings
 
     body = {
@@ -194,7 +209,8 @@ def _search_dashboard(client, index, query):
             "total_requests": {"sum": {"field": "requests_count"}},
             "failed_requests": {"sum": {"field": "failed_requests"}},
             "total_errors": {"sum": {"field": "errors_count"}},
-            "spiders": {"cardinality": {"field": "spider_name.keyword"}},
+            "spiders_by_id": {"cardinality": {"field": "spider_id"}},
+            "spiders_by_name": {"cardinality": {"field": "spider_name.keyword"}},
         },
     }
     with _ignore_cluster_warnings():
@@ -204,6 +220,11 @@ def _search_dashboard(client, index, query):
     total_jobs = (
         raw_total["value"] if isinstance(raw_total, dict) else int(raw_total or 0)
     )
+    spider_count = int(aggs.get("spiders_by_id", {}).get("value") or 0)
+    if spider_count <= 0:
+        spider_count = int(aggs.get("spiders_by_name", {}).get("value") or 0)
+    if spider_count <= 0 and spiders_index:
+        spider_count = _search_index_doc_count(client, spiders_index)
     return {
         "total_jobs": total_jobs,
         "running": int(aggs.get("running", {}).get("doc_count") or 0),
@@ -212,8 +233,30 @@ def _search_dashboard(client, index, query):
         "total_requests": int(aggs.get("total_requests", {}).get("value") or 0),
         "failed_requests": int(aggs.get("failed_requests", {}).get("value") or 0),
         "total_errors": int(aggs.get("total_errors", {}).get("value") or 0),
-        "spider_count": int(aggs.get("spiders", {}).get("value") or 0),
+        "spider_count": spider_count,
     }
+
+
+def _search_index_doc_count(client, index):
+    from opensearchpy.exceptions import NotFoundError
+
+    from scrapy_ingest.database.search import _ignore_cluster_warnings
+
+    try:
+        with _ignore_cluster_warnings():
+            resp = client._client.count(index=index)
+        return int(resp.get("count") or 0)
+    except NotFoundError:
+        return 0
+
+
+def _normalize_search_job_row(doc):
+    if not doc:
+        return doc
+    out = dict(doc)
+    if not out.get("job_id") and out.get("_id") is not None:
+        out["job_id"] = out["_id"]
+    return out
 
 
 def _parse_json(raw: Any) -> Any:
@@ -292,52 +335,60 @@ class IngestReader:
 
     def jobs_dashboard(self, *, status=None, spider=None):
         if self._db is not None:
-            table = self.settings.db_jobs_table
             where, params = _dashboard_sql_list_filters(self.settings, status, spider)
             row = _fetchall(
                 self._db,
                 f"""
                 SELECT
                     COUNT(*),
-                    SUM(CASE WHEN LOWER(COALESCE(status, '')) = 'running' THEN 1 ELSE 0 END),
-                    SUM(CASE WHEN LOWER(COALESCE(status, '')) = 'finished' THEN 1 ELSE 0 END),
-                    COALESCE(SUM(items_count), 0),
-                    COALESCE(SUM(requests_count), 0),
-                    COALESCE(SUM(failed_requests), 0),
-                    COALESCE(SUM(errors_count), 0),
-                    COUNT(DISTINCT spider_name)
-                FROM {table}{where}
+                    SUM(CASE WHEN LOWER(COALESCE(j.status, '')) = 'running' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN LOWER(COALESCE(j.status, '')) = 'finished' THEN 1 ELSE 0 END),
+                    COALESCE(SUM(j.items_count), 0),
+                    COALESCE(SUM(j.requests_count), 0),
+                    COALESCE(SUM(j.failed_requests), 0),
+                    COALESCE(SUM(j.errors_count), 0),
+                    COUNT(DISTINCT j.spider_id)
+                FROM {jobs_from_clause(self.settings)}{where}
                 """,
                 params,
             )
             return _dashboard_payload(row[0]) if row else _empty_dashboard()
         return _search_dashboard(
-            self._search, self.settings.db_jobs_table, _search_query(status, spider)
+            self._search,
+            self.settings.db_jobs_table,
+            _search_query(self._search, self.settings, status, spider),
+            spiders_index=self.settings.db_spiders_table,
         )
 
     def list_jobs(self, *, page=1, page_size=25, status=None, spider=None):
         page, page_size = _clamp_page(page, page_size, max_size=200)
         offset = (page - 1) * page_size
         if self._db is not None:
-            table = self.settings.db_jobs_table
             where, params = _dashboard_sql_list_filters(self.settings, status, spider)
             total = int(
                 (
-                    _fetchall(self._db, f"SELECT COUNT(*) FROM {table}{where}", params)
+                    _fetchall(
+                        self._db,
+                        f"SELECT COUNT(*) FROM {jobs_from_clause(self.settings)}{where}",
+                        params,
+                    )
                     or [(0,)]
                 )[0][0]
             )
+            order = _job_order_sql(self.settings).replace("started_at", "j.started_at").replace(
+                "id DESC", "j.id DESC"
+            )
             rows = _fetchall(
                 self._db,
-                f"SELECT {', '.join(_KEYS)} FROM {table}{where} "
-                f"ORDER BY {_job_order_sql(self.settings)} LIMIT %s OFFSET %s",
+                f"{jobs_select_sql(self.settings, _KEYS)}{where} "
+                f"ORDER BY {order} LIMIT %s OFFSET %s",
                 params + (page_size, offset),
             )
             items = [
                 {k: serialize_value(r[i]) for i, k in enumerate(_KEYS)} for r in rows
             ]
             return _page_payload(items, page, page_size, total)
-        query = _search_query(status, spider)
+        query = _search_query(self._search, self.settings, status, spider)
         rows, total = _search_page(
             self._search,
             self.settings.db_jobs_table,
@@ -346,30 +397,58 @@ class IngestReader:
             page_size,
             sort=[{"started_at": {"order": "desc", "unmapped_type": "date"}}],
         )
-        items = [{k: serialize_value(d.get(k)) for k in _KEYS} for d in rows]
-        return _page_payload(items, page, page_size, total)
+        return _page_payload(
+            _search_jobs_payload(self._search, self.settings, rows), page, page_size, total
+        )
 
     def get_job(self, job_id: str):
         stats_raw = None
+        spider_args_raw = None
+        crawl_settings_raw = None
         if self._db is not None:
             job = fetch_job(self._db, self.settings, job_id)
             if not job:
                 return None
+            jobs = self.settings.db_jobs_table
+            meta = self.settings.db_job_meta_table
             row = self._db.execute(
-                f"SELECT stats FROM {self.settings.db_jobs_table} WHERE job_id = %s",
+                f"""
+                SELECT m.spider_args, m.crawl_settings, m.stats
+                FROM {jobs} j
+                LEFT JOIN {meta} m ON m.job_id = j.id
+                WHERE j.job_id = %s
+                """,
                 (job_id,),
             )
-            stats_raw = row[0] if row else None
+            if row:
+                spider_args_raw, crawl_settings_raw, stats_raw = row
         else:
             doc = self._search.get_document(self.settings.db_jobs_table, job_id)
             if not doc:
                 return None
-            job = {k: doc.get(k) for k in _KEYS}
-            stats_raw = doc.get("stats")
+            spider_id = doc.get("spider_id")
+            names = self._search.spider_names_by_id(
+                self.settings.db_spiders_table, {spider_id}
+            )
+            job = {k: doc.get(k) for k in _KEYS if k != "spider_name"}
+            job["spider_name"] = names.get(int(spider_id or 0), "")
+            meta = self._search_meta_doc(doc.get("id"))
+            stats_raw = meta.get("stats") if meta else None
+            spider_args_raw = meta.get("spider_args") if meta else None
+            crawl_settings_raw = meta.get("crawl_settings") if meta else None
         payload = {k: serialize_value(job.get(k)) for k in _KEYS}
         stats = _parse_job_stats(stats_raw)
         payload["stats"] = stats
         payload["stats_count"] = len(stats) if stats else 0
+        spider_args = _parse_spider_args(spider_args_raw)
+        payload["spider_args"] = spider_args
+        su = (spider_args or {}).get("start_urls")
+        payload["start_urls"] = (
+            su
+            if isinstance(su, list)
+            else ([spider_args["url"]] if spider_args and spider_args.get("url") else None)
+        )
+        payload["crawl_settings"] = _parse_json_obj(crawl_settings_raw)
         return payload
 
     def list_items(self, job_id: str, *, page=1, page_size=50):
@@ -382,13 +461,27 @@ class IngestReader:
         page, page_size = _clamp_page(page, page_size, max_size=200)
         return self._list_requests(job_id, page, page_size, success, request_id)
 
-    def list_logs(self, job_id: str, *, page=1, page_size=100, level=None):
+    def list_logs(self, job_id: str, *, page=1, page_size=25, level=None):
         page, page_size = _clamp_page(page, page_size, max_size=500)
         return self._list_logs(job_id, page, page_size, level)
 
     def _internal_pk(self, external_job_id: str) -> int | None:
-        assert self._db is not None
-        return _internal_job_pk(self._db, self.settings, external_job_id)
+        if self._db is not None:
+            return _internal_job_pk(self._db, self.settings, external_job_id)
+        return search_job_pk(self._search, self.settings, external_job_id)
+
+    def _search_meta_doc(self, job_pk):
+        if job_pk is None:
+            return None
+        rows, _ = _search_page(
+            self._search,
+            self.settings.db_job_meta_table,
+            {"term": {"job_id": int(job_pk)}},
+            1,
+            1,
+            sort=[{"id": {"order": "desc", "unmapped_type": "long"}}],
+        )
+        return rows[0] if rows else None
 
     def _list_items(self, external_job_id, page, page_size):
         if self._db is not None:
@@ -421,20 +514,21 @@ class IngestReader:
                 for r in rows
             ]
             return _page_payload(items, page, page_size, total)
+        pk = self._internal_pk(external_job_id)
         rows, total = _search_page(
             self._search,
             self.settings.db_items_table,
-            _job_id_query(external_job_id),
+            _job_id_query(external_job_id, pk),
             page,
             page_size,
             sort=[
                 {"created_at": {"order": "asc", "unmapped_type": "date"}},
-                {"_id": "asc"},
+                {"id": {"order": "asc", "unmapped_type": "long"}},
             ],
         )
         items = [
             {
-                "id": d.get("_id"),
+                "id": d.get("id", d.get("_id")),
                 "created_at": serialize_value(d.get("created_at")),
                 "item": _parse_json(d.get("item")),
             }
@@ -469,7 +563,8 @@ class IngestReader:
             )
             items = [self._request_row(r) for r in rows]
             return _page_payload(items, page, page_size, total)
-        query = _job_id_query(external_job_id)
+        pk = self._internal_pk(external_job_id)
+        query = _job_id_query(external_job_id, pk)
         if success is not None:
             query = {"bool": {"must": [query, {"term": {"success": success}}]}}
         if request_id is not None:
@@ -482,7 +577,7 @@ class IngestReader:
             page_size,
             sort=[
                 {"created_at": {"order": "asc", "unmapped_type": "date"}},
-                {"_id": "asc"},
+                {"id": {"order": "asc", "unmapped_type": "long"}},
             ],
         )
         return _page_payload(
@@ -518,7 +613,8 @@ class IngestReader:
             return _page_payload(
                 [self._log_row(r) for r in rows], page, page_size, total
             )
-        query = _job_id_query(external_job_id)
+        pk = self._internal_pk(external_job_id)
+        query = _job_id_query(external_job_id, pk)
         if level:
             query = {"bool": {"must": [query, {"term": {"level": level}}]}}
         rows, total = _search_page(
@@ -527,7 +623,10 @@ class IngestReader:
             query,
             page,
             page_size,
-            sort=[{"time": {"order": "asc", "unmapped_type": "date"}}, {"_id": "asc"}],
+            sort=[
+                {"time": {"order": "asc", "unmapped_type": "date"}},
+                {"id": {"order": "asc", "unmapped_type": "long"}},
+            ],
         )
         return _page_payload([self._log_doc(d) for d in rows], page, page_size, total)
 
@@ -601,7 +700,7 @@ class IngestReader:
     @staticmethod
     def _log_doc(doc):
         return {
-            "id": doc.get("_id"),
+            "id": doc.get("id", doc.get("_id")),
             "time": serialize_value(doc.get("time")),
             "level": doc.get("level"),
             "logger": doc.get("logger"),

@@ -116,7 +116,13 @@ from dol.filesys import (
 )
 
 from dol.atomic import atomic_write  # crash-safe file write (temp file + os.replace)
+from dol.atomic import (
+    atomic_delete,
+)  # unlink, retried like atomic_write (dol.atomic.Retry)
 from dol.atomic import file_lock, FileLock  # cross-process advisory lock (sidecar file)
+from dol.atomic import LockedAppender  # lock-held appends that follow a replaced file
+from dol.atomic import interrupted_writes  # temps left by killed atomic writes
+from dol.atomic import update_json  # locked read-modify-write of a JSON file
 
 from dol.util import (
     non_colliding_key,  # make a key that does not collide with existing keys

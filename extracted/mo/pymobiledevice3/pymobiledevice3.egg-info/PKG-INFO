@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 11.49.1
+Version: 11.49.4
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
@@ -49,7 +49,7 @@ Requires-Dist: opack2>=0.2.0
 Requires-Dist: psutil
 Requires-Dist: pytun-pmd3>=3.0.3
 Requires-Dist: prompt_toolkit
-Requires-Dist: sslpsk-pmd3>=1.0.3; python_version < "3.13"
+Requires-Dist: sslpsk-pmd3>=1.2.2; python_version < "3.13"
 Requires-Dist: python-pcapng>=2.1.1
 Requires-Dist: pyimg4>=0.8.8
 Requires-Dist: pyiosbackup>=0.2.4
@@ -171,7 +171,9 @@ Agent-specific contributor guidance is in [AGENTS](AGENTS.md).
 
 ## License and Credits
 
-This work is licensed under GPL 3.0 and credited to several major contributors:
+This work is licensed under GPL 3.0. Planning to ship it in a closed-source app? Read
+[this FAQ](https://doronz88.github.io/pymobiledevice3/#can-i-use-pymobiledevice3-in-a-closed-source-app)
+first. The project is credited to several major contributors:
 
 - Hector Martin "marcan" <hector@marcansoft.com>
 - Mathieu Renard

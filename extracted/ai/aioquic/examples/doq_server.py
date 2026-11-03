@@ -2,7 +2,6 @@ import argparse
 import asyncio
 import logging
 import struct
-from typing import Optional
 
 from aioquic.asyncio import QuicConnectionProtocol, serve
 from aioquic.quic.configuration import QuicConfiguration
@@ -13,7 +12,7 @@ from dnslib.dns import DNSRecord
 
 
 class DnsServerProtocol(QuicConnectionProtocol):
-    def quic_event_received(self, event: QuicEvent):
+    def quic_event_received(self, event: QuicEvent) -> None:
         if isinstance(event, StreamDataReceived):
             # parse query
             length = struct.unpack("!H", bytes(event.data[:2]))[0]
@@ -38,7 +37,7 @@ class SessionTicketStore:
     def add(self, ticket: SessionTicket) -> None:
         self.tickets[ticket.ticket] = ticket
 
-    def pop(self, label: bytes) -> Optional[SessionTicket]:
+    def pop(self, label: bytes) -> SessionTicket | None:
         return self.tickets.pop(label, None)
 
 

@@ -1,4 +1,6 @@
 import importlib
+import os as _os
+import sys as _sys
 from typing import TYPE_CHECKING
 
 from .__about__ import __version__
@@ -54,6 +56,7 @@ if TYPE_CHECKING:
         mdpa,
         med,
         medit,
+        medit_sol,
         mfem,
         mff,
         mfm,
@@ -108,6 +111,8 @@ if TYPE_CHECKING:
     )
     from ._agglomerate import agglomerate
     from ._blender import from_blender, has_blender, to_blender
+    from ._boundary_layer import boundary_layer
+    from ._check_conformity import check_conformity
     from ._clean import clean
     from ._conservative_interpolate import conservative_interpolate
     from ._convert_cells import convert_cells
@@ -124,7 +129,10 @@ if TYPE_CHECKING:
     from ._decimate_volume import decimate_volume
     from ._diff import diff, meshes_equal
     from ._error import estimate_error
+    from ._error_size import error_size
+    from ._extrude import extrude, revolve
     from ._feature_edges import feature_edges
+    from ._find_intersections import find_intersections
     from ._fit_cad import fit_cad
     from ._fit_primitives import fit_primitives
     from ._gpu import (
@@ -184,13 +192,63 @@ if TYPE_CHECKING:
     from ._interpolate import interpolate
     from ._isosurface import isosurface
     from ._merge import merge
+    from ._mesh_cad import mesh_cad_surface, triangulate_polygon_2d
+    from ._mirror import mirror
     from ._ml import FeatureMatrix, edge_index, feature_matrix, has_zarr, write_dataset
+    from ._mmg import (
+        adapt,
+        discretize_levelset,
+        has_mmg,
+        has_mmg_elas,
+        mesh_domain,
+        metric_from_hessian,
+        move,
+    )
     from ._normals import compute_normals
+    from ._octree import octree
+    from ._octree_mesh import octree_mesh
     from ._optimize_volume import optimize_volume
     from ._partition import partition, partition_labels
     from ._periodic import match_periodic_nodes
     from ._pipeline import run_pipeline
     from ._point_budget import PointBudget, select_points, subsample_points
+    from ._primitives import (
+        annulus,
+        ball,
+        box,
+        box_points,
+        box_surface,
+        capsule,
+        circle,
+        cone,
+        cube_sphere,
+        cylinder,
+        disk,
+        fichera,
+        geo_sphere,
+        helix,
+        honeycomb,
+        icosa_sphere,
+        line,
+        lshape,
+        moebius,
+        ngon,
+        octa_sphere,
+        pipe,
+        plate_with_hole,
+        platonic,
+        rectangle,
+        reference_cells,
+        reference_triangle,
+        solid_torus,
+        sphere_points,
+        spherical_shell,
+        tetra_sphere,
+        torus,
+        tube,
+        uv_sphere,
+    )
+    from ._project_to_cad import project_to_cad
     from ._proximity import (
         BistrideHierarchy,
         bistride_hierarchy,
@@ -200,6 +258,7 @@ if TYPE_CHECKING:
     from ._quality import attach_quality, compute_quality
     from ._quality_gate import check_quality
     from ._refine import refine
+    from ._refine_patches import refine_patches
     from ._region_ops import edit_regions
     from ._remesh import remesh
     from ._remesh_volume import remesh_volume
@@ -213,6 +272,7 @@ if TYPE_CHECKING:
         surface_watertight_check,
     )
     from ._segment import segment
+    from ._select import select
     from ._sequence import (
         TimeSeries,
         blend_steps,
@@ -234,17 +294,48 @@ if TYPE_CHECKING:
     from ._surface import extract_surface
     from ._tensor_invariants import tensor_invariants
     from ._tessellation import Tessellation, tessellate
+    from ._tet_poly import poly_to_tet, tet_to_poly
+    from ._tetrahedralize import has_netgen, tetrahedralize
+    from ._thickness import thickness
     from ._transform import transform
     from ._tui import tui
     from ._undo_green import undo_green
     from ._viewer import has_viewer, screenshot, view
     from ._voxelize import voxelize
 
+
 # Operations, classes and helpers are loaded on first attribute access (PEP 562)
 # rather than with the package: importing all of them costs more than the three
 # registries and ``read``/``write`` that every user needs. ``name -> module``
 # for every public name that is not imported above; format subpackages and
 # private modules need no entry, ``__getattr__`` imports a submodule of that name.
+# A split wheel ships the shared core in lib/ beside this package; Linux and
+# macOS find it through the extension's RPATH, Windows only through a DLL
+# directory registered before `_core` is first imported.
+_LIB_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "lib")
+if _sys.platform == "win32" and _os.path.isdir(_LIB_DIR):  # pragma: no cover
+    _os.add_dll_directory(_LIB_DIR)
+
+
+def get_cmake_dir() -> str:
+    """The directory of the installed CMake package (``meshioplusplusConfig.cmake``).
+
+    Only a wheel built with the shared core ships it; an add-on wheel finds the
+    core through ``find_package(meshioplusplus CONFIG)`` with
+    ``meshioplusplus_DIR`` set to this, the way pybind11's ``get_cmake_dir()``
+    works.
+
+    :raises FileNotFoundError: in a build without the shared core.
+    """
+    path = _os.path.join(_LIB_DIR, "cmake", "meshioplusplus")
+    if not _os.path.isdir(path):
+        raise FileNotFoundError(
+            "meshioplusplus: this build has no shared core (the CMake package is only in the "
+            "wheels built with MESHIOPLUSPLUS_PYTHON_SHARED_CORE=ON)"
+        )
+    return path
+
+
 _LAZY_ATTRS = {
     "agglomerate": "_agglomerate",
     "from_blender": "_blender",
@@ -267,11 +358,15 @@ _LAZY_ATTRS = {
     "data_rename": "_data_manage",
     "DatasetEntry": "_dataset",
     "DatasetManifest": "_dataset",
+    "check_conformity": "_check_conformity",
+    "find_intersections": "_find_intersections",
+    "thickness": "_thickness",
     "decimate": "_decimate",
     "decimate_volume": "_decimate_volume",
     "diff": "_diff",
     "meshes_equal": "_diff",
     "estimate_error": "_error",
+    "error_size": "_error_size",
     "feature_edges": "_feature_edges",
     "fit_cad": "_fit_cad",
     "fit_primitives": "_fit_primitives",
@@ -279,6 +374,8 @@ _LAZY_ATTRS = {
     "iga_refine": "_iga",
     "iga_sample": "_iga",
     "segment": "_segment",
+    "select": "_select",
+    "refine_patches": "_refine_patches",
     "from_cupy": "_gpu",
     "has_cuda_device": "_gpu",
     "has_cupy": "_gpu",
@@ -290,6 +387,40 @@ _LAZY_ATTRS = {
     "to_torch": "_gpu",
     "gradient": "_gradient",
     "grid": "_grid",
+    "rectangle": "_primitives",
+    "box": "_primitives",
+    "disk": "_primitives",
+    "uv_sphere": "_primitives",
+    "icosa_sphere": "_primitives",
+    "cylinder": "_primitives",
+    "reference_triangle": "_primitives",
+    "ngon": "_primitives",
+    "annulus": "_primitives",
+    "lshape": "_primitives",
+    "plate_with_hole": "_primitives",
+    "honeycomb": "_primitives",
+    "reference_cells": "_primitives",
+    "line": "_primitives",
+    "circle": "_primitives",
+    "helix": "_primitives",
+    "sphere_points": "_primitives",
+    "box_points": "_primitives",
+    "tetra_sphere": "_primitives",
+    "octa_sphere": "_primitives",
+    "cube_sphere": "_primitives",
+    "geo_sphere": "_primitives",
+    "torus": "_primitives",
+    "moebius": "_primitives",
+    "tube": "_primitives",
+    "cone": "_primitives",
+    "capsule": "_primitives",
+    "box_surface": "_primitives",
+    "platonic": "_primitives",
+    "ball": "_primitives",
+    "spherical_shell": "_primitives",
+    "pipe": "_primitives",
+    "fichera": "_primitives",
+    "solid_torus": "_primitives",
     "GridArray": "_grid_transfer",
     "GridSpec": "_grid_transfer",
     "PowerSpectrum": "_grid_transfer",
@@ -352,6 +483,13 @@ _LAZY_ATTRS = {
     "refine": "_refine",
     "edit_regions": "_region_ops",
     "remesh": "_remesh",
+    "adapt": "_mmg",
+    "metric_from_hessian": "_mmg",
+    "has_mmg": "_mmg",
+    "has_mmg_elas": "_mmg",
+    "discretize_levelset": "_mmg",
+    "mesh_domain": "_mmg",
+    "move": "_mmg",
     "remesh_volume": "_remesh_volume",
     "compute_bandwidth": "_reorder",
     "render_image": "_render",
@@ -390,6 +528,19 @@ _LAZY_ATTRS = {
     "screenshot": "_viewer",
     "view": "_viewer",
     "voxelize": "_voxelize",
+    "octree": "_octree",
+    "octree_mesh": "_octree_mesh",
+    "mesh_cad_surface": "_mesh_cad",
+    "project_to_cad": "_project_to_cad",
+    "boundary_layer": "_boundary_layer",
+    "extrude": "_extrude",
+    "revolve": "_extrude",
+    "mirror": "_mirror",
+    "tet_to_poly": "_tet_poly",
+    "poly_to_tet": "_tet_poly",
+    "tetrahedralize": "_tetrahedralize",
+    "has_netgen": "_tetrahedralize",
+    "triangulate_polygon_2d": "_mesh_cad",
 }
 
 __all__ = [
@@ -429,6 +580,7 @@ __all__ = [
     "mdpa",
     "med",
     "medit",
+    "medit_sol",
     "mfem",
     "mff",
     "mfm",
@@ -501,11 +653,16 @@ __all__ = [
     "iga_refine",
     "iga_sample",
     "segment",
+    "select",
+    "refine_patches",
     "hausdorff_distance",
     "match_periodic_nodes",
     "edit_regions",
     "attach_quality",
     "check_quality",
+    "check_conformity",
+    "find_intersections",
+    "thickness",
     "sniff_format",
     "reorder",
     "compute_bandwidth",
@@ -522,6 +679,7 @@ __all__ = [
     "split_interface",
     "data_integrate",
     "estimate_error",
+    "error_size",
     "slice",
     "isosurface",
     "transform",
@@ -540,9 +698,63 @@ __all__ = [
     "decimate_volume",
     "remesh",
     "remesh_volume",
+    "adapt",
+    "metric_from_hessian",
+    "has_mmg",
+    "has_mmg_elas",
+    "discretize_levelset",
+    "mesh_domain",
+    "move",
     "optimize_volume",
     "grid",
+    "rectangle",
+    "box",
+    "disk",
+    "uv_sphere",
+    "icosa_sphere",
+    "cylinder",
+    "reference_triangle",
+    "ngon",
+    "annulus",
+    "lshape",
+    "plate_with_hole",
+    "honeycomb",
+    "reference_cells",
+    "line",
+    "circle",
+    "helix",
+    "sphere_points",
+    "box_points",
+    "tetra_sphere",
+    "octa_sphere",
+    "cube_sphere",
+    "geo_sphere",
+    "torus",
+    "moebius",
+    "tube",
+    "cone",
+    "capsule",
+    "box_surface",
+    "platonic",
+    "ball",
+    "spherical_shell",
+    "pipe",
+    "fichera",
+    "solid_torus",
     "voxelize",
+    "octree",
+    "octree_mesh",
+    "mesh_cad_surface",
+    "project_to_cad",
+    "boundary_layer",
+    "extrude",
+    "revolve",
+    "mirror",
+    "tet_to_poly",
+    "poly_to_tet",
+    "tetrahedralize",
+    "has_netgen",
+    "triangulate_polygon_2d",
     "sample_distance",
     "distance_to_surface",
     "surface_watertight_check",

@@ -37,6 +37,11 @@ _MISTRAL_USAGE_NESTED_ALIASES = {
 def _dump_messages_for_mistral(messages: list[Message]) -> list[dict[str, Any]]:
     dumped = [message.model_dump(exclude_none=True) for message in messages]
     for message in dumped:
+        if (reasoning := message.pop("reasoning_content", None)) is not None:
+            message["content"] = [
+                {"type": "thinking", "thinking": [{"type": "text", "text": reasoning}]},
+                *_content_chunks(message.get("content")),
+            ]
         content = message.get("content")
         if not isinstance(content, list):
             continue
@@ -47,6 +52,14 @@ def _dump_messages_for_mistral(messages: list[Message]) -> list[dict[str, Any]]:
             if isinstance(image_url, dict) and isinstance(image_url.get("url"), str):
                 part["image_url"] = image_url["url"]
     return dumped
+
+
+def _content_chunks(content: str | list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    if content is None:
+        return []
+    if isinstance(content, str):
+        return [{"type": "text", "text": content}]
+    return content
 
 
 def _get_mistral_status_code(exc: BaseException) -> int | None:

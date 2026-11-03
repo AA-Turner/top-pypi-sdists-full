@@ -5,7 +5,7 @@ import hmac
 import ipaddress
 from collections.abc import Callable
 from struct import pack, unpack
-from typing import Optional, Protocol
+from typing import Any, Protocol
 
 from .utils import random_transaction_id
 
@@ -146,18 +146,21 @@ def unpack_string(data: bytes) -> str:
 
 
 def unpack_unsigned(data: bytes) -> int:
-    return unpack("!I", data)[0]
+    value: int = unpack("!I", data)[0]
+    return value
 
 
 def unpack_unsigned_short(data: bytes) -> int:
-    return unpack("!H", data[0:2])[0]
+    value: int = unpack("!H", data[0:2])[0]
+    return value
 
 
 def unpack_unsigned_64(data: bytes) -> int:
-    return unpack("!Q", data)[0]
+    value: int = unpack("!Q", data)[0]
+    return value
 
 
-AttributeEntry = tuple[int, str, Callable, Callable]
+AttributeEntry = tuple[int, str, Callable[..., bytes], Callable[..., Any]]
 
 ATTRIBUTES: list[AttributeEntry] = [
     (0x0001, "MAPPED-ADDRESS", pack_address, unpack_address),
@@ -216,8 +219,8 @@ class Message:
         self,
         message_method: Method,
         message_class: Class,
-        transaction_id: Optional[bytes] = None,
-        attributes: Optional[dict] = None,
+        transaction_id: bytes | None = None,
+        attributes: dict[str, Any] | None = None,
     ) -> None:
         self.message_method = message_method
         self.message_class = message_class
@@ -268,17 +271,20 @@ class Message:
 
 
 class TransactionError(Exception):
-    response: Optional[Message] = None
+    response: Message | None = None
 
 
 class TransactionFailed(TransactionError):
+    response: Message
+
     def __init__(self, response: Message) -> None:
         self.response = response
 
     def __str__(self) -> str:
         out = "STUN transaction failed"
         if "ERROR-CODE" in self.response.attributes:
-            out += " (%s - %s)" % self.response.attributes["ERROR-CODE"]
+            code, reason = self.response.attributes["ERROR-CODE"]
+            out += f" ({code} - {reason})"
         return out
 
 
@@ -297,7 +303,7 @@ class Transaction:
         request: Message,
         addr: tuple[str, int],
         protocol: TransactionSender,
-        retransmissions: Optional[int] = None,
+        retransmissions: int | None = None,
     ) -> None:
         self.__addr = addr
         self.__future: asyncio.Future[tuple[Message, tuple[str, int]]] = (
@@ -305,7 +311,7 @@ class Transaction:
         )
         self.__request = request
         self.__timeout_delay = RETRY_RTO
-        self.__timeout_handle: Optional[asyncio.TimerHandle] = None
+        self.__timeout_handle: asyncio.TimerHandle | None = None
         self.__protocol = protocol
         self.__tries = 0
         self.__tries_max = 1 + (
@@ -339,7 +345,7 @@ class Transaction:
 
         self.__protocol.send_stun(self.__request, self.__addr)
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         self.__timeout_handle = loop.call_later(self.__timeout_delay, self.__retry)
         self.__timeout_delay *= 2
         self.__tries += 1
@@ -356,7 +362,7 @@ def padding_length(length: int) -> int:
         return 4 - rest
 
 
-def parse_message(data: bytes, integrity_key: Optional[bytes] = None) -> Message:
+def parse_message(data: bytes, integrity_key: bytes | None = None) -> Message:
     """
     Parses a STUN message.
 

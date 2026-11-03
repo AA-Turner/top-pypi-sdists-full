@@ -86,6 +86,8 @@ print(f"--- Sphinx is using sphinx_design version: {sphinx_design.__version__} -
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "sphinx_markdown_builder",
+    "agent_markdown",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.doctest",
@@ -275,7 +277,7 @@ intersphinx_mapping = {
     "sklearn": ("https://scikit-learn.org/stable/", None),
     "mne": ("https://mne.tools/stable/", None),
     "skorch": ("https://skorch.readthedocs.io/en/stable/", None),
-    "torch": ("https://pytorch.org/docs/stable/", None),
+    "torch": ("https://docs.pytorch.org/docs/stable/", None),
     "huggingface_hub": (
         "https://huggingface.co/docs/huggingface_hub/main/en/",
         None,
@@ -295,12 +297,17 @@ else:
         f"%pip install braindecode=={release}"
     )
 
+# Keep local memory profiling; CI bounds concurrent examples to fit runner RAM.
+_gallery_jobs = int(os.environ.get("BRAINDECODE_DOCS_JOBS", "1"))
+
 sphinx_gallery_conf = {
     "examples_dirs": ["../examples"],
     "gallery_dirs": ["auto_examples"],
     "doc_module": ("braindecode", "mne"),
     "backreferences_dir": "generated",
-    "show_memory": True,
+    "parallel": _gallery_jobs,
+    # Sphinx-Gallery's built-in memory profiler does not support parallel runs.
+    "show_memory": _gallery_jobs == 1,
     "reference_url": dict(braindecode=None),
     "first_notebook_cell": _pip_install_cell,
     "subsection_order": ExplicitOrder(
@@ -611,3 +618,8 @@ texinfo_documents = [
         "Miscellaneous",
     ),
 ]
+
+# Markdown siblings link to canonical HTML, including pages outside the curated index.
+markdown_uri_doc_suffix = ".html"
+# Preserve Sphinx IDs instead of depending on renderer-specific heading slugs.
+markdown_anchor_sections = True

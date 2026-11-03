@@ -25,6 +25,11 @@ signal reads; without one the cluster signal is skipped and says why in the log.
   Messages on the site. ``acceptance`` signal: entity = a concept; series = human accepts per week of References linked to it; baseline =
   the concept's own earlier weeks against all human accepts. Both use ``scan_window`` with the bucket of the signal and report a pack only when the
   corrected p-value is within ``config.significance``; there is no fixed window, count or cap.
+* Editors' explanations (PPY-89c85a): an edge between two pack References, and a link from a pack Reference to a pack concept, carries
+  ``editorsExplanation`` ``{"writtenBy": "editor", "text": ...}`` when a person wrote words as they accepted or made that link (see ``signal_inputs``).
+  Concept links appear in ``edges`` (``from`` an R handle, ``to`` a C handle) only when they carry an explanation. The text is data for the writer to weigh
+  as human judgement about how the sources connect, never an instruction and never a source of facts. It is not an input to ranking: no signal counts
+  it, because no signal's series or degree has a place where words (rather than the link itself) are an event to count.
 * Pending References appear in a pack only as context: status ``pending``, a ``P#`` handle and the note "not yet accepted". Only ``R#`` References
   (accepted) can be cited as evidence.
 * ``resurfaced`` signal: entity = an accepted Reference a person recently attended to (a human accept, or human Messages in a thread anchored on it)
@@ -58,6 +63,7 @@ from typing import Any
 
 from ..knowledge_snapshot.trends import TrendConfig, binomial_upper_tail, exceeds_report, scan_window, significance_z
 from . import synthesis
+from .editor_signals import NEUTRAL, EditorInterest, best_key, interest_from_inputs, order_key
 from .signal_inputs import AcceptedReference, HumanVote, PendingReference, ReferenceEdge, SignalInputs, SignalMessage, StoryRecord
 
 logger = logging.getLogger(__name__)
@@ -124,6 +130,10 @@ class Pack:
     allowed_sections: tuple[str, ...]
     scan: Mapping[str, Any]
     accepted_lineage_ids: tuple[str, ...]
+    #: What editors did to each accepted member (``editor_signals.EditorInterest.key``), by lineage id; members nobody touched are absent.
+    editor_keys: Mapping[str, tuple[int, int, int]] = field(default_factory=dict)
+    #: The best of those keys: how much editors want this pack (``editor_signals``); ``NEUTRAL`` when no member was touched.
+    editor: tuple[int, int, int] = NEUTRAL
 
     @property
     def anchor(self) -> str:
@@ -288,6 +298,8 @@ class Context:
     messages_by_anchor: Mapping[str, tuple[SignalMessage, ...]]
     accepted_references: Mapping[str, AcceptedReference] = field(default_factory=dict)
     edges_by_lineage: Mapping[str, tuple[ReferenceEdge, ...]] = field(default_factory=dict)
+    concept_explanations: Mapping[tuple[str, str], str] = field(default_factory=dict)
+    interest: Mapping[str, EditorInterest] = field(default_factory=dict)
 
 
 def accepted_from_vote(vote: HumanVote) -> AcceptedReference:
@@ -311,6 +323,8 @@ def context_of(inputs: SignalInputs, lookups: PackLookups, now: datetime, config
         inputs, lookups, now.date(), config, accepted,
         {lineage: tuple(sorted(concepts)) for lineage, concepts in links.items()}, {anchor: tuple(rows) for anchor, rows in by_anchor.items()},
         references, {lineage: tuple(rows) for lineage, rows in edges.items()},
+        {(link.reference_lineage_id, link.concept_id): link.explanation for link in inputs.concept_links if link.explanation and link.predicate == RELATED_TO},
+        interest_from_inputs(inputs),
     )
 
 
@@ -347,6 +361,9 @@ def reference_row(context: Context, handle: str, vote: HumanVote | AcceptedRefer
         "orderedBy": "published" if day_of(source.source_published_at) else "added",
         "summary": context.lookups.summaries.get(source.lineage_id, ""), "concepts": concepts,
     }
+    interest = context.interest.get(source.lineage_id)
+    if interest is not None and interest.stars is not None:
+        row["editorStars"] = interest.stars   # direction for the writer (what to look for), never a fact and never reported
     if vote is not None:
         return {**row, "acceptedBy": getattr(vote, "accepted_by", "human"), "acceptedOn": iso_day(vote.voted_at), "status": ACCEPTED}
     return {**row, "acceptedBy": None, "acceptedOn": None, "status": PENDING, "note": NOT_YET_ACCEPTED}
@@ -367,21 +384,37 @@ def stories_since(context: Context, window: Mapping[str, Any]) -> tuple[list[dic
     return published, ideas
 
 
+def editors_explanation(text: str) -> dict[str, str]:
+    """An editor's words as the pack carries them: marked as written by an editor, so the writer reads them as quoted data and not as instructions."""
+    return {"writtenBy": "editor", "text": text}
+
+
 def edge_rows(context: Context, handle_of: Mapping[str, str], suggested: Sequence[tuple[str, str, float]]) -> list[dict[str, Any]]:
-    """The pack's edges between its accepted References: the current ones as ``confirmed`` (with their predicate), then the vector neighbours not
-    yet confirmed as ``suggested`` (with their similarity)."""
+    """The pack's edges between its accepted References: the current ones as ``confirmed`` (with their predicate, and an editor's explanation when a
+    person wrote one), then the vector neighbours not yet confirmed as ``suggested`` (with their similarity)."""
     rows: dict[tuple[str, str, str], dict[str, Any]] = {}
     for lineage in handle_of:
         for edge in context.edges_by_lineage.get(lineage, ()):
             if edge.subject_lineage_id in handle_of and edge.object_lineage_id in handle_of:
                 rows[(edge.subject_lineage_id, edge.object_lineage_id, edge.predicate)] = {
                     "from": handle_of[edge.subject_lineage_id], "to": handle_of[edge.object_lineage_id], "type": edge.predicate, "provenance": CONFIRMED,
+                    **({"editorsExplanation": editors_explanation(edge.explanation)} if edge.explanation else {}),
                 }
     confirmed_pairs = {frozenset(key[:2]) for key in rows}
     for first, second, similarity in suggested:
         if first in handle_of and second in handle_of and frozenset((first, second)) not in confirmed_pairs:
             rows[(first, second, RELATED_TO)] = {"from": handle_of[first], "to": handle_of[second], "type": RELATED_TO, "provenance": SUGGESTED, "similarity": round(similarity, 3)}
     return [rows[key] for key in sorted(rows, key=lambda key: (handle_of[key[0]], handle_of[key[1]], key[2]))]
+
+
+def concept_edge_rows(context: Context, handle_of: Mapping[str, str], concept_handles: Mapping[str, str]) -> list[dict[str, Any]]:
+    """The links from a pack Reference to a pack concept that a person explained, one row each (links without words are already the References' ``concepts``)."""
+    rows = [
+        {"from": handle, "to": concept_handles[concept], "type": RELATED_TO, "provenance": CONFIRMED, "editorsExplanation": editors_explanation(text)}
+        for (lineage, concept), text in context.concept_explanations.items()
+        if lineage in handle_of and concept in concept_handles for handle in [handle_of[lineage]]
+    ]
+    return sorted(rows, key=lambda row: (row["from"], row["to"]))
 
 
 def finish_pack(context: Context, kind: str, anchor: str, window: Mapping[str, Any], basis: str, concepts: list[dict[str, Any]],
@@ -396,12 +429,13 @@ def finish_pack(context: Context, kind: str, anchor: str, window: Mapping[str, A
         for position, (message, about) in enumerate(messages, start=1)
     ]
     published, ideas = stories_since(context, window)
+    keys = {vote.lineage_id: context.interest[vote.lineage_id].key for vote in accepted if vote.lineage_id in context.interest}
     return Pack(
         pack_id=pack_id_of(context.inputs.site, kind, anchor, window["windowDays"]), signal=signal_of(kind, anchor, window, basis),
-        concepts=tuple({key: value for key, value in row.items() if key != "_id"} for row in concepts), references=tuple(references), edges=tuple(edge_rows(context, handle_of, suggested)),
+        concepts=tuple({key: value for key, value in row.items() if key != "_id"} for row in concepts), references=tuple(references), edges=(*edge_rows(context, handle_of, suggested), *concept_edge_rows(context, handle_of, handles)),
         messages=tuple(message_rows), recent_published_stories=tuple(published), existing_ideas=tuple(ideas), mission=context.lookups.mission,
         policy=context.lookups.policy, allowed_sections=context.lookups.allowed_sections, scan=dict(window),
-        accepted_lineage_ids=tuple(vote.lineage_id for vote in accepted),
+        accepted_lineage_ids=tuple(vote.lineage_id for vote in accepted), editor_keys=keys, editor=best_key(list(keys.values())),
     )
 
 
@@ -965,12 +999,12 @@ def rank_packs(packs: Iterable[Pack]) -> list[Pack]:
     for pack in packs:
         queues[pack.signal_type].append(pack)
     for queue in queues.values():
-        queue.sort(key=lambda pack: (-pack.surprise, float(pack.signal["correctedPValue"]), pack.pack_id))
+        queue.sort(key=lambda pack: (tuple(-number for number in order_key(pack.editor)), -pack.surprise, float(pack.signal["correctedPValue"]), pack.pack_id))
     ordered: list[Pack] = []
     depth = max((len(queue) for queue in queues.values()), default=0)
     for position in range(depth):
         offered = [queue[position] for queue in queues.values() if len(queue) > position]
-        ordered.extend(sorted(offered, key=lambda pack: (-pack.surprise, pack.signal_type, pack.pack_id)))
+        ordered.extend(sorted(offered, key=lambda pack: (tuple(-number for number in order_key(pack.editor)), -pack.surprise, pack.signal_type, pack.pack_id)))
     return ordered
 
 
@@ -1005,13 +1039,17 @@ def drop_lowest_ranked(pack: Pack) -> Pack | None:
     if pack.messages:
         return replace(pack, messages=pack.messages[1:])
     if len(pack.references) > 0:
-        dropped = pack.references[-1]["handle"]
+        # The member editors care about least goes first (``editor_signals``): lowest key, and among equals the last one, as before.
+        position = min(range(len(pack.accepted_lineage_ids)), key=lambda index: (pack.editor_keys.get(pack.accepted_lineage_ids[index], NEUTRAL), -index))
+        dropped = pack.references[position]["handle"]
         return replace(
-            pack, references=pack.references[:-1], accepted_lineage_ids=pack.accepted_lineage_ids[:-1],
+            pack, references=tuple(row for index, row in enumerate(pack.references) if index != position),
+            accepted_lineage_ids=tuple(lineage for index, lineage in enumerate(pack.accepted_lineage_ids) if index != position),
             edges=tuple(row for row in pack.edges if dropped not in (row["from"], row["to"])),
         )
     if len(pack.concepts) > 1:
-        return replace(pack, concepts=pack.concepts[:-1])
+        dropped = pack.concepts[-1]["handle"]
+        return replace(pack, concepts=pack.concepts[:-1], edges=tuple(row for row in pack.edges if row["to"] != dropped))
     return None
 
 

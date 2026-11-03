@@ -1,4 +1,5 @@
 #include "../std_include.hpp"
+#include "../debug_object.hpp"
 #include "../emulator_utils.hpp"
 #include "../io_completion_wait.hpp"
 #include "../low_level_hooks.hpp"
@@ -78,6 +79,15 @@ namespace sogen
                 }
             }
 
+            if (value.type == handle_types::debug_object)
+            {
+                auto* debug = c.proc.debug_objects.get(h);
+                if (debug && debug->ref_count == 1)
+                {
+                    release_debug_object(c.win_emu, *debug);
+                }
+            }
+
             if (value.type == handle_types::worker_factory)
             {
                 auto* factory = c.proc.worker_factories.get(h);
@@ -92,9 +102,11 @@ namespace sogen
                 auto* device = c.proc.devices.get(h);
                 if (device && device->ref_count == 1)
                 {
-                    if (device->is_last_file_reference() && device->get_internal_device<named_pipe>())
+                    const auto* pipe = device->is_last_file_reference() ? device->get_internal_device<named_pipe>() : nullptr;
+                    if (pipe)
                     {
                         device->cancel_io(c.win_emu, 0);
+                        pipe->complete_waits_if_last_server_end(c.win_emu);
                     }
                     device->release_references(c.proc);
                 }
@@ -137,6 +149,15 @@ namespace sogen
 
                         ++it;
                     }
+                }
+            }
+
+            if (value.type == handle_types::registry)
+            {
+                auto* key = c.proc.registry_keys.get(h);
+                if (key && key->ref_count == 1)
+                {
+                    registry_notification::close(c, *key);
                 }
             }
 

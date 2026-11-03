@@ -70,6 +70,9 @@ MAX_AGE_SECONDS = 30 * 86400
 #: landed in (`write_scope`). Its own file because the refresh hook replaces the
 #: marker whole. `prune` sweeps it with the rest of the directory.
 SCOPE_SUFFIX = ".scope"
+#: `<session>.home` beside it: where this session's runs go (`write_run_home`), set by
+#: the daemon. Not a key in `.scope`, which every landed write rewrites. `prune` sweeps it.
+HOME_SUFFIX = ".home"
 #: A bound on a project name this file stores or shows. Server slugs are
 #: free-form TEXT; the segment elides a long one anyway, so this only keeps a
 #: pathological value off the render path.
@@ -150,6 +153,11 @@ _DOT_DEGRADED = "◐"  # ◐
 #: transcript says exactly which half is missing. The columns this costs are
 #: paid by `MAX_SEGMENT_CHARS` below, never by the project name.
 _LABEL_NO_CAPTURE = " " + _SEPARATOR + " not capturing session transcript: "
+
+#: The capture reason for transcripts turned off on purpose (`capture_state.TURNED_OFF_REASON`):
+#: a choice, so it renders as a plain note with the full dot, never as a fault.
+_CHOSEN_OFF_REASON = "turned off"
+_LABEL_TRANSCRIPTS_OFF = " " + _SEPARATOR + " transcripts off"
 
 #: The longest word in `probe.cli.capture_state.REASONS` (`interpreter too old`).
 #: A literal, because nothing of ours may be imported on the render path;
@@ -417,6 +425,60 @@ def clear_scope(session_id: str, ref: str) -> bool:
         return False
 
 
+def home_path(session_id: str) -> Path:
+    return sessions_dir() / (session_id + HOME_SUFFIX)
+
+
+def write_run_home(session_id: str, *, project: str, project_id: str, experiment: "str | None" = None,
+                   experiment_id: "str | None" = None, base_url: str, customer_id: "str | None") -> bool:
+    """Record where this session's runs go (`probe session home set`): the project, and the
+    experiment when one is named, by slug and id, with the server and team they were
+    resolved on. True when it landed. No expiry: the daemon replaces it when the work moves."""
+    names_ok = _printable(project) and (experiment is None or _printable(experiment))
+    ids_ok = (isinstance(project_id, str) and bool(project_id) and (experiment is None) == (experiment_id is None)
+              and (experiment_id is None or isinstance(experiment_id, str) and bool(experiment_id)))
+    if not valid_session_id(session_id) or not names_ok or not ids_ok or not isinstance(base_url, str):
+        return False
+    record = {"project": project, "project_id": project_id, "experiment": experiment,
+              "experiment_id": experiment_id, "base_url": base_url, "customer_id": customer_id,
+              "decided_at": time.time()}
+    return _publish_atomically(home_path(session_id), json.dumps(record) + "\n")
+
+
+def read_run_home(session_id: str) -> "dict | None":
+    """This session's run home as `write_run_home` stored it, or None: absent,
+    unreadable and malformed alike."""
+    if not valid_session_id(session_id):
+        return None
+    try:
+        with open(home_path(session_id), encoding="utf-8") as handle:
+            record = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(record, dict) or not _printable(record.get("project")):
+        return None
+    experiment, experiment_id = record.get("experiment"), record.get("experiment_id")
+    if not record.get("project_id") or not isinstance(record.get("project_id"), str):
+        return None
+    if not isinstance(record.get("base_url"), str):
+        return None
+    if (experiment, experiment_id) != (None, None) and not (_printable(experiment) and experiment_id
+                                                            and isinstance(experiment_id, str)):
+        return None
+    return record
+
+
+def clear_run_home(session_id: str) -> bool:
+    """Forget this session's run home. True when there was one to forget."""
+    if not valid_session_id(session_id):
+        return False
+    try:
+        os.unlink(home_path(session_id))
+        return True
+    except OSError:
+        return False
+
+
 def write(session_id: str, state: dict) -> bool:
     """Replace this session's marker. True when it landed.
 
@@ -512,13 +574,19 @@ def from_active_runs(payload: object) -> list[str]:
 
 
 def _fcntl():
-    """The flock provider: `probe._shared.oscompat` (fcntl on POSIX, msvcrt on
+    """The flock provider: `probe.foundation.os_backend.os_backend` (fcntl on POSIX, msvcrt on
     Windows). The vendored hook copy has no `probe` package to import; there it
     is fcntl itself, or None on a platform without it."""
     try:
-        from probe._shared import oscompat  # noqa: PLC0415
+        from probe.foundation.os_backend import os_backend  # noqa: PLC0415
 
-        return oscompat
+        return os_backend
+    except ImportError:
+        pass
+    try:  # an older CLI keeps it at its old path
+        import importlib  # noqa: PLC0415
+
+        return importlib.import_module("probe._shared.oscompat")  # restructure-guard-ok: older CLIs
     except ImportError:
         pass
     try:
@@ -695,7 +763,8 @@ def prune(max_age_seconds: float = MAX_AGE_SECONDS) -> None:
 
     A session whose gap file still holds a gap (`_keeps_gaps`) keeps that file
     and its `.state` (what says it was off) whatever their age; its other
-    files go as any session's do. A gap file that is done with goes now.
+    files go as any session's do. A gap file that is done with goes now. A
+    `.home` stays while its session lives (`_keeps_home`).
     """
     try:
         now = time.time()
@@ -720,12 +789,27 @@ def prune(max_age_seconds: float = MAX_AGE_SECONDS) -> None:
                 suffix = next((s for s in KEPT_SUFFIXES if entry.name.endswith(s)), None)
                 if suffix is not None and entry.name[: -len(suffix)] in kept:
                     continue
-                if entry.is_file() and entry.stat().st_mtime < cutoff:
+                if entry.is_file() and entry.stat().st_mtime < cutoff and not _keeps_home(entry.name, cutoff):
                     os.unlink(entry.path)
             except OSError:
                 continue
     except OSError:
         pass
+
+
+def _keeps_home(name: str, cutoff: float) -> bool:
+    """Is this an old `.home` whose session still lives? A home never expires on its own,
+    so it stays while the session's marker, daemon lease or scope was written in the window."""
+    if not name.endswith(HOME_SUFFIX):
+        return False
+    session_id = name[: -len(HOME_SUFFIX)]
+    for path in (marker_path(session_id), lease_path(session_id), scope_path(session_id)):
+        try:
+            if path.stat().st_mtime >= cutoff:
+                return True
+        except OSError:
+            continue
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -1180,11 +1264,11 @@ WRITE_GROUPS = frozenset(
     }
 )
 
-#: Every subgroup inside a write group. Its OWN verb decides, so `project code
-#: list` reads while `project code attach` writes; read two words deep, every
-#: `project code` command looked like one write. Keys in the tables below name
-#: the three words (`wandb key set`); a bare subgroup key never matches.
-SUBGROUPS = frozenset({"project code", "project reference", "run input", "wandb key"})
+#: Every subgroup inside a write group, and `session home`. Its OWN verb decides,
+#: so `project code list` reads while `project code attach` writes; read two words
+#: deep, every `project code` command looked like one write. Keys in the tables
+#: below name the three words (`wandb key set`); a bare subgroup key never matches.
+SUBGROUPS = frozenset({"project code", "project reference", "run input", "wandb key", "session home"})
 
 #: Commands that only read unless given one of these flags: bare
 #: `project contributors` lists who is credited, `--add`/`--remove` change it.
@@ -1301,8 +1385,9 @@ READ_GROUP_WRITES = frozenset({"metrics backfill", "shared add", "shared share",
 READ_GROUP_REMOVALS = frozenset({"metrics delete", "shared delete"})
 
 #: Commands of a plumbing group (not in WRITE_GROUPS) that record research
-#: content: `workspace set` picks the workspace's best experiment.
-PLUMBING_GROUP_WRITES = frozenset({"workspace set"})
+#: content: `workspace set` picks the workspace's best experiment, `session home
+#: set|clear` where the session's runs go (the daemon's: not in DAEMON_AGENT_WRITES).
+PLUMBING_GROUP_WRITES = frozenset({"workspace set", "session home set", "session home clear"})
 
 #: WHAT THE AGENT STILL WRITES IN THE `daemon` STATE, without `--directed`: the
 #: launch of a run, the run's own data -- the `instrument-code` surface the
@@ -1499,7 +1584,8 @@ def daemon_allows_agent(matched: str) -> bool:
 #: steering its workers, G7): the server takes it only for a session of the same
 #: person and labels it as from an agent session, never as the researcher.
 #: `session owed` reads the session's own owed ledger (notes parity N3); the
-#: plugin's end-of-turn hook runs it, and the agent may too.
+#: plugin's end-of-turn hook runs it, and the agent may too. `session home show`
+#: prints where this session's runs go, as `session status` does.
 DAEMON_PROFILE_ALLOWED = frozenset(
     {"ask", "session status", "session parent", "session send", "ignore check", "run expect", "doctor", "paper find",
      "docs", "feedback send", "approvals", "outbox status", "run check", "sync", "artifact download",
@@ -1508,7 +1594,7 @@ DAEMON_PROFILE_ALLOWED = frozenset(
      "token list", "context show", "outbox drain", "outbox retry", "outbox watch", "statusline status",
      "statusline show", "mcp status", "workspace list", "workspace get", "workspace writers show",
      "access-group list", "notes sync", "agent-rules refresh", "wandb key set", "draft edit",
-     "file preview", "feedback flush", "capy sync", "capy disconnect", "session owed"}
+     "file preview", "feedback flush", "capy sync", "capy disconnect", "session owed", "session home show"}
 )
 
 #: Reads of ONE run, named by its id: the agent looks at the runs it launched
@@ -1726,8 +1812,11 @@ DENY_REASON_DAEMON = (
 #: BACKSTOP, not the plan, so `run end` stays the agent's.
 DAEMON_CONTEXT = (
     "The Probe daemon is recording this session: you launch and instrument runs, and the daemon "
-    "records. Yours: start runs in a project (`project=` or `--project`; if none fits, "
-    "`probe project create <slug>`), the run's own data (metrics, spans, trials, files the run "
+    "records. Yours: start runs (a run on this machine naming no project goes to this session's "
+    "project, which the daemon sets: `probe session home show` prints it; pass `project=` or "
+    "`--project` for another, and before it is set pass one, or `probe project create <slug>` if "
+    "none fits), "
+    "the run's own data (metrics, spans, trials, files the run "
     "itself attaches) and `probe run end` when a run finishes. The daemon's: everything else, "
     "including the experiment and sweep group a run is filed in, renaming or moving projects "
     "and runs, and its notes, artifacts, papers, tags, names, descriptions and lineage, read "
@@ -3233,7 +3322,9 @@ def message(state: dict | None, *, live: bool = False, tracking: bool = True) ->
     if live:
         text += _ACCENT_TEXT
     reason = _capture_reason(state) if tracking else ""
-    if reason:
+    if reason == _CHOSEN_OFF_REASON:
+        text += "; session transcripts are turned off"
+    elif reason:
         text += ", but not capturing session transcript: " + reason
     return text
 
@@ -4059,13 +4150,25 @@ def render(
     # about a session that is recording, and naming it for one that is not would
     # be an answer to a question nobody asked.
     reason = _capture_reason(state)
+    # Turned off on purpose: nothing is wrong, so the full dot and a plain note.
+    chosen_off = reason == _CHOSEN_OFF_REASON
+    if chosen_off:
+        reason = ""
     head = _INDENT + _paint(_DOT_DEGRADED if reason else _DOT, _GREEN, color) + " "
     label_tracked, label_bare = _recording_labels(session_state, daemon_live, reason, inline)
 
     project = state.get("project") if isinstance(state, dict) else None
     if not (isinstance(project, str) and project):
         # Tracking is on, nothing filed yet. State it without inventing a name.
+        if chosen_off:
+            return head + label_bare + _LABEL_TRANSCRIPTS_OFF
         return head + label_bare + _no_capture_clause(reason, label_bare)
+
+    if chosen_off:
+        room = _name_room(label_tracked) + len(_ACCENT_TEXT) - len(_LABEL_TRANSCRIPTS_OFF)
+        if room >= _MIN_SLUG_CHARS_DEGRADED:
+            return head + label_tracked + _elide(project, room) + _LABEL_TRANSCRIPTS_OFF
+        return head + label_bare + _LABEL_TRANSCRIPTS_OFF
 
     if not reason:
         # THE NAME YIELDS, THE LABEL AND ACCENT DO NOT: `MAX_SLUG_CHARS` reserves

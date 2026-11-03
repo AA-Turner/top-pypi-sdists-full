@@ -3,13 +3,7 @@
 The functions read only their arguments and change none of them (a mapping passed in is read, never copied).
 ``field_tag`` and ``variant_tags`` ask read-only views (``FieldTagFacts``, ``VariantTagFacts``) for the facts their
 rows need, in their order, as an Enum lookup or a variant's mapped tags cost more than the decision. The adapters
-read the facts from the live objects: ``parser/_passes/_shared.py`` (``_tag_field_matches``, ``_keeps_instance_field``,
-``_FieldTagFacts``, ``_get_mapping_discriminator_values``, ``enum_discriminator_literal``,
-``enum_discriminator_members``),
-``parser/_passes/modules.py`` (``_VariantTagFacts`` and the passes that apply tags), ``parser/jsonschema.py``
-(``_SchemaTagFacts`` behind ``JsonSchemaParser._get_single_literal_value``, ``_get_union_variant_literal_values``,
-``_get_tagged_union_field_values``, ``_set_tagged_union_discriminator``) and ``model/msgspec.py``
-(``Struct._tag_options``, ``Struct.discriminator_tag``).
+that read the facts from the live objects are listed in ``docs/architecture.md``.
 
 The rows named ``legacy-*`` keep today's output where passes or backends disagree on a tag; the fix of each deletes
 its row (G05): ``legacy-literal-only`` (``FieldTagSite``),
@@ -23,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypeAlias, final
 
 from typing_extensions import assert_never
 
+from datamodel_code_generator import _constraint_applicability as _applicability
 from datamodel_code_generator._records import record
 from datamodel_code_generator.model._decisions.enum_kind import is_literal_kind, is_tag_kind, literal_value_kind
 
@@ -142,7 +137,7 @@ FieldTagSite: TypeAlias = Literal["schema", "variant-field", "legacy-literal-onl
 * ``variant-field``: L5, the tag field of a variant (``_get_discriminator_field_value``): its ``const``, its one
   ``Literal`` or the one member of its Enum, of any kind (``value-of-another-kind``).
 * ``legacy-literal-only``: L6, a field of a msgspec Struct that redeclares the tag field of a tagged base
-  (``_tag_fields_of_tagged_bases``): only its one ``Literal``, so a ``const``, a one-member Enum or a ``Literal``
+  (``iter_struct_tag_decisions``): only its one ``Literal``, so a ``const``, a one-member Enum or a ``Literal``
   msgspec refuses as a tag (``struct_tag_refused``) there opts the Struct out of the inherited tag instead of
   tagging it.
 """
@@ -502,16 +497,12 @@ def struct_tag_field(*, property_name: str, field_name: str, by_payload_name: bo
     return property_name if by_payload_name else field_name
 
 
-_STRUCT_TAG_INTS = range(-(2**63), 2**63)
-"""The ints msgspec takes as a Struct tag: those of the signed 64-bit range."""
-
-
 def struct_tag_refused(value: object, /) -> bool:
-    """Return whether msgspec refuses a value as a Struct tag: an int beyond the 64-bit range (``_STRUCT_TAG_INTS``).
+    """Return whether msgspec refuses a value as a Struct tag: an int beyond the 64-bit range (``int_values``).
 
     A bool is no int (``literal_value_kind``).
     """
-    return literal_value_kind(value) == "int" and value not in _STRUCT_TAG_INTS
+    return literal_value_kind(value) == "int" and _applicability.int_beyond_values(_applicability.MSGSPEC_OUTPUT, value)
 
 
 def struct_tag_conflicts(value: TagValue | None, mapped: Iterable[str], /) -> bool:

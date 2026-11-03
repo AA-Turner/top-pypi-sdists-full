@@ -16,10 +16,17 @@ from .voice_cloning_configure_connection_data_target_language_code import (
 
 
 class VoiceCloningConfigureConnectionData(UniversalBaseModel):
-    target_language_code: VoiceCloningConfigureConnectionDataTargetLanguageCode = pydantic.Field()
+    target_language_code: typing.Optional[VoiceCloningConfigureConnectionDataTargetLanguageCode] = pydantic.Field(
+        default=None
+    )
     """
     BCP-47 language code for the synthesized output. The cloned voice can speak any
-    supported language, regardless of the reference clip's language.
+    supported language, regardless of the reference clip's language. Omit it to
+    detect the language from the first buffered text. Detection is locked for the
+    rest of the session; send a new config with an explicit code to change language.
+    Detection can be wrong on short or code-mixed text. Romanized Indic and Urdu
+    return 400. Short Assamese without ৰ or ৱ is often detected as Bengali — pass
+    `as-IN`.
     """
 
     voice_id: typing.Optional[str] = pydantic.Field(default=None)

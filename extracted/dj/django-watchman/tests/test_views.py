@@ -21,6 +21,7 @@ from django.test.client import RequestFactory
 from django.test.utils import override_settings
 
 from watchman import checks, views
+from watchman.decorators import GENERIC_ERROR_MESSAGE
 from watchman.types import CheckStatus
 
 
@@ -44,6 +45,12 @@ django.setup()
 
 # Silence MIDDLEWARE_CLASSES warning as this is not an actual Django project
 settings.SILENCED_SYSTEM_CHECKS = ["1_7.W001"]
+
+
+def sent_mail():
+    # Django's test runner adds `outbox` to `django.core.mail` at runtime, so
+    # it isn't declared on the module for type checkers.
+    return mail.outbox  # ty: ignore[unresolved-attribute]
 
 
 def reload_settings():
@@ -77,17 +84,43 @@ class TestWatchman(unittest.TestCase):
 
     def test_check_database_handles_exception(self):
         response = cast(dict[str, CheckStatus], checks._check_database("foo"))
+        self.assertEqual(response["foo"], {"ok": False, "error": GENERIC_ERROR_MESSAGE})
+
+    def test_check_cache_handles_exception(self):
+        response = cast(dict[str, CheckStatus], checks._check_cache("foo"))
+        self.assertEqual(response["foo"], {"ok": False, "error": GENERIC_ERROR_MESSAGE})
+
+    @override_settings(WATCHMAN_EXPOSE_ERROR_DETAILS=True)
+    def test_check_database_exposes_error_details_when_enabled(self):
+        reload_settings()
+        response = cast(dict[str, CheckStatus], checks._check_database("foo"))
         self.assertFalse(response["foo"]["ok"])
         self.assertEqual(
             response["foo"]["error"], "The connection 'foo' doesn't exist."
         )
+        self.assertIn("Traceback", response["foo"]["stacktrace"])
 
-    def test_check_cache_handles_exception(self):
+    @override_settings(WATCHMAN_EXPOSE_ERROR_DETAILS=True)
+    def test_check_cache_exposes_error_details_when_enabled(self):
+        reload_settings()
         response = cast(dict[str, CheckStatus], checks._check_cache("foo"))
         self.assertFalse(response["foo"]["ok"])
         self.assertIn(
             response["foo"]["error"],
             "The connection 'foo' doesn't exist.",
+        )
+        self.assertIn("Traceback", response["foo"]["stacktrace"])
+
+    @override_settings(WATCHMAN_DATABASES={"foo": {}})
+    def test_status_hides_error_details_by_default(self):
+        reload_settings()
+        request = RequestFactory().get("/", data={"check": "watchman.checks.databases"})
+        response = views.status(request)
+        self.assertEqual(response.status_code, 500)
+        content = json.loads(response.content.decode("utf-8"))
+        self.assertEqual(
+            content["databases"],
+            [{"foo": {"ok": False, "error": GENERIC_ERROR_MESSAGE}}],
         )
 
     def test_response_skipped_checks(self):
@@ -148,7 +181,7 @@ class TestWatchman(unittest.TestCase):
         content = json.loads(response.content.decode("utf-8"))
         self.assertCountEqual({"message": "No checks found", "error": 404}, content)
 
-    @override_settings(WATCHMAN_TOKEN="ABCDE")
+    @override_settings(WATCHMAN_TOKENS="ABCDE")
     @override_settings(WATCHMAN_AUTH_DECORATOR="watchman.decorators.token_required")
     def test_login_not_required_with_get_param(self):
         # Have to manually reload settings here because override_settings
@@ -165,7 +198,7 @@ class TestWatchman(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
 
-    @override_settings(WATCHMAN_TOKEN="ABCDE")
+    @override_settings(WATCHMAN_TOKENS="ABCDE")
     def test_version_header_not_included_when_token_auth_fails(self):
         # Have to manually reload settings here because override_settings
         # happens after self.setUp(), but before self.tearDown()
@@ -176,7 +209,7 @@ class TestWatchman(unittest.TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertFalse(response.has_header("X-Watchman-Version"))
 
-    @override_settings(WATCHMAN_TOKEN="ABCDE")
+    @override_settings(WATCHMAN_TOKENS="ABCDE")
     @override_settings(WATCHMAN_AUTH_DECORATOR="watchman.decorators.token_required")
     def test_login_not_required_with_authorization_header(self):
         # Have to manually reload settings here because override_settings
@@ -188,7 +221,7 @@ class TestWatchman(unittest.TestCase):
         response = views.status(request)
         self.assertEqual(response.status_code, 200)
 
-    @override_settings(WATCHMAN_TOKEN="123-456-ABCD")
+    @override_settings(WATCHMAN_TOKENS="123-456-ABCD")
     @override_settings(WATCHMAN_AUTH_DECORATOR="watchman.decorators.token_required")
     def test_login_not_required_with_authorization_header_dashes_in_token(self):
         # Have to manually reload settings here because override_settings
@@ -200,7 +233,7 @@ class TestWatchman(unittest.TestCase):
         response = views.status(request)
         self.assertEqual(response.status_code, 200)
 
-    @override_settings(WATCHMAN_TOKEN="ABCDE")
+    @override_settings(WATCHMAN_TOKENS="ABCDE")
     @override_settings(WATCHMAN_AUTH_DECORATOR="watchman.decorators.token_required")
     def test_login_fails_with_invalid_get_param(self):
         # Have to manually reload settings here because override_settings
@@ -217,7 +250,7 @@ class TestWatchman(unittest.TestCase):
 
         self.assertEqual(response.status_code, 403)
 
-    @override_settings(WATCHMAN_TOKEN="ABCDE")
+    @override_settings(WATCHMAN_TOKENS="ABCDE")
     @override_settings(WATCHMAN_AUTH_DECORATOR="watchman.decorators.token_required")
     def test_login_fails_with_invalid_authorization_header(self):
         # Have to manually reload settings here because override_settings
@@ -342,6 +375,25 @@ class TestWatchmanDashboard(unittest.TestCase):
         self.assertTrue(response.has_header("X-Watchman-Version"))
         self.assertIn("Watchman version:", response.content.decode())
 
+    @override_settings(WATCHMAN_DATABASES={"foo": {}})
+    def test_dashboard_hides_error_details_by_default(self):
+        reload_settings()
+        request = RequestFactory().get("/")
+        content = views.dashboard(request).content.decode()
+        self.assertIn(GENERIC_ERROR_MESSAGE, content)
+        self.assertNotIn("doesn&#x27;t exist", content)
+        self.assertNotIn("Traceback (most recent call last)", content)
+
+    @override_settings(
+        WATCHMAN_DATABASES={"foo": {}}, WATCHMAN_EXPOSE_ERROR_DETAILS=True
+    )
+    def test_dashboard_shows_error_details_when_enabled(self):
+        reload_settings()
+        request = RequestFactory().get("/")
+        content = views.dashboard(request).content.decode()
+        self.assertIn("doesn&#x27;t exist", content)
+        self.assertIn("Traceback (most recent call last)", content)
+
 
 class TestPing(unittest.TestCase):
     def setUp(self):
@@ -424,9 +476,9 @@ class TestEmailCheck(DjangoTestCase):
         checks._check_email()
 
         # Test that one message has been sent.
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(len(sent_mail()), 1)
 
-        sent_email = mail.outbox[0]
+        sent_email = sent_mail()[0]
         expected_recipients = ["to@example.com"]
         self.assertEqual(sent_email.to, expected_recipients)
 
@@ -438,9 +490,9 @@ class TestEmailCheck(DjangoTestCase):
         checks._check_email()
 
         # Test that one message has been sent.
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(len(sent_mail()), 1)
 
-        sent_email = mail.outbox[0]
+        sent_email = sent_mail()[0]
         expected_recipients = ["custom@example.com"]
         self.assertEqual(sent_email.to, expected_recipients)
 
@@ -452,9 +504,9 @@ class TestEmailCheck(DjangoTestCase):
         checks._check_email()
 
         # Test that one message has been sent.
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(len(sent_mail()), 1)
 
-        sent_email = mail.outbox[0]
+        sent_email = sent_mail()[0]
         expected_recipients = ["to1@example.com", "to2@example.com"]
         self.assertEqual(sent_email.to, expected_recipients)
 
@@ -462,9 +514,9 @@ class TestEmailCheck(DjangoTestCase):
         checks._check_email()
 
         # Test that one message has been sent.
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(len(sent_mail()), 1)
 
-        sent_email = mail.outbox[0]
+        sent_email = sent_mail()[0]
         expected_headers = {
             "X-DJANGO-WATCHMAN": "true",
         }
@@ -478,9 +530,9 @@ class TestEmailCheck(DjangoTestCase):
         checks._check_email()
 
         # Test that one message has been sent.
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(len(sent_mail()), 1)
 
-        sent_email = mail.outbox[0]
+        sent_email = sent_mail()[0]
         expected_headers = {
             "X-DJANGO-WATCHMAN": "true",
             "foo": "bar",
@@ -491,9 +543,9 @@ class TestEmailCheck(DjangoTestCase):
         checks._check_email()
 
         # Test that one message has been sent.
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(len(sent_mail()), 1)
 
-        sent_email = mail.outbox[0]
+        sent_email = sent_mail()[0]
         expected_sender = "watchman@example.com"
         self.assertEqual(sent_email.from_email, expected_sender)
 
@@ -505,8 +557,8 @@ class TestEmailCheck(DjangoTestCase):
         checks._check_email()
 
         # Test that one message has been sent.
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(len(sent_mail()), 1)
 
-        sent_email = mail.outbox[0]
+        sent_email = sent_mail()[0]
         expected_sender = "custom@example.com"
         self.assertEqual(sent_email.from_email, expected_sender)

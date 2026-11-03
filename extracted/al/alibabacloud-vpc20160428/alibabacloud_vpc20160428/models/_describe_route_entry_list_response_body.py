@@ -15,9 +15,9 @@ class DescribeRouteEntryListResponseBody(DaraModel):
         route_entrys: main_models.DescribeRouteEntryListResponseBodyRouteEntrys = None,
         total_count: int = None,
     ):
-        # The pagination token that is used in the next request to retrieve a new page of results. Valid values:
-        # - If **NextToken** is empty, no subsequent request exists.
-        # - If **NextToken** is returned, the value indicates the token for the next query.
+        # The pagination token that is used to retrieve the next page of results. Valid values:
+        # - If **NextToken** is empty, no subsequent query is required.
+        # - If **NextToken** returns a value, the value indicates the token used to start the next query.
         self.next_token = next_token
         # The request ID.
         self.request_id = request_id

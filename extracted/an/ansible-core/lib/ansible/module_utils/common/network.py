@@ -21,13 +21,17 @@ def is_netmask(val):
     parts = str(val).split('.')
     if not len(parts) == 4:
         return False
+    mask = 0
     for part in parts:
         try:
-            if int(part) not in VALID_MASKS:
-                raise ValueError
+            octet = int(part)
         except ValueError:
             return False
-    return True
+        if octet not in VALID_MASKS:
+            return False
+        mask = (mask << 8) | octet
+    inverted = mask ^ 0xFFFFFFFF
+    return inverted & (inverted + 1) == 0
 
 
 def is_masklen(val):
@@ -150,13 +154,18 @@ def to_bits(val):
     return bits
 
 
-def is_mac(mac_address):
+def is_mac(mac_address, *, strict=False):
     """
     Validate MAC address for given string
     Args:
         mac_address: string to validate as MAC address
+        strict: when True, anchor the match with ``\\Z`` so a trailing newline is
+            rejected. Defaults to False, which anchors with ``$`` and preserves the
+            historical behavior where a value with a trailing newline is accepted
+            (in Python a regex ``$`` also matches just before a final ``\\n``).
 
     Returns: (Boolean) True if string is valid MAC address, otherwise False
     """
-    mac_addr_regex = re.compile('[0-9a-f]{2}([-:])[0-9a-f]{2}(\\1[0-9a-f]{2}){4}$')
+    anchor = '\\Z' if strict else '$'
+    mac_addr_regex = re.compile('[0-9a-f]{2}([-:])[0-9a-f]{2}(\\1[0-9a-f]{2}){4}' + anchor)
     return bool(mac_addr_regex.match(mac_address.lower()))

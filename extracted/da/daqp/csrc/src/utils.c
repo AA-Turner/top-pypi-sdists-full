@@ -1,5 +1,7 @@
 #include "daqp.h"
 #include "utils.h"
+#include "presolve.h"
+#include <stdlib.h>
 #include <math.h>
 #include <float.h>
 #include <stdio.h>
@@ -78,6 +80,18 @@ static void daqp_invert_R(DAQPWorkspace *work){
     }
 }
 
+// Largest magnitude of the diagonal of the n x n matrix H
+static c_float daqp_max_abs_diag(const c_float *H, const int n){
+    int i;
+    c_float scale = 0.0;
+    for(i = 0; i < n; i++){
+        c_float abs_diag = H[i*n+i];
+        if(abs_diag < 0.0) abs_diag = -abs_diag;
+        if(abs_diag > scale) scale = abs_diag;
+    }
+    return scale;
+}
+
 static int daqp_update_R(DAQPWorkspace *work, c_float *H,
         int is_factored, int defer_inverse);
 static int daqp_finish_Rinv(DAQPWorkspace *work, const c_float *H, int is_factored);
@@ -126,6 +140,15 @@ int daqp_retry_avi_with_reduced_rho(DAQPWorkspace* work){
     return 1;
 }
 
+// A zero row is infeasible if its bounds cross (unless it is immutable, as in
+// daqp_check_bounds), or if 0 is outside its bounds (unless it is soft or ignored)
+static int daqp_zero_row_infeasible(DAQPWorkspace* work, int i, c_float* bupper, c_float* blower){
+    const int s = DAQP_ZERO_ROW_SENSE(work->sense[i]);
+    if(bupper[i]-blower[i] < -work->settings->primal_tol && !(s & DAQP_IMMUTABLE)) return 1;
+    return (bupper[i] < -work->settings->zero_tol || blower[i] > work->settings->zero_tol) &&
+        (s & (DAQP_IMMUTABLE | DAQP_ACTIVE)) != DAQP_IMMUTABLE && !(s & DAQP_SOFT);
+}
+
 /*
  * Form the LDP of qp, which is the problem that the solvers see (the reduced
  * problem of an equality elimination is passed here as it is).
@@ -159,10 +182,17 @@ static int daqp_update_ldp_core(int mask, DAQPWorkspace *work, DAQPProblem* qp){
         }
     }
 
+    // A new A might make zero rows nonzero => restore their sense
+    if(mask&DAQP_UPDATE_M)
+        for(i=work->ms;i<work->m;i++) work->sense[i] = DAQP_ZERO_ROW_SENSE(work->sense[i]);
+
     // Check bounds early
     if(mask&DAQP_UPDATE_M||mask&DAQP_UPDATE_v||mask&DAQP_UPDATE_d||mask&DAQP_UPDATE_sense){
         error_flag = daqp_check_bounds(work,qp->bupper,qp->blower);
-        if(error_flag<0) return error_flag;
+        if(error_flag<0){ // The sense might have changed => form the working set again
+            reset_daqp_workspace(work);
+            return error_flag;
+        }
         if(error_flag==1) do_activate = 1;
     }
 
@@ -246,10 +276,8 @@ static int daqp_update_ldp_core(int mask, DAQPWorkspace *work, DAQPProblem* qp){
     }
 
     // Update hierarchy
-    if(mask&DAQP_UPDATE_hierarchy){
-        work->nh = qp->nh;
-        work->break_points = (qp->nh > 1) ? qp->break_points : NULL;
-    }
+    if(mask&DAQP_UPDATE_hierarchy)
+        if(daqp_set_hierarchy(work,qp->break_points,qp->nh) < 0) return DAQP_EXIT_UNSUPPORTED;
 
     // Hierarchies not allowed for prox + avi
     if(DAQP_IS_HIERARCHICAL(work) &&
@@ -259,17 +287,8 @@ static int daqp_update_ldp_core(int mask, DAQPWorkspace *work, DAQPProblem* qp){
 
     error_flag = 0;
     // An empty working set can be one that a reset left out
-    if(do_activate || work->n_active == 0){
-        reset_daqp_workspace(work);
-        if(!DAQP_IS_HIERARCHICAL(work))
-            error_flag = daqp_activate_constraints(work);
-        else{// Activate the first level (since those constraints are hard)
-            int m_tmp = work->m;
-            work->m = work->break_points[0];
-            error_flag = daqp_activate_constraints(work);
-            work->m = m_tmp;
-        }
-    }
+    if(do_activate || work->n_active == 0)
+        error_flag = daqp_reactivate_constraints(work);
     if(error_flag < 0) return error_flag;
     work->state &= ~DAQP_STATE_PENDING; // Everything has been formed
 
@@ -281,8 +300,16 @@ static int daqp_update_ldp_core(int mask, DAQPWorkspace *work, DAQPProblem* qp){
  * constraints are to be eliminated (see eq_elim.h), the LDP is formed for the
  * reduced problem, and the workspace keeps describing qp otherwise.
  */
+// Mark if the LDP is formed from the presolved copy (after it is formed, which resets the state)
+#define DAQP_SET_PRESOLVED(work,on) ((work)->state = (on) ? (work)->state | DAQP_STATE_PRESOLVED :\
+        (work)->state & ~DAQP_STATE_PRESOLVED)
+// Inconsistent equalities of a presolved problem (which include the binaries that the presolve
+// fixed) mean that the mixed-integer problem is infeasible
+#define DAQP_PRESOLVED_FLAG(flag,presolved) (((presolved) && (flag) == DAQP_EXIT_OVERDETERMINED_INITIAL) ?\
+        DAQP_EXIT_INFEASIBLE : (flag))
 int daqp_update_ldp(int mask, DAQPWorkspace *work, DAQPProblem* qp){
     int i, flag;
+    DAQPProblem* pq;
     const int was_reduced = DAQP_IS_REDUCED(work);
     daqp_eq_restore(work);
     work->qp = qp;
@@ -292,13 +319,20 @@ int daqp_update_ldp(int mask, DAQPWorkspace *work, DAQPProblem* qp){
         if(qp->sense == NULL) for(i = 0; i < qp->m; i++) work->sense[i] = 0;
         else for(i = 0; i < qp->m; i++) work->sense[i] = qp->sense[i];
     }
-    if(daqp_eq_wanted(work,qp,mask)){
-        flag = daqp_eq_update(work,qp,mask,daqp_update_ldp_core);
+    // A mixed-integer problem is presolved into a copy that the LDP (and the elimination
+    // of its equalities) is formed from (all of it, since the tightenings depend on all
+    // of the data). The equality constraints are the same in the copy
+    pq = (work->bnb != NULL && work->settings->presolve) ? daqp_presolve(work,qp) : qp;
+    if(pq != qp || (work->state & DAQP_STATE_PRESOLVED)) mask |= DAQP_UPDATE_M+DAQP_UPDATE_d;
+    if(daqp_eq_wanted(work,pq,mask)){
+        flag = daqp_eq_update(work,pq,mask,daqp_update_ldp_core);
         if(flag != DAQP_EQ_NOT_REDUCED){
             work->n = qp->n;
             work->m = qp->m;
             work->ms = qp->ms;
-            return flag;
+            work->qp = qp; // As below (the equality constraints are the same in pq)
+            DAQP_SET_PRESOLVED(work,pq != qp);
+            return DAQP_PRESOLVED_FLAG(flag,pq != qp);
         }
     }
     else daqp_eq_deactivate(work);
@@ -308,7 +342,10 @@ int daqp_update_ldp(int mask, DAQPWorkspace *work, DAQPProblem* qp){
         if(qp->H != NULL) mask |= DAQP_UPDATE_Rinv;
         if(qp->f != NULL) mask |= DAQP_UPDATE_v;
     }
-    return daqp_update_ldp_core(mask,work,qp);
+    flag = daqp_update_ldp_core(mask,work,pq);
+    work->qp = qp; // The solution is checked against qp
+    DAQP_SET_PRESOLVED(work,pq != qp);
+    return DAQP_PRESOLVED_FLAG(flag,pq != qp);
 }
 
 int daqp_update_Rinv(DAQPWorkspace *work, c_float* H, int is_factored){
@@ -345,37 +382,18 @@ static int daqp_update_R(DAQPWorkspace *work, c_float* H, int is_factored, int d
         return 1;
     }
 
-    // Check if Diagonal
+    // Check if Diagonal (from the upper triangle, which is packed if H is factored)
     int is_diagonal = 1;
-    if(!is_factored){
-        for(i = 0, disp = 1; i < n && is_diagonal; i++, disp += i+1){
-            c_float abs_diag = H[i*n+i];
-            if(abs_diag < 0) abs_diag = -abs_diag;
-            if(abs_diag > hessian_scale) hessian_scale = abs_diag;
-            for(j = 1; j < n-i; j++, disp++){
-                if(H[disp] > zero_tol || H[disp] < -zero_tol){ is_diagonal = 0; break; }
-            }
-        }
-    } else {
-        for(i = 0, disp = 0; i < n; disp += n-i, i++){
-            for(j = 1; j < n-i; j++){
-                if(H[disp+j] > zero_tol || H[disp+j] < -zero_tol){
-                    is_diagonal = 0; break;
-                }
-            }
-            if(!is_diagonal) break;
+    for(i = 0, disp = 0; i < n && is_diagonal; disp += n-i, i++){
+        const c_float *Hi = is_factored ? H+disp : H+i*n+i; // H[i,i:n]
+        for(j = 1; j < n-i; j++){
+            if(Hi[j] > zero_tol || Hi[j] < -zero_tol){ is_diagonal = 0; break; }
         }
     }
+    if(!is_factored && (is_diagonal || force_prox))
+        hessian_scale = daqp_max_abs_diag(H,n);
 
     if(force_prox){
-        if(!is_factored && !is_diagonal){
-            hessian_scale = 0.0;
-            for(i = 0; i < n; i++){
-                c_float abs_diag = H[i*n+i];
-                if(abs_diag < 0.0) abs_diag = -abs_diag;
-                if(abs_diag > hessian_scale) hessian_scale = abs_diag;
-            }
-        }
         eps = proximal_regularization_scaled(work, hessian_scale);
         if(eps <= 0.0) return DAQP_EXIT_NONCONVEX;
         work->n_prox = n;
@@ -426,12 +444,7 @@ static int daqp_update_R(DAQPWorkspace *work, c_float* H, int is_factored, int d
     if(work->RinvD != NULL){ work->Rinv = work->RinvD; work->RinvD = NULL; }
     if(!is_factored && !regularize_all && work->prox_mask != NULL && work->avi == NULL){
         // Zero rows of H are decoupled => regularize only them (semi-proximal)
-        hessian_scale = 0.0;
-        for(i = 0; i < n; i++){
-            c_float abs_diag = H[i*n+i];
-            if(abs_diag < 0.0) abs_diag = -abs_diag;
-            if(abs_diag > hessian_scale) hessian_scale = abs_diag;
-        }
+        hessian_scale = daqp_max_abs_diag(H,n);
         for(i = 0; i < n; i++){
             if(H[i*n+i] != 0) continue;
             for(j = 0; j < n && H[i*n+j] == 0 && H[j*n+i] == 0; j++);
@@ -480,13 +493,7 @@ regularize_hessian:
         eps *= 2;
     }
     else{
-        hessian_scale = 0;
-        for(k = 0; k < n; k++){
-            c_float abs_diag = H[k*n+k];
-            if(abs_diag < 0) abs_diag = -abs_diag;
-            if(abs_diag > hessian_scale) hessian_scale = abs_diag;
-        }
-        eps = proximal_regularization_scaled(work,hessian_scale);
+        eps = proximal_regularization_scaled(work,daqp_max_abs_diag(H,n));
         if(eps <= 0) return DAQP_EXIT_NONCONVEX;
         regularize_all = 1;
         work->n_prox = n;
@@ -524,7 +531,7 @@ static int daqp_finish_Rinv(DAQPWorkspace *work, const c_float *H, int is_factor
 
 c_float daqp_get_proximal_regularization(const DAQPWorkspace *work){
     int i;
-    c_float eps, recovered, rinv, scale = 0.0;
+    c_float eps, recovered, rinv;
 
     if(work->n_prox == 0 || work->qp == NULL || work->qp->H == NULL)
         return 0.0;
@@ -540,12 +547,8 @@ c_float daqp_get_proximal_regularization(const DAQPWorkspace *work){
         // scale-based floor directly. Avoid subtracting nearly equal large
         // diagonals from the factor, which would lose a small eps.
         if(work->qp->problem_type != 2){
-            for(i = 0; i < work->n; i++){
-                c_float abs_diag = work->qp->H[i*work->n+i];
-                if(abs_diag < 0.0) abs_diag = -abs_diag;
-                if(abs_diag > scale) scale = abs_diag;
-            }
-            eps = proximal_regularization_scaled(work, scale);
+            eps = proximal_regularization_scaled(work,
+                    daqp_max_abs_diag(work->qp->H,work->n));
         }
         return eps;
     }
@@ -564,12 +567,7 @@ c_float daqp_get_proximal_regularization(const DAQPWorkspace *work){
         rinv /= work->scaling[0];
     recovered = 1.0/(rinv*rinv) - work->qp->H[0];
 
-    for(i = 0; i < work->n; i++){
-        c_float abs_diag = work->qp->H[i*work->n+i];
-        if(abs_diag < 0.0) abs_diag = -abs_diag;
-        if(abs_diag > scale) scale = abs_diag;
-    }
-    eps = proximal_regularization_scaled(work, scale);
+    eps = proximal_regularization_scaled(work,daqp_max_abs_diag(work->qp->H,work->n));
     if(eps <= 0.0) return 0.0;
     while(1.5*eps < recovered) eps *= 2.0;
     return eps;
@@ -731,6 +729,10 @@ int daqp_check_bounds(DAQPWorkspace* work, c_float* bupper, c_float* blower){
     int i;
     c_float diff;
     for(i =0;i<work->m;i++){
+        if(work->sense[i] & DAQP_ZERO_ROW){ // Only the new bounds need to be checked
+            if(daqp_zero_row_infeasible(work,i,bupper,blower)) return DAQP_EXIT_INFEASIBLE;
+            continue;
+        }
         if(DAQP_IS_IMMUTABLE(i) && !(work->sense[i] & DAQP_AUTO_EQUALITY)) continue;
         diff = bupper[i] - blower[i];
         // Check for trivial infeasibility
@@ -738,7 +740,8 @@ int daqp_check_bounds(DAQPWorkspace* work, c_float* bupper, c_float* blower){
             return DAQP_EXIT_INFEASIBLE;
         }
         // Check for unmarked equality constraint (blower == bupper)
-        else if (diff < work->settings->zero_tol && !DAQP_IS_SOFT(i)){
+        // (not binaries, e.g., fixed by the presolve, which BnB handles as binaries)
+        else if (diff < work->settings->zero_tol && !DAQP_IS_SOFT(i) && !DAQP_IS_BINARY(i)){
             if(!(work->sense[i] & DAQP_AUTO_EQUALITY) || !DAQP_IS_ACTIVE(i))
                 do_activate = 1;
             work->sense[i] |= DAQP_ACTIVE | DAQP_IMMUTABLE | DAQP_AUTO_EQUALITY;
@@ -772,7 +775,7 @@ void daqp_normalize_Rinv(DAQPWorkspace* work){
     }
 }
 int daqp_normalize_M(DAQPWorkspace* work){
-    int i,j,disp;
+    int i,j,disp,sense_i;
     c_float scaling_i;
     c_float zero_tol = work->settings->zero_tol;
     // Normalize general constraints
@@ -785,12 +788,15 @@ int daqp_normalize_M(DAQPWorkspace* work){
             // that are deliberately omitted from the normalized LDP.
             work->scaling[i] = 1.0;
 #ifndef DAQP_ASSUME_VALID
-            if(work->qp->bupper[i] < -zero_tol || work->qp->blower[i] > zero_tol)
-                if((work->sense[i] & (DAQP_IMMUTABLE | DAQP_ACTIVE)) != DAQP_IMMUTABLE && !DAQP_IS_SOFT(i))
-                    return DAQP_EXIT_INFEASIBLE;
+            if(daqp_zero_row_infeasible(work,i,work->qp->bupper,work->qp->blower))
+                return DAQP_EXIT_INFEASIBLE;
 #endif
-            work->sense[i] = DAQP_IMMUTABLE; // ignore zero-row constraint
-            continue; // TODO: mark infeasibility if dupper & dlower are nonzero
+            // Ignore zero-row constraint (and keep its sense). An equality that
+            // was detected from the bounds is detected again (daqp_check_bounds)
+            sense_i = DAQP_ZERO_ROW_SENSE(work->sense[i]);
+            if(sense_i & DAQP_AUTO_EQUALITY) sense_i &= ~(DAQP_ACTIVE | DAQP_IMMUTABLE);
+            work->sense[i] = DAQP_ZERO_ROW_MARK(sense_i);
+            continue;
         }
         scaling_i = 1/sqrt(scaling_i);
         work->scaling[i]=scaling_i;
@@ -848,21 +854,9 @@ int daqp_check_unconstrained(DAQPWorkspace* work, const int mask){
             for(i = 0; i < n; i++) work->x[i] = 0.0;
         for(i = 0; i < n; i++) work->x[i] = -work->x[i];
     }
-    else if(work->v != NULL){
-        if(work->Rinv != NULL){
-            // Upper-triangular back-substitution: u[i] = sum_{j>=i} Rinv[i,j]*(-v[j])
-            for(i = 0, disp = 0; i < n; i++){
-                for(j = i, sum = 0; j < n; j++)
-                    sum += work->Rinv[disp++] * work->v[j];
-                work->x[i] = -sum;
-            }
-            if(work->state & DAQP_STATE_RINV_NORMALIZED)
-                for(i = 0; i < work->ms; i++) work->x[i] /= work->scaling[i];
-        } else if(work->RinvD != NULL){
-            for(i = 0; i < n; i++) work->x[i] = -work->RinvD[i] * work->v[i];
-        } else {
-            for(i = 0; i < n; i++) work->x[i] = -work->v[i];
-        }
+    else if(work->v != NULL){ // x = -Rinv*v
+        for(i = 0; i < n; i++) work->x[i] = -work->v[i];
+        daqp_apply_Rinv(work,work->x);
     } else {
         // No linear term: unconstrained optimum is x = 0
         for(i = 0; i < n; i++) work->x[i] = 0.0;
@@ -893,6 +887,35 @@ int daqp_check_unconstrained(DAQPWorkspace* work, const int mask){
     // Switch back such that any warm starts a preserved
     swp_ptr = work->x; work->u = work->xold; work->x = work->xold; work->xold = swp_ptr;
     return 1;
+}
+
+// Set the hierarchy (see DAQPHierarchy), and allocate its buffers (for the
+// workspace) the first time. Returns -1 if they cannot be allocated
+int daqp_set_hierarchy(DAQPWorkspace *work, int* break_points, const int nh){
+    if(work->hierarchy == NULL){
+        if(nh <= 1) return 0;
+        const int n = work->n, m = work->m;
+        DAQPHierarchy *h = work->hierarchy = calloc(1,sizeof(DAQPHierarchy));
+        if(h == NULL) return -1;
+        h->M = malloc((size_t)m*n*sizeof(c_float));
+        h->Mu = malloc(m*sizeof(c_float));
+        h->V = malloc(((size_t)n*(n+1)/2)*sizeof(c_float));
+        h->tau = malloc(n*sizeof(c_float));
+        if(h->M == NULL || h->Mu == NULL || h->V == NULL || h->tau == NULL){
+            free_daqp_hierarchy(work);
+            return -1;
+        }
+    }
+    work->hierarchy->nh = nh;
+    work->hierarchy->break_points = break_points;
+    return 0;
+}
+
+void free_daqp_hierarchy(DAQPWorkspace *work){
+    DAQPHierarchy *h = work->hierarchy;
+    if(h == NULL) return;
+    free(h->M); free(h->Mu); free(h->V); free(h->tau); free(h);
+    work->hierarchy = NULL;
 }
 
 int daqp_update_avi(DAQPAVI* avi, DAQPProblem* p, c_float zero_tol){
@@ -1025,7 +1048,6 @@ void daqp_minrep_work(int* is_redundant, DAQPWorkspace* work){
         reset_daqp_workspace(work);
         work->sense[i] = 5;
         daqp_add_constraint(work,i,1.0);
-        //work->dupper[i] += tol_weak; TODO support weaky infeasible constraints
         exitflag = daqp_ldp(work);
         if(exitflag== DAQP_EXIT_INFEASIBLE){
             is_redundant[i] = 1;
@@ -1038,7 +1060,6 @@ void daqp_minrep_work(int* is_redundant, DAQPWorkspace* work){
                 for(j=0; j < work->n_active; j++) // all active constraint must also be nonredundant
                     is_redundant[work->WS[j]] = 0;
         }
-        // work->dupper[i] -= tol_weak; // TODO support weakly infeasible constraints
         daqp_deactivate_constraints(work);
     }
 }
@@ -1089,7 +1110,7 @@ double get_time(DAQPtimer *timer){
     struct timespec diff;
     if ((timer->stop.tv_nsec - timer->start.tv_nsec) < 0) {
         diff.tv_sec  = timer->stop.tv_sec - timer->start.tv_sec - 1;
-        diff.tv_nsec = 1e9 + timer->stop.tv_nsec - timer->start.tv_nsec;
+        diff.tv_nsec = 1000000000L + timer->stop.tv_nsec - timer->start.tv_nsec;
     } else {
         diff.tv_sec  = timer->stop.tv_sec - timer->start.tv_sec;
         diff.tv_nsec = timer->stop.tv_nsec - timer->start.tv_nsec;

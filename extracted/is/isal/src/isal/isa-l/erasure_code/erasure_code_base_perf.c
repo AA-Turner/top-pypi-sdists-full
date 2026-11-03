@@ -151,7 +151,7 @@ main(int argc, char *argv[])
         // Start encode test
         BENCHMARK(&start, BENCHMARK_TIME, ec_encode_perf(m, k, a, g_tbls, buffs));
         printf("erasure_code_base_encode" TEST_TYPE_STR ": ");
-        perf_print(start, (long long) (TEST_LEN(m)) * (m));
+        perf_print(start, (double) (TEST_LEN(m)) * (m));
 
         // Start decode test
         BENCHMARK(&start, BENCHMARK_TIME,
@@ -171,8 +171,17 @@ main(int argc, char *argv[])
         }
 
         printf("erasure_code_base_decode" TEST_TYPE_STR ": ");
-        perf_print(start, (long long) (TEST_LEN(m)) * (k + nerrs));
+        perf_print(start, (double) (TEST_LEN(m)) * (k + nerrs));
 
         printf("done all: Pass\n");
+
+        // Free allocated buffers
+        for (i = 0; i < m; i++) {
+                aligned_free(buffs[i]);
+        }
+        for (i = 0; i < (m - k); i++) {
+                aligned_free(temp_buffs[i]);
+        }
+
         return 0;
 }

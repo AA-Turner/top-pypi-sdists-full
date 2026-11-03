@@ -116,10 +116,13 @@ def pending(journal: Any) -> list[tuple[Path, dict]]:
 
 
 def _live_op_ids(journal: Any) -> set[str]:
-    try:
-        names = os.listdir(ops_dir(journal))
-    except OSError:
-        return set()
+    """Op ids still queued, or set aside in ``multipart/held/`` (their staged copy is kept, R9)."""
+    names: list[str] = []
+    for folder in (ops_dir(journal), ops_dir(journal).parent / "held"):
+        try:
+            names.extend(os.listdir(folder))
+        except OSError:
+            continue
     return {n[: -len(".json")].rsplit("-", 1)[-1] for n in names if n.endswith(".json")}
 
 

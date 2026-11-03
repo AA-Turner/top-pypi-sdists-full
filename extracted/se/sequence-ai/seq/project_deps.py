@@ -1,6 +1,6 @@
 """
-A project's own dependency files, for `seq deploy`: what the image installs when a policy declares neither image= nor
-deps= (or starts its image with seq.Image.from_project) - the files, this machine's versions, what to leave out and
+A project's own dependency files, for `seq deploy`: what the image installs when a policy declares no image= (or
+starts its image with seq.Image.from_project) - the files, this machine's versions, what to leave out and
 what to add - and the plan the deploy prints before anything is sent. Nothing is resolved here: the platform fits the
 files to Linux and the worker's machine when the image builds.
 
@@ -693,7 +693,7 @@ def _not_read(snap, handler_ref: str, kind: str, declared: str | None, image: Im
         files = [f for f in files if _dir(f) != start]
     if not files:
         return []
-    how = {"image=": "as image= declares", "deps=": "as deps= declares, on debian_slim"}.get(
+    how = {"image=": "as image= declares"}.get(
         declared or "", "as the benchmark declares its image (debian_slim when it declares none)")
     return [f"dependencies  {how}: the project's own files ({_shown(files)}) are not read - start the image with "
             "seq.Image.from_project() to install from them"]
@@ -701,7 +701,7 @@ def _not_read(snap, handler_ref: str, kind: str, declared: str | None, image: Im
 
 def image_for(image: ImageSpec, snap, *, handler_ref: str, kind: str, declared: str | None) -> ImageSpec:
     """The image a deploy sends, with the project's dependencies where they go - in the step seq.Image.from_project
-    began it with, or, for a policy that wrote neither image= nor deps= and whose project has dependency files, on
+    began it with, or, for a policy that wrote no image= and whose project has dependency files, on
     debian_slim - and what the deploy says about them, in `snap.deps_lines`. Raises PolicyDefinitionError for a
     from_project image whose files are not uploaded (its module is installed) or that has none."""
     from seq.code_bundle import bundle_listing
@@ -732,6 +732,6 @@ def image_for(image: ImageSpec, snap, *, handler_ref: str, kind: str, declared: 
                 "the code's own - write them, or declare the image's packages with uv_pip_install()")
         return image
     head = "from seq.Image.from_project():" if at is not None else \
-        "from the project's own files (the policy declares no image= and no deps=):"
+        "from the project's own files (the policy declares no image=):"
     snap.deps_lines = [f"dependencies  {head}", *found.lines]
     return with_project(image, found, at)

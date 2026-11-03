@@ -1,13 +1,21 @@
 import argparse
 import asyncio
 import contextlib
+import datetime
+import functools
+import ipaddress
 import logging
 import os
 import ssl
 import struct
+import tempfile
 import time
-from collections.abc import Callable
-from typing import AsyncGenerator, Optional, cast
+from collections.abc import AsyncGenerator, Callable
+from typing import cast
+
+from cryptography import x509
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from aioice import stun
 from aioice.ice import get_host_addresses
@@ -24,34 +32,58 @@ logger = logging.getLogger("turn")
 
 CHANNEL_RANGE = range(0x4000, 0x7FFF)
 
-ROOT = os.path.dirname(__file__)
-CERT_FILE = os.path.join(ROOT, "turnserver.crt")
-KEY_FILE = os.path.join(ROOT, "turnserver.key")
-
 Address = tuple[str, int]
 
 
-def create_self_signed_cert(name: str = "localhost") -> None:
-    from OpenSSL import crypto
+def get_server_address() -> str:
+    return get_host_addresses(use_ipv4=True, use_ipv6=False)[0]
 
-    # create key pair
-    key = crypto.PKey()
-    key.generate_key(crypto.TYPE_RSA, 2048)
 
-    # create self-signed certificate
-    cert = crypto.X509()
-    cert.get_subject().CN = name
-    cert.set_serial_number(1000)
-    cert.gmtime_adj_notBefore(0)
-    cert.gmtime_adj_notAfter(10 * 365 * 86400)
-    cert.set_issuer(cert.get_subject())
-    cert.set_pubkey(key)
-    cert.sign(key, "sha1")
+@functools.cache
+def get_tls_credentials() -> tuple[str, ssl.SSLContext]:
+    """
+    Create a self-signed certificate for the server address, returning it in PEM
+    format along with an SSL context for the servers to present it.
+    """
+    address = get_server_address()
+    key = ed25519.Ed25519PrivateKey.generate()
+    name = x509.Name([x509.NameAttribute(x509.NameOID.COMMON_NAME, address)])
 
-    with open(CERT_FILE, "wb") as fp:
-        fp.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
-    with open(KEY_FILE, "wb") as fp:
-        fp.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, key))
+    # The start date is truncated to the second, and OpenSSL checks it against a
+    # clock which can lag behind, so start a second earlier.
+    now = datetime.datetime.now(datetime.UTC)
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(seconds=1))
+        .not_valid_after(now + datetime.timedelta(days=1))
+        .add_extension(
+            x509.SubjectAlternativeName(
+                [x509.IPAddress(ipaddress.ip_address(address))]
+            ),
+            critical=False,
+        )
+        .sign(key, None)
+    )
+    certificate_pem = certificate.public_bytes(serialization.Encoding.PEM).decode()
+    key_pem = key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    ).decode()
+
+    # The SSL context can only load a certificate and key from a file.
+    ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_SERVER)
+    with tempfile.TemporaryDirectory() as directory:
+        path = os.path.join(directory, "turnserver.pem")
+        with open(path, "w") as fp:
+            fp.write(certificate_pem + key_pem)
+        ssl_context.load_cert_chain(path)
+
+    return certificate_pem, ssl_context
 
 
 class Allocation(asyncio.DatagramProtocol):
@@ -127,7 +159,7 @@ class TurnServerMixin:
         logger.debug("< %s %s", addr, message)
 
         assert message.message_class == stun.Class.REQUEST
-        response: Optional[stun.Message] = None
+        response: stun.Message | None = None
 
         if message.message_method == stun.Method.BINDING:
             response = self.handle_binding(message, addr)
@@ -206,7 +238,7 @@ class TurnServerMixin:
             lifetime = min(lifetime, self.server.maximum_lifetime)
 
             # create allocation
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             _, allocation = await loop.create_datagram_endpoint(
                 lambda: Allocation(
                     client_address=addr,
@@ -255,7 +287,7 @@ class TurnServerMixin:
 
         for attr in ["CHANNEL-NUMBER", "XOR-PEER-ADDRESS"]:
             if attr not in message.attributes:
-                return self.error_response(message, 400, "Missing %s attribute" % attr)
+                return self.error_response(message, 400, f"Missing {attr} attribute")
 
         channel: int = message.attributes["CHANNEL-NUMBER"]
         peer_address: Address = message.attributes["XOR-PEER-ADDRESS"]
@@ -363,10 +395,10 @@ class TurnServer:
         self.allocations: dict[AllocationKey, Allocation] = {}
         self.maximum_lifetime = 3600
         self.realm = realm
-        self.simulated_failure: Optional[tuple[int, str]] = None
+        self.simulated_failure: tuple[int, str] | None = None
         self.users = users
 
-        self._expire_task: Optional[asyncio.Task[None]] = None
+        self._expire_task: asyncio.Task[None] | None = None
 
     async def close(self) -> None:
         # stop expiry loop
@@ -386,8 +418,8 @@ class TurnServer:
         )
 
     async def listen(self, port: int = 0, tls_port: int = 0) -> None:
-        loop = asyncio.get_event_loop()
-        hostaddr = get_host_addresses(use_ipv4=True, use_ipv6=False)[0]
+        loop = asyncio.get_running_loop()
+        hostaddr = get_server_address()
 
         # listen for TCP
         self.tcp_server = await loop.create_server(
@@ -404,8 +436,7 @@ class TurnServer:
         logger.info("Listening for UDP on %s", self.udp_address)
 
         # listen for TLS
-        ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_SERVER)
-        ssl_context.load_cert_chain(CERT_FILE, KEY_FILE)
+        _, ssl_context = get_tls_credentials()
         self.tls_server = await loop.create_server(
             lambda: TurnServerTcpProtocol(server=self),
             host=hostaddr,
@@ -453,7 +484,9 @@ if __name__ == "__main__":
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
 
-    srv = TurnServer(users={"foo": "bar"})
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(srv.listen(port=3478, tls_port=5349))
-    loop.run_forever()
+    async def main() -> None:
+        srv = TurnServer(users={"foo": "bar"})
+        await srv.listen(port=3478, tls_port=5349)
+        await asyncio.Event().wait()
+
+    asyncio.run(main())

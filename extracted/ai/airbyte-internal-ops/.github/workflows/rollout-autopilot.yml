@@ -110,11 +110,11 @@ jobs:
 
       - name: Install airbyte-ops CLI (dev PR head)
         if: ${{ inputs.with_dev_pr_ops_cli != '' }}
-        run: uv tool install .
+        run: uv tool install --python 3.12 .
 
       - name: Install airbyte-ops CLI (published release)
         if: ${{ inputs.with_dev_pr_ops_cli == '' }}
-        run: uv tool install airbyte-internal-ops
+        run: uv tool install --python 3.12 airbyte-internal-ops
 
       # ---- Debug: print current state for observability ----
 

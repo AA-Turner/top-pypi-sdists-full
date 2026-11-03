@@ -126,6 +126,9 @@ _olap_requests: dict[tuple[str, str], dict] = {}
 _olap_requests_lock = threading.Lock()
 _OBJECT_LAMBDA_ALIAS_SUFFIX = "--ol-s3"
 
+# Account-level public access block, per account (it applies in every region): {"config": {flags}}.
+_account_public_access_block = AccountScopedDict()
+
 
 def object_lambda_arn(name: str, account_id: str | None = None, region: str | None = None) -> str:
     return f"arn:aws:s3-object-lambda:{region or get_region()}:{account_id or get_account_id()}:accesspoint/{name}"
@@ -431,6 +434,7 @@ _PERSISTED_BUCKET_DICTS = {
     "mrap_operations": _mrap_operations,
     "access_points": _access_points,
     "object_lambda_access_points": _object_lambda_access_points,
+    "account_public_access_block": _account_public_access_block,
 }
 
 
@@ -1045,7 +1049,9 @@ def _acl_grants(stored_xml: str | None, grantee: str = "URI") -> list[tuple[str,
 
 
 def _public_access_blocked(owner_account: str, bucket_name: str, setting: str) -> bool:
-    """Whether the bucket's or the request's access point's Public Access Block turns *setting* on."""
+    """Whether the account's, the bucket's or the request's access point's Public Access Block turns *setting* on."""
+    if (_account_public_access_block.get_scoped(owner_account, None, "config") or {}).get(setting):
+        return True
     access_point = _request_access_point.get()
     # An access point's BlockPublicPolicy does not cover the bucket's policy.
     if access_point and access_point["Bucket"] == bucket_name and setting != "BlockPublicPolicy" and \
@@ -4871,12 +4877,17 @@ def _put_object(bucket_name: str, key: str, body: bytes, headers: dict):
             with _in_account(dest_account):
                 _object_tags[(dest_name, key, replica_version)] = dict(pending_tags)
                 _persist_version_state(dest_name, key, _buckets[dest_name])
+    else:
+        # A new object: an overwritten one's tags do not carry over.
+        _object_tags.pop((bucket_name, key, obj.get("version_id")), None)
     if canned_acl:
         _object_acl[(bucket_name, key, obj.get("version_id"))] = _canned_acl_policy_xml(
             canned_acl, _canonical_owner_id()
         )
     elif grant_acl:
         _object_acl[(bucket_name, key, obj.get("version_id"))] = grant_acl
+    else:
+        _object_acl.pop((bucket_name, key, obj.get("version_id")), None)
 
     # Persist only after the versioning block: the .meta.json sidecar must
     # carry the version_id assigned above (#1058), and the tags and ACL.
@@ -5277,8 +5288,12 @@ def _post_object(bucket_name: str, body: bytes, headers: dict):
             with _in_account(dest_account):
                 _object_tags[(dest_name, key, replica_version)] = dict(pending_tags)
                 _persist_version_state(dest_name, key, _buckets[dest_name])
+    else:
+        _object_tags.pop((bucket_name, key, version_id), None)
     if canned_acl:
         _object_acl[(bucket_name, key, version_id)] = _canned_acl_policy_xml(canned_acl, _canonical_owner_id())
+    else:
+        _object_acl.pop((bucket_name, key, version_id), None)
 
     # Persist only after the versioning block: the .meta.json sidecar must
     # carry the version_id assigned above (#1058), and the tags and ACL.
@@ -8475,6 +8490,15 @@ def _create_multipart_upload(bucket_name: str, key: str, headers: dict):
     if csum_err:
         return csum_err
 
+    # x-amz-tagging is validated here, as PutObject does, and stored on the
+    # upload until CompleteMultipartUpload cuts the object's version.
+    tags = None
+    tagging_header = headers.get("x-amz-tagging", "")
+    if tagging_header:
+        tags = {k: v[0] for k, v in _parse_qs(tagging_header, keep_blank_values=True).items()}
+        if len(tags) > 10:
+            return _error("BadRequest", "Object tags cannot be greater than 10", 400)
+
     upload_id = new_uuid()
     content_type = headers.get("content-type", "application/octet-stream")
     content_encoding = headers.get("content-encoding")
@@ -8497,6 +8521,7 @@ def _create_multipart_upload(bucket_name: str, key: str, headers: dict):
         "requested_sse": headers.get("x-amz-server-side-encryption"),
         "storage_class": storage_class,
         "checksum_algorithm": checksum_algorithm,
+        "tags": tags,
         "created": now_iso(),
     }
 
@@ -8864,7 +8889,8 @@ def _complete_multipart_upload(
 
     resp_headers = {"Content-Type": "application/xml"}
     resp_headers.update(_stored_sse_headers(obj))
-    _maybe_replicate(bucket_name, key, obj, combined)
+    tags = upload.get("tags")
+    _maybe_replicate(bucket_name, key, obj, combined, tags)
     version_id = _record_object_version(bucket_name, key, prior_obj, obj, combined)
     if version_id:
         resp_headers["x-amz-version-id"] = version_id
@@ -8877,8 +8903,19 @@ def _complete_multipart_upload(
         version_id=version_id,
     )
 
+    # The tags given at create time replace any the overwritten object had.
+    if tags:
+        _object_tags[(bucket_name, key, obj.get("version_id"))] = dict(tags)
+        if obj.get("_replica"):
+            dest_name, replica_version, dest_account = obj["_replica"]
+            with _in_account(dest_account):
+                _object_tags[(dest_name, key, replica_version)] = dict(tags)
+                _persist_version_state(dest_name, key, _buckets[dest_name])
+    else:
+        _object_tags.pop((bucket_name, key, obj.get("version_id")), None)
+
     # Persist only after the versioning block: the .meta.json sidecar must
-    # carry the version_id assigned above (#1058).
+    # carry the version_id assigned above (#1058), and the tags.
     if S3_PERSIST:
         _persist_object(bucket_name, key, obj)
 
@@ -10144,6 +10181,56 @@ def handle_access_point_control(method: str, path: str, headers: dict, body: byt
 
 
 # ---------------------------------------------------------------------------
+# S3 Control: account-level public access block
+# ---------------------------------------------------------------------------
+_ACCOUNT_PAB_PATH = "/v20180820/configuration/publicAccessBlock"
+
+_ACCOUNT_PAB_ACTIONS = {
+    "PUT": "s3:PutAccountPublicAccessBlock",
+    "GET": "s3:GetAccountPublicAccessBlock",
+    "DELETE": "s3:PutAccountPublicAccessBlock",
+}
+
+_ACCOUNT_PAB_FIELDS = ("BlockPublicAcls", "IgnorePublicAcls", "BlockPublicPolicy", "RestrictPublicBuckets")
+
+
+def is_account_public_access_block_path(path: str) -> bool:
+    return path.rstrip("/") == _ACCOUNT_PAB_PATH
+
+
+def handle_account_public_access_block(method: str, path: str, body: bytes) -> tuple:
+    """The request account's public access block."""
+    if method == "PUT":
+        root = None
+        if body:
+            try:
+                raw = body.decode("utf-8", errors="replace") if isinstance(body, bytes) else body
+                root = fromstring(raw)
+            except ParseError:
+                root = None
+        _account_public_access_block["config"] = {
+            field: _child_text(root, field, "false").lower() == "true" for field in _ACCOUNT_PAB_FIELDS}
+        return 200, {}, b""
+    if method == "GET":
+        cfg = _account_public_access_block.get("config")
+        if cfg is None:
+            return s3control_error(
+                "NoSuchPublicAccessBlockConfiguration",
+                "The public access block configuration was not found", 404,
+                {"AccountId": get_account_id()})
+        # The real wire xmlns is http://, not https:// (observed us-east-2 2026-10-30).
+        out = Element("PublicAccessBlockConfiguration", xmlns="http://awss3control.amazonaws.com/doc/2018-08-20/")
+        for field in _ACCOUNT_PAB_FIELDS:
+            SubElement(out, field).text = str(bool(cfg.get(field))).lower()
+        return _s3control_response(out)
+    if method == "DELETE":
+        _account_public_access_block.pop("config", None)
+        return 204, {}, b""
+    return s3control_error("MethodNotAllowed", "The specified method is not allowed against this resource.", 405,
+                           {"Method": method, "ResourceType": "ACCOUNT_PUBLIC_ACCESS_BLOCK"})
+
+
+# ---------------------------------------------------------------------------
 # S3 Control: Object Lambda Access Points
 # ---------------------------------------------------------------------------
 
@@ -10403,6 +10490,7 @@ def reset():
         _mrap_operations,
         _access_points,
         _object_lambda_access_points,
+        _account_public_access_block,
         _olap_requests,
     ):
         d.clear()

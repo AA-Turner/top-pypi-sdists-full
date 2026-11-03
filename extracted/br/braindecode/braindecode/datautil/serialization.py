@@ -1,17 +1,20 @@
 """Convenience functions for storing and loading of windows datasets."""
 
 # Authors: Lukas Gemein <l.gemein@gmail.com>
+#          Sarthak Tayal <sarthaktayal2@gmail.com>
 #
 # License: BSD (3-clause)
 
 import json
 import os
 import pickle
+import re
 import warnings
 from glob import glob
 from pathlib import Path
 
 import mne
+import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 
@@ -20,7 +23,13 @@ from ..datasets.base import (
     EEGWindowsDataset,
     RawDataset,
     WindowsDataset,
+    _compact_fif_tags,
 )
+
+# pandas 3.1 deprecates ``read_json(convert_dates=...)``: there, ``dtype=False``
+# also leaves date-like strings alone, so the keyword is only needed before 3.1.
+_PANDAS_VERSION = tuple(int(part) for part in re.findall(r"\d+", pd.__version__)[:2])
+_NO_DATE_CONVERSION = {} if _PANDAS_VERSION >= (3, 1) else {"convert_dates": False}
 
 
 def save_concat_dataset(path, concat_dataset, overwrite=False):
@@ -78,7 +87,8 @@ def _outdated_load_concat_dataset(path, preload, ids_to_load=None, target_name=N
     for path in paths:
         if is_raw and target_name is None:
             target_file_name = path / "target_name.json"
-            target_name = json.load(open(target_file_name, "r"))["target_name"]
+            with open(target_file_name) as f:
+                target_name = json.load(f)["target_name"]
 
         all_signals, description = _load_signals_and_description(
             path=path, preload=preload, is_raw=is_raw, ids_to_load=ids_to_load
@@ -137,15 +147,19 @@ def _load_signals(fif_file, preload, is_raw):
         with open(pkl_file, "rb") as f:
             signals = pickle.load(f)
 
-        if all(Path(f).exists() for f in signals.filenames):
+        # The pickle stores absolute paths: check that they exist and point to
+        # this fif file, not to the folder the dataset was copied from.
+        if all(Path(f).exists() for f in signals.filenames) and (
+            Path(signals.filenames[0]).resolve() == fif_file.resolve()
+        ):
             if preload:
                 signals.load_data()
-            return signals
+            return _compact_fif_tags(signals)
         else:  # This may happen if the file has been moved together with the pickle file.
             warnings.warn(
                 f"Pickle file {pkl_file} exists, but the referenced fif "
-                "file(s) do not exist. Will read the fif file(s) directly "
-                "and re-create the pickle file.",
+                "file(s) do not exist or are not next to it. Will read the "
+                "fif file(s) directly and re-create the pickle file.",
                 UserWarning,
             )
 
@@ -170,7 +184,8 @@ def _load_signals(fif_file, preload, is_raw):
             if preload:
                 signals._data, signals.preload = data, True
 
-    return signals
+    # after the pickle above, which keeps mne's own layout on disk
+    return _compact_fif_tags(signals)
 
 
 def load_concat_dataset(path, preload, ids_to_load=None, target_name=None, n_jobs=1):
@@ -188,7 +203,7 @@ def load_concat_dataset(path, preload, ids_to_load=None, target_name=None, n_job
         Ids of specific files to load.
     target_name : str | list | None
         Load specific description column as target. If not given, take saved
-        target name.
+        target name. Only for datasets of raws.
     n_jobs : int
         Number of jobs to be used to read files in parallel.
 
@@ -216,7 +231,10 @@ def load_concat_dataset(path, preload, ids_to_load=None, target_name=None, n_job
     # target_name.json, raw_preproc_kwargs.json, window_kwargs.json,
     # window_preproc_kwargs.json
     if ids_to_load is None:
-        ids_to_load = [p.name for p in path.iterdir()]
+        # skip stray entries such as .DS_Store or a README next to the datasets
+        ids_to_load = [
+            p.name for p in path.iterdir() if p.is_dir() and p.name.isdigit()
+        ]
         ids_to_load = sorted(ids_to_load, key=lambda i: int(i))
     ids_to_load = [str(i) for i in ids_to_load]
     first_raw_fif_path = path / ids_to_load[0] / f"{ids_to_load[0]}-raw.fif"
@@ -234,10 +252,18 @@ def load_concat_dataset(path, preload, ids_to_load=None, target_name=None, n_job
             UserWarning,
         )
         n_jobs = 1
+    if target_name is not None and (has_stored_windows or not is_raw):
+        raise ValueError(
+            "target_name can only be given for datasets of raws; for windowed "
+            "datasets, use BaseConcatDataset.set_target after loading."
+        )
     datasets = Parallel(n_jobs)(
         delayed(_load_parallel)(path, i, preload, is_raw, has_stored_windows)
         for i in ids_to_load
     )
+    if target_name is not None:
+        for ds in datasets:
+            ds.target_name = ds._target_name(target_name)
     return BaseConcatDataset(datasets)
 
 
@@ -254,7 +280,11 @@ def _load_parallel(path, i, preload, is_raw, has_stored_windows):
     signals = _load_signals(fif_file_path, preload, is_raw)
 
     description_file_path = sub_dir / "description.json"
-    description = pd.read_json(description_file_path, typ="series", convert_dates=False)
+    # dtype=False: keep strings such as subject "01" as strings
+    description = pd.read_json(
+        description_file_path, typ="series", dtype=False, **_NO_DATE_CONVERSION
+    )
+    description[description.isna()] = np.nan  # JSON null was read as NaN
 
     # if 'timestamp' in description.index:
     #     timestamp_numeric = pd.to_numeric(description['timestamp'])
@@ -263,14 +293,17 @@ def _load_parallel(path, i, preload, is_raw, has_stored_windows):
     target_file_path = sub_dir / "target_name.json"
     target_name = None
     if target_file_path.exists():
-        target_name = json.load(open(target_file_path, "r"))["target_name"]
+        with open(target_file_path) as f:
+            target_name = json.load(f)["target_name"]
 
     if is_raw and (not has_stored_windows):
         dataset = RawDataset(signals, description, target_name)
     else:
         window_kwargs = _load_kwargs_json("window_kwargs", sub_dir)
         windows_ds_kwargs = [
-            kwargs[1] for kwargs in window_kwargs if kwargs[0] == "WindowsDataset"
+            kwargs[1]
+            for kwargs in window_kwargs
+            if kwargs[0] in ("WindowsDataset", "EEGWindowsDataset")
         ]
         windows_ds_kwargs = windows_ds_kwargs[0] if len(windows_ds_kwargs) == 1 else {}
         if is_raw:
@@ -301,8 +334,8 @@ def _load_kwargs_json(kwargs_name, sub_dir):
     kwargs_file_name = ".".join([kwargs_name, "json"])
     kwargs_file_path = os.path.join(sub_dir, kwargs_file_name)
     if os.path.exists(kwargs_file_path):
-        kwargs = json.load(open(kwargs_file_path, "r"))
-        return kwargs
+        with open(kwargs_file_path) as f:
+            return json.load(f)
 
 
 def _is_outdated_saved(path):

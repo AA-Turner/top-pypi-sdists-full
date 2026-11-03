@@ -90,10 +90,17 @@ static_assert(alignof(meshioplusplus::ExodusTimeSeriesWriter) == alignof(void*))
 #include "meshioplusplus/formats/pcd.hpp"
 #include "meshioplusplus/formats/pvd.hpp"
 #include "meshioplusplus/formats/pvtu.hpp"
+#include "meshioplusplus/formats/step.hpp"
 #include "meshioplusplus/formats/radioss_th.hpp"
 #include "meshioplusplus/formats/xyz.hpp"
+#include "meshioplusplus/operations/check_conformity.hpp"
+#include "meshioplusplus/operations/extrude.hpp"
+#include "meshioplusplus/operations/mirror.hpp"
+#include "meshioplusplus/operations/find_intersections.hpp"
+#include "meshioplusplus/operations/thickness.hpp"
 #include "meshioplusplus/operations/pipeline.hpp"
 #include "meshioplusplus/operations/refine.hpp"
+#include "meshioplusplus/operations/mmg.hpp"
 #include "meshioplusplus/operations/remesh.hpp"
 #include "meshioplusplus/operations/remesh_volume.hpp"
 #include "meshioplusplus/operations/optimize_volume.hpp"
@@ -106,6 +113,9 @@ static_assert(alignof(meshioplusplus::ExodusTimeSeriesWriter) == alignof(void*))
 #include "meshioplusplus/operations/sobolev_deform.hpp"
 #include "meshioplusplus/operations/smooth.hpp"
 #include "meshioplusplus/operations/voxelize.hpp"
+#include "meshioplusplus/operations/octree.hpp"
+#include "meshioplusplus/operations/mesh_cad.hpp"
+#include "meshioplusplus/operations/octree_mesh.hpp"
 #include "meshioplusplus/detail/face_mesh.hpp"
 #include "meshioplusplus/detail/facet_index.hpp"
 #include "meshioplusplus/detail/grid_lattice.hpp"
@@ -114,6 +124,7 @@ static_assert(alignof(meshioplusplus::ExodusTimeSeriesWriter) == alignof(void*))
 #include "meshioplusplus/operations/agglomerate.hpp"
 #include "meshioplusplus/operations/feature_edges.hpp"
 #include "meshioplusplus/operations/fit_cad.hpp"
+#include "meshioplusplus/providers.hpp"
 #include "meshioplusplus/operations/fit_primitives.hpp"
 #include "meshioplusplus/operations/iga.hpp"
 #include "meshioplusplus/operations/segment.hpp"
@@ -123,6 +134,8 @@ static_assert(alignof(meshioplusplus::ExodusTimeSeriesWriter) == alignof(void*))
 #include "meshioplusplus/operations/render.hpp"
 #include "meshioplusplus/operations/region_ops.hpp"
 #include "meshioplusplus/operations/interfaces.hpp"
+#include "meshioplusplus/operations/select.hpp"
+#include "meshioplusplus/operations/tet_poly.hpp"
 
 namespace {
 
@@ -238,6 +251,17 @@ MIO_ABI_LAYOUT(meshioplusplus::BrepVertex, 96, 8);
 MIO_ABI_LAYOUT(meshioplusplus::Brep, 144, 8);
 MIO_ABI_LAYOUT(meshioplusplus::BrepInfo, 152, 8);
 MIO_ABI_LAYOUT(meshioplusplus::CadReadOptions, 16, 8);
+// v18.0.0 (roadmap 4.7): the CAD kernel a provider registers. Two `std::string`s
+// and three `std::function`s, 32 bytes each with libstdc++. The add-on wheels
+// pin the base wheel's exact version, so this only has to hold within a release.
+MIO_ABI_LAYOUT(meshioplusplus::CadKernelProvider, 160, 8);
+// The tetrahedral mesher (two `std::string`s and one `std::function`) and its
+// request and result (two vectors and scalars), and the remesher (two strings, a
+// bool and an int sharing 8 bytes, four `std::function`s).
+MIO_ABI_LAYOUT(meshioplusplus::TetMeshRegionRequest, 72, 8);
+MIO_ABI_LAYOUT(meshioplusplus::TetMeshRegionResult, 56, 8);
+MIO_ABI_LAYOUT(meshioplusplus::TetMesherProvider, 96, 8);
+MIO_ABI_LAYOUT(meshioplusplus::RemesherProvider, 200, 8);
 MIO_ABI_LAYOUT(meshioplusplus::CadJsonReadOptions, 12, 4);
 // `MdpaInfo` gained six members in v16.27.0 (roadmap §4, the blocks the
 // `Mesh` cannot hold: text ModelPartData, top-level tables, geometries, Mesh
@@ -322,7 +346,75 @@ MIO_ABI_LAYOUT(meshioplusplus::SequenceResample, 64, 8);
 MIO_ABI_LAYOUT(meshioplusplus::SurfaceQuality, 40, 8);
 MIO_ABI_LAYOUT(meshioplusplus::SurfaceDistanceOptions, 80, 8);
 MIO_ABI_LAYOUT(meshioplusplus::SdfOptions, 248, 8);
-MIO_ABI_LAYOUT(meshioplusplus::VoxelOptions, 216, 8);
+// ABI 36: `mPlane`, the 2-D variant's plane (roadmap 3.1.4.1), appended.
+MIO_ABI_LAYOUT(meshioplusplus::VoxelOptions, 224, 8);
+static_assert(offsetof(meshioplusplus::VoxelOptions, mPlane) == 216, "VoxelOptions::mPlane moved");
+// ABI 36: check_conformity's options (roadmap 3.2.1), pinned from the release
+// that introduces them.
+MIO_ABI_LAYOUT(meshioplusplus::ConformityOptions, 16, 8);
+// ABI 36: the sweeps' and mirror's options (roadmap 3.1.2, 3.1.3, 3.2.5),
+// pinned from the release that introduces them. ExtrudeOptions holds a
+// std::vector, whose size is the standard library's, so only the members
+// before it are pinned.
+static_assert(offsetof(meshioplusplus::ExtrudeOptions, mRatio) == 32,
+              "ExtrudeOptions::mRatio moved");
+static_assert(offsetof(meshioplusplus::ExtrudeOptions, mOffsets) == 40,
+              "ExtrudeOptions::mOffsets moved");
+MIO_ABI_LAYOUT(meshioplusplus::RevolveOptions, 88, 8);
+MIO_ABI_LAYOUT(meshioplusplus::MirrorOptions, 72, 8);
+// ABI 36: find_intersections' and thickness' options (roadmap 3.1.2,
+// 3.1.4), added after v17.23.0 as pure additions (doc/abi_reviews.md).
+MIO_ABI_LAYOUT(meshioplusplus::FindIntersectionsOptions, 80, 8);
+static_assert(offsetof(meshioplusplus::FindIntersectionsOptions, mMaxPairs) == 72,
+              "FindIntersectionsOptions::mMaxPairs moved");
+MIO_ABI_LAYOUT(meshioplusplus::ThicknessOptions, 96, 8);
+static_assert(offsetof(meshioplusplus::ThicknessOptions, mRegion) == 24,
+              "ThicknessOptions::mRegion moved");
+MIO_ABI_LAYOUT(meshioplusplus::OctreeOptions, 304, 8);
+// ABI 36: `mHexGrading` (roadmap 3.1.4.3) in the padding after `mPillow`.
+MIO_ABI_LAYOUT(meshioplusplus::OctreeMeshOptions, 336, 8);
+static_assert(offsetof(meshioplusplus::OctreeMeshOptions, mHexGrading) == 308,
+              "OctreeMeshOptions::mHexGrading moved");
+// ABI 34 (v17.15.0): the quality options of roadmap 6.2 and the fields 6.3,
+// 6.4 and 6.6 will use, appended in one layout (refused until their items
+// land), and the face record's refinement report.
+MIO_ABI_LAYOUT(meshioplusplus::MeshCadSurfaceOptions, 120, 8);
+static_assert(offsetof(meshioplusplus::MeshCadSurfaceOptions, mMinAngleDeg) == 48,
+              "MeshCadSurfaceOptions::mMinAngleDeg moved");
+static_assert(offsetof(meshioplusplus::MeshCadSurfaceOptions, mSmoothMethod) == 64,
+              "MeshCadSurfaceOptions::mSmoothMethod moved");
+static_assert(offsetof(meshioplusplus::MeshCadSurfaceOptions, mGrading) == 72,
+              "MeshCadSurfaceOptions::mGrading moved");
+static_assert(offsetof(meshioplusplus::MeshCadSurfaceOptions, mMetric) == 96,
+              "MeshCadSurfaceOptions::mMetric moved");
+static_assert(offsetof(meshioplusplus::MeshCadSurfaceOptions, mReparamConditionNumber) == 104,
+              "MeshCadSurfaceOptions::mReparamConditionNumber moved");
+static_assert(offsetof(meshioplusplus::MeshCadSurfaceOptions, mOrder) == 112,
+              "MeshCadSurfaceOptions::mOrder moved");
+MIO_ABI_LAYOUT(meshioplusplus::MeshCadFaceRecord, 176, 8);
+MIO_ABI_LAYOUT(meshioplusplus::MeshCadCorner, 88, 8);
+// ABI 35: the metric source of roadmap 6.10.2 appended to the sources.
+MIO_ABI_LAYOUT(meshioplusplus::MeshCadSizeSources, 144, 8);
+static_assert(offsetof(meshioplusplus::MeshCadSizeSources, pMetricBackground) == 96,
+              "MeshCadSizeSources::pMetricBackground moved");
+MIO_ABI_LAYOUT(meshioplusplus::MeshCadSizeReport, 48, 8);
+// v17.20.0 (ABI 34, pure additions): the extras beside the sources and their
+// report (roadmap 6.4.4, 6.5.1, 6.5.2; 6.2.3 laid out).
+// ABI 36: untangling (6.6.3) and quadrilaterals (6.8) appended to the
+// extras, their counts to the report.
+MIO_ABI_LAYOUT(meshioplusplus::MeshCadSurfaceExtras, 12, 4);
+static_assert(offsetof(meshioplusplus::MeshCadSurfaceExtras, mUntangle) == 3,
+              "MeshCadSurfaceExtras::mUntangle moved");
+static_assert(offsetof(meshioplusplus::MeshCadSurfaceExtras, mQuads) == 4,
+              "MeshCadSurfaceExtras::mQuads moved");
+static_assert(offsetof(meshioplusplus::MeshCadSurfaceExtras, mQuadPairs) == 8,
+              "MeshCadSurfaceExtras::mQuadPairs moved");
+MIO_ABI_LAYOUT(meshioplusplus::MeshCadReparamFace, 64, 8);
+MIO_ABI_LAYOUT(meshioplusplus::MeshCadMergedFace, 88, 8);
+MIO_ABI_LAYOUT(meshioplusplus::MeshCadToleranceUse, 56, 8);
+MIO_ABI_LAYOUT(meshioplusplus::MeshCadLoppedCorner, 112, 8);
+MIO_ABI_LAYOUT(meshioplusplus::MeshCadSurfaceExtrasReport, 136, 8);
+MIO_ABI_LAYOUT(meshioplusplus::TriangulatePolygon2dOptions, 24, 8);
 MIO_ABI_LAYOUT(meshioplusplus::detail::LatticeSpec, 72, 8);
 
 // RefineOptions is passed by const-ref through the exported `refine()`,
@@ -341,6 +433,20 @@ MIO_ABI_LAYOUT(meshioplusplus::RefineOptions, 120, 8);
 // struct noted above: it embeds a `Mesh`, whose size is per-backend.
 MIO_ABI_LAYOUT(meshioplusplus::RemeshOptions, 64, 8);
 
+// The MMG backend's options (roadmap 3.2, unreleased): passed by const-ref
+// through the exported adapt(), discretize_levelset(), mesh_domain(), move()
+// and metric_from_hessian(). MmgParameters is embedded by value in each
+// operation's options; the *Result structs and MmgReport are not pinned (a
+// `Mesh`, and a report returned by value only inside results).
+MIO_ABI_LAYOUT(meshioplusplus::MmgLocalParameter, 56, 8);
+MIO_ABI_LAYOUT(meshioplusplus::MmgParameters, 144, 8);
+MIO_ABI_LAYOUT(meshioplusplus::AdaptOptions, 216, 8);
+MIO_ABI_LAYOUT(meshioplusplus::MmgMaterial, 32, 8);
+MIO_ABI_LAYOUT(meshioplusplus::DiscretizeLevelsetOptions, 216, 8);
+MIO_ABI_LAYOUT(meshioplusplus::MeshDomainOptions, 208, 8);
+MIO_ABI_LAYOUT(meshioplusplus::MoveOptions, 208, 8);
+MIO_ABI_LAYOUT(meshioplusplus::MetricFromHessianOptions, 88, 8);
+
 // RemeshVolumeOptions is passed by const-ref through the exported
 // `remesh_volume()`, and embeds `SurfaceDistanceOptions` BY VALUE exactly as
 // SdfOptions/VoxelOptions do above -- pinned from the release that
@@ -353,7 +459,11 @@ MIO_ABI_LAYOUT(meshioplusplus::RemeshVolumeOptions, 224, 8);
 // `optimize_volume()` -- pinned from the release that introduces it, the
 // RefineOptions/RemeshOptions "pin in advance" lesson. OptimizeVolumeResult is
 // deliberately NOT pinned, embedding a `Mesh` like every other *Result.
-MIO_ABI_LAYOUT(meshioplusplus::OptimizeVolumeOptions, 40, 8);
+// ABI 37 appends mObjective and mMaxRingSize (worst-cell moves): 40 -> 48.
+MIO_ABI_LAYOUT(meshioplusplus::OptimizeVolumeOptions, 48, 8);
+static_assert(
+    sizeof(meshioplusplus::OptimizeVolumeObjective) == 4,
+    "meshio++ ABI: OptimizeVolumeObjective underlying width changed (Tier A, doc/abi.md)");
 
 // CurvatureOptions is passed by const-ref through the exported
 // `compute_curvature()`, and is pinned from the release that introduces it --
@@ -384,8 +494,9 @@ MIO_ABI_LAYOUT(meshioplusplus::PeriodicOptions, 144, 8);
 
 // The skin-to-CAD options (roadmap §6.3), passed by const-ref through the
 // exported `segment()` and `fit_primitives()`, pinned from the release that
-// introduces them. Their results embed a Mesh and are not pinned.
-MIO_ABI_LAYOUT(meshioplusplus::SegmentOptions, 96, 8);
+// introduces them. Their results embed a Mesh and are not pinned. ABI 31 added
+// SegmentOptions::mMethod and mTolerance (primitive segmentation): 96 -> 112.
+MIO_ABI_LAYOUT(meshioplusplus::SegmentOptions, 112, 8);
 MIO_ABI_LAYOUT(meshioplusplus::TessellateOptions, 16, 8);
 MIO_ABI_LAYOUT(meshioplusplus::FitPrimitivesOptions, 72, 8);
 // fit_cad's options (roadmap 6.3.3), the same rule; FitCadResult embeds a Mesh.
@@ -393,7 +504,46 @@ MIO_ABI_LAYOUT(meshioplusplus::FitPrimitivesOptions, 72, 8);
 // added mFreeformSplit, mFillets and mThreads (roadmap 6.3.1, 6.3.2): 48 -> 56.
 // ABI 29 grew FitCadResult only (three counts), so the options are unchanged;
 // ABI 30 grew it by five more (roadmap 6.3, v17.2.0), the options again unchanged.
-MIO_ABI_LAYOUT(meshioplusplus::FitCadOptions, 56, 8);
+// ABI 31 put mMergeFaces and mBackend in the tail padding (same size, new
+// members) and grew FitCadResult by mBackend. ABI 32 appended
+// mRefineSegmentation and mRefine (a RefinePatchesOptions) and the general
+// freeform options: 56 -> 224, and grew FitCadResult by both reports. ABI 33
+// appended the freeform modes (mFreeformMode .. mValidateBySurfaceSampling):
+// 224 -> 288, grew FitCadResult by their report and added FitCadFaceRecord.
+// ABI 36 put mConstrainPrimitives in the tail padding (same size, a new
+// member) and grew FitCadResult by its two counts.
+MIO_ABI_LAYOUT(meshioplusplus::FitCadOptions, 288, 8);
+MIO_ABI_LAYOUT(meshioplusplus::FitCadFaceRecord, 96, 8);
+static_assert(offsetof(meshioplusplus::FitCadOptions, mMergeFaces) == 51,
+              "FitCadOptions::mMergeFaces moved");
+static_assert(offsetof(meshioplusplus::FitCadOptions, mBackend) == 52,
+              "FitCadOptions::mBackend moved");
+static_assert(offsetof(meshioplusplus::FitCadOptions, mRefineSegmentation) == 56,
+              "FitCadOptions::mRefineSegmentation moved");
+static_assert(offsetof(meshioplusplus::FitCadOptions, mRefine) == 64,
+              "FitCadOptions::mRefine moved");
+static_assert(offsetof(meshioplusplus::FitCadOptions, mFreeformGeneral) == 160,
+              "FitCadOptions::mFreeformGeneral moved");
+static_assert(offsetof(meshioplusplus::FitCadOptions, mMaxFreeformSplits) == 200,
+              "FitCadOptions::mMaxFreeformSplits moved");
+static_assert(offsetof(meshioplusplus::FitCadOptions, mSewTolerance) == 208,
+              "FitCadOptions::mSewTolerance moved");
+static_assert(offsetof(meshioplusplus::FitCadOptions, mFaceDeviation) == 218,
+              "FitCadOptions::mFaceDeviation moved");
+static_assert(offsetof(meshioplusplus::FitCadOptions, mFreeformMode) == 220,
+              "FitCadOptions::mFreeformMode moved");
+static_assert(offsetof(meshioplusplus::FitCadOptions, mFreeformG1ToleranceDeg) == 240,
+              "FitCadOptions::mFreeformG1ToleranceDeg moved");
+static_assert(offsetof(meshioplusplus::FitCadOptions, mResegmentRounds) == 272,
+              "FitCadOptions::mResegmentRounds moved");
+static_assert(offsetof(meshioplusplus::FitCadOptions, mValidateBySurfaceSampling) == 281,
+              "FitCadOptions::mValidateBySurfaceSampling moved");
+static_assert(offsetof(meshioplusplus::FitCadOptions, mConstrainPrimitives) == 282,
+              "FitCadOptions::mConstrainPrimitives moved");
+// refine_patches' options (operations/refine_patches.hpp, ABI 32).
+MIO_ABI_LAYOUT(meshioplusplus::RefinePatchesOptions, 96, 8);
+// The kernel-free STEP writer's options (formats/step.hpp), from ABI 31.
+MIO_ABI_LAYOUT(meshioplusplus::StepWriteOptions, 16, 8);
 // The isogeometric layer (roadmap 6.2.2, operations/iga.hpp): the options are passed by
 // const-ref through the exported `iga_refine()` and `iga_sample()`, pinned from
 // the release that introduces them. IgaEvaluation embeds NDArrays and is not pinned.
@@ -500,6 +650,10 @@ static_assert(sizeof(meshioplusplus::CellType) == 2,
 // primary guard lives in remesh.hpp itself (checked by every consumer that
 // compiles it, not just this suite) -- this mirror exists for the same
 // discoverability CellType's own entry has here.
+static_assert(sizeof(meshioplusplus::MmgStatus) == 4,
+              "meshio++ ABI: MmgStatus's underlying type changed width; widening "
+              "`: std::int32_t` is a Tier A break (doc/abi.md).");
+
 static_assert(sizeof(meshioplusplus::RemeshMetric) == 1,
               "meshio++ ABI: RemeshMetric's underlying type changed width. "
               "Appending enumerators is safe and expected; widening "
@@ -545,6 +699,13 @@ MIO_ABI_LAYOUT(meshioplusplus::ContactPairsResult, 648, 8);
 static_assert(sizeof(meshioplusplus::InterfaceMode) == 4 &&
                   sizeof(meshioplusplus::InterfaceMaster) == 4,
               "meshio++ ABI: interface enum underlying width changed (Tier A, doc/abi.md)");
+
+// Tetrahedral <-> polyhedral conversion is additive; its options are passed by
+// const-ref through the exported `tet_to_poly()`/`poly_to_tet()` and pinned
+// from the release that introduces them. Both results embed a Mesh.
+MIO_ABI_LAYOUT(meshioplusplus::TetToPolyOptions, 16, 8);
+MIO_ABI_LAYOUT(meshioplusplus::SelectOptions, 352, 8);
+MIO_ABI_LAYOUT(meshioplusplus::PolyToTetOptions, 1, 1);
 
 // --- The mesh itself, which IS the backend ----------------------------------
 // Each backend gets its own line because Mesh is a different type per backend;

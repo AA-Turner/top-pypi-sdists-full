@@ -15,13 +15,12 @@
 """Base class of espeak backends for the phonemizer"""
 
 import abc
+import os
 from logging import Logger
 from typing import Optional, Union, Pattern
 
 from phonemizer.backend.base import BaseBackend
 from phonemizer.backend.espeak.wrapper import EspeakWrapper
-from phonemizer.logger import get_logger
-from phonemizer.punctuation import Punctuation
 from phonemizer.separator import Separator
 
 
@@ -62,6 +61,15 @@ class BaseEspeakBackend(BaseBackend):
         EspeakWrapper.set_library(library)
 
     @classmethod
+    def _installation(cls) -> tuple:
+        # pylint: disable=protected-access
+        return (
+            EspeakWrapper._ESPEAK_LIBRARY,
+            EspeakWrapper._ESPEAK_DATA_PATH,
+            os.environ.get('PHONEMIZER_ESPEAK_LIBRARY'),
+            os.environ.get('PHONEMIZER_ESPEAK_DATA_PATH'))
+
+    @classmethod
     def library(cls):
         """Returns the espeak library used as backend
 
@@ -83,11 +91,17 @@ class BaseEspeakBackend(BaseBackend):
 
     @classmethod
     def is_available(cls) -> bool:
+        return cls._unavailable_reason() is None
+
+    @classmethod
+    def _unavailable_reason(cls) -> Optional[str]:
+        # the error tells why the library cannot be loaded, for instance a
+        # missing dependency of the library or a wrong path
         try:
             EspeakWrapper()
-        except RuntimeError:  # pragma: nocover
-            return False
-        return True
+        except RuntimeError as error:
+            return str(error)
+        return None
 
     @classmethod
     def is_espeak_ng(cls) -> bool:

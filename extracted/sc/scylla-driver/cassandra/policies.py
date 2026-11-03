@@ -28,7 +28,7 @@ from cassandra import WriteType as WT
 
 # This is done this way because WriteType was originally
 # defined here and in order not to break the API.
-# It may removed in the next mayor.
+# It may be removed in the next major.
 WriteType = WT
 
 from cassandra import ConsistencyLevel, OperationTimedOut
@@ -81,13 +81,32 @@ class HostDistance(object):
 
 
 class HostStateListener(object):
+    """Receive ordered host lifecycle notifications.
+
+    Notifications run without topology or host callback locks. Metadata may
+    already reflect a newer topology while a callback is running. An active
+    callback can finish after its Host is retired; stale queued UP, DOWN and
+    ADD work is discarded, and removal is delivered before replacement ADD.
+
+    A listener may call :meth:`~cassandra.cluster.Cluster.refresh_nodes` to
+    publish metadata synchronously. Notifications caused by that refresh are
+    queued until the current notification finishes, rather than delivered
+    recursively. Return promptly: waiting for another notification from the
+    same cluster prevents its FIFO dispatcher from making progress.
+    """
 
     def on_up(self, host):
         """ Called when a node is marked up. """
         raise NotImplementedError()
 
     def on_down(self, host):
-        """ Called when a node is marked down. """
+        """
+        Called when a node is marked down.
+
+        Return promptly; later lifecycle notifications wait for this callback.
+        Metadata removal itself does not wait. This also applies to custom
+        load-balancing policies.
+        """
         raise NotImplementedError()
 
     def on_add(self, host):
@@ -143,10 +162,17 @@ class LoadBalancingPolicy(HostStateListener):
 
     def make_query_plan(self, working_keyspace=None, query=None):
         """
-        Given a :class:`~.query.Statement` instance, return a iterable
+        Given a :class:`~.query.Statement` instance, return an iterable
         of :class:`.Host` instances which should be queried in that
         order.  A generator may work well for custom implementations
         of this method.
+
+        Before selecting a connection, the driver resolves each Host by its
+        ``host_id`` in the receiving cluster's current metadata. Policies may
+        yield cached Host references; their old endpoints are not used.
+        Unknown IDs are skipped. Application query selection also skips
+        current hosts marked down or removed. Remaining candidates retain
+        the plan's normal failover order.
 
         Note that the `query` argument may be :const:`None` when preparing
         statements.
@@ -566,16 +592,23 @@ class TokenAwarePolicy(LoadBalancingPolicy):
         # its functions.
         from cassandra.metadata import _ConsistencyMode
 
+        # LWT/serial replicas keep their natural order so every call picks the same Paxos coordinator.
+        keep_order = query.is_lwt() or ConsistencyLevel.is_serial(query.consistency_level)
         replicas = []
         leader_host = None
         token = self._cluster_metadata.token_map.token_class.from_key(query.routing_key)
         tablet = self._cluster_metadata._tablets.get_tablet_for_key(keyspace, query.table, token)
 
         if tablet is not None:
-            replicas_mapped = set(map(lambda r: r[0], tablet.replicas))
-            child_plan = child.make_query_plan(keyspace, query)
+            if keep_order:
+                # The child plan is round-robin rotated, so it cannot provide a stable order.
+                replicas = [host for host in (self._cluster_metadata.get_host_by_host_id(host_id)
+                                              for host_id, _ in tablet.replicas) if host is not None]
+            else:
+                replicas_mapped = set(map(lambda r: r[0], tablet.replicas))
+                child_plan = child.make_query_plan(keyspace, query)
 
-            replicas = [host for host in child_plan if host.host_id in replicas_mapped]
+                replicas = [host for host in child_plan if host.host_id in replicas_mapped]
 
             # The leader concept only exists for strongly-consistent keyspaces,
             # which today means exactly the keyspaces whose consistency mode is
@@ -616,7 +649,7 @@ class TokenAwarePolicy(LoadBalancingPolicy):
         else:
             replicas = self._cluster_metadata.get_replicas(keyspace, query.routing_key)
 
-        if self.shuffle_replicas and not query.is_lwt() and not ConsistencyLevel.is_serial(query.consistency_level):
+        if self.shuffle_replicas and not keep_order:
             shuffle(replicas)
 
         def yield_in_order(hosts):
@@ -1063,8 +1096,8 @@ class RetryPolicy(object):
         `retry_num` counts how many times the operation has been retried, so
         the first time this method is called, `retry_num` will be 0.
 
-        By default, failed write operations will retried at most once, and
-        they will only be retried if the `write_type` was
+        By default, failed write operations will be retried at most once, and
+        will only be retried if the `write_type` was
         :attr:`~.WriteType.BATCH_LOG`.
         """
         if retry_num != 0:
@@ -1161,7 +1194,7 @@ class DowngradingConsistencyRetryPolicy(RetryPolicy):
     policy unless you have understood the cases where this can happen and
     are ok with that. It is also recommended to subclass this class so
     that queries that required a consistency level downgrade can be
-    recorded (so that repairs can be made later, etc).
+    recorded (so that repairs can be made later, etc.).
 
     This policy implements the same retries as :class:`.RetryPolicy`,
     but on top of that, it also retries in the following cases:
@@ -1311,7 +1344,7 @@ class AddressTranslator(object):
     The driver discovers nodes using server metadata and topology change events. Normally,
     the endpoint defined by the server is the right way to connect to a node. In some environments,
     these addresses may not be reachable, or not preferred (public vs. private IPs in cloud environments,
-    suboptimal routing, etc). This interface allows for translating from server defined endpoints to
+    suboptimal routing, etc.). This interface allows for translating from server defined endpoints to
     preferred addresses for driver connections.
 
     *Note:* :attr:`~Cluster.contact_points` provided while creating the :class:`~.Cluster` instance are not
@@ -1341,7 +1374,7 @@ class EC2MultiRegionTranslator(AddressTranslator):
         Reverse DNS the public broadcast_address, then lookup that hostname to get the AWS-resolved IP, which
         will point to the private IP address within the same datacenter.
         """
-        # get family of this address so we translate to the same
+        # get family of this address, so we translate to the same
         family = socket.getaddrinfo(addr, 0, socket.AF_UNSPEC, socket.SOCK_STREAM)[0][0]
         host = socket.getfqdn(addr)
         for a in socket.getaddrinfo(host, 0, family, socket.SOCK_STREAM):

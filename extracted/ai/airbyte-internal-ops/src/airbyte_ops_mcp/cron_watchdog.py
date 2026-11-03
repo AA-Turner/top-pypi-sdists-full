@@ -45,11 +45,12 @@ WATCHED = [
         120,
         frozenset({"schedule"}),
     ),
+    # Weekday-only; Friday to Monday is a 72h gap.
     (
         "airbytehq/airbyte-ops-mcp",
         "lighthouse-run-command.yml",
         "Project Lighthouse",
-        1500,
+        4380,
         frozenset({"schedule"}),
     ),
     (

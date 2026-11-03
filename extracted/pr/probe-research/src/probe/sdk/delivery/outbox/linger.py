@@ -6,6 +6,7 @@ import os
 import time
 from probe.foundation.compat.compat import StrEnum
 from probe.sdk.delivery.outbox.lease import _stop_path
+from probe.sdk.delivery.status_fields import StatusField
 #: How long a worker that found its queue empty stays, looking every _LINGER_POLL_SECONDS
 #: for new work, before exiting (#3625). A training loop queues an op every second or two:
 #: a worker leaving after one 1.5 s look was restarted by the next op (38 starts, 37.5
@@ -29,7 +30,7 @@ def _work_arrived(journal, fresh: dict) -> bool:
     from .drain.lanes import _multipart_pending_count
 
     return bool(
-        fresh.get("pending")
+        fresh.get(StatusField.PENDING)
         # status.json is bookkeeping: on a full volume the op lands and its count does not
         # (#2090), so a worker trusting the count exited with the op queued and every later
         # write of that run was dropped behind it (7-day soak, 0.200.2). The listing stops
@@ -71,7 +72,7 @@ def _linger(journal, *, waiting: bool) -> LingerEnd | None:
         fresh = Journal.read_status(str(journal.dir), credential_queues=False) or {}
         if _work_arrived(journal, fresh):
             return LingerEnd.WORK
-        if waiting and fresh.get("waiting"):
+        if waiting and fresh.get(StatusField.WAITING):
             return LingerEnd.WAITING
         if _stop_path(journal).exists() or journal.paused:
             return LingerEnd.ASKED

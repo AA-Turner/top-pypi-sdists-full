@@ -5,6 +5,8 @@
 #
 
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from importlib import import_module
 from typing import Optional, Tuple  # noqa: F401
@@ -42,9 +44,9 @@ class ESPCoreDumpLoaderError(ESPCoreDumpError):
 
 
 class BaseArchMethodsMixin(ABC):  # type: ignore
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def get_registers_from_stack(data, grows_down):
+    def get_registers_from_stack(cls, data, grows_down):
         # type: (bytes, bool) -> Tuple[list[int], Optional[dict[int, int]]]
         """
         Parse stack data, growing up stacks are not supported for now.

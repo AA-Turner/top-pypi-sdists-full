@@ -47,8 +47,12 @@ def run(project: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
   )
 
 
-@pytest.mark.parametrize("version", ["0.7.21", "0.7.99", "0.8.10", "1.0.10"])
-def test_release_check_accepts_actual_two_digit_patch_versions(project: Path, version: str) -> None:
+@pytest.mark.parametrize(
+  "version", ["0.7.0", "0.7.2", "0.7.21", "0.7.99", "0.8.10", "0.10.0", "1.0.10"]
+)
+def test_release_check_accepts_patch_versions_from_0_through_99(
+  project: Path, version: str
+) -> None:
   write_project(project, version)
   result = run(project, "check")
   assert result.returncode == 0
@@ -59,8 +63,6 @@ def test_release_check_accepts_actual_two_digit_patch_versions(project: Path, ve
 @pytest.mark.parametrize(
   "version",
   [
-    "0.7.2",
-    "0.7.0",
     "0.7.100",
     "0.7.02",
     "0.7.011",

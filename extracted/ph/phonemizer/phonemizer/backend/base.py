@@ -16,13 +16,12 @@
 
 import abc
 import itertools
-import re
 from logging import Logger
 from typing import Optional, List, Any, Dict, Tuple, Union, Pattern
 
 import joblib
 
-from phonemizer.logger import get_logger
+from phonemizer.logger import default_logger
 from phonemizer.punctuation import Punctuation
 from phonemizer.separator import Separator, default_separator
 from phonemizer.utils import chunks
@@ -60,6 +59,10 @@ class BaseBackend(abc.ABC):
         if the backend is not available of if the `language` cannot be initialized.
 
     """
+    # When preserving the punctuation, phonemize the words on both sides of
+    # quotes or brackets in context. Disabled in the backends that phonemize
+    # each word alone, or with no word separation.
+    _punctuation_context = True
 
     def __init__(self, language: str,
                  punctuation_marks: Optional[Union[str, Pattern]] = None,
@@ -70,12 +73,14 @@ class BaseBackend(abc.ABC):
             punctuation_marks = Punctuation.default_marks()
 
         if logger is None:
-            logger = get_logger()
+            logger = default_logger()
 
-        # ensure the backend is installed on the system
-        if not self.is_available():
-            raise RuntimeError(  # pragma: nocover
-                '{} not installed on your system'.format(self.name()))
+        # ensure the backend is installed on the system, telling why if not
+        reason = self._unavailable_reason()
+        if reason is not None:
+            raise RuntimeError(
+                f'{self.name()} not installed on your system'
+                + (f': {reason}' if reason else ''))
 
         self._logger = logger
         self._logger.info(
@@ -96,11 +101,12 @@ class BaseBackend(abc.ABC):
         This method may be overloaded in child classes (see Segments backend)
 
         """
-        if not cls.is_supported_language(language):
+        code = cls._supported_language(language)
+        if code is None:
             raise RuntimeError(
                 f'language "{language}" is not supported by the '
                 f'{cls.name()} backend')
-        return language
+        return code
 
     @property
     def logger(self):
@@ -123,6 +129,16 @@ class BaseBackend(abc.ABC):
         """Returns True if the backend is installed, False otherwise"""
 
     @classmethod
+    def _unavailable_reason(cls) -> Optional[str]:
+        """Returns why the backend is not available, None if it is
+
+        The reason is given in the error raised when the backend cannot be
+        initialized. To be overloaded in child classes that can explain it.
+
+        """
+        return None if cls.is_available() else ''
+
+    @classmethod
     @abc.abstractmethod
     def version(cls):
         """Return the backend version as a tuple (major, minor, patch)"""
@@ -133,9 +149,41 @@ class BaseBackend(abc.ABC):
         """Return a dict of language codes -> name supported by the backend"""
 
     @classmethod
+    def _installation(cls) -> tuple:
+        """Returns the configuration of the backend installation in use
+
+        This is part of the key of the backends cached by phonemize(), so
+        that a backend is reloaded when its installation changes. To be
+        overloaded in child classes that can be configured.
+
+        """
+        return ()
+
+    @classmethod
     def is_supported_language(cls, language: str):
-        """Returns True if `language` is supported by the backend"""
-        return language in cls.supported_languages()
+        """Returns True if `language` is supported by the backend
+
+        Language codes are case insensitive: 'en-US' is supported as 'en-us'.
+
+        """
+        return cls._supported_language(language) is not None
+
+    @classmethod
+    def _supported_language(cls, language: str) -> Optional[str]:
+        """Returns the supported language code matching `language`
+
+        Returns None if `language` is not supported. The language codes are
+        compared ignoring case, the returned code is as listed by
+        supported_languages().
+
+        """
+        supported = cls.supported_languages()
+        if language in supported:
+            return language
+        matches = [
+            code for code in supported
+            if code.lower() == str(language).lower()]
+        return matches[0] if len(matches) == 1 else None
 
     def phonemize(self, text: List[str],
                   separator: Optional[Separator] = None,
@@ -186,6 +234,17 @@ class BaseBackend(abc.ABC):
 
         text, punctuation_marks = self._phonemize_preprocess(text)
 
+        # When preserving the punctuation, the chunks separated by inline marks
+        # (quotes or brackets) are phonemized as a whole as well, appended to
+        # the text, so that their words are pronounced in context.
+        context = (
+            self._punctuator.inline_groups(punctuation_marks)
+            if (self._preserve_punctuation and self._punctuation_context
+                and Punctuation.can_align(separator))
+            else [])
+        text = text + [
+            ' '.join(text[chunk] for chunk in group) for group in context]
+
         if njobs == 1:
             # phonemize the text forced as a string
             phonemized = self._phonemize_aux(text, 0, separator, strip)
@@ -204,7 +263,25 @@ class BaseBackend(abc.ABC):
             # flatten them in a single list
             phonemized = self._flatten(phonemized)
 
-        return self._phonemize_postprocess(phonemized, punctuation_marks, separator, strip)
+        phonemized, context = self._split_context(phonemized, context)
+        if self._preserve_punctuation:
+            punctuation_marks = (punctuation_marks, context)
+        return self._phonemize_postprocess(
+            phonemized, punctuation_marks, separator, strip)
+
+    @staticmethod
+    def _split_context(phonemized: List[str], context: List[List[int]]) \
+            -> Tuple[List[str], List[Tuple[List[int], str]]]:
+        """Splits the phonemized chunks from the groups phonemized in context
+
+        The last lines of `phonemized` are the groups of chunks in `context`,
+        phonemized as a whole. Returns the phonemized chunks and the pairs
+        (group, phonemized group). This method may be overloaded in child
+        classes, along with _phonemize_aux() (see espeak backend).
+
+        """
+        nchunks = len(phonemized) - len(context)
+        return phonemized[:nchunks], list(zip(context, phonemized[nchunks:]))
 
     @staticmethod
     def _flatten(phonemized: List[List[Any]]):
@@ -237,7 +314,7 @@ class BaseBackend(abc.ABC):
 
         """
         if self._preserve_punctuation:
-            # a tuple (text, punctuation marks)
+            # a tuple (chunks, parts of each line)
             return self._punctuator.preserve(text)
         return self._punctuator.remove(text), []
 
@@ -247,9 +324,14 @@ class BaseBackend(abc.ABC):
                                strip: bool):
         """Postprocess the raw phonemized output
 
-        Restores the punctuation as needed.
+        Restores the punctuation as needed. When preserving the punctuation,
+        `punctuation_marks` is the parts of each line, as returned by
+        _phonemize_preprocess(), along with the groups phonemized in context
+        as returned by _split_context().
 
         """
         if self._preserve_punctuation:
-            return self._punctuator.restore(phonemized, punctuation_marks, separator, strip)
+            lines, context = punctuation_marks
+            return self._punctuator.restore(
+                phonemized, lines, separator, strip, context)
         return phonemized

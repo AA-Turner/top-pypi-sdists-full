@@ -17,6 +17,8 @@ class Settings:
     DEFAULT_REQUESTS_TABLE = "ingest_requests"
     DEFAULT_LOGS_TABLE = "ingest_logs"
     DEFAULT_JOBS_TABLE = "ingest_jobs"
+    DEFAULT_SPIDERS_TABLE = "ingest_spiders"
+    DEFAULT_JOB_META_TABLE = "ingest_job_meta"
     DEFAULT_DB_TYPE = "postgres"
     DEFAULT_TIMEZONE = "Asia/Karachi"
     DEFAULT_BATCH_SIZE = 50
@@ -132,6 +134,23 @@ class Settings:
         )
 
     @property
+    def db_spiders_table(self):
+        return self.crawler_settings.get("SPIDERS_TABLE", self.DEFAULT_SPIDERS_TABLE)
+
+    @property
+    def db_job_meta_table(self):
+        return self.crawler_settings.get("JOB_META_TABLE", self.DEFAULT_JOB_META_TABLE)
+
+    @property
+    def job_session_id(self):
+        raw = self.crawler_settings.get("JOB_SESSION_ID")
+        return int(raw) if raw not in (None, "") else None
+
+    @property
+    def job_new_session_per_crawl(self):
+        return self.crawler_settings.getbool("JOB_NEW_SESSION_PER_CRAWL", False)
+
+    @property
     def create_tables(self):
         return self.crawler_settings.getbool("CREATE_TABLES", True)
 
@@ -201,18 +220,14 @@ class Settings:
         return "job_id"
 
     def get_identifier_value(self, spider):
-        """Use JOB_ID if set; otherwise a unique generated id (cached per crawl)."""
-        from ..utils.job_id import cache_job_id, cached_job_id, generate_job_id
+        """Explicit ``JOB_ID`` or id allocated at job start (``spider_id/run``)."""
+        from ..database.job_sequence import resolve_configured_job_id
+        from ..utils.job_id import cached_job_id
 
-        configured = self.crawler_settings.get("JOB_ID", None)
-        if configured not in (None, ""):
-            return cache_job_id(spider, str(configured))
-
-        existing = cached_job_id(spider)
-        if existing:
-            return existing
-
-        return cache_job_id(spider, generate_job_id(getattr(spider, "name", "spider")))
+        configured = resolve_configured_job_id(self, spider)
+        if configured:
+            return configured
+        return cached_job_id(spider)
 
 
 def validate_settings(settings):

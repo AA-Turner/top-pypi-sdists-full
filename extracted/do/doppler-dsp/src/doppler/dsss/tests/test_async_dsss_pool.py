@@ -2,8 +2,9 @@
 status record, symbols, the threads mutator and reset.
 
 The controller's rules (exclusions, ranks, duplicates, releases) and their
-sabotages are the C suite's, ``native/tests/test_async_dsss_pool_core.c``;
-the state round trip is in the shared matrix,
+sabotages are the C suite's,
+``native/tests/async_dsss_pool/test_async_dsss_pool_core.c``; the state round
+trip is in the shared matrix,
 ``src/doppler/tests/test_state_serialization.py``. This file checks what the
 binding adds: the Python face reaches each of those C entry points.
 """
@@ -18,7 +19,7 @@ CODE = np.asarray(Gold().generate(1023)).astype(np.uint8)
 SPEC = {
     "chip_rate": 3.069e6,
     "symbol_rate": 2700.0,
-    "spc": 2,
+    "sample_rate": 2 * 3.069e6,
     "doppler_uncertainty": 500.0,
 }
 
@@ -56,7 +57,8 @@ def test_push_status_symbols():
     assert p.push(np.zeros(2046, dtype=np.complex64)) == 0
     assert p.samples == 2046
     st = p.status(0)
-    assert st.state == 0 and st.state_samples == 2046
+    # 3 is idle: a pooled receiver waits for the controller's seed
+    assert st.state == 3 and st.state_samples == 2046
     assert type(st).__name__ == "PoolReceiverStatus"
     assert p.status(2).state == -1  # past the pool
     assert p.symbols(0).size == 0

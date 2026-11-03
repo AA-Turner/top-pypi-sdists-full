@@ -19,7 +19,7 @@ from logging import DEBUG, getLogger
 from pathlib import Path
 
 # 3rd party
-from mkdocs.config import load_config
+from properdocs.config import load_config
 
 # package
 from mkdocs_rss_plugin.integrations.theme_material_base import (
@@ -28,6 +28,7 @@ from mkdocs_rss_plugin.integrations.theme_material_base import (
 
 # test suite
 from tests.base import BaseTest
+
 
 # #############################################################################
 # ########## Classes ###############
@@ -51,6 +52,18 @@ class TestRssPluginIntegrationsMaterialThem(BaseTest):
             mkdocs_config=cfg_mkdocs
         )
         self.assertTrue(integration_social_cards.IS_THEME_MATERIAL)
+
+    def test_plugin_config_theme_materialx(self):
+        # default reference
+        cfg_mkdocs = load_config(
+            str(Path("tests/fixtures/mkdocs_materialx_language_specific.yml").resolve())
+        )
+
+        integration_social_cards = IntegrationMaterialThemeBase(
+            mkdocs_config=cfg_mkdocs
+        )
+        self.assertTrue(integration_social_cards.IS_THEME_MATERIAL)
+        self.assertEqual(integration_social_cards.THEME_NAME, "materialx")
 
     def test_plugin_config_theme_not_material(self):
         # default reference

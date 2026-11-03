@@ -73,7 +73,6 @@ def eval(
     trials: int | dict[str, int] | str | None = None,
     seeds: Any = None,
     policy_machines: int = 1,
-    policy_gpu: str | None = None,
     benchmark_machines: int = 1,
     sweep: dict[str, list[Any]] | None = None,
     params: dict[str, Any] | None = None,
@@ -107,8 +106,8 @@ def eval(
     platform refuses a task or seed the benchmark does not declare, naming the ones it does.
 
     How the eval runs is yours to write, the same way on both sides: `policy_machines` copies of the policy (each on
-    `policy_gpu`, default the deployment's card) and `benchmark_machines` benchmark machines per arm (each on the card
-    the benchmark was registered on); each benchmark machine builds the worlds the eval needs - the fewest of the
+    the deployment's own card) and `benchmark_machines` benchmark machines per arm (each on the card the benchmark was
+    registered on); each benchmark machine builds the worlds the eval needs - the fewest of the
     benchmark's @seq.concurrent size, the eval's episodes and what the policy takes at once. Both sides run wherever
     there are cards. `sweep` ({param: [values]}) adds arms that run side by side on the same episodes; the report has one table
     per arm. Another policy is an eval of its own. `spend_cap_usd` is the eval's spend
@@ -145,7 +144,6 @@ def eval(
         "seeds": selection.seeds_value(seeds),
 
         "policy_machines": int(policy_machines or 1),
-        "policy_gpu": policy_gpu,
         "benchmark_machines": int(benchmark_machines or 1),
         "sweep": {k: list(v) for k, v in sweep.items()} if sweep else None,
         "params": dict(params) if params else None,

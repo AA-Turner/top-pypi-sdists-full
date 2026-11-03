@@ -20,17 +20,17 @@ class ModifyCommonBandwidthPackageIpBandwidthRequest(DaraModel):
         # 
         # This parameter is required.
         self.bandwidth = bandwidth
-        # The instance ID of the Internet Shared Bandwidth instance.
+        # The instance ID of the Internet Shared Bandwidth.
         # 
         # This parameter is required.
         self.bandwidth_package_id = bandwidth_package_id
-        # The instance ID of the EIP that has been added to the Internet Shared Bandwidth instance.
+        # The ID of the EIP that is added to the Internet Shared Bandwidth instance. This parameter applies only to EIPs. For IPv6 addresses, use IpInstanceId.
         # 
         # This parameter is required.
         self.eip_id = eip_id
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The region ID of the Internet Shared Bandwidth instance. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the region ID.
+        # The region ID of the Internet Shared Bandwidth instance. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
         # 
         # This parameter is required.
         self.region_id = region_id

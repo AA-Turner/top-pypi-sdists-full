@@ -64,9 +64,13 @@ class TasksPlugin(Plugin):
             )
         groups = group(tasks, now)
         overdue = len(groups.overdue)
+        # Counted are the tasks to do now, as in the side panel; those with a later date (the
+        # next round of a repeating one, say) are listed last, after the ones without a date.
+        later = len(groups.upcoming)
+        now_count = len(tasks) - later
         tone = {"overdue": "fail", "today": "info"}
         rows = []
-        for name in ("overdue", "today", "upcoming", "someday"):
+        for name in ("overdue", "today", "someday", "upcoming"):
             for task in getattr(groups, name):
                 rows.append(
                     Row(
@@ -79,7 +83,7 @@ class TasksPlugin(Plugin):
                         actions=[Action("Done", f"/tasks/{task.id}/done")],
                         ref=f"task {task.id}",
                         # For the numbers above the list, which show only theirs when clicked.
-                        tags=("open", name),
+                        tags=(name,) if name == "upcoming" else ("open", name),
                     )
                 )
         rows = rows[:ROWS_SHOWN]
@@ -96,11 +100,13 @@ class TasksPlugin(Plugin):
                 )
             )
         return WidgetData(
-            value=len(tasks),
-            summary="open" + (f" · {overdue} overdue" if overdue else ""),
+            value=now_count,
+            summary="open"
+            + (f" · {overdue} overdue" if overdue else "")
+            + (f" · {later} later" if later else ""),
             attention=overdue > 0,
             stats=[
-                Stat(len(tasks), "Open", filter="open"),
+                Stat(now_count, "Open", filter="open"),
                 Stat(overdue, "Overdue", filter="overdue"),
                 Stat(len(done), "Done today", filter="done"),
             ],

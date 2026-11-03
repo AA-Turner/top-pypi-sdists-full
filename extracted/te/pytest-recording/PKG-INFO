@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pytest-recording
-Version: 0.14.0
+Version: 0.14.1
 Summary: A pytest plugin powered by VCR.py to record and replay HTTP traffic
 Project-URL: Documentation, https://github.com/kiwicom/pytest-recording
 Project-URL: Changelog, https://github.com/kiwicom/pytest-recording/blob/master/docs/changelog.rst
@@ -36,12 +36,12 @@ Provides-Extra: dev
 Requires-Dist: pytest-httpbin; extra == 'dev'
 Requires-Dist: pytest-mock; extra == 'dev'
 Requires-Dist: requests; extra == 'dev'
-Requires-Dist: werkzeug==3.1.8; extra == 'dev'
+Requires-Dist: werkzeug==3.1.9; extra == 'dev'
 Provides-Extra: tests
 Requires-Dist: pytest-httpbin; extra == 'tests'
 Requires-Dist: pytest-mock; extra == 'tests'
 Requires-Dist: requests; extra == 'tests'
-Requires-Dist: werkzeug==3.1.8; extra == 'tests'
+Requires-Dist: werkzeug==3.1.9; extra == 'tests'
 Description-Content-Type: text/x-rst
 
 pytest-recording
@@ -232,7 +232,7 @@ To have more confidence that your tests will not go over the wire, you can block
 
     ...
     # in case of access
-    RuntimeError: Network is disabled
+    RuntimeError: Network is disabled for host '...'
 
 Besides marks, the network access could be blocked globally with ``--block-network`` command-line option.
 
@@ -267,7 +267,7 @@ It is possible to allow access to specified hosts during network blocking:
     @pytest.mark.block_network(allowed_hosts=["httpbin.*"])
     def test_access():
         assert requests.get("http://httpbin.org/get").text == '{"get": true}'
-        with pytest.raises(RuntimeError, match=r"^Network is disabled$"):
+        with pytest.raises(RuntimeError, match=r"^Network is disabled for host "):
             requests.get("http://example.com")
 
 Or via command-line option:

@@ -10,8 +10,10 @@ from .voice_cloning_configure_connection_data import VoiceCloningConfigureConnec
 class VoiceCloningConfigureConnection(UniversalBaseModel):
     """
     Configuration message required as the first message after establishing the WebSocket connection.
-    Pass the target language and **exactly one** of `voice_id` (saved voice) or `ref_audio`
-    (base64 reference clip). Optional `ref_text` improves fidelity when using `ref_audio`.
+    Pass **exactly one** of `voice_id` (saved voice) or `ref_audio` (base64 reference clip).
+    `target_language_code` is optional: omit it to detect the language from the first
+    buffered text, then that language stays locked until the next config.
+    Optional `ref_text` improves fidelity when using `ref_audio`.
     Sending both `voice_id` and `ref_audio` returns an error. Duration bounds, QC, and VAD
     are not accepted on this path.
     """

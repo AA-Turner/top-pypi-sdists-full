@@ -13,6 +13,7 @@
 #          Robin Schirrmeister <robintibor@gmail.com>
 #          Matthew Chen <matt.chen42601@gmail.com>
 #          Sarthak Tayal <sarthaktayal2@gmail.com>
+#          Anton Soloviev <anton@praviel.com>
 #
 # License: BSD (3-clause)
 
@@ -220,7 +221,7 @@ def _resolve_on_last_window(
         )
     if drop_last_window is not None:
         warnings.warn(
-            "`drop_last_window` is deprecated and will be removed in version 2.0. "
+            "`drop_last_window` is deprecated and will be removed in version 2.1. "
             "Use `on_last_window='drop'` if True or "
             "`on_last_window='overlap'` if False. "
             "See https://github.com/braindecode/braindecode/pull/1058 for feedback.",
@@ -299,11 +300,16 @@ def create_windows_from_events(
         Deprecated; use ``on_last_window`` instead. Explicit ``False`` maps to
         ``'overlap'`` and explicit ``True`` maps to ``'drop'``. Either value
         emits a ``DeprecationWarning`` and this parameter will be removed in
-        version 2.0.
+        version 3.0.
     mapping: dict(str: int)
-        Mapping from event description to numerical target value. Must be
-        provided when any of ``trial_start_offset_samples``,
+        Mapping from event description to numerical target value. If None, the
+        event descriptions of all datasets are numbered from 0 in dataset
+        order, with descriptions sorted within each dataset. This mapping is
+        shared by every dataset regardless of ``n_jobs``. Must be provided
+        when any of ``trial_start_offset_samples``,
         ``trial_stop_offset_samples``, or ``window_stride_samples`` is a dict.
+        Multiple descriptions may share a target. In that case, MNE event IDs
+        are distinct from the class targets stored in window metadata.
     preload: bool
         If True, preload the data of the Epochs objects. This is useful to
         reduce disk reading overhead when returning windows in a training
@@ -427,7 +433,8 @@ def create_windows_from_events(
     # If user did not specify mapping, we extract all events from all datasets
     # and map them to increasing integers starting from 0
     infer_mapping = mapping is None
-    mapping = dict() if infer_mapping else mapping
+    if infer_mapping:
+        mapping = _infer_mapping(concat_ds)
     infer_window_size_stride = window_size_samples is None
 
     if drop_bad_windows is not None:
@@ -513,7 +520,7 @@ def create_fixed_length_windows(
         Deprecated; use ``on_last_window`` instead. Explicit ``False`` maps to
         ``'overlap'`` and explicit ``True`` maps to ``'drop'``. Either value
         emits a ``DeprecationWarning`` and this parameter will be removed in
-        version 2.0.
+        version 3.0.
     mapping: dict(str: int)
         Mapping from event description to target value.
     preload: bool
@@ -612,7 +619,9 @@ def create_fixed_length_windows(
             f"Window size {window_size_samples} exceeds trial duration {lengths.min()}."
         )
 
-    list_of_windows_ds = Parallel(n_jobs=n_jobs)(
+    # Threads: each recording costs well under a millisecond, while worker
+    # processes would pickle every raw there and every windowed dataset back.
+    list_of_windows_ds = Parallel(n_jobs=n_jobs, prefer="threads")(
         delayed(_create_fixed_length_windows)(
             ds,
             start_offset_samples,
@@ -636,6 +645,16 @@ def create_fixed_length_windows(
         for ds in concat_ds.datasets
     )
     return BaseConcatDataset(list_of_windows_ds)
+
+
+def _infer_mapping(concat_ds):
+    # built once here so parallel workers do not each start counting from 0
+    mapping: dict[str, int] = dict()
+    for ds in concat_ds.datasets:
+        for event_name in np.unique(ds.raw.annotations.description):
+            if event_name not in mapping:
+                mapping[event_name] = len(mapping)
+    return mapping
 
 
 def _create_windows_from_events(
@@ -666,8 +685,9 @@ def _create_windows_from_events(
     ds : RawDataset
         Dataset containing continuous data and description.
     infer_mapping : bool
-        If True, extract all events from all datasets and map them to
-        increasing integers starting from 0.
+        If True, add the event descriptions of ``ds`` missing from ``mapping``
+        to it with increasing integers. `create_windows_from_events` already
+        fills the mapping from all datasets before calling this function.
     infer_window_size_stride : bool
         If True, infer the stride from the original trial size of the first
         trial and trial_start_offset_samples and trial_stop_offset_samples.
@@ -695,7 +715,14 @@ def _create_windows_from_events(
             }
         )
 
-    events, events_id = mne.events_from_annotations(ds.raw, mapping, verbose=verbose)
+    # MNE requires unique event IDs even when annotations share a training target.
+    event_mapping = mapping
+    if len(set(mapping.values())) < len(mapping):
+        event_mapping = {name: i for i, name in enumerate(mapping)}
+    events, events_id = mne.events_from_annotations(
+        ds.raw, event_mapping, verbose=verbose
+    )
+    targets = {code: mapping[name] for name, code in events_id.items()}
     onsets = events[:, 0]
     ann = ds.raw.annotations
     filtered_annotations = [
@@ -720,25 +747,28 @@ def _create_windows_from_events(
     #     `events_from_annotations`
 
     last_samp = ds.raw.first_samp + ds.raw.n_times - 1
-    # `stops` is used exclusively (i.e. `start:stop`), so add back 1
+    # Check every trial, not only the last one: an earlier, longer trial can
+    # also run past the end. With per-event-type offsets, each trial gets the
+    # offset of its own event type.
     if isinstance(trial_stop_offset_samples, dict):
-        # Check the max offset across all event types
-        max_stop_offset = max(trial_stop_offset_samples.values())
-        if stops[-1] + max_stop_offset > last_samp + 1:
-            raise ValueError(
-                '"trial_stop_offset_samples" too large. Stop of last trial '
-                f'({stops[-1]}) + max "trial_stop_offset_samples" '
-                f"({max_stop_offset}) must be smaller than length of"
-                f" recording ({len(ds)})."
-            )
+        code_to_name = {code: name for name, code in events_id.items()}
+        stop_offsets = np.array(
+            [trial_stop_offset_samples[code_to_name[code]] for code in events[:, 2]],
+            dtype=int,
+        )
     else:
-        if stops[-1] + trial_stop_offset_samples > last_samp + 1:
-            raise ValueError(
-                '"trial_stop_offset_samples" too large. Stop of last trial '
-                f'({stops[-1]}) + "trial_stop_offset_samples" '
-                f"({trial_stop_offset_samples}) must be smaller than length of"
-                f" recording ({len(ds)})."
-            )
+        stop_offsets = np.full(len(stops), trial_stop_offset_samples, dtype=int)
+    # `stops` is used exclusively (i.e. `start:stop`), so add back 1
+    too_late = np.flatnonzero(stops + stop_offsets > last_samp + 1)
+    if len(too_late):
+        i_trial = too_late[0]
+        trial = "last trial" if i_trial == len(stops) - 1 else f"trial {i_trial}"
+        raise ValueError(
+            f'"trial_stop_offset_samples" too large. Stop of {trial} '
+            f'({stops[i_trial]}) + "trial_stop_offset_samples" '
+            f"({stop_offsets[i_trial]}) must be smaller than length of"
+            f" recording ({len(ds)})."
+        )
 
     if isinstance(trial_start_offset_samples, dict):
         # Per-event-type windowing: skip inference, group by event type
@@ -854,6 +884,14 @@ def _create_windows_from_events(
         )
         i_trials = [good_event_indices[i_trial] for i_trial in i_trials]
 
+    # A window starting before the recording would be empty; mne.Epochs
+    # instead drops such windows (``NO_DATA`` in its drop log), as before.
+    if not use_mne_epochs and len(starts) and np.min(starts) < 0:
+        raise ValueError(
+            '"trial_start_offset_samples" too small. A window would start '
+            f"{-np.min(starts)} samples before the start of the recording."
+        )
+
     if (on_overlapping_events != "ignore") and any(np.diff(starts) <= 0):
         msg = "Overlapping trials detected. You can ignore, warn, or raise an error, using the on_overlapping_events argument."
         if on_overlapping_events == "raise":
@@ -880,7 +918,7 @@ def _create_windows_from_events(
             ],
             "i_start_in_trial": starts,
             "i_stop_in_trial": stops,
-            "target": description,
+            "target": [targets[code] for code in description],
         }
     )
     if extras is not None:
@@ -979,16 +1017,17 @@ def _create_fixed_length_windows(
 
     # get targets from dataset description if they exist
     target = -1 if ds.target_name is None else ds.description[ds.target_name]
-    if mapping is not None:
-        # in case of multiple targets
-        if isinstance(target, pd.Series):
+    # in case of multiple targets: a list, as RawDataset returns, which the
+    # DataLoader can collate (a pandas Series cannot)
+    if isinstance(target, pd.Series):
+        target = target.to_list()
+        if mapping is not None:
             # Plain comprehension instead of Series.replace(mapping):
-            # replace() emits a pandas FutureWarning about silent downcasting
-            # and the result is immediately list-ified anyway.
+            # replace() emits a pandas FutureWarning about silent downcasting.
             target = [mapping.get(v, v) for v in target]
-        # in case of single value target
-        else:
-            target = mapping[target]
+    # in case of single value target
+    elif mapping is not None:
+        target = mapping[target]
 
     if lazy_metadata:
         factory = _FixedLengthWindowFunctions(
@@ -1142,8 +1181,6 @@ def _create_windows_from_target_channels(
     window_kwargs = [
         (create_windows_from_target_channels.__name__, _get_windowing_kwargs(locals())),
     ]
-    stop = ds.raw.n_times + ds.raw.first_samp
-
     target = ds.raw.get_data(picks="misc")
 
     # check all misc channels for valid targets, not just the first one.
@@ -1151,7 +1188,7 @@ def _create_windows_from_target_channels(
     # where others are nan. using any() across channels catches all of them.
     has_target = np.any(~np.isnan(target), axis=0)
     stops = np.nonzero(has_target)[0] + 1
-    stops = stops[(stops < stop) & (stops >= window_size_samples)]
+    stops = stops[stops >= window_size_samples]
     stops = stops.astype(int)
     metadata = pd.DataFrame(
         {

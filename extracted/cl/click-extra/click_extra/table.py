@@ -468,17 +468,15 @@ def _render_records(
 def _records_without_none(
     table_data: Sequence[Sequence[str | None]],
     headers: Sequence[str | None] | None,
-    key: Callable[[str], str] = lambda name: name,
 ) -> list[dict[str, str]]:
     """One mapping per row, keyed by header or by position, `None` cells left out.
 
-    The shape of the formats with no null type, TOML and XML. `key` reshapes a
-    header into the name the format accepts.
+    The shape of the formats with no null type, TOML and XML.
     """
     records: list[dict[str, str]] = []
     for row in table_data:
         if headers:
-            pairs = ((key(k), v) for k, v in zip(headers, row) if k is not None)
+            pairs = ((k, v) for k, v in zip(headers, row) if k is not None)
         else:
             pairs = ((str(i), v) for i, v in enumerate(row))
         records.append({k: v for k, v in pairs if v is not None})
@@ -500,12 +498,6 @@ def _render_toml(
     return serialize_content(ConfigFormat.TOML, {RECORD_KEY: records}, **kwargs)
 
 
-def _xml_safe_name(name: str) -> str:
-    """Replace characters invalid in XML element names."""
-    safe = "".join(c if c.isalnum() or c in "_.-" else "_" for c in name)
-    return safe.lstrip("0123456789.-") or "_"
-
-
 def _render_xml(
     table_data: Sequence[Sequence[str | None]],
     headers: Sequence[str | None] | None = None,
@@ -513,9 +505,11 @@ def _render_xml(
 ) -> str:
     """Render a table as XML.
 
-    `None` values are omitted.
+    `None` values are omitted. The positions of a table without headers, and
+    headers like `2024` and `2025`, become distinct element names, as
+    {func}`~click_extra.config.formats.serialize_xml` respells them.
     """
-    records = _records_without_none(table_data, headers, key=_xml_safe_name)
+    records = _records_without_none(table_data, headers)
     return serialize_content(
         ConfigFormat.XML, {XML_ROOT_KEY: {RECORD_KEY: records}}, **kwargs
     )

@@ -8,6 +8,7 @@ import shutil
 import time
 
 from probe.foundation.durable.durable import file_lock
+from probe.sdk.delivery.status_fields import StatusField
 
 
 def _inline_hash_max() -> int:
@@ -128,7 +129,7 @@ class HeadroomMixin:
         """Re-seed `_pending_estimate` from status.json. One small file read."""
         status = self.read_status(self.dir, include_receipts=False) or {}
         try:
-            pending = int(status.get("pending") or 0)
+            pending = int(status.get(StatusField.PENDING) or 0)
         except (TypeError, ValueError):
             pending = 0
         self._pending_estimate = pending
@@ -262,7 +263,7 @@ class HeadroomMixin:
             sibling = self.dir.parent if self.receipt_enabled else self.dir / DELIVERY_NAMESPACE
             other = self.read_status(sibling, include_receipts=False) or {}
             try:
-                self._sibling_pending = int(other.get("pending") or 0)
+                self._sibling_pending = int(other.get(StatusField.PENDING) or 0)
             except (TypeError, ValueError):
                 self._sibling_pending = 0
         return self._sibling_pending

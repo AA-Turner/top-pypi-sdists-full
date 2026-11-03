@@ -40,6 +40,10 @@
  *   then handles in the reduced dimension.
  * DAQP_EQ_PATH_LP: For an LP, W = Z and the linear term is Z'f.
  *
+ * A factored Hessian H = R'R (problem_type 2, R upper triangular and packed by
+ * rows) is only used through R, with Z'HZ = (RZ)'(RZ). The reduced problem is
+ * then posed with an unfactored Hessian.
+ *
  * Only the right-hand side (xp and the shifted bounds) depends on b and f, so
  * that an update of those does not redo the factorizations.
  */
@@ -58,28 +62,32 @@ static void eq_reflect(const c_float* v, const c_float tau, const int k, const i
     for(i = k+1; i < n; i++) y[i] -= w*v[i];
 }
 
+// eq_reflect for the four vectors c0..c3, in one pass over v
+static inline void eq_reflect4(const c_float* v, const c_float tau, const int k, const int n,
+        c_float* c0, c_float* c1, c_float* c2, c_float* c3){
+    int i;
+    c_float w0 = c0[k], w1 = c1[k], w2 = c2[k], w3 = c3[k];
+    for(i = k+1; i < n; i++){
+        const c_float vi = v[i];
+        w0 += vi*c0[i]; w1 += vi*c1[i]; w2 += vi*c2[i]; w3 += vi*c3[i];
+    }
+    w0 *= tau; w1 *= tau; w2 *= tau; w3 *= tau;
+    c0[k] -= w0; c1[k] -= w1; c2[k] -= w2; c3[k] -= w3;
+    for(i = k+1; i < n; i++){
+        const c_float vi = v[i];
+        c0[i] -= w0*vi; c1[i] -= w1*vi; c2[i] -= w2*vi; c3[i] -= w3*vi;
+    }
+}
+
 // Y <-- Q'Y for cnt vectors of length n (stride ld) with the reflectors
 // 0..nr-1, four vectors per pass over a reflector
 static DAQP_NOINLINE void eq_apply_QT_many(const c_float* V, const c_float* tau,
         const int nr, const int n, c_float* Y, const int cnt, const size_t ld){
-    int i, j, k;
+    int j, k;
     for(j = 0; j+3 < cnt; j += 4){
         c_float *c0 = Y+j*ld, *c1 = c0+ld, *c2 = c1+ld, *c3 = c2+ld;
-        for(k = 0; k < nr; k++){
-            const c_float* v = V+(size_t)k*n;
-            const c_float tk = tau[k];
-            c_float w0 = c0[k], w1 = c1[k], w2 = c2[k], w3 = c3[k];
-            for(i = k+1; i < n; i++){
-                const c_float vi = v[i];
-                w0 += vi*c0[i]; w1 += vi*c1[i]; w2 += vi*c2[i]; w3 += vi*c3[i];
-            }
-            w0 *= tk; w1 *= tk; w2 *= tk; w3 *= tk;
-            c0[k] -= w0; c1[k] -= w1; c2[k] -= w2; c3[k] -= w3;
-            for(i = k+1; i < n; i++){
-                const c_float vi = v[i];
-                c0[i] -= w0*vi; c1[i] -= w1*vi; c2[i] -= w2*vi; c3[i] -= w3*vi;
-            }
-        }
+        for(k = 0; k < nr; k++)
+            eq_reflect4(V+(size_t)k*n,tau[k],k,n,c0,c1,c2,c3);
     }
     for(; j < cnt; j++)
         for(k = 0; k < nr; k++) eq_reflect(V+(size_t)k*n,tau[k],k,n,Y+j*ld);
@@ -98,17 +106,7 @@ static DAQP_NOINLINE void eq_accumulate_Z(c_float* V, const c_float* tau, const 
         const c_float tk = tau[k];
         for(j = nr; j+3 < n; j += 4){
             c_float *c0 = V+(size_t)j*n, *c1 = c0+n, *c2 = c1+n, *c3 = c2+n;
-            c_float w0 = c0[k], w1 = c1[k], w2 = c2[k], w3 = c3[k];
-            for(i = k+1; i < n; i++){
-                const c_float vi = v[i];
-                w0 += vi*c0[i]; w1 += vi*c1[i]; w2 += vi*c2[i]; w3 += vi*c3[i];
-            }
-            w0 *= tk; w1 *= tk; w2 *= tk; w3 *= tk;
-            c0[k] -= w0; c1[k] -= w1; c2[k] -= w2; c3[k] -= w3;
-            for(i = k+1; i < n; i++){
-                const c_float vi = v[i];
-                c0[i] -= w0*vi; c1[i] -= w1*vi; c2[i] -= w2*vi; c3[i] -= w3*vi;
-            }
+            eq_reflect4(v,tk,k,n,c0,c1,c2,c3);
         }
         for(; j < n; j++) eq_reflect(v,tk,k,n,V+(size_t)j*n);
     }
@@ -311,16 +309,48 @@ static c_float eq_dot(const c_float* a, const c_float* b, const int n){
     return s;
 }
 
-// y <-- H x (dense or diagonal H, which is known to be diagonal if metric)
+// Y = R X for an upper triangular R (packed by rows) and cnt columns of length
+// n (column j at X+j*n)
+static void eq_triu_times(const c_float* R, const int n, const c_float* X,
+        const int cnt, c_float* Y){
+    int i, j;
+    for(j = 0; j < cnt; j++)
+        for(i = 0; i < n; i++)
+            Y[(size_t)j*n+i] = eq_dot(R+DAQP_R_OFFSET(i,n)+i,X+(size_t)j*n+i,n-i);
+}
+
+// H_ii of a diagonal Hessian (R_ii^2 for a factored H = R'R)
+static c_float eq_hess_diag(const DAQPProblem* qp, const int i){
+    const int n = qp->n;
+    if(qp->problem_type == 2){
+        const c_float r = qp->H[DAQP_R_OFFSET(i,n)+i];
+        return r*r;
+    }
+    return qp->H[(size_t)i*n+i];
+}
+
+// y <-- H x (dense, factored, or diagonal H, which is known to be diagonal if metric)
 static void eq_hess_times(const DAQPProblem* qp, const int metric, const c_float* x, c_float* y){
-    int i;
+    int i, j;
     const int n = qp->n;
     if(qp->H == NULL){
         for(i = 0; i < n; i++) y[i] = 0;
         return;
     }
     if(metric){
-        for(i = 0; i < n; i++) y[i] = qp->H[(size_t)i*n+i]*x[i];
+        for(i = 0; i < n; i++) y[i] = eq_hess_diag(qp,i)*x[i];
+        return;
+    }
+    if(qp->problem_type == 2){
+        // y = R x, then y <-- R'y from the last row of R up (row i of R only
+        // changes the entries >= i, and y_i is used before it is changed)
+        eq_triu_times(qp->H,n,x,1,y);
+        for(i = n-1; i >= 0; i--){
+            const c_float* Ri = qp->H+DAQP_R_OFFSET(i,n);
+            const c_float yi = y[i];
+            y[i] = Ri[i]*yi;
+            for(j = i+1; j < n; j++) y[j] += Ri[j]*yi;
+        }
         return;
     }
     for(i = 0; i < n; i++) y[i] = eq_dot(qp->H+(size_t)i*n,x,n);
@@ -333,7 +363,7 @@ static void eq_hess_times(const DAQPProblem* qp, const int metric, const c_float
 // Whether the general constraint i is an equality constraint that can be
 // eliminated (the same criteria as daqp_check_bounds for equal bounds)
 static int eq_is_candidate(const DAQPWorkspace* work, const DAQPProblem* qp, const int i){
-    const int s = work->sense[i];
+    const int s = DAQP_ZERO_ROW_SENSE(work->sense[i]);
     if(s & (DAQP_SOFT+DAQP_BINARY)) return 0;
     if(qp->bupper[i] - qp->blower[i] < work->settings->zero_tol) return 1;
     if(s & DAQP_AUTO_EQUALITY) return 0; // Its bounds are no longer equal
@@ -351,6 +381,14 @@ static int eq_is_diagonal(const DAQPProblem* qp, const c_float zero_tol){
     int i, j;
     const int n = qp->n;
     if(qp->H == NULL) return 0;
+    if(qp->problem_type == 2){ // R diagonal (as in daqp_update_R)
+        for(i = 0; i < n; i++){
+            const c_float* Ri = qp->H+DAQP_R_OFFSET(i,n);
+            for(j = i+1; j < n; j++)
+                if(Ri[j] > zero_tol || Ri[j] < -zero_tol) return 0;
+        }
+        return 1;
+    }
     for(i = 0; i < n; i++)
         for(j = 0; j < n; j++)
             if(i != j && (qp->H[(size_t)i*n+j] > zero_tol || qp->H[(size_t)i*n+j] < -zero_tol))
@@ -381,9 +419,10 @@ int daqp_eq_wanted(const DAQPWorkspace* work, const DAQPProblem* qp, const int m
     if(policy == DAQP_EQ_REDUCTION_OFF) return 0;
     if(policy != DAQP_EQ_REDUCTION_ON && !(mask&DAQP_UPDATE_eliminate)) return 0;
     if(qp->A == NULL || qp->m <= qp->ms || work->sense == NULL) return 0;
-    // A hierarchy refers to the constraints by their index, and a factored
-    // Hessian (problem_type 2) is not available as a Hessian
-    if(qp->nh > 1 || DAQP_IS_HIERARCHICAL(work) || qp->problem_type == 2) return 0;
+    // A hierarchy refers to the constraints by their index
+    if(qp->nh > 1 || DAQP_IS_HIERARCHICAL(work)) return 0;
+    // BnB with a singular Hessian is solved in full (see daqp_eq_update)
+    if(work->bnb != NULL && work->n_prox > 0) return 0;
     n_eq = eq_count_candidates(work,qp);
     if(n_eq == 0) return 0;
     if(policy == DAQP_EQ_REDUCTION_ON) return 1;
@@ -612,6 +651,7 @@ static int eq_build_reduction(DAQPWorkspace* work, DAQPProblem* qp){
     const c_float zero_tol = work->settings->zero_tol;
     int i, j, k, c, neq, nz, mI = 0, mtot, mr, nb = 0;
     int use_twoside = 0, use_refl = 0, symmetric = 1, split = 0, nc = 0;
+    const int factored = qp->H != NULL && qp->problem_type == 2;
     int *gen_ids, *cid = NULL;
     c_float* L = NULL;
     const c_float* Z;
@@ -630,13 +670,13 @@ static int eq_build_reduction(DAQPWorkspace* work, DAQPProblem* qp){
     eq->metric = 0;
     if(qp->H != NULL && eq_is_diagonal(qp,zero_tol)){
         c_float scale = 0;
-        for(i = 0; i < n; i++) if(qp->H[(size_t)i*n+i] > scale) scale = qp->H[(size_t)i*n+i];
+        for(i = 0; i < n; i++) if(eq_hess_diag(qp,i) > scale) scale = eq_hess_diag(qp,i);
         eq->metric = scale > 0;
         for(i = 0; i < n && eq->metric; i++)
-            if(qp->H[(size_t)i*n+i] <= zero_tol*scale) eq->metric = 0;
+            if(eq_hess_diag(qp,i) <= zero_tol*scale) eq->metric = 0;
         if(eq->metric){
             if(eq->dsq == NULL) eq->dsq = malloc(n*sizeof(c_float));
-            for(i = 0; i < n; i++) eq->dsq[i] = 1/sqrt(qp->H[(size_t)i*n+i]);
+            for(i = 0; i < n; i++) eq->dsq[i] = 1/sqrt(eq_hess_diag(qp,i));
         }
     }
     if(qp->H != NULL && !eq->metric && qp->problem_type == 1)
@@ -664,7 +704,7 @@ static int eq_build_reduction(DAQPWorkspace* work, DAQPProblem* qp){
         eq->ndrop = 0;
         for(c = 0; c < ms+mI; c++){
             const int id = (c < ms) ? c : gen_ids[c-ms];
-            if(DAQP_IS_SOFT(id)){ free(gen_ids); return 0; }
+            if(DAQP_ZERO_ROW_SENSE(work->sense[id]) & DAQP_SOFT){ free(gen_ids); return 0; }
             eq->drop_ids[eq->ndrop++] = id;
         }
         free(gen_ids);
@@ -676,7 +716,7 @@ static int eq_build_reduction(DAQPWorkspace* work, DAQPProblem* qp){
         memset(&eq->qp,0,sizeof(DAQPProblem));
         eq->qp.sense = eq->sr;
         eq->qp.nh = 1;
-        eq->qp.problem_type = qp->problem_type;
+        eq->qp.problem_type = factored ? 0 : qp->problem_type;
         eq_allocate_reduced_ldp(eq,0);
         return 1;
     }
@@ -685,7 +725,7 @@ static int eq_build_reduction(DAQPWorkspace* work, DAQPProblem* qp){
      * Pick the kernels by their flop counts (multiply-adds). The two-sided
      * Householder product is memory bound, so its count is weighted.
      */
-    if(qp->H != NULL && !eq->metric && symmetric){
+    if(qp->H != NULL && !eq->metric && symmetric && !factored){
         const c_float N = n, NZ = nz;
         const c_float f_gemm = N*N*NZ + N*NZ*NZ/2;
         const c_float f_two = 2.0/3.0*(N*N*N-NZ*NZ*NZ);
@@ -702,7 +742,7 @@ static int eq_build_reduction(DAQPWorkspace* work, DAQPProblem* qp){
     Z = eq->V+(size_t)neq*n; // Column j of Z at Z+j*n
 
     // Variables with curvature (nonzero rows of H), for eq_split_flat
-    if(qp->H != NULL && !eq->metric && symmetric){
+    if(qp->H != NULL && !eq->metric && symmetric && !factored){
         cid = malloc(n*sizeof(int));
         for(i = 0; i < n; i++){
             const c_float* Hi = qp->H+(size_t)i*n;
@@ -710,6 +750,12 @@ static int eq_build_reduction(DAQPWorkspace* work, DAQPProblem* qp){
             if(j < n) cid[nc++] = i;
         }
         split = nc < nz; // Then some null directions have no curvature
+    }
+    else if(factored){ // Row i of H = R'R is zero iff column i of R is
+        for(j = 0; j < n; j++){
+            for(i = 0; i <= j; i++) if(qp->H[DAQP_R_OFFSET(i,n)+j] != 0) break;
+            if(i <= j) nc++;
+        }
     }
 
     // The reduced Hessian, and how the reduced problem is posed
@@ -719,7 +765,13 @@ static int eq_build_reduction(DAQPWorkspace* work, DAQPProblem* qp){
     else if(eq->metric) eq->path = DAQP_EQ_PATH_LDP;
     else{
         eq->Hr = malloc((size_t)nz*nz*sizeof(c_float));
-        if(split){
+        if(factored){
+            c_float* RZ = malloc((size_t)n*nz*sizeof(c_float)); // Column j = R z_j
+            eq_triu_times(qp->H,n,Z,nz,RZ);
+            eq_gemm_tn(n,nz,nz,RZ,n,RZ,n,eq->Hr,nz,1); // Z'HZ = (RZ)'(RZ)
+            free(RZ);
+        }
+        else if(split){
             eq_split_flat(qp,(c_float*)Z,n,nz,cid,nc,zero_tol,eq->Hr);
             use_refl = 0; // The rows (A Q)_2 refer to the unsplit Z
         }
@@ -818,7 +870,7 @@ form_W:
         const int id = (c < ms) ? c : gen_ids[c-ms];
         const c_float* row = eq->Ar+(size_t)c*nz;
         if(eq_dot(row,row,nz) <= zero_tol){
-            if(DAQP_IS_SOFT(id)){ free(gen_ids); return 0; }
+            if(DAQP_ZERO_ROW_SENSE(work->sense[id]) & DAQP_SOFT){ free(gen_ids); return 0; }
             eq->drop_ids[eq->ndrop++] = id;
             continue;
         }
@@ -842,7 +894,7 @@ form_W:
     eq->qp.blower = eq->blr;
     eq->qp.sense = eq->sr;
     eq->qp.nh = 1;
-    eq->qp.problem_type = qp->problem_type;
+    eq->qp.problem_type = factored ? 0 : qp->problem_type; // Z'HZ is not factored
 
     eq_allocate_reduced_ldp(eq,nb);
     return 1;
@@ -1009,7 +1061,9 @@ static int eq_reduce_rhs(DAQPWorkspace* work, DAQPProblem* qp, const int warm){
     for(c = 0; c < eq->ndrop; c++){
         const int id = eq->drop_ids[c];
         const c_float val = (id < ms) ? eq->xp[id] : eq_dot(qp->A+(size_t)(id-ms)*n,eq->xp,n);
-        if(qp->bupper[id]-val < -primal_tol || qp->blower[id]-val > primal_tol){
+        if(qp->bupper[id]-val < -primal_tol || qp->blower[id]-val > primal_tol ||
+                ((work->sense[id] & DAQP_BINARY) &&
+                 qp->bupper[id]-val > primal_tol && val-qp->blower[id] > primal_tol)){
             // An inconsistent dependent equality is reported the same way as
             // when it is detected while forming the working set
             return eq_is_candidate(work,qp,id) ? DAQP_EXIT_OVERDETERMINED_INITIAL
@@ -1148,6 +1202,16 @@ int daqp_eq_update(DAQPWorkspace* work, DAQPProblem* qp, int mask,
 
     daqp_eq_install(work);
     flag = update_ldp(mask_r,work,&eq->qp);
+    // BnB regularizes a singular Hessian relative to the simple bounds, which
+    // the reduced problem lacks (they are general constraints there), so the
+    // full problem is regularized instead
+    if(flag >= 0 && work->bnb != NULL && work->n_prox > 0){
+        daqp_eq_restore(work);
+        daqp_eq_deactivate(work);
+        // The reduced factorization changed prox_mask (which is not swapped)
+        work->state |= DAQP_UPDATE_Rinv+DAQP_UPDATE_M+DAQP_UPDATE_v+DAQP_UPDATE_d;
+        return DAQP_EQ_NOT_REDUCED;
+    }
     // A singular reduced Hessian needs v for the proximal linear term (as in
     // setup_daqp_ldp)
     if(flag >= 0 && work->n_prox > 0 && work->v == NULL && work->qp->H != NULL)
@@ -1215,24 +1279,27 @@ void daqp_eq_expand(DAQPResult* res, DAQPWorkspace* work){
     for(i = 0; i < eq->n; i++) x[i] = eq->xp[i]+eq_dot(eq->W+(size_t)i*eq->nz,work->x,eq->nz);
     if(res->x != NULL) for(i = 0; i < eq->n; i++) res->x[i] = x[i];
 
-    // Objective function value (the reduced problem of PATH_LDP has no linear
-    // term, in which case daqp_extract_result leaves fval to be formed here)
-    fval_r = res->fval;
-    if(eq->path == DAQP_EQ_PATH_LDP && work->v == NULL) fval_r = 0.5*work->fval;
-    res->fval = fval_r + eq->fp;
-    if(work->avi != NULL && !work->avi->is_symmetric && qp->f != NULL)
-        res->fval = eq_dot(qp->f,x,eq->n); // As daqp_extract_result for an AVI
+    // As in daqp_extract_result, only when a solution has been found
+    if(res->exitflag > 0){
+        // Objective function value (the reduced problem of PATH_LDP has no linear
+        // term, in which case daqp_extract_result leaves fval to be formed here)
+        fval_r = res->fval;
+        if(eq->path == DAQP_EQ_PATH_LDP && work->v == NULL) fval_r = 0.5*work->fval;
+        res->fval = fval_r + eq->fp;
+        if(work->avi != NULL && !work->avi->is_symmetric && qp->f != NULL)
+            res->fval = eq_dot(qp->f,x,eq->n); // As daqp_extract_result for an AVI
 
-    // Multipliers of the original constraints (keep is ascending, so they can
-    // be scattered in place from the end)
-    if(res->lam != NULL && !DAQP_IS_HIERARCHICAL(work)){
-        for(i = eq->m-1; i >= eq->mr; i--) res->lam[i] = 0;
-        for(c = eq->mr-1; c >= 0; c--){
-            const c_float l = res->lam[c];
-            res->lam[c] = 0;
-            res->lam[eq->keep[c]] = l;
+        // Multipliers of the original constraints (keep is ascending, so they can
+        // be scattered in place from the end)
+        if(res->lam != NULL && !DAQP_IS_HIERARCHICAL(work)){
+            for(i = eq->m-1; i >= eq->mr; i--) res->lam[i] = 0;
+            for(c = eq->mr-1; c >= 0; c--){
+                const c_float l = res->lam[c];
+                res->lam[c] = 0;
+                res->lam[eq->keep[c]] = l;
+            }
+            eq_compute_lam_eq(work,qp,x,res->lam);
         }
-        eq_compute_lam_eq(work,qp,x,res->lam);
     }
 
     // Carry the working set over to the original constraints

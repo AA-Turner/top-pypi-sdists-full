@@ -272,6 +272,9 @@ def _lease_beat(
         body["attached"] = True
     if handle is not None:
         body.update(handle._progress.snapshot())
+    delivery = _delivery_body(client, run_id)
+    if delivery:
+        body["delivery"] = delivery
     resp = client.beat_writer(run_id, lease["session_id"], body)
     if handle is not None:
         handle._note_lease_answer(resp)
@@ -301,6 +304,11 @@ def _beat_once(
     def beat() -> Any:
         if lease is not None:
             return _lease_beat(client, run_id, lease, write_epoch, handle_ref, attached=attached)
+        delivery = _delivery_body(client, run_id) if role == "owner" else None
+        if delivery:
+            return client.heartbeat_run(
+                run_id, role=role, attached=attached, write_epoch=write_epoch, delivery=delivery
+            )
         return client.heartbeat_run(run_id, role=role, attached=attached, write_epoch=write_epoch)
 
     try:
@@ -316,6 +324,19 @@ def _beat_once(
         ):
             raise
         return beat()
+
+
+def _delivery_body(client: "Client", run_id: str) -> dict | None:
+    """This run's backlog for the beat (R13), from the worker's progress records; only a client
+    whose writes the worker sends. Never raises: a beat goes without it."""
+    if not getattr(client, "_default_transport", False):
+        return None
+    try:
+        from ...delivery.outbox.waiter.scan import delivery_summary
+
+        return delivery_summary(client.journal, run_id)
+    except Exception:  # noqa: BLE001 -- liveness first, the backlog is a hint
+        return None
 
 
 class HeartbeatMixin:

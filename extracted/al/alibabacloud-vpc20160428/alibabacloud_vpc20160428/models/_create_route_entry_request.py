@@ -27,9 +27,9 @@ class CreateRouteEntryRequest(DaraModel):
     ):
         # The client token that is used to ensure the idempotence of the request.
         # 
-        # Generate a parameter value from your client. Make sure that the value is unique among different requests. The ClientToken value can contain only ASCII characters.
+        # You can use the client to generate the token, but you must make sure that the token is unique among different requests. The ClientToken value can contain only ASCII characters.
         # 
-        # > If you do not specify this parameter, the system uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may be different for each API request.
+        # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may be different for each API request.
         self.client_token = client_token
         # The description of the custom route entry.
         # 
@@ -44,7 +44,7 @@ class CreateRouteEntryRequest(DaraModel):
         # This parameter is required.
         self.destination_cidr_block = destination_cidr_block
         # Specifies whether to perform a dry run. Valid values:
-        # - **true**: performs a dry run without creating the route entry. The system checks required parameters, request format, and service limits. If the check fails, the corresponding error is returned. If the check succeeds, the `DryRunOperation` error code is returned.
+        # - **true**: performs a dry run without creating the route entry. The system checks the required parameters, request format, and service limits. If the check fails, the corresponding error is returned. If the check succeeds, the `DryRunOperation` error code is returned.
         # - **false** (default): sends the request. After the request passes the check, an HTTP 2xx status code is returned and the operation is performed.
         self.dry_run = dry_run
         # The ID of the next hop instance of the custom route entry.
@@ -53,7 +53,7 @@ class CreateRouteEntryRequest(DaraModel):
         self.next_hop_id = next_hop_id
         # The information about the next hop.
         self.next_hop_list = next_hop_list
-        # The type of next hop for the custom route entry. Valid values: 
+        # The type of the next hop of the custom route entry. Valid values: 
         # 
         # - **Instance** (default): ECS instance.
         # 
@@ -210,9 +210,9 @@ class CreateRouteEntryRequestNextHopList(DaraModel):
     ):
         # The ID of the next hop instance of the ECMP route.
         self.next_hop_id = next_hop_id
-        # The type of next hop for the ECMP route. Set the value to **RouterInterface** (router interface).
+        # The type of the next hop of the ECMP route. Set the value to **RouterInterface** (router interface).
         self.next_hop_type = next_hop_type
-        # The weight of the next hop for the ECMP route.
+        # The weight of the next hop of the ECMP route.
         self.weight = weight
 
     def validate(self):

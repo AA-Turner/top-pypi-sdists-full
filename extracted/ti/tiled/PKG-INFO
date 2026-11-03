@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tiled
-Version: 0.2.20
+Version: 0.2.21
 Summary: Structured Scientific Data Access Service
 Project-URL: Homepage, https://github.com/bluesky/tiled
 Project-URL: Documentation, https://blueskyproject.io/tiled
@@ -11,13 +11,13 @@ License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Physics
-Requires-Python: >=3.10
-Requires-Dist: httpx!=0.23.1,>=0.20.0
+Requires-Python: >=3.11
+Requires-Dist: httpx2>=2.0.0
 Requires-Dist: json-merge-patch
 Requires-Dist: jsonpatch
 Requires-Dist: jsonschema
@@ -61,6 +61,13 @@ Requires-Dist: numcodecs; extra == 'all'
 Requires-Dist: numpy; extra == 'all'
 Requires-Dist: obstore; extra == 'all'
 Requires-Dist: openpyxl; extra == 'all'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-asyncpg; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-dbapi; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-fastapi; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-httpx>=0.65b0; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-redis; extra == 'all'
+Requires-Dist: opentelemetry-sdk; extra == 'all'
 Requires-Dist: packaging; extra == 'all'
 Requires-Dist: pandas<3; extra == 'all'
 Requires-Dist: pillow; extra == 'all'
@@ -73,7 +80,7 @@ Requires-Dist: ragged; extra == 'all'
 Requires-Dist: redis; extra == 'all'
 Requires-Dist: rich; extra == 'all'
 Requires-Dist: sparse>=0.15.5; extra == 'all'
-Requires-Dist: sqlalchemy[asyncio]<2.1,>=2; extra == 'all'
+Requires-Dist: sqlalchemy[asyncio]>=2; extra == 'all'
 Requires-Dist: stamina; extra == 'all'
 Requires-Dist: starlette>=0.48.0; extra == 'all'
 Requires-Dist: strawberry-graphql[fastapi]>=0.315.3; extra == 'all'
@@ -88,7 +95,7 @@ Requires-Dist: dask[array]; extra == 'array'
 Requires-Dist: numpy; extra == 'array'
 Provides-Extra: client
 Requires-Dist: awkward>=2.4.3; extra == 'client'
-Requires-Dist: blosc2; (python_version >= '3.10') and extra == 'client'
+Requires-Dist: blosc2; extra == 'client'
 Requires-Dist: dask[array]; extra == 'client'
 Requires-Dist: dask[dataframe]; extra == 'client'
 Requires-Dist: entrypoints; extra == 'client'
@@ -107,7 +114,7 @@ Requires-Dist: websockets; extra == 'client'
 Requires-Dist: xarray; extra == 'client'
 Requires-Dist: zstandard; extra == 'client'
 Provides-Extra: compression
-Requires-Dist: blosc2; (python_version >= '3.10') and extra == 'compression'
+Requires-Dist: blosc2; extra == 'compression'
 Requires-Dist: lz4; extra == 'compression'
 Requires-Dist: zstandard; extra == 'compression'
 Provides-Extra: dataframe
@@ -146,7 +153,7 @@ Requires-Dist: pyjwt[crypto]>=2.15.1; extra == 'minimal-server'
 Requires-Dist: python-dateutil; extra == 'minimal-server'
 Requires-Dist: python-multipart; extra == 'minimal-server'
 Requires-Dist: redis; extra == 'minimal-server'
-Requires-Dist: sqlalchemy[asyncio]<2.1,>=2; extra == 'minimal-server'
+Requires-Dist: sqlalchemy[asyncio]>=2; extra == 'minimal-server'
 Requires-Dist: starlette>=0.48.0; extra == 'minimal-server'
 Requires-Dist: uvicorn[standard]; extra == 'minimal-server'
 Requires-Dist: zarr; extra == 'minimal-server'
@@ -161,7 +168,7 @@ Requires-Dist: anyio; extra == 'server'
 Requires-Dist: asgi-correlation-id; extra == 'server'
 Requires-Dist: asyncpg>=0.28; extra == 'server'
 Requires-Dist: awkward>=2.4.3; extra == 'server'
-Requires-Dist: blosc2; (python_version >= '3.10') and extra == 'server'
+Requires-Dist: blosc2; extra == 'server'
 Requires-Dist: cachetools; extra == 'server'
 Requires-Dist: canonicaljson; extra == 'server'
 Requires-Dist: dask; extra == 'server'
@@ -183,6 +190,13 @@ Requires-Dist: numcodecs; extra == 'server'
 Requires-Dist: numpy; extra == 'server'
 Requires-Dist: obstore; extra == 'server'
 Requires-Dist: openpyxl; extra == 'server'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == 'server'
+Requires-Dist: opentelemetry-instrumentation-asyncpg; extra == 'server'
+Requires-Dist: opentelemetry-instrumentation-dbapi; extra == 'server'
+Requires-Dist: opentelemetry-instrumentation-fastapi; extra == 'server'
+Requires-Dist: opentelemetry-instrumentation-httpx>=0.65b0; extra == 'server'
+Requires-Dist: opentelemetry-instrumentation-redis; extra == 'server'
+Requires-Dist: opentelemetry-sdk; extra == 'server'
 Requires-Dist: packaging; extra == 'server'
 Requires-Dist: pandas; extra == 'server'
 Requires-Dist: pillow; extra == 'server'
@@ -194,7 +208,7 @@ Requires-Dist: python-multipart; extra == 'server'
 Requires-Dist: ragged; extra == 'server'
 Requires-Dist: redis; extra == 'server'
 Requires-Dist: sparse>=0.15.5; extra == 'server'
-Requires-Dist: sqlalchemy[asyncio]<2.1,>=2; extra == 'server'
+Requires-Dist: sqlalchemy[asyncio]>=2; extra == 'server'
 Requires-Dist: stamina; extra == 'server'
 Requires-Dist: starlette>=0.48.0; extra == 'server'
 Requires-Dist: strawberry-graphql[fastapi]>=0.315.3; extra == 'server'

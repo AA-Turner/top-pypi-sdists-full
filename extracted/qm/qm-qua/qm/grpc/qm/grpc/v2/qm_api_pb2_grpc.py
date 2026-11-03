@@ -76,6 +76,11 @@ class QmServiceStub(object):
                 request_serializer=deterministic_serialize_wrapper(qm_dot_grpc_dot_v2_dot_qm__api__pb2.ResetDigitalFiltersRequest.SerializeToString),
                 response_deserializer=qm_dot_grpc_dot_v2_dot_qm__api__pb2.ResetDigitalFiltersResponse.FromString,
                 )
+        self.GetMaxFullScalePowerDbm = channel.unary_unary(
+                '/qm.grpc.v2.QmService/GetMaxFullScalePowerDbm',
+                request_serializer=deterministic_serialize_wrapper(qm_dot_grpc_dot_v2_dot_qm__api__pb2.GetMaxFullScalePowerDbmRequest.SerializeToString),
+                response_deserializer=qm_dot_grpc_dot_v2_dot_qm__api__pb2.GetMaxFullScalePowerDbmResponse.FromString,
+                )
 
 
 class QmServiceServicer(object):
@@ -147,6 +152,12 @@ class QmServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetMaxFullScalePowerDbm(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_QmServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -204,6 +215,11 @@ def add_QmServiceServicer_to_server(servicer, server):
                     servicer.ResetDigitalFilters,
                     request_deserializer=qm_dot_grpc_dot_v2_dot_qm__api__pb2.ResetDigitalFiltersRequest.FromString,
                     response_serializer=qm_dot_grpc_dot_v2_dot_qm__api__pb2.ResetDigitalFiltersResponse.SerializeToString,
+            ),
+            'GetMaxFullScalePowerDbm': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetMaxFullScalePowerDbm,
+                    request_deserializer=qm_dot_grpc_dot_v2_dot_qm__api__pb2.GetMaxFullScalePowerDbmRequest.FromString,
+                    response_serializer=qm_dot_grpc_dot_v2_dot_qm__api__pb2.GetMaxFullScalePowerDbmResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -399,5 +415,22 @@ class QmService(object):
         return grpc.experimental.unary_unary(request, target, '/qm.grpc.v2.QmService/ResetDigitalFilters',
             qm_dot_grpc_dot_v2_dot_qm__api__pb2.ResetDigitalFiltersRequest.SerializeToString,
             qm_dot_grpc_dot_v2_dot_qm__api__pb2.ResetDigitalFiltersResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetMaxFullScalePowerDbm(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/qm.grpc.v2.QmService/GetMaxFullScalePowerDbm',
+            qm_dot_grpc_dot_v2_dot_qm__api__pb2.GetMaxFullScalePowerDbmRequest.SerializeToString,
+            qm_dot_grpc_dot_v2_dot_qm__api__pb2.GetMaxFullScalePowerDbmResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

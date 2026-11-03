@@ -228,7 +228,8 @@ class UploadQueueMixin:
         removed = 0
         with file_lock(self.append_lock):
             referenced: set[str] = set()
-            for _, op in self.pending() + self.failed():
+            # held/: a write set aside after its run stalled keeps its bytes (outbox/held, R9).
+            for _, op in self.pending() + self.failed() + self._read_dir(self.dir / "held"):
                 upload = op.get("upload") or {}
                 if upload.get("staged"):
                     # BOTH possible names stay referenced: mid-drain, an op whose digest was just

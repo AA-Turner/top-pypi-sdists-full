@@ -11,6 +11,7 @@ class DataType(str, enum.Enum):
     JSON = "JSON"
     HASH = "HASH"
     STRING = "STRING"
+    STREAM = "STREAM"
 
 
 class FieldType(str, enum.Enum):
@@ -22,6 +23,8 @@ class FieldType(str, enum.Enum):
     DATE = "DATE"
     KEYWORD = "KEYWORD"
     FACET = "FACET"
+    # A TEXT field that is also embedded for semantic search with the $ann retriever.
+    HYBRID = "HYBRID"
 
 
 class FieldOptions(TypedDict, total=False):
@@ -31,6 +34,7 @@ class FieldOptions(TypedDict, total=False):
     fast: bool
     no_tokenize: bool
     no_stem: bool
+    # Read the value from this document field (or nested path) instead of the schema key.
     alias: str
 
 

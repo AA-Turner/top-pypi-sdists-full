@@ -1,10 +1,8 @@
 """API endpoints."""
 
-from . import check_access, get_authz_enums, list_grants, search_resources
+from . import check_access, list_grants
 
 __all__ = [
     "check_access",
-    "get_authz_enums",
     "list_grants",
-    "search_resources",
 ]

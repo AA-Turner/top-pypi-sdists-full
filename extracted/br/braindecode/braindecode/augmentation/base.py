@@ -9,10 +9,11 @@
 from numbers import Real
 from typing import Any, Callable, Optional, Union
 
+import numpy as np
 import torch
 from sklearn.utils import check_random_state
 from torch import Tensor, nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, get_worker_info
 from torch.utils.data._utils.collate import default_collate
 
 from .functional import identity
@@ -171,7 +172,13 @@ class Compose(Transform):
         self.transforms = transforms
         super().__init__()
 
-    def forward(self, X, y):
+    def forward(self, X, y=None):
+        # like Transform.forward, return only X when no target is given (each
+        # transform then returns a single tensor, not an (X, y) pair)
+        if y is None:
+            for transform in self.transforms:
+                X = transform(X)
+            return X
         for transform in self.transforms:
             X, y = transform(X, y)
         return X, y
@@ -183,6 +190,59 @@ def _as_mixed_target(y, lam_dtype):
         return tuple(y)
     lam = torch.ones(y.shape[0], device=y.device, dtype=lam_dtype)
     return y, y, lam
+
+
+def _transform_rngs(transform):
+    """Return the ``RandomState`` objects of a transform, in a fixed order.
+
+    Walks the transform, its submodules and the ``transforms`` of a
+    :class:`Compose`, and lists each ``rng`` once (pooled transforms of
+    :class:`braindecode.augmentation.TrivialAugment` share theirs). The global
+    numpy generator, used with ``random_state=None``, is included: a spawned
+    worker receives a pickled copy of it, which torch does not reseed.
+    """
+    rngs, seen, stack = [], set(), [transform]
+    while stack:
+        tr = stack.pop(0)
+        if id(tr) in seen:
+            continue
+        seen.add(id(tr))
+        # Compose forwards to its children without using its inherited RNG.
+        rng = None if type(tr) is Compose else getattr(tr, "rng", None)
+        if isinstance(rng, np.random.RandomState) and id(rng) not in seen:
+            seen.add(id(rng))
+            rngs.append(rng)
+        children = list(getattr(tr, "transforms", None) or [])
+        if isinstance(tr, nn.Module):
+            children += list(tr.children())
+        stack.extend(children)
+    return rngs
+
+
+def _assert_stackable(items, name):
+    # Fixed expansion concatenates the clean originals with the transformed
+    # copies, so every copy must keep the original's shape except along the
+    # batch dimension. A transform that reshapes X or y (e.g. one returning
+    # class distributions instead of class indices) would otherwise fail deep
+    # inside torch.cat with a bare dimension-mismatch RuntimeError.
+    reference = items[0]
+    for item in items[1:]:
+        pairs = (
+            zip(reference, item)
+            if isinstance(reference, (tuple, list))
+            else [(reference, item)]
+        )
+        for ref_part, part in pairs:
+            if part.dim() != ref_part.dim() or part.shape[1:] != ref_part.shape[1:]:
+                raise ValueError(
+                    f"The transform returned {name} with shape "
+                    f"{tuple(part.shape)} instead of {tuple(ref_part.shape)}: "
+                    f"the fixed-expansion mode (n_augmentation > 0) keeps the "
+                    f"clean originals and concatenates the transformed "
+                    f"copies, so it cannot accommodate a transform that "
+                    f"changes the shape of {name}. Use n_augmentation = 0 "
+                    f"(in-place augmentation) instead."
+                )
 
 
 class _AugmentationCollate:
@@ -205,15 +265,44 @@ class _AugmentationCollate:
         ``(1 + n_augmentation)`` times the original size. When the transform
         mixes targets, as :class:`braindecode.augmentation.Mixup` does, ``y``
         stays the ``(y_a, y_b, lam)`` triple and the clean originals get a
-        mixing coefficient of one.
+        mixing coefficient of one. In this mode a transform that changes the
+        shape of ``X`` or ``y`` is rejected with a clear
+        :class:`ValueError`, as its copies cannot be concatenated with the
+        clean originals.
     """
 
     def __init__(self, transform, device=None, n_augmentation=0):
         self.transform = transform
         self.device = device
         self.n_augmentation = n_augmentation
+        self.worker_seeds = None
+        self._worker_rngs_seeded = False
+
+    def draw_worker_seeds(self):
+        """Draw, from each generator of the transform, a seed for the workers.
+
+        Called in the main process when a multi-process iteration starts. A
+        worker receives a copy of the transform whose generators are in the
+        state of the main process; without a new seed, every worker, and every
+        epoch, would draw the same augmentations.
+        """
+        self.worker_seeds = [
+            int(rng.randint(2**31)) for rng in _transform_rngs(self.transform)
+        ]
+
+    def _seed_worker_rngs(self):
+        if self._worker_rngs_seeded or self.worker_seeds is None:
+            return
+        worker_info = get_worker_info()
+        if worker_info is None:
+            return
+        self._worker_rngs_seeded = True
+        rngs = _transform_rngs(self.transform)
+        for rng, seed in zip(rngs, self.worker_seeds):
+            rng.seed(np.random.SeedSequence([seed, worker_info.id]).generate_state(1))
 
     def __call__(self, batch):
+        self._seed_worker_rngs()
         collated = default_collate(batch)
         X, y = collated[:2]
         if self.device is not None:
@@ -233,13 +322,16 @@ class _AugmentationCollate:
             for aug_y in ys
             if isinstance(aug_y, (tuple, list)) and len(aug_y) == 3
         ]
+        _assert_stackable(xs, "X")
         if mixed_ys:
             # a target-mixing transform such as Mixup returns (y_a, y_b, lam),
             # so the parts are concatenated one by one and the untouched copies
             # are given a mixing coefficient of one
             lam_dtype = mixed_ys[0][2].dtype
             ys = [_as_mixed_target(aug_y, lam_dtype) for aug_y in ys]
+            _assert_stackable(ys, "y")
             return torch.cat(xs), tuple(torch.cat(part) for part in zip(*ys))
+        _assert_stackable(ys, "y")
         return torch.cat(xs), torch.cat(ys)
 
 
@@ -262,7 +354,10 @@ class AugmentedDataLoader(DataLoader):
         the clean originals are kept and ``n_augmentation`` independently
         transformed copies are appended. This expresses augmentations defined as
         a fixed set-expansion (e.g. the EEG-Inception MI 6x training set,
-        ``n_augmentation=5``). In this mode batches are returned as ``(X, y)``.
+        ``n_augmentation=5``). In this mode batches are returned as ``(X, y)``
+        and transforms that change the shape of ``X`` or ``y`` are rejected
+        with a :class:`ValueError`, as their copies cannot be concatenated
+        with the clean originals.
     **kwargs : dict, optional
         keyword arguments to pass to standard DataLoader class.
     """
@@ -295,3 +390,10 @@ class AugmentedDataLoader(DataLoader):
             transform, device=device, n_augmentation=n_augmentation
         )
         super().__init__(dataset, collate_fn=self.collated_tr, **kwargs)
+
+    def __iter__(self):
+        # the workers get a copy of the transform; give them new seeds so that
+        # seeded transforms differ across workers and epochs
+        if self.num_workers > 0:
+            self.collated_tr.draw_worker_seeds()
+        return super().__iter__()

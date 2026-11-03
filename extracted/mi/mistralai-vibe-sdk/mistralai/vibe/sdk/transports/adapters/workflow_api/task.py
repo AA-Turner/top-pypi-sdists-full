@@ -50,9 +50,10 @@ class WorkflowAPIRemoteTask(Task):
 
     # TODO: Infer most params from the workflow definition metadata instead of
     # requiring them as constructor params. The workflows SDK exposes:
-    #   - @workflow.define(name=..., workflow_description=..., workflow_display_name=...)
+    #   - @workflow.define(name=...)
     #   - input_schema / output_schema auto-derived from entrypoint type annotations
-    #   - Retrievable via get_workflow(identifier) -> WorkflowGetResponse
+    #   - Retrievable via get_workflow(identifier) -> WorkflowGetResponse, which also
+    #     carries the description managed through the API / AI Studio
     # So name, description, input_schema, output_schema can all be fetched from
     # the workflow definition. Only callbacks has no workflow SDK equivalent and
     # must remain a constructor param.

@@ -78,6 +78,19 @@ class InvalidRequest(SequencesError):
     default_code = "invalid_request"
 
 
+class MissingPackage(SequencesError):
+    """This machine lacks a package a call needs - an optional extra of sequence-ai, whose install command the hint
+    says: installing it is the fix, and the same call fails the same way until then. Nothing about the request or the
+    platform is wrong: `seq` says error[missing_package] and exits 1. Here, not in seq, because a robot - which has no
+    seq - raises it too: observe() with a Video, Depth or Tactile item and no `sequence-ai[observe]`. Before, the LeRobot
+    export said error[invalid_request], the platform's word for a request that is wrong, and observe() a bare
+    `ModuleNotFoundError: No module named 'av'` from deep in sequence-base's encoder (0.55.1).
+
+"""
+
+    default_code = "missing_package"
+
+
 class AuthError(SequencesError):
     """401. The key is missing, revoked, or expired. Retrying will not help."""
 
@@ -93,8 +106,10 @@ class PermissionDenied(SequencesError):
 
 class OutOfCredit(SequencesError):
     """
-    402. The balance is exhausted (`code == "insufficient_credit"`), or the deployment's own monthly
-    budget is (`code == "budget_exhausted"`).
+    402. `code == "insufficient_credit"`: this month's usage reached the plan's monthly limit (it resets on
+    the 1st), or usage past the monthly credit needs a payment method the account does not have, or the key's
+    own credit limit is reached - the detail says which; `code == "budget_exhausted"`: the deployment's own
+    monthly budget is.
 
     Distinct from AuthError because the remedy is different and so is the urgency: the key is
     fine, the account simply cannot pay for the next call. A control loop should stop and

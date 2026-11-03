@@ -90,11 +90,15 @@ def report_crash(
     exc: BaseException,
     *,
     surface: str,
+    report: dict,
     base_url: str | None = None,
     handled: bool = False,
     site: str | None = None,
 ) -> None:
-    """Emit one `$exception`. Never raises.
+    """Emit one `$exception` from `report`, the caller's `diagnostics.build_report(exc)`. Never raises.
+
+    Callers go through `probe.sdk.diagnostics.report_crash`, which skips it while diagnostics
+    are off and builds `report` (analytics imports nothing above foundation).
 
     `handled=False` (default): an unhandled crash; the caller MUST re-raise after, or the
     operator's traceback is replaced by silence. `handled=True`: a SWALLOWED exception
@@ -105,16 +109,11 @@ def report_crash(
     or a self-hoster configured the ordinary way falls through to hosted and emits.
     """
     try:
-        from ..sdk import diagnostics
-
-        if diagnostics.disabled():
-            return
         if base_url is None:
             try:
                 base_url = core.effective_base_url(core.read_cli_config())
             except Exception:
                 return  # unknown backend: fail CLOSED, never guess hosted
-        report = diagnostics.build_report(exc)
         context = TelemetryContext.start(via=Via.NONE, interactive=False, base_url=base_url)
         if not context.enabled:
             return

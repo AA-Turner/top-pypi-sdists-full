@@ -5,7 +5,20 @@ import contextvars
 import dataclasses
 import typing
 
-from inngest._internal import errors, server_lib, step_lib, types
+from inngest._internal import (
+    errors,
+    run_context,
+    server_lib,
+    sessions,
+    step_lib,
+    types,
+)
+
+if typing.TYPE_CHECKING:
+    from inngest._internal.deferred import DeferHandle, DeferredParent
+    from inngest._internal.scores import ExperimentRef
+    from inngest._internal.sessions import EventMeta
+    from inngest.experimental.deferred import DeferredFunction
 
 
 @dataclasses.dataclass
@@ -22,6 +35,9 @@ class CallResult:
 
     # Step metadata (e.g. user-specified ID)
     step: step_lib.StepInfo | None = None
+
+    # The function's error must not be retried, whatever the error is.
+    final: bool = False
 
     @property
     def is_empty(self) -> bool:
@@ -71,6 +87,7 @@ class Context:
         job_id: Queue job ID.
         request_id: ID of request sent to SDK.
         run_id: Function run ID.
+        sessions: Initialized once from shared triggering-event sessions. Mutable afterward; outgoing sends read its current values.
         step: Step methods.
     """
 
@@ -83,6 +100,45 @@ class Context:
     request_id: str | None
     run_id: str
     step: step_lib.Step
+    sessions: dict[str, str] = dataclasses.field(init=False)
+    parents: list[DeferredParent] = dataclasses.field(
+        default_factory=list, init=False
+    )
+    _defer_ops: dict[str, step_lib.StepInfo] = dataclasses.field(
+        default_factory=dict, init=False, repr=False
+    )
+    _defer_seen: set[str] = dataclasses.field(
+        default_factory=set, init=False, repr=False
+    )
+
+    def defer(
+        self,
+        defer_id: str,
+        *,
+        function: DeferredFunction[typing.Any],
+        data: dict[str, object],
+        meta: EventMeta | None = None,
+        experiment: ExperimentRef | None = None,
+    ) -> DeferHandle:
+        """
+        Schedule independent work after this run ends; invalid calls log and skip.
+
+        Buffered work is discarded if this execution fails before sending it.
+        Inside a step, abort() can only cancel work newly scheduled in that callback.
+        """
+        from inngest._internal import deferred
+
+        return deferred.add(
+            self,
+            defer_id,
+            function=function,
+            data=data,
+            meta=meta,
+            experiment=experiment,
+        )
+
+    def __post_init__(self) -> None:
+        self.sessions = sessions.get_shared_sessions(self.events)
 
 
 @dataclasses.dataclass
@@ -99,6 +155,7 @@ class ContextSync:
         job_id: Queue job ID.
         request_id: ID of request sent to SDK.
         run_id: Function run ID.
+        sessions: Initialized once from shared triggering-event sessions. Mutable afterward; outgoing sends read its current values.
         step: Step methods.
     """
 
@@ -111,6 +168,45 @@ class ContextSync:
     request_id: str | None
     run_id: str
     step: step_lib.StepSync
+    sessions: dict[str, str] = dataclasses.field(init=False)
+    parents: list[DeferredParent] = dataclasses.field(
+        default_factory=list, init=False
+    )
+    _defer_ops: dict[str, step_lib.StepInfo] = dataclasses.field(
+        default_factory=dict, init=False, repr=False
+    )
+    _defer_seen: set[str] = dataclasses.field(
+        default_factory=set, init=False, repr=False
+    )
+
+    def defer(
+        self,
+        defer_id: str,
+        *,
+        function: DeferredFunction[typing.Any],
+        data: dict[str, object],
+        meta: EventMeta | None = None,
+        experiment: ExperimentRef | None = None,
+    ) -> DeferHandle:
+        """
+        Schedule independent work after this run ends; invalid calls log and skip.
+
+        Buffered work is discarded if this execution fails before sending it.
+        Inside a step, abort() can only cancel work newly scheduled in that callback.
+        """
+        from inngest._internal import deferred
+
+        return deferred.add(
+            self,
+            defer_id,
+            function=function,
+            data=data,
+            meta=meta,
+            experiment=experiment,
+        )
+
+    def __post_init__(self) -> None:
+        self.sessions = sessions.get_shared_sessions(self.events)
 
 
 FunctionHandlerAsync: typing.TypeAlias = typing.Callable[
@@ -120,12 +216,10 @@ FunctionHandlerAsync: typing.TypeAlias = typing.Callable[
 FunctionHandlerSync: typing.TypeAlias = typing.Callable[[ContextSync], types.T]
 
 
-# Context variable to detect nested steps.
-_in_step = contextvars.ContextVar("in_step", default=False)
-
-
 class ReportedStep:
-    _in_step_token: contextvars.Token[bool] | None = None
+    _current_step_token: contextvars.Token[step_lib.StepInfo | None] | None = (
+        None
+    )
 
     def __init__(
         self,
@@ -140,16 +234,16 @@ class ReportedStep:
         self._done_signal = asyncio.Future[None]()
 
     async def __aenter__(self) -> ReportedStep:
-        if _in_step.get() is True:
+        if run_context.current_step.get() is not None:
             self.info.op = server_lib.Opcode.STEP_ERROR
             raise step_lib.NestedStepInterrupt()
-        self._in_step_token = _in_step.set(True)
+        self._current_step_token = run_context.current_step.set(self.info)
         return self
 
     async def __aexit__(self, *args: object) -> None:
-        if self._in_step_token is None:
-            raise errors.UnreachableError("missing in_step token")
-        _in_step.reset(self._in_step_token)
+        if self._current_step_token is None:
+            raise errors.UnreachableError("missing current_step token")
+        run_context.current_step.reset(self._current_step_token)
         self._done_signal.set_result(None)
 
     async def release(self) -> None:
@@ -176,7 +270,9 @@ class ReportedStep:
 
 
 class ReportedStepSync:
-    _in_step_token: contextvars.Token[bool] | None = None
+    _current_step_token: contextvars.Token[step_lib.StepInfo | None] | None = (
+        None
+    )
 
     def __init__(self, step_info: step_lib.StepInfo) -> None:
         self.error: errors.StepError | None = None
@@ -185,15 +281,15 @@ class ReportedStepSync:
         self.skip = False
 
     def __enter__(self) -> ReportedStepSync:
-        if _in_step.get() is True:
+        if run_context.current_step.get() is not None:
             raise step_lib.NestedStepInterrupt()
-        self._in_step_token = _in_step.set(True)
+        self._current_step_token = run_context.current_step.set(self.info)
         return self
 
     def __exit__(self, *args: object) -> None:
-        if self._in_step_token is None:
-            raise errors.UnreachableError("missing in_step token")
-        _in_step.reset(self._in_step_token)
+        if self._current_step_token is None:
+            raise errors.UnreachableError("missing current_step token")
+        run_context.current_step.reset(self._current_step_token)
 
 
 class UserError(Exception):

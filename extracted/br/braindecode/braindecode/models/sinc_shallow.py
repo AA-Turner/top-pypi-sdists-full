@@ -123,6 +123,12 @@ class SincShallowNet(EEGModuleMixin, nn.Module):
         if activation is None:
             activation = nn.ELU()
 
+        if self.n_times is None:
+            raise ValueError(
+                "SincShallowNet needs to know the input length: pass n_times "
+                "(or input_window_seconds and sfreq)."
+            )
+
         # Define low frequencies for the SincFilter
         low_freqs = torch.arange(
             first_freq,
@@ -138,6 +144,15 @@ class SincShallowNet(EEGModuleMixin, nn.Module):
             n_times_after_sinc_filter = self.n_times
         else:
             raise ValueError("Padding must be 'valid' or 'same'.")
+
+        if n_times_after_sinc_filter < pool_size:
+            raise ValueError(
+                f"n_times ({self.n_times}) leaves only {n_times_after_sinc_filter} "
+                f"samples after the temporal sinc filter, fewer than pool_size "
+                f"({pool_size}): the average pooling would produce no temporal "
+                "position. Increase n_times, or decrease pool_size (and "
+                "time_filter_len for padding='valid')."
+            )
 
         size_after_pooling = (
             (n_times_after_sinc_filter - pool_size) // pool_stride
@@ -261,7 +276,8 @@ class _SincFilter(nn.Module):
         # Precompute constants
         window = torch.hamming_window(kernel_size, periodic=False)
 
-        self.register_buffer("window", window[: kernel_size // 2].unsqueeze(-1))
+        # clone: safetensors refuses a view on a larger storage
+        self.register_buffer("window", window[: kernel_size // 2].unsqueeze(-1).clone())
 
         n_pi = (
             torch.arange(-(kernel_size // 2), 0, dtype=torch.float32)

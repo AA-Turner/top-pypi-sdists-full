@@ -1,6 +1,6 @@
 [project]
 name = "autoware-carla-scenario"
-version = "22.3.1"
+version = "23.1.24"
 description = "CARLA scenario testing framework for Autoware"
 readme = "README.md"
 license = "Apache-2.0"
@@ -61,18 +61,21 @@ sumo = [
     "libsumo>=1.23",
     "sumolib>=1.23",
     "traci>=1.23",
-    "roadgen>=0.41.2",
+    "roadgen>=0.42.0",
 ]
-map = ["roadgen>=0.41.2"]
+map = ["roadgen>=0.42.0"]
 ros2 = ["cyclonedds>=11.0.1; sys_platform == 'linux' and platform_machine == 'x86_64' and python_version < '3.14'"]
-rerun = ["autoware-carla-scenario-rerun>=0.1,<0.2"]
+rerun = [
+    "autoware-carla-scenario-rerun>=0.2,<0.3",
+    "rerun-sdk>=0.38.1,<0.39",
+]
 rerun-lidar = [
-    "autoware-carla-scenario-rerun>=0.1,<0.2",
+    "autoware-carla-scenario-rerun>=0.2,<0.3",
     "rerun-sdk>=0.38.1,<0.39",
 ]
 t4 = ["autoware-carla-scenario-t4>=0.1,<0.2"]
 hils = ["hilspy>=0.16,<0.17"]
-viewer = ["autoware-carla-scenario-rerun[viewer]>=0.1,<0.2"]
+viewer = ["autoware-carla-scenario-rerun[viewer]>=0.2,<0.3"]
 
 [project.scripts]
 scenario = "autoware_carla_scenario.examples.run:main"

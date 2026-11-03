@@ -29,12 +29,14 @@ if TYPE_CHECKING:
     from .model import KeywordDoc
 
 try:
+    from docutils import __version_info__ as docutils_version
     from docutils.core import publish_parts
 except ImportError:
 
     def publish_parts(*args, **kwargs):
         raise DataError(
-            "reStructuredText format requires 'docutils' module to be installed."
+            "The 'docutils' module is required to convert reStructuredText "
+            "documentation to HTML."
         )
 
 
@@ -108,6 +110,9 @@ class DocFormatter:
     def html(self, doc: str) -> str:
         return self._doc_to_html(doc)
 
+    def reset(self):
+        self._doc_to_html.reset()
+
 
 class DocToHtml:
 
@@ -131,6 +136,11 @@ class DocToHtml:
 
     def __call__(self, doc: str) -> str:
         return self.formatter(doc)
+
+    def reset(self):
+        if self._md is not None:
+            self._md.reset()
+            self._md.references = self.targets.copy()
 
     def _format_robot(self, doc: str) -> str:
         toc = self._get_toc(doc) if "%TOC%" in doc else None
@@ -172,16 +182,17 @@ class DocToHtml:
         return self._handle_backtick_links(doc)
 
     def _format_rest(self, doc: str) -> str:
+        writer = "writer" if docutils_version >= (0, 22) else "writer_name"
         parts = publish_parts(
             doc,
-            writer_name="html",
             settings_overrides={"syntax_highlight": "short"},
+            **{writer: "html"},
         )
         return self._handle_backtick_links(parts["html_body"])
 
     def _format_markdown(self, doc: str) -> str:
         if self._md is None:
-            self._md = md = Markdown(
+            self._md = Markdown(
                 extensions=[
                     "codehilite",
                     "fenced_code",
@@ -201,11 +212,8 @@ class DocToHtml:
                 },
                 output_format="html",
             )
-        else:
-            md = self._md.reset()
-        # Initialize references and use NormalizedDict to make lookup case-insensitive.
-        md.references = self.targets.copy()
-        return md.convert(doc)
+            self._md.references = self.targets.copy()
+        return self._md.convert(doc)
 
     def _handle_backtick_links(self, doc: str) -> str:
         return re.sub("`(.+?)`", self._handle_names, doc)

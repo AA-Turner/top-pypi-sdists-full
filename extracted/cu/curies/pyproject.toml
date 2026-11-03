@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "curies"
-version = "0.15.6"
+version = "0.15.7"
 description = "Idiomatic conversion between URIs and compact URIs (CURIEs)"
 readme = "README.md"
 classifiers = [
@@ -67,6 +67,7 @@ fastapi = [
 ]
 rdflib = ["rdflib"]
 triples-io = ["pystow>=0.10.2"]
+networkx = ["networkx"]
 
 [project.urls]
 "Bug Tracker" = "https://github.com/biopragmatics/curies/issues"
@@ -228,7 +229,7 @@ known-first-party = [
 docstring-code-format = true
 
 [tool.bumpversion]
-current_version = "0.15.6"
+current_version = "0.15.7"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(?:-(?P<release>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+(?P<build>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?'
 serialize = [
     "{major}.{minor}.{patch}-{release}+{build}",

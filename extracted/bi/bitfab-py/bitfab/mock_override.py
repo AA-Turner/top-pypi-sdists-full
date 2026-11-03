@@ -18,7 +18,7 @@ the current span.
 
 :attr:`MockOverrideCtx.get_original_output` is SYNCHRONOUS (the TypeScript SDK's
 is async). Under a ``marked``/override replay the recorded output is fetched
-lazily by ``externalSpanId`` on first access, so a call may block on a short HTTP
+lazily by ``spanId`` on first access, so a call may block on a short HTTP
 request; ``mock="all"`` carries every output inline and never fetches.
 
 Event-loop note: replay offloads that blocking fetch OFF the event loop for

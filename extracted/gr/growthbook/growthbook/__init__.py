@@ -12,6 +12,7 @@ from .common_types import (
     FeatureUsageCallback,
     JSONValue,
     Options,
+    PayloadFilters,
     Result,
     TrackingBuffer,
     TrackingCallback,
@@ -64,6 +65,7 @@ __all__ = [
     "UserContext",
     "FeatureRefreshStrategy",
     "TrackingBuffer",
+    "PayloadFilters",
     # Data model
     "Experiment",
     "Result",
@@ -109,5 +111,5 @@ __all__ = [
 ]
 
 # x-release-please-start-version
-__version__ = "3.2.2"
+__version__ = "4.0.0"
 # x-release-please-end

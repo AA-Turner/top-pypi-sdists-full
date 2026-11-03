@@ -31,7 +31,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 # Stdlib-only leaf: importing it does NOT pull httpx (see the lazy package init),
 # so a distributed actor keeps writing metric batches without the network stack.
-from .._shared import oscompat
+from ..foundation.os_backend import os_backend as oscompat
 from ..foundation.safe_warn import safe_warn as _diagnostics
 from ..sdk.capture.capture import stable_span_id
 from ..foundation.durable.durable import (

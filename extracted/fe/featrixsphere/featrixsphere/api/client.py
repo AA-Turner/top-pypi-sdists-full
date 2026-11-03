@@ -325,6 +325,7 @@ class FeatrixSphere(HTTPClientMixin):
         sequential_rolling_windows: Optional[List[int]] = None,
         time_column: Optional[str] = None,
         priority: Optional[str] = None,
+        training_strategy: Optional[str] = None,
         **kwargs
     ) -> FoundationalModel:
         """
@@ -386,6 +387,12 @@ class FeatrixSphere(HTTPClientMixin):
             priority: Queue priority for this job — "urgent", "regular", or
                 "low" (default: your organization's tier). "urgent" jumps
                 ahead of lower-tier work when the fleet is busy.
+            training_strategy: How the embedding space is trained. "es-1.0"
+                (the default when omitted), or "stack:featrix_forest",
+                "stack:simple_forest", "stack:featrix_forest_joined". An
+                unknown name is rejected by the server (HTTP 400). The model
+                card reports the strategy the model was actually built with
+                (model_identification.training_strategy).
             **kwargs: Additional parameters
 
         Returns:
@@ -431,6 +438,7 @@ class FeatrixSphere(HTTPClientMixin):
                 foundation_mode=foundation_mode,
                 session_name_prefix=session_name_prefix,
                 priority=priority,
+                training_strategy=training_strategy,
                 **kwargs
             )
 
@@ -493,6 +501,8 @@ class FeatrixSphere(HTTPClientMixin):
             form_data['time_column'] = time_column
         if priority:
             form_data['priority'] = priority
+        if training_strategy:
+            form_data['training_strategy'] = training_strategy
 
         # Add any extra kwargs
         for key, value in kwargs.items():
@@ -1131,6 +1141,7 @@ class FeatrixSphere(HTTPClientMixin):
         foundation_mode: Optional[bool] = None,
         session_name_prefix: Optional[str] = None,
         priority: Optional[str] = None,
+        training_strategy: Optional[str] = None,
         **kwargs
     ) -> FoundationalModel:
         """Create foundational model from S3 URL via the create-embedding-space endpoint."""
@@ -1155,6 +1166,8 @@ class FeatrixSphere(HTTPClientMixin):
             data['foundation_mode'] = foundation_mode
         if priority:
             data['priority'] = priority
+        if training_strategy:
+            data['training_strategy'] = training_strategy
         if self._current_project_id:
             data['project_id'] = self._current_project_id
 

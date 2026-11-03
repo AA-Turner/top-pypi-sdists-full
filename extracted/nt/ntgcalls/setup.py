@@ -119,6 +119,7 @@ def base_subst():
         'jobs': str(multiprocessing.cpu_count()),
         'version': version,
         'platform': sys.platform,
+        'cmake_js_generator': '--generator=Ninja' if os.name == 'nt' else '',
     }
 
 
@@ -150,6 +151,8 @@ def execute_cfg(target, subst, archs=('auto',), section='build', keys=None):
     workdir_tmpl = parser.get('options', 'workdir', fallback='{builddir}')
     base_env = os.environ.copy()
     base_env['CMAKE_BUILD_PARALLEL_LEVEL'] = subst['jobs']
+    if os.name == 'nt':
+        base_env.setdefault('CMAKE_GENERATOR', 'Ninja')
     blocks = [parser[section][k] for k in (keys or parser[section])]
     for arch in archs:
         ctx = dict(subst)
@@ -167,6 +170,7 @@ def execute_cfg(target, subst, archs=('auto',), section='build', keys=None):
                 if not line:
                     continue
                 args = [token.format(**ctx) for token in line.split()]
+                args = [arg for arg in args if arg]
                 if os.name == 'nt':
                     args[0] = shutil.which(args[0]) or args[0]
                     subprocess.run(

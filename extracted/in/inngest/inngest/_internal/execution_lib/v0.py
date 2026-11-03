@@ -3,7 +3,14 @@ from __future__ import annotations
 import asyncio
 import typing
 
-from inngest._internal import errors, server_lib, step_lib, transforms, types
+from inngest._internal import (
+    errors,
+    run_context,
+    server_lib,
+    step_lib,
+    transforms,
+    types,
+)
 from inngest._internal.execution_lib import BaseExecution, BaseExecutionSync
 
 from .models import (
@@ -37,6 +44,10 @@ class ExecutionV0(BaseExecution):
         self._request = request
         self._target_hashed_id = target_hashed_id
         self._timings = timings
+        self._failures_are_final = False
+
+    def fail_finally(self) -> None:
+        self._failures_are_final = True
 
     def _handle_skip(
         self,
@@ -57,6 +68,7 @@ class ExecutionV0(BaseExecution):
         self,
         step_info: step_lib.StepInfo,
     ) -> ReportedStep:
+        run_context.prepare_step(step_info)
         step_signal = asyncio.Future[ReportedStep]()
 
         step = ReportedStep(step_signal, step_info)
@@ -74,6 +86,7 @@ class ExecutionV0(BaseExecution):
                     message=memo.error.message,
                     name=memo.error.name,
                     stack=memo.error.stack,
+                    data=memo.error.data,
                 )
             elif not isinstance(memo.data, types.EmptySentinel):
                 step.output = memo.data
@@ -156,7 +169,7 @@ class ExecutionV0(BaseExecution):
 
             return CallResult.from_responses(interrupt.responses)
         except UserError as err:
-            return CallResult(err.err)
+            return CallResult(err.err, final=self._failures_are_final)
         except step_lib.SkipInterrupt as err:
             # This should only happen in a non-deterministic scenario, where
             # step targeting is enabled and an unexpected step is encountered.
@@ -187,6 +200,10 @@ class ExecutionV0Sync(BaseExecutionSync):
         self._request = request
         self._target_hashed_id = target_hashed_id
         self._timings = timings
+        self._failures_are_final = False
+
+    def fail_finally(self) -> None:
+        self._failures_are_final = True
 
     def _handle_skip(
         self,
@@ -207,6 +224,7 @@ class ExecutionV0Sync(BaseExecutionSync):
         self,
         step_info: step_lib.StepInfo,
     ) -> ReportedStepSync:
+        run_context.prepare_step(step_info)
         step = ReportedStepSync(step_info)
 
         memo = self._memos.pop(step.info.id)
@@ -221,6 +239,7 @@ class ExecutionV0Sync(BaseExecutionSync):
                     message=memo.error.message,
                     name=memo.error.name,
                     stack=memo.error.stack,
+                    data=memo.error.data,
                 )
             elif not isinstance(memo.data, types.EmptySentinel):
                 step.output = memo.data
@@ -301,7 +320,7 @@ class ExecutionV0Sync(BaseExecutionSync):
 
             return CallResult.from_responses(interrupt.responses)
         except UserError as err:
-            return CallResult(err.err)
+            return CallResult(err.err, final=self._failures_are_final)
         except step_lib.SkipInterrupt as err:
             # This should only happen in a non-deterministic scenario, where
             # step targeting is enabled and an unexpected step is encountered.

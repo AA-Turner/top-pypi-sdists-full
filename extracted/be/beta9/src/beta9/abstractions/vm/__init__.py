@@ -1,4 +1,4 @@
-"""Named, persistent CPU microVMs with durable roots and stable service URLs."""
+"""Named, persistent microVMs with durable roots and stable service URLs."""
 
 import base64
 import copy
@@ -7,6 +7,7 @@ import math
 import os
 import subprocess
 import tempfile
+import textwrap
 import threading
 import time
 import uuid
@@ -33,7 +34,7 @@ from ...clients.volume import VolumeServiceStub
 from ...config import ConfigContext, get_config_context, get_settings
 from ...exceptions import ImageBuildError, SandboxConnectionError, SandboxProcessError
 from ...terminal import cli_name
-from ...type import DurableDisk
+from ...type import DurableDisk, GpuType, GpuTypeAlias, normalize_gpu_type
 from ...utils import local_process_kwargs
 from ..image import Image
 from ..sandbox import SandboxInstance
@@ -46,6 +47,17 @@ from .kiosk_config import Kiosk, MCPServer as MCPServer
 DEFAULT_VM_BASE_IMAGE = (
     "ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55"
 )
+DEFAULT_VM_GPU_BASE_IMAGE = "public.ecr.aws/n4e0e1y0/beta9-microvm:b8689876417c-nvidia"
+
+
+def default_base_image(gpu: Optional[GpuTypeAlias] = None) -> str:
+    selected = GpuType(normalize_gpu_type(gpu)) if gpu is not None else GpuType.NoGPU
+    if selected in (GpuType.Any, GpuType.V100, GpuType.V100_32, GpuType.GAUDI2):
+        raise ValueError(
+            f"The default VM image does not support {selected.value}; "
+            "provide an image with a compatible guest driver"
+        )
+    return DEFAULT_VM_GPU_BASE_IMAGE if selected != GpuType.NoGPU else DEFAULT_VM_BASE_IMAGE
 
 
 def identity() -> Path:
@@ -169,6 +181,10 @@ class VM:
 
     Fresh VMs default to digest-pinned Ubuntu 24.04, 4 CPUs, 8192 MiB RAM
     and a 50 GiB root. Desktop is opt-in and needs at least 1024 MiB RAM.
+    GPU VMs currently require x86_64. The stock NVIDIA image pairs its guest
+    kernel, driver modules, userspace and GSP firmware. Host VFIO passthrough
+    does not require matching host NVIDIA drivers. Custom GPU images should
+    include /boot/beam/vmlinux built for their installed GPU modules.
     create() waits for exec readiness; wait(services=True) also waits for
     enabled SSH/terminal/desktop services. Docker helpers wait separately.
 
@@ -188,6 +204,7 @@ class VM:
         image: Optional[Image] = None,
         cpu: Optional[float] = None,
         memory: Optional[int] = None,
+        gpu: Optional[GpuTypeAlias] = None,
         disk_size: Optional[str] = None,
         desktop: Optional[bool] = None,
         kiosk: Optional[Union[Kiosk, Dict[str, Any]]] = None,
@@ -231,6 +248,8 @@ class VM:
             raise ValueError("kiosk must be a Kiosk configuration or an object")
         if template and snapshot:
             raise ValueError("Choose a template or snapshot")
+        if gpu is not None and (not isinstance(gpu, str) or "," in gpu):
+            raise ValueError("gpu must be a single GPU type")
 
         self.info: Dict[str, Any] = {}
         self._connected = None
@@ -239,6 +258,7 @@ class VM:
         self._spec = {
             "cpu": int(cpu * 1000) if cpu is not None else None,
             "memory": memory,
+            "gpu": GpuType(normalize_gpu_type(gpu)).value if gpu is not None else None,
             "disk_size": disk_size,
             "desktop": True if kiosk is not None else desktop,
             "kiosk": copy.deepcopy(kiosk.to_dict() if isinstance(kiosk, Kiosk) else kiosk),
@@ -408,7 +428,7 @@ class VM:
         )
 
     def _prepare_image(self):
-        image = self.image or Image(base_image=DEFAULT_VM_BASE_IMAGE)
+        image = self.image or Image(base_image=default_base_image(self._spec.get("gpu")))
         if self.image is None:
             image.ignore_python = True
         return prepare_image(
@@ -514,50 +534,59 @@ class VM:
         ):
             if spec.get(feature):
                 services.append((unit, port))
-        try:
-            # is-active with several units succeeds if any is active.
-            for unit, _ in services:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    return False
-                check = sandbox.process.exec("systemctl", "is-active", "--quiet", unit)
-                if check.wait(min(10, remaining)) != 0:
-                    return False
-            if kiosk:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    return False
-                check = sandbox.process.exec("/opt/beam-vm/kiosk", "--check")
-                if check.wait(min(10, remaining)) != 0:
-                    try:
-                        status = json.loads(check.stdout.read())
-                    except (ValueError, TypeError):
-                        status = {}
-                    if status.get("state") in ("error", "closed"):
-                        raise RuntimeError(
-                            status.get("error") or "Kiosk application is unavailable"
-                        )
-                    return False
-            ports = [port for _, port in services]
-            probe = (
-                "import socket; "
-                f"[socket.create_connection(('127.0.0.1', p), 1).close() for p in {ports!r}]"
-            )
-            if spec.get("desktop") and not kiosk:
-                # Xvnc accepts connections before xstartup publishes font
-                # resources and starts the window manager.
-                probe += (
-                    "; import re, subprocess; "
-                    "raise SystemExit(not re.search(rb'window id # 0x[1-9a-fA-F][0-9a-fA-F]*', "
-                    "subprocess.check_output(['xprop', '-root', '_NET_SUPPORTING_WM_CHECK'])))"
-                )
-            remaining = deadline - time.monotonic()
-            return (
-                remaining > 0
-                and sandbox.process.exec("python3", "-c", probe).wait(min(10, remaining)) == 0
-            )
-        except (SandboxConnectionError, SandboxProcessError):
+        remaining = min(10, deadline - time.monotonic())
+        if remaining <= 0:
             return False
+        # Check readiness inside the guest in one RPC, including on older images.
+        probe = textwrap.dedent(f"""\
+            import re, socket, subprocess, time
+            deadline = time.monotonic() + {remaining!r}
+            def remaining():
+                return max(0.001, deadline - time.monotonic())
+            def run(*command):
+                return subprocess.run(command, capture_output=True, timeout=remaining())
+            try:
+                for unit, _ in {services!r}:
+                    # is-active with several units succeeds if any is active.
+                    if run('systemctl', 'is-active', '--quiet', unit).returncode:
+                        raise SystemExit(1)
+                if {kiosk!r}:
+                    check = run('/opt/beam-vm/kiosk', '--check')
+                    if check.returncode:
+                        print(check.stdout.decode())
+                        raise SystemExit(check.returncode)
+                for _, port in {services!r}:
+                    with socket.create_connection(('127.0.0.1', port), min(1, remaining())):
+                        pass
+                if {bool(spec.get("desktop"))!r} and not {kiosk!r}:
+                    # Xvnc listens before xstartup has started the window manager.
+                    window = run('xprop', '-root', '_NET_SUPPORTING_WM_CHECK')
+                    if window.returncode or not re.search(
+                        rb'window id # 0x[1-9a-fA-F][0-9a-fA-F]*', window.stdout
+                    ):
+                        raise SystemExit(1)
+            except (OSError, subprocess.TimeoutExpired):
+                raise SystemExit(1)
+            """)
+        try:
+            with rpc_timeout(remaining):
+                result = sandbox.process.run_code(probe)
+            if result.exit_code == 0:
+                return True
+            if kiosk:
+                try:
+                    status = json.loads(result.stdout)
+                except (ValueError, TypeError):
+                    status = {}
+                if status.get("state") in ("error", "closed"):
+                    raise RuntimeError(status.get("error") or "Kiosk application is unavailable")
+            return False
+        except Exception as error:
+            if isinstance(error, (SandboxConnectionError, SandboxProcessError)) or transient_error(
+                error
+            ):
+                return False
+            raise
 
     def _action(self, action, **body):
         return self._api("POST", self._path() + "/" + action, json=body)

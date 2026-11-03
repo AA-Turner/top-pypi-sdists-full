@@ -1,6 +1,8 @@
 """API endpoints."""
 
 from . import (
+    audit_events_summary,
+    bulk_ingest_ref_audit_events,
     create_workspace_branch,
     create_workspace_ref,
     create_workspace_step,
@@ -12,6 +14,7 @@ from . import (
     get_workspace_file_content,
     get_workspace_repo_credentials,
     get_workspace_repo_size,
+    list_audit_events,
     list_workspace_branches,
     list_workspace_files,
     list_workspace_refs,
@@ -42,4 +45,7 @@ __all__ = [
     "create_workspace_branch",
     "create_workspace_step",
     "update_workspace_file",
+    "bulk_ingest_ref_audit_events",
+    "list_audit_events",
+    "audit_events_summary",
 ]

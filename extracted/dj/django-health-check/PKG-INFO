@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-health-check
-Version: 4.11.3
+Version: 4.11.4
 Summary: Monitor the health of your Django app and its connected services.
 Keywords: django,postgresql
 Author-email: Kristian Ollegaard <kristian@oellegaard.com>, Johannes Maron <johannes@maron.family>
@@ -33,7 +33,7 @@ Requires-Dist: psutil>=7.2 ; extra == "psutil"
 Requires-Dist: aio-pika>=9 ; extra == "rabbitmq"
 Requires-Dist: redis>=5.0.1 ; extra == "redis"
 Requires-Dist: feedparser>=6 ; extra == "rss"
-Requires-Dist: threadmill[redis]>=0.7.3 ; extra == "threadmill"
+Requires-Dist: threadmill[redis]>=0.9 ; extra == "threadmill"
 Project-URL: Changelog, https://github.com/codingjoe/django-health-check/releases
 Project-URL: Documentation, https://codingjoe.dev/django-health-check/
 Project-URL: Funding, https://github.com/sponsors/codingjoe

@@ -588,6 +588,7 @@ namespace sogen
         this->gdi_dc_save_states.clear();
         this->gdi_bitmap_surfaces.clear();
         this->gdi_fonts.clear();
+        this->gdi_regions.clear();
         this->gdi_window_surfaces.clear();
         this->dxgk = {};
         this->etw_notification_event.reset();
@@ -827,6 +828,7 @@ namespace sogen
         buffer.write_map(this->gdi_dc_save_states);
         buffer.write_map(this->gdi_bitmap_surfaces);
         buffer.write_map(this->gdi_fonts);
+        buffer.write_map(this->gdi_regions);
         buffer.write_map(this->gdi_window_surfaces);
         buffer.write(this->dxgk);
         buffer.write_optional(this->etw_notification_event);
@@ -889,6 +891,7 @@ namespace sogen
         buffer.write(this->private_namespaces);
         buffer.write(this->processes);
         buffer.write(this->managed_threads);
+        buffer.write(this->debug_objects);
         buffer.write_map(this->atoms);
         buffer.write_map(this->classes);
 
@@ -956,6 +959,7 @@ namespace sogen
         buffer.read_map(this->gdi_dc_save_states);
         buffer.read_map(this->gdi_bitmap_surfaces);
         buffer.read_map(this->gdi_fonts);
+        buffer.read_map(this->gdi_regions);
         buffer.read_map(this->gdi_window_surfaces);
         buffer.read(this->dxgk);
         buffer.read_optional(this->etw_notification_event);
@@ -1018,6 +1022,7 @@ namespace sogen
         buffer.read(this->private_namespaces);
         buffer.read(this->processes);
         buffer.read(this->managed_threads);
+        buffer.read(this->debug_objects);
         buffer.read_map(this->atoms);
         buffer.read_map(this->classes);
 
@@ -1181,14 +1186,7 @@ namespace sogen
                 continue;
             }
 
-            const auto& restored = surface->second;
-            win_emu.ui().present_surface(win.handle, ui_surface_desc{
-                                                         .width = static_cast<int>(restored.width),
-                                                         .height = static_cast<int>(restored.height),
-                                                         .stride = static_cast<int>(restored.width * sizeof(uint32_t)),
-                                                         .format = ui_surface_format::bgra8,
-                                                         .pixels = restored.pixels.data(),
-                                                     });
+            win_emu.ui().present_surface(win.handle, make_window_surface_desc(surface->second, &win));
         }
     }
 
@@ -1200,6 +1198,8 @@ namespace sogen
             return &this->processes;
         case handle_types::managed_thread:
             return &this->managed_threads;
+        case handle_types::debug_object:
+            return &this->debug_objects;
         case handle_types::thread:
             return &threads;
         case handle_types::event:

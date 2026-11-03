@@ -6,6 +6,7 @@ import json
 
 import httpx
 
+from probe.foundation.server_messages import parse_server_message
 from probe.sdk.settings import workspace_limit as _workspace_limit
 
 from ... import errors
@@ -76,23 +77,27 @@ class ErrorMappingMixin:
             body = resp.json()
             detail = body.get("detail")
             if body.get("code") == errors.CLIENT_TOO_OLD:
-                min_version = body.get("min_version")
-                min_version = min_version if isinstance(min_version, str) else None
-                return errors.ClientTooOldError(
-                    errors.upgrade_message(errors._detail_message(detail), min_version),
+                message = parse_server_message(resp.status_code, body)
+                too_old = errors.ClientTooOldError(
+                    errors.upgrade_message(message.text, message.min_version),
                     status=resp.status_code,
                     detail=detail,
-                    min_version=min_version,
+                    min_version=message.min_version,
                 )
+                too_old.server_message = message
+                return too_old
             # A run, group, experiment or project in the TRASH answers 410 with a fixed token
             # plus the notice ("in the trash since ..., Probe can restore it until ...").
             # The sentence is what a person or agent needs; the token alone says nothing.
             in_trash = detail == "in_trash"
             if in_trash and isinstance(body.get("message"), str):
                 detail = body["message"]
+            # The flat shape's typed keys sit beside `detail`; the sentence is `detail` as read here.
+            message = parse_server_message(resp.status_code, {**body, "detail": detail})
         except (json.JSONDecodeError, ValueError, AttributeError):
             detail, in_trash = resp.text, False
-        error = errors.error_for(resp.status_code, detail)
+            message = parse_server_message(resp.status_code, resp.text)
+        error = errors.error_for(resp.status_code, detail, server_message=message)
         if in_trash:
             error.in_trash = True
         applied = resp.headers.get(_workspace_limit.APPLIED_HEADER)

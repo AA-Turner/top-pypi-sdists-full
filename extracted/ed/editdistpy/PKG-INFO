@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: editdistpy
-Version: 0.4.0
+Version: 0.5.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -9,18 +9,18 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 License-File: LICENSE
 Summary: Fast Levenshtein and Damerau optimal string alignment algorithms.
 Keywords: edit distance,levenshtein,damerau
 Author: mmb L
 License-Expression: MIT
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Changelog, https://github.com/mammothb/editdistpy/blob/master/CHANGELOG.md
 Project-URL: Repository, https://github.com/mammothb/editdistpy

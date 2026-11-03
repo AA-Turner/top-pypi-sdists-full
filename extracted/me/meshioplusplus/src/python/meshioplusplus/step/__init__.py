@@ -14,14 +14,19 @@ from .._helpers import register_format
 from ._step import write as _py_write
 
 _NEEDS_OCCT = (
-    "reading needs the OpenCASCADE backend; rebuild with -DMESHIOPLUSPLUS_WITH_OCCT=ON "
-    "(OpenCASCADE 7.6 or later)"
+    "reading needs the OpenCASCADE backend: the PyPI wheels get it from the "
+    "meshioplusplus-occt package (pip install meshioplusplus[occt]); a source build "
+    "needs -DMESHIOPLUSPLUS_WITH_OCCT=ON (OpenCASCADE 7.6 or later, "
+    "build/build-occt.sh builds one)"
 )
 
 
 def _read_cad(fmt, filename, deflection, angular_deflection):
     if is_buffer(filename, "r"):
         raise NotImplementedError(f"meshio++: {fmt}: reading needs a file path")
+    from .._plugins import load_plugins
+
+    load_plugins()
     reader = getattr(_core, f"{fmt}_read", None) if _core is not None else None
     if reader is None or not getattr(_core, "__has_occt__", False):
         raise NotImplementedError(f"meshio++: {fmt}: {_NEEDS_OCCT}")
@@ -43,18 +48,50 @@ def read(filename, deflection=0.0, angular_deflection=0.5):
     return _read_cad("step", filename, deflection, angular_deflection)
 
 
-def write(filename, mesh):
-    """Write a closed surface (or a volume mesh's skin) as a STEP faceted solid.
+_FACES = ("auto", "planar", "fitted", "facet")
 
-    C++ core for real file paths; the byte-identical Python twin otherwise.
+
+def write(filename, mesh, faces="auto", tolerance=0.0):
+    """Write a closed surface (or a volume mesh's skin) as a STEP solid.
+
+    :param faces: how facets become faces. ``"planar"`` merges edge-connected
+        coplanar facets into one planar face (holes as inner bounds);
+        ``"fitted"`` writes the patches :func:`meshioplusplus.segment` and
+        :func:`meshioplusplus.fit_primitives` annotated as plane, sphere,
+        cylinder, cone and torus faces, the rest as with ``"planar"``;
+        ``"auto"`` (the default) is ``"fitted"`` when the mesh carries those
+        patches, else ``"planar"``; ``"facet"`` writes one face per facet.
+    :param tolerance: ``"fitted"`` only: how far, as a length, a patch's
+        points may lie from its surface; at most 0 is automatic.
+
+    The C++ core writes every mode for real file paths. The byte-identical
+    Python twin writes ``"facet"`` only: ``"auto"`` falls back to it with a
+    warning, and ``"planar"`` or ``"fitted"`` raise ``NotImplementedError``.
     """
+    faces = str(faces)
+    if faces not in _FACES:
+        raise ValueError(
+            "meshio++: step: faces must be 'auto', 'planar', 'fitted' or 'facet'"
+        )
     if not is_buffer(filename, "w"):
         try:
-            _core.step_write(str(filename), mesh)
+            _core.step_write(str(filename), mesh, faces, float(tolerance))
             return
         except Exception as exc:
             if not core_declined(exc, "step", "write", filename):
                 raise
+    if faces in ("planar", "fitted"):
+        raise NotImplementedError(
+            f"meshio++: step: faces='{faces}' needs the C++ core "
+            "(meshioplusplus._core); its Python twin writes faces='facet' only"
+        )
+    if faces == "auto":
+        from .._common import warn
+
+        warn(
+            "step: one face per facet: merging faces needs the C++ core, "
+            "so the Python twin writes faces='facet'"
+        )
     return _py_write(filename, mesh)
 
 

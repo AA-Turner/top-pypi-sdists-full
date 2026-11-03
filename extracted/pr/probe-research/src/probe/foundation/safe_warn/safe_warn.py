@@ -14,6 +14,9 @@ import warnings
 #: Never swallowed: Ctrl-C and a deliberate exit. Anything else (a warnings-as-errors filter, a
 #: broken hook, a torn-down interpreter) is ours to absorb.
 _STOPS = (KeyboardInterrupt, SystemExit)
+#: How a person fixes a missing or rejected credential. A copy of `probe.sdk.session_marker.WIZARD_HINT`,
+#: which the hooks vendor stdlib-only; tests/test_wizard_hint_sync.py keeps the two equal.
+WIZARD_HINT = "run the Probe wizard: probe wizard or npx probe-research"
 
 _thread = threading.local()
 
@@ -179,10 +182,6 @@ class DeliveryNotices:
 
     def _fix(self, kind: str) -> str:
         if kind == self.AUTH_BLOCK:
-            # Late import: this module loads nothing else from the package (session_marker is
-            # stdlib-only, so this costs a line).
-            from ...sdk.session_marker import WIZARD_HINT
-
             return f"{WIZARD_HINT}; the queued writes deliver once it is fixed"
         return self._FIX.get(kind, "see `probe outbox status`")
 

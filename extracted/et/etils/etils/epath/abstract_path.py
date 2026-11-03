@@ -21,7 +21,7 @@ import functools
 import os
 import pathlib
 import typing
-from typing import Any, AnyStr, Iterator, Optional, Type, TypeVar
+from typing import Any, AnyStr, Iterator, Optional, Self, TypeVar
 
 from etils import epy
 from etils.epath import register
@@ -49,7 +49,7 @@ class Path(pathlib.PurePosixPath):
   # TODO(epot): With 3.12, might be able to inherit from `pathlib.PosixPath`
   # directly so some of those methods are automatically implemented.
 
-  def __new__(cls: Type[_T], *args: PathLike) -> _T:
+  def __new__(cls, *args: PathLike) -> Self:
     """Create a new path.
 
     ```python
@@ -68,17 +68,17 @@ class Path(pathlib.PurePosixPath):
 
     if cls == Path:
       if not args:
-        return register.make_path('.')
+        return register.make_path('.')  # pyrefly: ignore[bad-return]
       root, *parts = args
-      return register.make_path(root).joinpath(*parts)
+      return register.make_path(root).joinpath(*parts)  # pyrefly: ignore[bad-return]
     else:
       return super().__new__(cls, *args)
 
   # ====== Pure paths ======
 
-  def format(self: _T, *args: Any, **kwargs: Any) -> _T:
+  def format(self, *args: Any, **kwargs: Any) -> Self:
     """Apply `str.format()` to the path."""
-    return type(self)(os.fspath(self).format(*args, **kwargs))  # pytype: disable=not-instantiable
+    return type(self)(os.fspath(self).format(*args, **kwargs))
 
   # ====== Read-only methods ======
 
@@ -97,12 +97,12 @@ class Path(pathlib.PurePosixPath):
     return self.exists() and not self.is_dir()
 
   @abstractmethod
-  def iterdir(self: _T) -> Iterator[_T]:
+  def iterdir(self) -> Iterator[Self]:
     """Iterates over the directory."""
     raise NotImplementedError
 
   @abstractmethod
-  def listdir(self: _T) -> list[_T]:
+  def listdir(self) -> list[Self]:
     """Lists files/folders in a directory.
 
     Colab usage only!
@@ -119,36 +119,36 @@ class Path(pathlib.PurePosixPath):
     return list(self.iterdir())
 
   @abstractmethod
-  def glob(self: _T, pattern: str) -> Iterator[_T]:
+  def glob(self, pattern: str) -> Iterator[Self]:
     """Yields all matching files (of any kind)."""
     # Might be able to implement using `iterdir` (recursivelly for `rglob`).
     raise NotImplementedError
 
-  def rglob(self: _T, pattern: str) -> Iterator[_T]:
+  def rglob(self, pattern: str) -> Iterator[Self]:
     """Yields all matching files recursively (of any kind)."""
     return self.glob(f'**/{pattern}')
 
   @abstractmethod
   def walk(
-      self: _T,
+      self,
       *,
       top_down: bool = True,
       on_error: Callable[[OSError], object] | None = None,
-  ) -> Iterator[tuple[_T, list[str], list[str]]]:
+  ) -> Iterator[tuple[Self, list[str], list[str]]]:
     raise NotImplementedError
 
-  def expanduser(self: _T) -> _T:
+  def expanduser(self) -> Self:
     """Returns a new path with expanded `~` and `~user` constructs."""
-    if '~' not in self.parts:  # pytype: disable=attribute-error
+    if '~' not in self.parts:
       return self
     raise NotImplementedError
 
-  def absolute(self: _T) -> _T:
+  def absolute(self) -> Self:
     """Returns the absolute path."""
     return self.resolve()
 
   @abstractmethod
-  def resolve(self: _T, strict: bool = False) -> _T:
+  def resolve(self, strict: bool = False) -> Self:
     """Returns the absolute path."""
     raise NotImplementedError
 
@@ -235,20 +235,17 @@ class Path(pathlib.PurePosixPath):
         raise FileExistsError(f'{self} already exists.')
     self.write_text('')
 
-  # pytype: disable=bad-return-type
   @abstractmethod
-  def rename(self: _T, target: PathLike) -> _T:
+  def rename(self, target: PathLike) -> Self:  # pyrefly: ignore[bad-return]
     """Renames the path."""
 
   @abstractmethod
-  def replace(self: _T, target: PathLike) -> _T:
+  def replace(self, target: PathLike) -> Self:  # pyrefly: ignore[bad-return]
     """Overwrites the destination path."""
 
   @abstractmethod
-  def copy(self: _T, dst: PathLike, overwrite: bool = False) -> _T:
+  def copy(self, dst: PathLike, overwrite: bool = False) -> Self:  # pyrefly: ignore[bad-return]
     """Copy the current file to the given destination."""
-
-  # pytype: enable=bad-return-type
 
   # ====== Other ======
 
@@ -265,7 +262,7 @@ class Path(pathlib.PurePosixPath):
     Returns:
       pydantic_core.CoreSchema
     """
-    from pydantic_core import core_schema  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
+    from pydantic_core import core_schema  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-import]
 
     del source_type  # Unused in this implementation.
     del handler  # Unused in this implementation.

@@ -98,6 +98,17 @@ def _ping_search(settings):
     client.close()
 
 
+def _verify_search_indexes(settings):
+    from .database.search import SearchClient
+    from .database.search_verify import verify_search_indexes
+
+    client = SearchClient(settings)
+    try:
+        return verify_search_indexes(client, settings)
+    finally:
+        client.close()
+
+
 def run_check_config(db_url=None, search_url=None, use_spinner=True):
     """Validate settings and ping configured database and search destinations."""
     rows, ok = [], True
@@ -155,6 +166,16 @@ def run_check_config(db_url=None, search_url=None, use_spinner=True):
             run(label, ping)
             rows.append(("ping", kind, "OK", ok_msg))
             finish(label, "OK")
+            if kind == "search":
+                verify_label = "Verifying search index layout"
+                try:
+                    index_rows = run(verify_label, lambda: _verify_search_indexes(settings))
+                    rows.extend(index_rows)
+                    finish(verify_label, "OK")
+                except IngestConnectionError as exc:
+                    ok = False
+                    rows.append(("indexes", "search", "FAIL", _truncate(exc)))
+                    finish(verify_label, "FAIL")
         except IngestConnectionError as exc:
             ok = False
             rows.append(("ping", kind, "FAIL", _truncate(exc)))

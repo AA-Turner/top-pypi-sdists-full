@@ -185,7 +185,7 @@ class AgentStrategy(ToolLike[AgentInvokeMessage]):
         usage: LLMUsage,
     ) -> None:
         if not final_llm_usage_dict["usage"]:
-            final_llm_usage_dict["usage"] = usage
+            final_llm_usage_dict["usage"] = usage.model_copy()
         else:
             llm_usage = final_llm_usage_dict["usage"]
             llm_usage.prompt_tokens += usage.prompt_tokens
@@ -254,12 +254,12 @@ class AgentStrategy(ToolLike[AgentInvokeMessage]):
         """
         import tiktoken  # ruff:ignore[import-outside-top-level]
 
-        text = " ".join([
-            prompt.content
+        text = " ".join(
+            content
             for prompt in prompt_messges
-            if isinstance(prompt.content, str)
-        ])
-        return len(tiktoken.encoding_for_model("gpt2").encode(text))
+            if (content := prompt.get_text_content())
+        )
+        return len(tiktoken.encoding_for_model("gpt2").encode_ordinary(text))
 
     def _init_prompt_tools(
         self,

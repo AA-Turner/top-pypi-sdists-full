@@ -101,8 +101,11 @@ def run_server(
     import uvicorn
 
     from scrapy_ingest.exceptions import ConfigurationError, IngestError
+    from scrapy_ingest.utils.updates import update_available
 
     from .api.app import create_app
+
+    update_available()
 
     try:
         app = create_app(db_url=db_url, search_url=search_url)

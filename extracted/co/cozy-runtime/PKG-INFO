@@ -1,13 +1,12 @@
 Metadata-Version: 2.5
 Name: cozy-runtime
-Version: 0.37.2
+Version: 0.37.7
 Summary: Cozy author surface and device executor
 License-File: kernels/LICENSE
 License-File: kernels/LICENSE-cutlass
 License-File: kernels/LICENSE-flash-attention
 License-File: kernels/NOTICE
 Requires-Python: >=3.12
-Requires-Dist: cryptography>=45
 Requires-Dist: msgspec>=0.19
 Requires-Dist: numpy>=1.26
 Requires-Dist: packaging>=24

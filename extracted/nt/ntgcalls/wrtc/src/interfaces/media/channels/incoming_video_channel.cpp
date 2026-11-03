@@ -3,6 +3,7 @@
 //
 
 #include <api/video/builtin_video_bitrate_allocator_factory.h>
+#include <wrtc/exceptions.hpp>
 #include <wrtc/interfaces/native_network_interface.hpp>
 #include <wrtc/interfaces/media/channels/incoming_video_channel.hpp>
 #include <wrtc/models/outgoing_video_format.hpp>
@@ -16,12 +17,11 @@ namespace wrtc::interfaces::media::channels {
         const int64_t user_id,
         webrtc::UniqueRandomIdGenerator* random_id_generator,
         const std::vector<webrtc::Codec>& codecs,
-        utils::SafeThread& worker_thread,
         utils::SafeThread& network_thread,
         std::weak_ptr<RemoteVideoSink> remote_video_sink,
         const std::map<int32_t, FrameTransformer::PayloadType>& payload_type_mapping,
         E2EEncryptor* encryptor
-    ): worker_thread_(worker_thread), network_thread_(network_thread) {
+    ): network_thread_(network_thread) {
         sink_ = std::make_unique<RawVideoSink>();
         const uint32_t mid = random_id_generator->GenerateId();
         const auto stream_id = "video" + std::to_string(mid);
@@ -37,9 +37,16 @@ namespace wrtc::interfaces::media::channels {
             video_bitrate_allocator_factory_.get()
         );
 
+        bool attached = false;
         network_thread.BlockingCall([&] {
-            channel_->SetRtpTransport(rtp_transport);
+            attached = channel_->SetRtpTransport(rtp_transport);
         });
+        if (!attached) {
+            network_thread.BlockingCall([&] {
+                channel_ = nullptr;
+            });
+            throw RTCException("Failed to attach the incoming video channel to the RTP transport");
+        }
 
         auto outgoing_video_description = std::make_unique<webrtc::VideoContentDescription>();
         outgoing_video_description->AddRtpHeaderExtension(webrtc::RtpExtension(webrtc::RtpExtension::kAudioLevelUri, webrtc::RtpHeaderExtensionId(1)));
@@ -55,6 +62,9 @@ namespace wrtc::interfaces::media::channels {
         std::vector<uint32_t> all_ssrcs;
         webrtc::StreamParams video_recv_stream_params;
         for (const auto& [semantics, ssrcs] : ssrc_groups) {
+            if (ssrcs.empty()) {
+                continue;
+            }
             for (auto ssrc : ssrcs) {
                 if (std::ranges::find(all_ssrcs, ssrc) == all_ssrcs.end()) {
                     all_ssrcs.push_back(ssrc);
@@ -71,7 +81,7 @@ namespace wrtc::interfaces::media::channels {
             video_recv_stream_params.ssrc_groups.push_back(parsed_group);
         }
 
-        if (ssrc_ == 0 && ssrc_groups.size() == 1) {
+        if (ssrc_ == 0 && ssrc_groups.size() == 1 && !ssrc_groups[0].ssrcs.empty()) {
             ssrc_ = ssrc_groups[0].ssrcs[0];
         }
         video_recv_stream_params.ssrcs = all_ssrcs;
@@ -92,7 +102,7 @@ namespace wrtc::interfaces::media::channels {
 
         incoming_video_description->AddStream(video_recv_stream_params);
 
-        worker_thread.BlockingCall([&] {
+        network_thread.BlockingCall([&] {
             channel_->rtp_transport()->SetActivePayloadTypeDemuxing(false);
             channel_->SetLocalContent(outgoing_video_description.get(), webrtc::SdpType::kOffer);
             channel_->SetRemoteContent(incoming_video_description.get(), webrtc::SdpType::kAnswer);
@@ -127,7 +137,7 @@ namespace wrtc::interfaces::media::channels {
         network_thread_.BlockingCall([&] {
             channel_->SetRtpTransport(nullptr);
         });
-        worker_thread_.BlockingCall([&] {
+        network_thread_.BlockingCall([&] {
             channel_->video_media_receive_channel()->SetSink(ssrc_, nullptr);
             channel_ = nullptr;
             sink_ = nullptr;

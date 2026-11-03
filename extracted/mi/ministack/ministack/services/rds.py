@@ -41,6 +41,7 @@ clients can call DescribeDBInstances and other operations without ``Action=`` qu
 parameters.
 """
 
+import contextlib
 import contextvars
 import copy
 import datetime
@@ -70,6 +71,7 @@ from ministack.core.responses import (
     get_account_id,
     get_region,
     new_uuid,
+    request_scope,
 )
 from ministack.services import secretsmanager
 from ministack.services.rds_iam_plugin import (
@@ -4028,7 +4030,7 @@ def _refresh_cluster_status(cluster_id):
     cluster = _clusters.get(cluster_id)
     if not cluster:
         return
-    if cluster.get("Status") in ("stopping", "stopped", "deleting"):
+    if cluster.get("Status") in ("stopping", "stopped", "deleting", "upgrading"):
         return
     member_ids = {
         m.get("DBInstanceIdentifier")
@@ -6157,7 +6159,8 @@ def _create_db_cluster_impl(p):
         "DBClusterMembers": [],
         "VpcSecurityGroups": vpc_sg_list,
         "DBSubnetGroup": _p(p, "DBSubnetGroupName") or "default",
-        "DBClusterParameterGroup": _p(p, "DBClusterParameterGroupName") or f"default.{engine}",
+        "DBClusterParameterGroup": (_p(p, "DBClusterParameterGroupName")
+                                    or f"default.{_aurora_cluster_family(engine, engine_version) or engine}"),
         "BackupRetentionPeriod": int(_p(p, "BackupRetentionPeriod") or "1"),
         "PreferredBackupWindow": _p(p, "PreferredBackupWindow") or "03:00-04:00",
         "PreferredMaintenanceWindow": _p(p, "PreferredMaintenanceWindow") or "sun:05:00-sun:06:00",
@@ -6195,6 +6198,7 @@ def _create_db_cluster_impl(p):
         cluster["_PerformanceInsightsManaged"] = True
         cluster["DatabaseInsightsMode"] = "standard"
     _prepare_mysql_gtid_history(cluster)
+    _cluster_param_group(cluster["DBClusterParameterGroup"])  # a default group exists once a cluster uses it
     _clusters[cluster_id] = cluster
     if global_cluster:
         is_first_member = not global_cluster.get("GlobalClusterMembers")
@@ -6278,6 +6282,32 @@ def _delete_db_cluster(p):
         f"<DeleteDBClusterResult><DBCluster>{_cluster_xml(cluster)}</DBCluster></DeleteDBClusterResult>")
 
 
+def _password_reset_view(c, advance):
+    """*c* as AWS shows it during a master password reset: pending, then resetting, then settled, one describe each.
+    ``_password_reset_describes`` is only reassigned (3 = settled), never popped, for concurrent get_state()."""
+    seen = c.get("_password_reset_describes")
+    if seen is None or seen > 2:
+        return c
+    if advance:
+        c["_password_reset_describes"] = seen + 1
+        if seen == 2:
+            return c
+    view = {**c, "PendingModifiedValues": {"MasterUserPassword": "****"}}
+    if advance and seen == 1 and c.get("Status") == "available":
+        view["Status"] = "resetting-master-credentials"
+    return view
+
+
+def _cluster_view(c, advance):
+    """*c* with both a pending password reset and a pending major upgrade shown. Each view
+    advances the stored cluster, so both run on it and their changes are merged."""
+    upgrade, reset = _upgrade_view(c, advance), _password_reset_view(c, advance)
+    if reset is c:
+        return upgrade
+    return {**upgrade, "Status": reset["Status"] if reset["Status"] != c.get("Status") else upgrade["Status"],
+            "PendingModifiedValues": {**(upgrade.get("PendingModifiedValues") or {}), **reset["PendingModifiedValues"]}}
+
+
 def _describe_db_clusters(p):
     cluster_id = _p(p, "DBClusterIdentifier")
     if cluster_id:
@@ -6297,7 +6327,7 @@ def _describe_db_clusters(p):
         from ministack.services import documentdb
         docdb_members = documentdb.cluster_members_xml(filters)
 
-    members = "".join(f"<DBCluster>{_cluster_xml(c)}</DBCluster>" for c in clusters) + docdb_members
+    members = "".join(f"<DBCluster>{_cluster_xml(_cluster_view(c, True))}</DBCluster>" for c in clusters) + docdb_members
     return _xml(200, "DescribeDBClustersResponse",
         f"<DescribeDBClustersResult><DBClusters>{members}</DBClusters></DescribeDBClustersResult>")
 
@@ -6490,6 +6520,13 @@ def _modify_db_cluster_impl(p):
     )
     if global_version_conflict:
         return global_version_conflict
+    old_family = _aurora_cluster_family(cluster.get("Engine"), cluster.get("EngineVersion"))
+    new_family = _aurora_cluster_family(cluster.get("Engine"), engine_version)
+    if (old_family and new_family and old_family != new_family
+            and _p(p, "AllowMajorVersionUpgrade").lower() != "true"):
+        # AWS Aurora user guide, in-place upgrade tutorial.
+        return _error("InvalidParameterCombination",
+                      "The AllowMajorVersionUpgrade flag must be present when upgrading to a new major version.", 400)
     if _p(p, "MasterUserPassword"):
         if cluster.get("MasterUserSecret"):
             return _error(
@@ -6504,7 +6541,16 @@ def _modify_db_cluster_impl(p):
                 "MasterUserPassword must be changed on the global writer.",
                 400,
             )
+        if cluster.get("Status") == "stopped":
+            # Verbatim from real AWS (captured, us-west-2).
+            return _error(
+                "InvalidDBClusterStateFault",
+                f"Db cluster {cluster_id} cannot be in the stopped state.",
+                400,
+            )
         _apply_cluster_master_password_change(cluster, _p(p, "MasterUserPassword"))
+        if cluster.get("Status") == "available":
+            cluster["_password_reset_describes"] = 0
     if _p(p, "RotateMasterUserPassword") == "true":
         master_user_secret = cluster.get("MasterUserSecret")
         if not master_user_secret:
@@ -6541,7 +6587,7 @@ def _modify_db_cluster_impl(p):
             )
         _apply_cluster_master_password_change(cluster, new_pass)
     if engine_version:
-        cluster["EngineVersion"] = engine_version
+        _set_cluster_engine_version(cluster, engine_version)
     if _p(p, "Port"):
         cluster["Port"] = int(_p(p, "Port"))
     if _p(p, "BackupRetentionPeriod"):
@@ -6566,6 +6612,7 @@ def _modify_db_cluster_impl(p):
         cluster["CopyTagsToSnapshot"] = _p(p, "CopyTagsToSnapshot") == "true"
     if _p(p, "DBClusterParameterGroupName"):
         cluster["DBClusterParameterGroup"] = _p(p, "DBClusterParameterGroupName")
+        _cluster_param_group(cluster["DBClusterParameterGroup"])
 
     vpc_sgs = _parse_member_list(p, "VpcSecurityGroupIds")
     if vpc_sgs:
@@ -6581,7 +6628,7 @@ def _modify_db_cluster_impl(p):
                 _inherit_performance_insights(instance, cluster)
 
     return _xml(200, "ModifyDBClusterResponse",
-        f"<ModifyDBClusterResult><DBCluster>{_cluster_xml(cluster)}</DBCluster></ModifyDBClusterResult>")
+        f"<ModifyDBClusterResult><DBCluster>{_cluster_xml(_cluster_view(cluster, False))}</DBCluster></ModifyDBClusterResult>")
 
 
 # ---------------------------------------------------------------------------
@@ -6959,10 +7006,103 @@ def _create_db_cluster_param_group(p):
         </DBClusterParameterGroup></CreateDBClusterParameterGroupResult>""")
 
 
+def _upgrade_view(c, advance):
+    """*c* as AWS shows it during a major upgrade: old version pending, then upgrading (stored), then settled."""
+    pending = c.get("_major_upgrade_pending")
+    if pending is None:
+        return c
+    if advance:
+        if pending["seen"]:
+            c.pop("_major_upgrade_pending", None)  # concurrent describes may both settle it
+            if c.get("Status") == "upgrading":
+                c["Status"] = "available"
+                _refresh_cluster_status(c.get("DBClusterIdentifier"))  # members restarting after a restore
+            return c
+        pending["seen"] = 1
+        if c.get("Status") == "available":
+            c["Status"] = "upgrading"
+    view = {**c, "EngineVersion": pending["EngineVersion"],
+            "PendingModifiedValues": {"EngineVersion": c["EngineVersion"]}}
+    if pending["DBClusterParameterGroup"]:
+        view["DBClusterParameterGroup"] = pending["DBClusterParameterGroup"]
+    return view
+
+
+def _aurora_cluster_family(engine, engine_version):
+    """The DB parameter group family AWS reports for an Aurora engine version, or None."""
+    catalog = {"aurora-mysql": AURORA_MYSQL_ENGINE_VERSIONS,
+               "aurora-postgresql": AURORA_POSTGRESQL_ENGINE_VERSIONS}.get(engine, [])
+    # A dot-boundary prefix ("17", "8.0") resolves to the family of the versions it prefixes.
+    return next((fam for ver, fam in catalog
+                 if engine_version and (ver == engine_version or ver.startswith(engine_version + "."))), None)
+
+
+def _set_cluster_engine_version(cluster, engine_version):
+    """Set a cluster's engine version; a major upgrade moves default groups to the new family's."""
+    old_version, old_group = cluster.get("EngineVersion"), cluster.get("DBClusterParameterGroup")
+    engine = cluster.get("Engine")
+    old_family = _aurora_cluster_family(engine, old_version)
+    new_family = _aurora_cluster_family(engine, engine_version)
+    major = bool(new_family and old_family and new_family != old_family)
+    if major and old_group and old_group == f"default.{old_family}":
+        cluster["DBClusterParameterGroup"] = f"default.{new_family}"
+    cluster["EngineVersion"] = engine_version
+    if not major:
+        return
+    # A global member may live in another Region or account than this request.
+    arn = _parse_rds_arn(cluster.get("DBClusterArn", ""))
+    with request_scope(arn[0].account_id, arn[0].region) if arn else contextlib.nullcontext():
+        _cluster_param_group(cluster.get("DBClusterParameterGroup"))
+        old_instance_defaults = {f"default.{old_family}", f"default.{engine}{(old_version or '').split('.')[0]}"}
+        for instance in _instances.values():
+            if instance.get("DBClusterIdentifier") != cluster.get("DBClusterIdentifier"):
+                continue
+            instance["EngineVersion"] = engine_version
+            groups = instance.get("DBParameterGroups") or []
+            if groups and groups[0].get("DBParameterGroupName") in old_instance_defaults:
+                groups[0]["DBParameterGroupName"] = f"default.{new_family}"
+    cluster["_major_upgrade_pending"] = {
+        "seen": 0, "EngineVersion": old_version, "DBClusterParameterGroup": old_group}
+
+
+def _default_cluster_param_group(family):
+    name = f"default.{family}"
+    return {
+        "DBClusterParameterGroupName": name,
+        "DBParameterGroupFamily": family,
+        "Description": f"Default cluster parameter group for {family}",
+        "DBClusterParameterGroupArn": f"arn:aws:rds:{get_region()}:{get_account_id()}:cluster-pg:{name}",
+        "Parameters": {},
+    }
+
+
+def _cluster_param_group(name):
+    """AWS has a default cluster parameter group per Aurora family; it joins the account once described or used."""
+    pg = _db_cluster_param_groups.get(name)
+    if pg or not _is_default_cluster_param_group(name):
+        return pg
+    pg = _db_cluster_param_groups[name] = _default_cluster_param_group(name[len("default."):])
+    return pg
+
+
+def _is_default_cluster_param_group(name):
+    return bool(name) and name.startswith("default.") and name[len("default."):] in {
+        f for _, f in AURORA_MYSQL_ENGINE_VERSIONS + AURORA_POSTGRESQL_ENGINE_VERSIONS}
+
+
+def _default_cluster_param_group_refusal(name, action):
+    """AWS refuses to modify or delete a default cluster parameter group (captured); a reset succeeds."""
+    if not _is_default_cluster_param_group(name):
+        return None
+    if action == "modify":
+        return _error("InvalidParameterValue", "Cannot modify a default parameter group.", 400)
+    return _error("InvalidDBParameterGroupState", f"Default DBClusterParameterGroup cannot be deleted: {name}", 400)
+
+
 def _describe_db_cluster_param_groups(p):
     name = _p(p, "DBClusterParameterGroupName")
     if name:
-        pg = _db_cluster_param_groups.get(name)
+        pg = _cluster_param_group(name)
         if not pg:
             return _error("DBParameterGroupNotFound",
                 f"DB cluster parameter group {name} not found.", 404)
@@ -6982,10 +7122,11 @@ def _describe_db_cluster_param_groups(p):
 
 def _delete_db_cluster_param_group(p):
     name = _p(p, "DBClusterParameterGroupName")
+    if refusal := _default_cluster_param_group_refusal(name, "delete"):
+        return refusal
     pg = _db_cluster_param_groups.pop(name, None)
     if not pg:
-        return _error("DBParameterGroupNotFound",
-            f"DB cluster parameter group {name} not found.", 404)
+        return _error("DBParameterGroupNotFound", f"DBClusterParameterGroup not found: {name}", 404)
     _tags.pop(pg.get("DBClusterParameterGroupArn", ""), None)
     return _xml(200, "DeleteDBClusterParameterGroupResponse", "")
 
@@ -6993,7 +7134,7 @@ def _delete_db_cluster_param_group(p):
 def _describe_db_cluster_parameters(p):
     name = _p(p, "DBClusterParameterGroupName")
     source_filter = _p(p, "Source")
-    pg = _db_cluster_param_groups.get(name)
+    pg = _cluster_param_group(name)
     if not pg:
         return _error("DBParameterGroupNotFound",
             f"DB cluster parameter group {name} not found.", 404)
@@ -7004,6 +7145,8 @@ def _describe_db_cluster_parameters(p):
 
 def _modify_db_cluster_param_group(p):
     name = _p(p, "DBClusterParameterGroupName")
+    if refusal := _default_cluster_param_group_refusal(name, "modify"):
+        return refusal
     pg = _db_cluster_param_groups.get(name)
     if not pg:
         return _error("DBParameterGroupNotFound",
@@ -7025,7 +7168,7 @@ def _modify_db_cluster_param_group(p):
 
 def _reset_db_cluster_param_group(p):
     name = _p(p, "DBClusterParameterGroupName")
-    pg = _db_cluster_param_groups.get(name)
+    pg = _cluster_param_group(name)
     if not pg:
         return _error("DBParameterGroupNotFound",
             f"DB cluster parameter group {name} not found.", 404)
@@ -7596,6 +7739,8 @@ def _stop_db_cluster(p):
     # Publish the transitional status before touching compute so concurrent
     # reader bootstrap workers can tell a stop-in-progress from a genuinely
     # dead container and park instead of destroying preserved compute.
+    if "_password_reset_describes" in cluster:
+        cluster["_password_reset_describes"] = 3  # settled; reassigned, not popped (see _password_reset_view)
     cluster["Status"] = "stopping"
     if not _stop_cluster_shared_container(
         cluster.get("DBClusterIdentifier", cluster_id), cluster,
@@ -8348,7 +8493,7 @@ def _modify_global_cluster_impl(p):
         for member in gc.get("GlobalClusterMembers", []):
             member_cluster = _resolve_cluster(member["DBClusterArn"])
             if member_cluster:
-                member_cluster["EngineVersion"] = engine_version
+                _set_cluster_engine_version(member_cluster, engine_version)
 
     return _xml(200, "ModifyGlobalClusterResponse",
         f"<ModifyGlobalClusterResult><GlobalCluster>{_global_cluster_xml(gc)}</GlobalCluster></ModifyGlobalClusterResult>")
@@ -9763,6 +9908,13 @@ def _cluster_xml(c):
         f"<GlobalClusterIdentifier>{global_cluster_id}</GlobalClusterIdentifier>"
         if global_cluster_id else ""
     )
+    pending = c.get("PendingModifiedValues")
+    pending_xml = (
+        "<PendingModifiedValues>"
+        + "".join(f"<{k}>{v}</{k}>" for k, v in pending.items())
+        + "</PendingModifiedValues>"
+        if pending else ""
+    )
     global_write_forwarding = c.get("GlobalWriteForwardingStatus")
     global_write_forwarding_xml = (
         f"<GlobalWriteForwardingStatus>{global_write_forwarding}</GlobalWriteForwardingStatus>"
@@ -9791,6 +9943,7 @@ def _cluster_xml(c):
         <EngineMode>{c.get('EngineMode','provisioned')}</EngineMode>
         {_serverlessv2_xml(c)}
         <Status>{c['Status']}</Status>
+        {pending_xml}
         <MasterUsername>{c.get('MasterUsername','admin')}</MasterUsername>
         {db_name_xml}
         <Endpoint>{c.get('Endpoint','')}</Endpoint>

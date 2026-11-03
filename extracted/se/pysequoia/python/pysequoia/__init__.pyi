@@ -1,8 +1,9 @@
+from . import packet as packet
 from .packet import HashAlgorithm, Packet, PublicKeyAlgorithm, SignatureType
-from collections.abc import Sequence
+from _typeshed import Incomplete, SupportsGetItem
 from datetime import datetime, timedelta
 from os import PathLike
-from typing import Any, Final, final
+from typing import Any, Final, SupportsIndex, final
 
 @final
 class ArmorKind:
@@ -49,7 +50,7 @@ class Cert:
         Add a User ID to this certificate, certified by the given signer.
         """
     @property
-    def expiration(self, /) -> datetime |None:
+    def expiration(self, /) -> datetime | None:
         """
         The expiration time of this certificate, or `None` if it does not expire.
         """
@@ -59,21 +60,21 @@ class Cert:
         The fingerprint of this certificate's primary key, as a lowercase hex string.
         """
     @staticmethod
-    def from_bytes(bytes: bytes) -> Cert:
+    def from_bytes(bytes: bytes, policy: Policy | None = None) -> Cert:
         """
         Parse a certificate from a byte string.
 
         The bytes may be binary or ASCII-armored.
         """
     @staticmethod
-    def from_file(path: str) -> Cert:
+    def from_file(path: str, policy: Policy | None = None) -> Cert:
         """
         Parse a certificate from a file on disk.
 
         The file may be binary or ASCII-armored.
         """
     @staticmethod
-    def from_packets(packets: Sequence[Packet]) -> Cert:
+    def from_packets(packets: SupportsGetItem[int, Packet], policy: Policy | None = None) -> Cert:
         """
         Build a certificate from a sequence of OpenPGP packets.
 
@@ -81,7 +82,7 @@ class Cert:
         its associated user IDs, user attributes, subkeys, and signatures).
         """
     @staticmethod
-    def generate(user_id: str |None = None, user_ids: Sequence[str] |None = None, profile: Profile |None = None, validity_seconds: int |None = ...) -> Cert:
+    def generate(user_id: str | None = None, user_ids: SupportsGetItem[int, str] | None = None, profile: Profile | None = None, validity_seconds: SupportsIndex | None = ...) -> Cert:
         """
         Generate a new certificate with a certification-capable primary key,
         a signing subkey, and an encryption subkey.
@@ -113,7 +114,7 @@ class Cert:
         Create a revocation signature for the given User ID.
         """
     @property
-    def secrets(self, /) -> Tsk |None:
+    def secrets(self, /) -> Tsk | None:
         """
         Access the secret key material, if present.
 
@@ -123,12 +124,12 @@ class Cert:
         """
         Set the expiration time of this certificate.
         """
-    def set_notations(self, /, certifier: PySigner, notations: Sequence[Notation]) -> Cert:
+    def set_notations(self, /, certifier: PySigner, notations: SupportsGetItem[int, Notation]) -> Cert:
         """
         Set notation data on the first User ID's binding signature.
         """
     @staticmethod
-    def split_bytes(bytes: bytes) -> list[Cert]:
+    def split_bytes(bytes: bytes, policy: Policy | None = None) -> list[Cert]:
         """
         Parse multiple certificates from a byte string.
 
@@ -136,7 +137,7 @@ class Cert:
         The bytes may be binary or ASCII-armored.
         """
     @staticmethod
-    def split_file(path: str) -> list[Cert]:
+    def split_file(path: str, policy: Policy | None = None) -> list[Cert]:
         """
         Parse multiple certificates from a file on disk.
 
@@ -210,7 +211,7 @@ class Decrypted:
     Contains the decrypted/verified content (if available) and any valid signatures found.
     """
     @property
-    def bytes(self, /) -> bytes |None:
+    def bytes(self, /) -> bytes | None:
         """
         The decrypted or verified content bytes, or `None` for file-based operations.
         """
@@ -273,6 +274,30 @@ class Notation:
         """
 
 @final
+class Policy:
+    """
+    An OpenPGP cryptographic policy.
+
+    Pass a policy when reading or using certificates, or to `verify`,
+    `decrypt`, and `decrypt_file`.
+    """
+    def __repr__(self, /) -> str: ...
+    @staticmethod
+    def default() -> Policy:
+        """
+        Create the build's default cryptographic policy.
+        """
+    @staticmethod
+    def from_sequoia_config_file(path: str | PathLike[str] | None = None) -> Policy:
+        """
+        Load a Sequoia policy configuration file.
+
+        If no path is provided, check the `SEQUOIA_CRYPTO_POLICY` environment variable
+        and then the system's Sequoia policy file. Missing or invalid configuration raises
+        an exception.
+        """
+
+@final
 class Profile:
     """
     The OpenPGP profile to use when generating certificates.
@@ -317,14 +342,14 @@ class Sig:
         Return the ASCII-armored representation of the signature.
         """
     @property
-    def created(self, /) -> datetime |None:
+    def created(self, /) -> datetime | None:
         """
         The time at which this signature was created.
 
         Returns `None` if the signature does not carry a creation time subpacket.
         """
     @property
-    def expiration(self, /) -> datetime |None:
+    def expiration(self, /) -> datetime | None:
         """
         The time at which this signature expires, or `None` if it does not expire.
 
@@ -350,14 +375,14 @@ class Sig:
         The hash algorithm used by this signature.
         """
     @property
-    def issuer_fingerprint(self, /) -> str |None:
+    def issuer_fingerprint(self, /) -> str | None:
         """
         The fingerprint of the key that made this signature, as a lowercase hex string.
 
         Returns `None` if the signature does not carry an issuer fingerprint subpacket.
         """
     @property
-    def issuer_fpr(self, /) -> str |None:
+    def issuer_fpr(self, /) -> str | None:
         """
         DEPRECATED: The fingerprint of the key that made this signature, as a lowercase hex string.
 
@@ -367,7 +392,7 @@ class Sig:
         Prefer this over `issuer_key_id` when available, as fingerprints are collision-resistant.
         """
     @property
-    def issuer_key_id(self, /) -> str |None:
+    def issuer_key_id(self, /) -> str | None:
         """
         The short key ID of the key that made this signature, as a lowercase hex string.
 
@@ -380,7 +405,7 @@ class Sig:
         The public key algorithm used by this signature.
         """
     @property
-    def key_validity_period(self, /) -> timedelta |None:
+    def key_validity_period(self, /) -> timedelta | None:
         """
         The key validity period as a timedelta from key creation.
 
@@ -394,7 +419,7 @@ class Sig:
         The signature type (e.g. `SignatureType.SubkeyBinding`).
         """
     @property
-    def signers_user_id(self, /) -> str |None:
+    def signers_user_id(self, /) -> str | None:
         """
         The User ID of the signer, as declared in the signature's Signer's User ID subpacket.
 
@@ -479,13 +504,13 @@ class Tsk:
         """
         Return the ASCII-armored secret key representation (Transferable Secret Key).
         """
-    def certifier(self, /, password: str |None = None) -> PySigner:
+    def certifier(self, /, password: str | None = None) -> PySigner:
         """
         Get a certifier using this certificate's certification-capable primary key.
 
         If the secret key is password-protected, provide the password to decrypt it.
         """
-    def decryptor(self, /, password: str |None = None) -> PyDecryptor:
+    def decryptor(self, /, password: str | None = None) -> PyDecryptor:
         """
         Get a decryptor using this certificate's encryption component key.
 
@@ -496,21 +521,21 @@ class Tsk:
         Extracts public parts of this TSK.
         """
     @staticmethod
-    def from_bytes(bytes: bytes) -> Tsk:
+    def from_bytes(bytes: bytes, policy: Policy | None = None) -> Tsk:
         """
         Parse a certificate from a byte string.
 
         The bytes may be binary or ASCII-armored.
         """
     @staticmethod
-    def from_file(path: str) -> Tsk:
+    def from_file(path: str, policy: Policy | None = None) -> Tsk:
         """
         Parse a certificate from a file on disk.
 
         The file may be binary or ASCII-armored.
         """
     @staticmethod
-    def from_packets(packets: Sequence[Packet]) -> Tsk:
+    def from_packets(packets: SupportsGetItem[int, Packet], policy: Policy | None = None) -> Tsk:
         """
         Build a certificate from a sequence of OpenPGP packets.
 
@@ -518,18 +543,26 @@ class Tsk:
         its associated user IDs, user attributes, subkeys, and signatures).
         """
     @staticmethod
-    def generate(user_id: str |None = None, user_ids: Sequence[str] |None = None, profile: Profile |None = None, cipher_suite: CipherSuite |None = None, validity_seconds: int |None = None, *, signing_algorithm: SigningAlgorithm |None = None, encryption_algorithm: EncryptionAlgorithm |None = None) -> Tsk:
+    def generate(user_id: str | None = None, user_ids: SupportsGetItem[int, str] | None = None, profile: Profile | None = None, cipher_suite: CipherSuite | None = None, validity_seconds: SupportsIndex | None = None, *, signing_algorithm: SigningAlgorithm | None = None, encryption_algorithm: EncryptionAlgorithm | None = None, policy: Policy | None = None) -> Tsk:
         """
         Generate a new TSK with a certification-capable primary key,
         a signing subkey, and an encryption subkey.
 
         The generated certificate does not expire unless explicitly instructed.
         """
-    def signer(self, /, password: str |None = None) -> PySigner:
+    def signer(self, /, password: str | None = None) -> PySigner:
         """
         Get a signer using this certificate's signing component key.
 
         If the secret key is password-protected, provide the password to decrypt it.
+        """
+    @staticmethod
+    def split_bytes(bytes: bytes, policy: Policy | None = None) -> list[Tsk]:
+        """
+        Parse multiple certificates with secret key material from a byte string.
+
+        Returns all certificates found in the data, retaining their secret key
+        material. The bytes may be binary or ASCII-armored.
         """
 
 @final
@@ -556,7 +589,7 @@ def armor(data: bytes, kind: ArmorKind) -> str:
     header type, and returns the ASCII-armored string.
     """
 
-def decrypt(bytes: bytes, decryptor: PyDecryptor |None = None, store: Any |None = None, passwords: Sequence[str] = ...) -> Decrypted:
+def decrypt(bytes: bytes, decryptor: PyDecryptor | None = None, store: Any | None = None, passwords: SupportsGetItem[int, str] = ..., policy: Policy | None = None) -> Decrypted:
     """
     Decrypt an OpenPGP message from bytes.
 
@@ -564,7 +597,7 @@ def decrypt(bytes: bytes, decryptor: PyDecryptor |None = None, store: Any |None 
     Optionally provide a `store` callback for signature verification during decryption.
     """
 
-def decrypt_file(input: str |PathLike[str], output: str |PathLike[str], decryptor: PyDecryptor |None = None, store: Any |None = None, passwords: Sequence[str] = ...) -> Decrypted:
+def decrypt_file(input: str | PathLike[str], output: str | PathLike[str], decryptor: PyDecryptor | None = None, store: Any | None = None, passwords: SupportsGetItem[int, str] = ..., policy: Policy | None = None) -> Decrypted:
     """
     Decrypt an OpenPGP message from a file, writing the plaintext to another file.
 
@@ -572,7 +605,7 @@ def decrypt_file(input: str |PathLike[str], output: str |PathLike[str], decrypto
     Optionally provide a `store` callback for signature verification during decryption.
     """
 
-def encrypt(bytes: bytes, recipients: Sequence[Cert] = ..., signer: PySigner |None = None, passwords: Sequence[str] = ..., *, armor: bool = True) -> bytes:
+def encrypt(bytes: bytes, recipients: SupportsGetItem[int, Cert] = ..., signer: PySigner | None = None, passwords: SupportsGetItem[int, str] = ..., *, armor: bool = True) -> bytes:
     """
     Encrypt data for the given recipients and/or passwords.
 
@@ -580,7 +613,7 @@ def encrypt(bytes: bytes, recipients: Sequence[Cert] = ..., signer: PySigner |No
     Set `armor=False` to produce binary output instead of ASCII-armored.
     """
 
-def encrypt_file(input: str |PathLike[str], output: str |PathLike[str], recipients: Sequence[Cert] = ..., signer: PySigner |None = None, passwords: Sequence[str] = ..., *, armor: bool = True) -> None:
+def encrypt_file(input: str | PathLike[str], output: str | PathLike[str], recipients: SupportsGetItem[int, Cert] = ..., signer: PySigner | None = None, passwords: SupportsGetItem[int, str] = ..., *, armor: bool = True) -> None:
     """
     Encrypt a file for the given recipients and/or passwords, writing to an output file.
 
@@ -596,7 +629,7 @@ def sign(signer: PySigner, bytes: bytes, *, mode: SignatureMode = ..., armor: bo
     Set `armor=False` to produce binary output instead of ASCII-armored.
     """
 
-def sign_file(signer: PySigner, input: str |PathLike[str], output: str |PathLike[str], *, mode: SignatureMode = ..., armor: bool = True) -> None:
+def sign_file(signer: PySigner, input: str | PathLike[str], output: str | PathLike[str], *, mode: SignatureMode = ..., armor: bool = True) -> None:
     """
     Sign a file with the given signer, writing the result to an output file.
 
@@ -604,7 +637,7 @@ def sign_file(signer: PySigner, input: str |PathLike[str], output: str |PathLike
     Set `armor=False` to produce binary output instead of ASCII-armored.
     """
 
-def verify(bytes: bytes |None = None, store: Any |None = None, file: str |PathLike[str] |None = None, signature: Sig |None = None) -> Decrypted:
+def verify(bytes: bytes | None = None, store: Any | None = None, file: str | PathLike[str] | None = None, signature: Sig | None = None, policy: Policy | None = None) -> Decrypted:
     """
     Verify an OpenPGP signature.
 
@@ -612,3 +645,5 @@ def verify(bytes: bytes |None = None, store: Any |None = None, file: str |PathLi
     is called with a list of key ID strings and must return a list of `Cert` objects.
     For detached signature verification, pass a `Sig` object as `signature`.
     """
+
+def __getattr__(name: str) -> Incomplete: ...

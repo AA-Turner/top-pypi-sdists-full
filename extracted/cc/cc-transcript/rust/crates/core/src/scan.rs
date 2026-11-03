@@ -69,6 +69,14 @@ impl<'store> ScanBudget<'store> {
     pub fn new(store: &'store NativeStore, limits: WorkLimits) -> Self {
         static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let context = json!({"claimant":format!("cli-scan-{}-{}",std::process::id(),NEXT.fetch_add(1,std::sync::atomic::Ordering::Relaxed)),"admission":"background","authority":{"kind":"user","effective_uid":unsafe { libc::geteuid() }.to_string()},"registry_generation":store.default_registry_generation()});
+        Self::with_context(store, limits, context)
+    }
+
+    pub(crate) fn with_context(
+        store: &'store NativeStore,
+        limits: WorkLimits,
+        context: Value,
+    ) -> Self {
         Self {
             limits,
             progress: ScanProgress::default(),
@@ -194,6 +202,14 @@ impl<'store> ScanBudget<'store> {
         cancel: &Cancellation,
     ) -> Result<(), SnapshotError> {
         self.checkpoint(cancel)?;
+        self.commit_projection(bytes, events)
+    }
+
+    pub(crate) fn commit_projection(
+        &mut self,
+        bytes: usize,
+        events: usize,
+    ) -> Result<(), SnapshotError> {
         let remaining = self.remaining();
         if bytes > remaining.max_read_bytes {
             return Err(self.exhaust(Budget::ReadBytes));
@@ -238,6 +254,10 @@ impl<'store> ScanBudget<'store> {
 
     pub fn charge_parse(&mut self, cancel: &Cancellation) -> Result<(), SnapshotError> {
         self.checkpoint(cancel)?;
+        self.commit_parse()
+    }
+
+    pub(crate) fn commit_parse(&mut self) -> Result<(), SnapshotError> {
         if self.remaining().max_events == 0 {
             return Err(self.exhaust(Budget::Events));
         }
@@ -438,6 +458,11 @@ impl<'a> ScanSession<'a> {
         if roots.is_empty() {
             return Ok((Vec::new(), 0));
         }
+        crate::discovery::warm_metadata(
+            &roots,
+            self.budget.remaining().max_discovery_entries,
+            self.budget.limits.deadline_unix_ms,
+        );
         let mut request = self.bounded_request("discover");
         request.insert(
             "roots",

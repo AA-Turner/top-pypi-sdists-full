@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: snowflake-cli
-Version: 3.31.0
+Version: 3.32.1
 Summary: Snowflake CLI
 Project-URL: Source code, https://github.com/snowflakedb/snowflake-cli
 Project-URL: Bug Tracker, https://github.com/snowflakedb/snowflake-cli/issues
@@ -224,7 +224,7 @@ Requires-Python: >=3.11
 Requires-Dist: certifi>=2026.10.19
 Requires-Dist: click==8.1.8
 Requires-Dist: configobj==5.0.9
-Requires-Dist: gitpython==3.2.0
+Requires-Dist: gitpython==3.2.1
 Requires-Dist: id==1.5.0
 Requires-Dist: jaraco-context==6.1.2
 Requires-Dist: jinja2==3.1.6
@@ -241,7 +241,7 @@ Requires-Dist: requests==2.33.0
 Requires-Dist: requirements-parser==0.13.0
 Requires-Dist: rich==14.0.0
 Requires-Dist: setuptools==84.0.0
-Requires-Dist: snowflake-connector-python[secure-local-storage]==4.7.5
+Requires-Dist: snowflake-connector-python[secure-local-storage]==4.8.1
 Requires-Dist: snowflake-core==1.10.0
 Requires-Dist: snowflake-snowpark-python==1.53.0
 Requires-Dist: tomlkit==0.15.1
@@ -258,6 +258,7 @@ Requires-Dist: pytest-httpserver==1.1.3; extra == 'development'
 Requires-Dist: pytest-randomly==3.16.0; extra == 'development'
 Requires-Dist: pytest-xdist==3.6.1; extra == 'development'
 Requires-Dist: pytest==8.4.1; extra == 'development'
+Requires-Dist: snowflake-ml-python[feature-store]>=2.6.0; extra == 'development'
 Requires-Dist: syrupy==4.9.1; extra == 'development'
 Requires-Dist: uv==0.10.9; extra == 'development'
 Provides-Extra: packaging
@@ -300,6 +301,8 @@ Cheatsheet: <https://github.com/Snowflake-Labs/sf-cheatsheets/blob/main/snowflak
 
 Feel free to file an issue or submit a PR here for general cases. For official support, contact Snowflake support at: https://community.snowflake.com/s/article/How-To-Submit-a-Support-Case-in-Snowflake-Lodge
 
+`snow feedback` sends a rating and an optional note to Snowflake. Pass `--rating` from 1 (poor) to 4 (excellent). A note is optional for people and required for an AI agent: name the command you ran, what you expected, and what happened. Pass `--yes` when stdin is not a terminal. Do not include passwords, tokens, private keys, account locators, data from Snowflake accounts, or SQL that contains customer data.
+
 ## Install Snowflake CLI
 
 ### Direct install (recommended)
@@ -318,7 +321,9 @@ Windows (PowerShell):
 irm https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.ps1 | iex
 ```
 
-Upgrade later with `snow upgrade` (public preview, same-major only). This is the only installer that supports it. `snow --info` reports `installation_source`; `snow --version` does not.
+Upgrade later with `snow upgrade` (same-major only). This is the only installer that supports it. `snow --info` reports `installation_source`; `snow --version` does not.
+
+Auto-upgrade is off until you opt in, and it applies only to a direct install. Set `auto_upgrade = true` under `[cli]` in `config.toml`, or `SNOWFLAKE_CLI_AUTO_UPGRADE=1` for one process. Turn it off with `SNOWFLAKE_CLI_AUTO_UPGRADE=0` or `--no-auto-upgrade`.
 
 ### Install with uv (PyPi)
 

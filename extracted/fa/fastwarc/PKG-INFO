@@ -1,27 +1,27 @@
 Metadata-Version: 2.4
 Name: FastWARC
-Version: 1.1.0
-Summary: The world's fastest WARC parsing library written in Rust with bindings for Python.
-Author: Janek Bevendorff
-License-Expression: Apache-2.0
-Project-URL: repository, https://github.com/chatnoir-eu/chatnoir-resiliparse
-Project-URL: homepage, https://resiliparse.chatnoir.eu
-Project-URL: documentation, https://resiliparse.chatnoir.eu
-Requires-Python: >=3.10
-Description-Content-Type: text/markdown
+Version: 2.0.0
 Requires-Dist: brotli
 Requires-Dist: click
 Requires-Dist: tqdm
-Requires-Dist: typing_extensions>=4.15; python_version < "3.13"
+Requires-Dist: typing-extensions>=4.15 ; python_full_version < '3.13'
+Requires-Dist: fastwarc[fsspec] ; extra == 'all'
+Requires-Dist: fsspec ; extra == 'fsspec'
+Requires-Dist: s3fs ; extra == 'fsspec'
+Requires-Dist: fastwarc[all] ; extra == 'test'
+Requires-Dist: pytest>=7.2.2 ; extra == 'test'
+Requires-Dist: pytest-cov>=4.0.0 ; extra == 'test'
 Provides-Extra: all
-Requires-Dist: fastwarc[fsspec]; extra == "all"
 Provides-Extra: fsspec
-Requires-Dist: fsspec; extra == "fsspec"
-Requires-Dist: s3fs; extra == "fsspec"
 Provides-Extra: test
-Requires-Dist: fastwarc[all]; extra == "test"
-Requires-Dist: pytest>=7.2.2; extra == "test"
-Requires-Dist: pytest-cov>=4.0.0; extra == "test"
+Summary: The world's fastest WARC parsing library written in Rust with bindings for Python.
+Author: Janek Bevendorff
+License-Expression: Apache-2.0
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: documentation, https://resiliparse.chatnoir.eu
+Project-URL: homepage, https://resiliparse.chatnoir.eu
+Project-URL: repository, https://github.com/chatnoir-eu/chatnoir-resiliparse
 
 # FastWARC (Python)
 
@@ -109,3 +109,4 @@ You can also cite our [ECIR 2018 demo paper](https://webis.de/downloads/publicat
   year =                2018
 }
 ```
+

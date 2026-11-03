@@ -5,13 +5,20 @@ from __future__ import annotations
 
 import math
 from copy import deepcopy
+from functools import partial
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
 from einops.layers.torch import Rearrange
 from torch import nn
 
+from braindecode.functional import (
+    init_weights_,
+    scaled_dot_product_attention,
+    sinusoidal_positional_encoding,
+)
+from braindecode.functional.attention import _hpu_lazy
 from braindecode.models.base import EEGModuleMixin
 
 _DEFAULT_CONV_LAYER_SPEC = (  # downsampling: 128Hz -> 1Hz, receptive field 1.1875s, stride 1s
@@ -232,11 +239,8 @@ class _BaseSignalJEPA(EEGModuleMixin, nn.Module):
         Do not change the default value (used for internal purposes).
     """
 
-    feature_encoder: _ConvFeatureEncoder | None
-    pos_encoder: _PosEncoder | None
-    transformer: nn.Transformer | None
-
     _feature_encoder_channels: str = "n_chans"
+    _channel_target = [ch["ch_name"] for ch in _PRETRAIN_CHS_INFO]
 
     def __init__(
         self,
@@ -269,11 +273,17 @@ class _BaseSignalJEPA(EEGModuleMixin, nn.Module):
         channel_embedding: str = "scratch",
         _init_feature_encoder: bool,
         _init_transformer: bool,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
         # Resolve channel embedding config before calling super().__init__
+        # (under a channel strategy: on the 62 pre-training channels, the target).
+        native = channel_strategy == "native"
         if _init_transformer:
             effective_chs_info, channel_locations, ch_idxs = (
-                _resolve_channel_embedding_config(channel_embedding, chs_info)
+                _resolve_channel_embedding_config(
+                    channel_embedding, chs_info if native else _PRETRAIN_CHS_INFO
+                )
             )
         else:
             effective_chs_info = chs_info
@@ -283,10 +293,12 @@ class _BaseSignalJEPA(EEGModuleMixin, nn.Module):
         super().__init__(
             n_outputs=n_outputs,
             n_chans=n_chans,
-            chs_info=effective_chs_info,
+            chs_info=effective_chs_info if native else chs_info,
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
 
@@ -323,6 +335,56 @@ class _BaseSignalJEPA(EEGModuleMixin, nn.Module):
                 num_decoder_layers=transformer__num_decoder_layers,
                 batch_first=True,
             )
+
+    def _encode(self, x: torch.Tensor) -> torch.Tensor:
+        if self.training and not torch.jit.is_scripting():
+            return self._encode_train(x)
+        return self.transformer.encoder(x)  # type: ignore
+
+    @torch.jit.unused
+    def _encode_train(self, x: torch.Tensor) -> torch.Tensor:
+        """``self.transformer.encoder(x)`` in training, without SDPA's ``_safe_softmax``.
+
+        With dropout, torch's attention takes SDPA's math path, whose
+        ``_safe_softmax`` adds four passes over the (batch, heads, tokens,
+        tokens) scores to zero the rows a mask hides; there is no mask here.
+        Ops, layouts and dropout draws are otherwise torch's: outputs and
+        gradients are bit-identical on CPU.
+        """
+        encoder = self.transformer.encoder  # type: ignore
+        for layer in encoder.layers:
+            x = layer.norm1(x + layer.dropout1(_self_attention(layer.self_attn, x)))
+            h = layer.dropout(layer.activation(layer.linear1(x)))
+            x = layer.norm2(x + layer.dropout2(layer.linear2(h)))
+        if encoder.norm is not None:
+            x = encoder.norm(x)
+        return x
+
+
+def _self_attention(mha: nn.MultiheadAttention, x: torch.Tensor) -> torch.Tensor:
+    """``mha(x, x, x, need_weights=False)[0]`` (batch first, no mask) as
+    ``F.multi_head_attention_forward`` runs it, with the attention itself
+    through braindecode's SDPA helper (no ``_safe_softmax`` pass)."""
+    x = x.transpose(1, 0)
+    n_tokens, batch_size, emb_dim = x.shape
+    n_heads = mha.num_heads
+    head_dim = emb_dim // n_heads
+    qkv = nn.functional.linear(x, mha.in_proj_weight, mha.in_proj_bias)
+    qkv = qkv.unflatten(-1, (3, emb_dim)).unsqueeze(0).transpose(0, -2)
+    qkv = qkv.squeeze(-2).contiguous()
+    q, k, v = (
+        t.view(n_tokens, batch_size * n_heads, head_dim)
+        .transpose(0, 1)
+        .view(batch_size, n_heads, n_tokens, head_dim)
+        for t in (qkv[0], qkv[1], qkv[2])
+    )
+    out = scaled_dot_product_attention(
+        q, k, v, dropout_p=mha.dropout if mha.training else 0.0
+    )
+    out = out.permute(2, 0, 1, 3).contiguous()
+    out = out.view(batch_size * n_tokens, emb_dim)
+    out = nn.functional.linear(out, mha.out_proj.weight, mha.out_proj.bias)
+    return out.view(n_tokens, batch_size, emb_dim).transpose(1, 0)
 
 
 class SignalJEPA(_BaseSignalJEPA):
@@ -447,6 +509,8 @@ class SignalJEPA(_BaseSignalJEPA):
         transformer__nhead: int = 8,
         # other
         channel_embedding: str = "scratch",
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
         super().__init__(
             n_outputs=n_outputs,
@@ -471,17 +535,25 @@ class SignalJEPA(_BaseSignalJEPA):
             channel_embedding=channel_embedding,
             _init_feature_encoder=True,
             _init_transformer=True,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
         self.final_layer = nn.Identity()
 
-    def forward(self, X, return_features=False):  # type: ignore
+    def forward(
+        self, X: torch.Tensor, return_features: bool = False
+    ) -> Union[torch.Tensor, Dict[str, Optional[torch.Tensor]]]:
         local_features = self.feature_encoder(X)  # type: ignore
         pos_encoding = self.pos_encoder(local_features)  # type: ignore
         local_features += pos_encoding  # type: ignore
-        contextual_features = self.transformer.encoder(local_features)  # type: ignore
+        contextual_features = self._encode(local_features)  # type: ignore
         if return_features:
-            return {"features": contextual_features, "cls_token": None}
+            out: Dict[str, Optional[torch.Tensor]] = {
+                "features": contextual_features,
+                "cls_token": None,
+            }
+            return out
         y = self.final_layer(contextual_features)  # type: ignore
         return y  # type: ignore
 
@@ -605,6 +677,8 @@ class SignalJEPA_Contextual(_BaseSignalJEPA):
         channel_embedding: str = "scratch",
         _init_feature_encoder: bool = True,
         _init_transformer: bool = True,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
         super().__init__(
             n_outputs=n_outputs,
@@ -629,6 +703,8 @@ class SignalJEPA_Contextual(_BaseSignalJEPA):
             channel_embedding=channel_embedding,
             _init_feature_encoder=_init_feature_encoder,
             _init_transformer=_init_transformer,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
         self._clf_conv_layers_spec = feature_encoder__conv_layers_spec
@@ -643,6 +719,7 @@ class SignalJEPA_Contextual(_BaseSignalJEPA):
 
     def reset_head(self, n_outputs):
         self._n_outputs = n_outputs
+        self._update_init_kwargs(n_outputs=n_outputs)
         self.final_layer = _get_separable_clf_layer(
             conv_layers_spec=self._clf_conv_layers_spec,
             n_chans=self.n_chans,
@@ -651,13 +728,19 @@ class SignalJEPA_Contextual(_BaseSignalJEPA):
             n_spat_filters=self._clf_n_spat_filters,
         )
 
-    def forward(self, X, return_features=False):  # type: ignore
+    def forward(
+        self, X: torch.Tensor, return_features: bool = False
+    ) -> Union[torch.Tensor, Dict[str, Optional[torch.Tensor]]]:
         local_features = self.feature_encoder(X)  # type: ignore
         pos_encoding = self.pos_encoder(local_features)  # type: ignore
         local_features += pos_encoding  # type: ignore
-        contextual_features = self.transformer.encoder(local_features)  # type: ignore
+        contextual_features = self._encode(local_features)  # type: ignore
         if return_features:
-            return {"features": contextual_features, "cls_token": None}
+            out: Dict[str, Optional[torch.Tensor]] = {
+                "features": contextual_features,
+                "cls_token": None,
+            }
+            return out
         y = self.final_layer(contextual_features)  # type: ignore
         return y  # type: ignore
 
@@ -850,6 +933,8 @@ class SignalJEPA_PostLocal(_BaseSignalJEPA):
         transformer__nhead: int = 8,
         # other
         _init_feature_encoder: bool = True,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
         super().__init__(
             n_outputs=n_outputs,
@@ -873,6 +958,8 @@ class SignalJEPA_PostLocal(_BaseSignalJEPA):
             transformer__nhead=transformer__nhead,
             _init_feature_encoder=_init_feature_encoder,
             _init_transformer=False,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
         self._clf_conv_layers_spec = feature_encoder__conv_layers_spec
@@ -887,6 +974,7 @@ class SignalJEPA_PostLocal(_BaseSignalJEPA):
 
     def reset_head(self, n_outputs):
         self._n_outputs = n_outputs
+        self._update_init_kwargs(n_outputs=n_outputs)
         self.final_layer = _get_separable_clf_layer(
             conv_layers_spec=self._clf_conv_layers_spec,
             n_chans=self.n_chans,
@@ -954,10 +1042,16 @@ class SignalJEPA_PostLocal(_BaseSignalJEPA):
         new_model.feature_encoder = deepcopy(feature_encoder)
         return new_model
 
-    def forward(self, X, return_features=False):
-        local_features = self.feature_encoder(X)
+    def forward(
+        self, X: torch.Tensor, return_features: bool = False
+    ) -> Union[torch.Tensor, Dict[str, Optional[torch.Tensor]]]:
+        local_features = self.feature_encoder(X)  # type: ignore[misc]
         if return_features:
-            return {"features": local_features, "cls_token": None}
+            out: Dict[str, Optional[torch.Tensor]] = {
+                "features": local_features,
+                "cls_token": None,
+            }
+            return out
         y = self.final_layer(local_features)
         return y
 
@@ -1077,6 +1171,8 @@ class SignalJEPA_PreLocal(_BaseSignalJEPA):
         transformer__nhead: int = 8,
         # other
         _init_feature_encoder: bool = True,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
         self.n_spat_filters = n_spat_filters
         super().__init__(
@@ -1101,6 +1197,8 @@ class SignalJEPA_PreLocal(_BaseSignalJEPA):
             transformer__nhead=transformer__nhead,
             _init_feature_encoder=_init_feature_encoder,
             _init_transformer=False,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
         self.spatial_conv = nn.Sequential(
@@ -1120,6 +1218,7 @@ class SignalJEPA_PreLocal(_BaseSignalJEPA):
 
     def reset_head(self, n_outputs):
         self._n_outputs = n_outputs
+        self._update_init_kwargs(n_outputs=n_outputs)
         self.final_layer = nn.Sequential(
             nn.Flatten(start_dim=1),
             nn.Linear(self._out_emb_dim, n_outputs),
@@ -1184,11 +1283,17 @@ class SignalJEPA_PreLocal(_BaseSignalJEPA):
         new_model.feature_encoder = deepcopy(feature_encoder)
         return new_model
 
-    def forward(self, X, return_features=False):
+    def forward(
+        self, X: torch.Tensor, return_features: bool = False
+    ) -> Union[torch.Tensor, Dict[str, Optional[torch.Tensor]]]:
         X = self.spatial_conv(X)
-        local_features = self.feature_encoder(X)
+        local_features = self.feature_encoder(X)  # type: ignore[misc]
         if return_features:
-            return {"features": local_features, "cls_token": None}
+            out: Dict[str, Optional[torch.Tensor]] = {
+                "features": local_features,
+                "cls_token": None,
+            }
+            return out
         y = self.final_layer(local_features)
         return y
 
@@ -1264,6 +1369,17 @@ class _ConvFeatureEncoder(nn.Sequential):
         )
         self.conv_layers_spec = conv_layers_spec
 
+    def reset_parameters(self) -> None:
+        """Initialize this block's weights (Kaiming-normal convolutions; the
+        constructor initializes each convolution as it builds it)."""
+        self.apply(
+            partial(
+                init_weights_,
+                weights={nn.Conv1d: (nn.init.kaiming_normal_, None)},
+                norms=(),
+            )
+        )
+
     @staticmethod
     def _get_block(
         input_channels,
@@ -1303,7 +1419,7 @@ class _ConvFeatureEncoder(nn.Sequential):
             return nn.Sequential(
                 conv,
                 nn.Dropout(p=drop_prob),
-                nn.GroupNorm(output_channels, output_channels, affine=True),
+                _GroupNorm(output_channels, output_channels, affine=True),
                 activation(),
             )
         else:
@@ -1311,6 +1427,30 @@ class _ConvFeatureEncoder(nn.Sequential):
 
     def n_times_out(self, n_times):
         return _n_times_out(self.conv_layers_spec, n_times)
+
+
+class _GroupNorm(nn.GroupNorm):
+    """``nn.GroupNorm``; in HPU eager mode written out with mean and variance.
+
+    In HPU eager mode the backward of torch's group norm compiles new graphs at
+    every call (about 0.2 s per call on the feature encoder's first block);
+    the same normalisation from mean/var ops runs from cached kernels.
+    Elsewhere (CPU, CUDA, HPU lazy) this is ``F.group_norm``.
+    """
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if not torch.jit.is_scripting() and x.device.type == "hpu" and not _hpu_lazy():
+            xg = x.reshape(x.shape[0], self.num_groups, -1)
+            mean = xg.mean(-1, keepdim=True)
+            var = xg.var(-1, unbiased=False, keepdim=True)
+            x = ((xg - mean) * torch.rsqrt(var + self.eps)).reshape(x.shape)
+            if self.affine:
+                shape = (1, -1) + (1,) * (x.dim() - 2)
+                x = x * self.weight.reshape(shape) + self.bias.reshape(shape)
+            return x
+        return nn.functional.group_norm(
+            x, self.num_groups, self.weight, self.bias, self.eps
+        )
 
 
 class _ChannelEmbedding(nn.Embedding):
@@ -1331,12 +1471,17 @@ class _ChannelEmbedding(nn.Embedding):
     def __init__(
         self, channel_locations: list[list[float] | None], embedding_dim: int, **kwargs
     ):
+        # MNE stores NaN for a channel without a position: embed it as None.
+        channel_locations = [
+            None if loc is None or not all(map(math.isfinite, loc[:3])) else loc
+            for loc in channel_locations
+        ]
         self.coordinate_ranges = [
             (min(coords), max(coords))
             for coords in zip(
                 *[loc[:3] for loc in channel_locations if loc is not None]
             )
-        ]
+        ] or [(0.0, 0.0)] * 3  # no channel has a position
         channel_mins, channel_maxs = zip(*self.coordinate_ranges)
         global_min = min(channel_mins)
         global_max = max(channel_maxs)
@@ -1426,8 +1571,14 @@ class _PosEncoder(nn.Module):
             "default_ch_idxs", ch_idxs.to(torch.long), persistent=False
         )
 
-        # Pre-computed tensor for positional encoding on the time dimension:
-        self.encoding_time = torch.zeros(0, dtype=torch.float32, requires_grad=False)
+        # Pre-computed tensor for positional encoding on the time dimension, a
+        # non-persistent buffer so that it follows ``.to(device)``:
+        self.encoding_time: torch.Tensor
+        self.register_buffer(
+            "encoding_time",
+            torch.zeros(0, dtype=torch.float32, requires_grad=False),
+            persistent=False,
+        )
 
     def _check_encoding_time(self, n_times: int):
         if self.encoding_time.size(0) < n_times:
@@ -1465,20 +1616,30 @@ class _PosEncoder(nn.Module):
         assert n_chans_times % n_chans == 0
         n_times = n_chans_times // n_chans
 
-        pos_encoding = local_features.new_empty(
-            (batch_size_chs, n_chans, n_times, emb_dim)
-        )
+        # Built with torch.cat rather than strided in-place writes into a
+        # new_empty buffer, which Intel Gaudi (HPU) silently dropped.
         # Channel pos. encoding
-        pos_encoding[:, :, :, : self.spat_dim] = self.pos_encoder_spat(ch_idxs)[
-            :, :, None, :
-        ]
+        spat_encoding = self.pos_encoder_spat(ch_idxs)[:, :, None, :].expand(
+            batch_size_chs, n_chans, n_times, self.spat_dim
+        )
         # Temporal pos. encoding
         self._check_encoding_time(n_times)
-        _ = pos_encoding[:, :, :, self.spat_dim : self.spat_dim + self.time_dim].copy_(
-            self.encoding_time[None, None, :n_times, :],
+        time_encoding = self.encoding_time[:n_times].to(
+            device=local_features.device, dtype=local_features.dtype
         )
+        time_encoding = time_encoding[None, None].expand(
+            batch_size_chs, n_chans, n_times, self.time_dim
+        )
+        parts = [spat_encoding.to(local_features.dtype), time_encoding]
+        n_rest = emb_dim - self.spat_dim - self.time_dim
+        if n_rest > 0:
+            # Entries new_empty used to leave uninitialised.
+            parts.append(
+                local_features.new_zeros(batch_size_chs, n_chans, n_times, n_rest)
+            )
+        pos_encoding = torch.cat(parts, dim=-1)
 
-        return pos_encoding.view(batch_size, n_chans_times, emb_dim)
+        return pos_encoding.reshape(batch_size, n_chans_times, emb_dim)
 
 
 def _n_times_out(conv_layers_spec, n_times):
@@ -1522,6 +1683,9 @@ def _pos_encode_time(
 ):
     """1-dimensional positional encoding.
 
+    :func:`~braindecode.functional.sinusoidal_positional_encoding` with the
+    largest number of time samples as the longest wavelength.
+
     Parameters
     ----------
         n_times: int
@@ -1538,14 +1702,9 @@ def _pos_encode_time(
         pos_encoding: (n_times, n_dim)
     """
     assert n_dim % 2 == 0
-    position = torch.arange(n_times, device=device).unsqueeze(1)
-    div_term = torch.exp(
-        torch.arange(0, n_dim, 2, device=device) * (-math.log(max_n_times) / n_dim)
+    return sinusoidal_positional_encoding(
+        n_times, n_dim, device=device, base=float(max_n_times)
     )
-    pos_encoding = torch.empty((n_times, n_dim), dtype=torch.float32, device=device)
-    pos_encoding[:, 0::2] = torch.sin(position * div_term)
-    pos_encoding[:, 1::2] = torch.cos(position * div_term)
-    return pos_encoding
 
 
 def _pos_encode_contineous(
@@ -1574,24 +1733,10 @@ def _pos_encode_contineous(
         (1 - torch.arange(0, n_dim, 2, device=device) / n_dim) * 2 * math.pi
     )
     pos_encoding = torch.empty((n_dim,), dtype=torch.float32, device=device)
-    xx = (x - x_min) / (x_max - x_min)
+    # Zero span when every ``loc`` is zero (names without positions): encode
+    # xx = 0 instead of the NaN of 0/0.
+    span = x_max - x_min
+    xx = (x - x_min) / span if span != 0 else 0.0
     pos_encoding[0::2] = torch.sin(xx * div_term)
     pos_encoding[1::2] = torch.cos(xx * div_term)
     return pos_encoding
-
-
-# -----------------------------------------------------------------------------
-# InterpolatedSignalJEPA — experimental channel-interpolation variant
-# -----------------------------------------------------------------------------
-# A :func:`~braindecode.models.interpolated.InterpolatedModel` wrapper around
-# :class:`SignalJEPA` whose target channel set is the 62-channel pre-training
-# montage. Accepts arbitrary user ``chs_info``; projects to the canonical
-# 62 channels via an MNE-backed (frozen by default) interpolation matrix.
-#
-# Coexists with ``SignalJEPA(channel_embedding="pretrain_aligned")`` (added
-# in PR #991). The latter requires user channels to be a strict subset of the
-# pre-training set; the former handles arbitrary channels via interpolation.
-
-from braindecode.models.interpolated import InterpolatedModel  # noqa: E402
-
-InterpolatedSignalJEPA = InterpolatedModel(SignalJEPA, _PRETRAIN_CHS_INFO)

@@ -8,7 +8,6 @@ from typing import Any, Iterator
 from ..exceptions import ConfigurationError
 from ..jobs.show import (
     _fetchall,
-    _search_list_filters,
     _with_search,
     fetch_job,
     fetch_job_search,
@@ -147,6 +146,7 @@ def _iter_sql_rows_for_spider(
     try:
         items_table = settings.db_items_table
         jobs_table = settings.db_jobs_table
+        spiders_table = settings.db_spiders_table
         last_id = 0
         while True:
             rows = _fetchall(
@@ -154,7 +154,8 @@ def _iter_sql_rows_for_spider(
                 f"SELECT i.id, j.job_id, i.item, i.created_at "
                 f"FROM {items_table} i "
                 f"INNER JOIN {jobs_table} j ON i.job_id = j.id "
-                f"WHERE j.spider_name = %s AND i.id > %s "
+                f"INNER JOIN {spiders_table} s ON j.spider_id = s.id "
+                f"WHERE s.name = %s AND i.id > %s "
                 f"ORDER BY i.id LIMIT %s",
                 (spider, last_id, batch_size),
             )
@@ -185,7 +186,9 @@ def _iter_search_rows_for_job(
         index = settings.db_items_table
         for doc in client.iter_documents(
             index,
-            query=_job_id_query(external_job_id),
+            query=_job_id_query(
+                external_job_id, search_job_pk(client, settings, external_job_id)
+            ),
             size=batch_size,
             sort=[
                 {"created_at": {"order": "asc", "unmapped_type": "date"}},
@@ -206,14 +209,16 @@ def _iter_search_rows_for_spider(
     batch_size: int,
 ) -> Iterator[dict]:
     with _with_search(settings) as client:
-        job_ids = _search_job_ids_for_spider(client, settings, spider)
-        if not job_ids:
+        job_keys = _search_job_keys_for_spider(client, settings, spider)
+        if not job_keys:
             return
         index = settings.db_items_table
-        for chunk in _chunks(job_ids, 500):
+        for chunk in _chunks(job_keys, 500):
+            external_ids = [ext for ext, _ in chunk]
+            pks = [pk for _, pk in chunk if pk is not None]
             for doc in client.iter_documents(
                 index,
-                query=_job_ids_query(chunk),
+                query=_job_ids_query(external_ids, pks or None),
                 size=batch_size,
                 sort=[
                     {"created_at": {"order": "asc", "unmapped_type": "date"}},
@@ -227,15 +232,15 @@ def _iter_search_rows_for_spider(
                 )
 
 
-def _search_job_ids_for_spider(client, settings, spider: str) -> list[str]:
+def _search_job_keys_for_spider(
+    client, settings, spider: str
+) -> list[tuple[str, int | None]]:
     jobs_index = settings.db_jobs_table
-    filters = _search_list_filters(spider=spider)
-    query: dict[str, Any]
-    if filters:
-        query = {"bool": {"filter": list(filters)}}
-    else:
-        query = {"match_all": {}}
-    ids: list[str] = []
+    spider_ids = client.spider_ids_for_filter(settings.db_spiders_table, spider)
+    if not spider_ids:
+        return []
+    query: dict[str, Any] = {"bool": {"filter": [{"terms": {"spider_id": spider_ids}}]}}
+    keys: list[tuple[str, int | None]] = []
     for doc in client.iter_documents(
         jobs_index,
         query=query,
@@ -246,33 +251,40 @@ def _search_job_ids_for_spider(client, settings, spider: str) -> list[str]:
         ],
     ):
         job_key = doc.get("job_id")
-        if job_key:
-            ids.append(str(job_key))
-    return ids
+        if not job_key:
+            continue
+        raw_pk = doc.get("id")
+        pk = int(raw_pk) if raw_pk is not None else None
+        keys.append((str(job_key), pk))
+    return keys
 
 
-def _job_id_query(external_job_id: str) -> dict:
-    return {
-        "bool": {
-            "should": [
-                {"term": {"job_id": external_job_id}},
-                {"term": {"job_id.keyword": external_job_id}},
-            ],
-            "minimum_should_match": 1,
-        }
-    }
+def search_job_pk(client, settings, external_job_id: str) -> int | None:
+    doc = client.get_document(settings.db_jobs_table, external_job_id)
+    if not doc:
+        return None
+    raw = doc.get("id")
+    return int(raw) if raw is not None else None
 
 
-def _job_ids_query(job_ids: list[str]) -> dict:
-    return {
-        "bool": {
-            "should": [
-                {"terms": {"job_id": job_ids}},
-                {"terms": {"job_id.keyword": job_ids}},
-            ],
-            "minimum_should_match": 1,
-        }
-    }
+def _job_id_query(external_job_id: str, job_pk: int | None = None) -> dict:
+    """Match child docs by SQL jobs.id (long). Legacy string job_id uses .keyword only."""
+    should: list[dict] = []
+    if job_pk is not None:
+        should.append({"term": {"job_id": int(job_pk)}})
+    should.append({"term": {"job_id.keyword": external_job_id}})
+    return {"bool": {"should": should, "minimum_should_match": 1}}
+
+
+def _job_ids_query(job_ids: list[str], job_pks: list[int] | None = None) -> dict:
+    should: list[dict] = []
+    if job_pks:
+        should.append({"terms": {"job_id": [int(pk) for pk in job_pks]}})
+    if job_ids:
+        should.append({"terms": {"job_id.keyword": job_ids}})
+    if not should:
+        return {"bool": {"must_not": {"match_all": {}}}}
+    return {"bool": {"should": should, "minimum_should_match": 1}}
 
 
 def _chunks(values: list[str], size: int) -> Iterator[list[str]]:

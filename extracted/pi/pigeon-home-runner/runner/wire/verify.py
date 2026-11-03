@@ -49,7 +49,15 @@ try:
 except ImportError:
     from guard import confval as _confval  # type: ignore
 
-PROTOCOL_VERSION = 1
+# Fields build_key_policies understands. Anything else in a policy
+# object is a typo: it used to vanish, and the key ran with a
+# smaller policy than the file appeared to set.
+_POLICY_FIELDS = frozenset({
+    "allowed_kinds", "allowed_interpreters", "max_timeout_sec",
+    "allowed_recipes", "allowed_script_sha384", "allowed_env",
+    "denied_env", "allow_dangerous_env", "allowed_files",
+    "allow_file_urls", "max_args", "args_pattern",
+})
 
 
 # The replay cache's hard ceiling, a backstop only. Entries leave the
@@ -482,7 +490,16 @@ def build_secrets(cfg) -> dict:
     return secrets
 
 
-def build_key_policies(cfg) -> dict:
+def _policy_warn(msg):
+    build_key_policies.last_warnings.append(msg)
+    try:
+        from runner.runner import log
+        log(msg, "WARN")
+    except Exception:
+        pass
+
+
+def _build_key_policies(cfg) -> dict:
     """key_id -> policy dict. Keys without an entry are unrestricted
     unless key_policies_default_deny is set (additional keys only;
     the default key "" is always unrestricted).
@@ -497,6 +514,7 @@ def build_key_policies(cfg) -> dict:
     if not isinstance(raw, dict):
         raise RuntimeError("config error: key_policies must be an object")
     policies = {}
+    build_key_policies.last_warnings = []
     for kid, pol in raw.items():
         if not isinstance(kid, str):
             raise RuntimeError("config error: key_policies keys must be strings")
@@ -621,6 +639,11 @@ def build_key_policies(cfg) -> dict:
                     f"config error: key_policies[{kid!r}].args_pattern "
                     "may backtrack catastrophically on hostile input")
             clean["args_pattern"] = pattern
+        unknown = [field for field in pol if field not in _POLICY_FIELDS]
+        for field in sorted(unknown):
+            _policy_warn(
+                "config: key_policies[%r] field %r is not a policy "
+                "field and is not in the built policy" % (kid, field))
         policies[kid] = clean
     # One key, one entry (Q94): a key's names -- the default key's
     # empty id and fingerprint, an additional name over the same
@@ -639,6 +662,30 @@ def build_key_policies(cfg) -> dict:
                         f"({kid!r} and {other!r} are the same key); keep "
                         "one entry")
     return policies
+
+
+class _KeyPolicyBuilder:
+    """The public build_key_policies, as a callable object.
+
+    It carries last_warnings, the warnings its most recent call
+    collected: an unrecognised policy field is named in the log and
+    recorded there (the P4 contract), so a caller can read the list
+    back after building. The list lives on an object with the field
+    declared, not on a plain function, so its existence is part of
+    the stated shape; calling the builder runs _build_key_policies,
+    which resets the list at the same point it always has.
+    """
+
+    last_warnings: list[str]
+
+    def __init__(self):
+        self.last_warnings = []
+
+    def __call__(self, cfg) -> dict:
+        return _build_key_policies(cfg)
+
+
+build_key_policies = _KeyPolicyBuilder()
 
 
 def unrestricted_extra_keys(cfg) -> list:

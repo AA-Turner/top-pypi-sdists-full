@@ -13,7 +13,7 @@ class RecordedRunOptions(BaseModel):
 
   load_weights_only: bool | None = None
 
-  intelligent_density_training: bool | None = None
+  density_aware_training: bool | None = None
 
   algorithm: TrainingAlgorithm | None = None
 
@@ -23,17 +23,17 @@ class RecordedRunOptions(BaseModel):
 
   train_on_timeout: bool | None = None
 
-  evaluation_enabled: bool | None = None
+  val_enabled: bool | None = None
 
-  evaluation_frequency: int | None = None
+  val_interval_steps: int | None = None
 
-  evaluation_max_samples: int | None = None
+  val_num_tasks: int | None = None
 
-  evaluation_samples_per_task: int | None = None
+  val_trajectories_per_task: int | None = None
 
-  evaluation_max_active_rollouts: int | None = None
+  val_max_concurrent_trajectories: int | None = None
 
-  evaluation_collection_timeout_seconds: float | None = None
+  val_final_wait_timeout_seconds: float | None = None
 
   learning_rate: float | None = None
 
@@ -41,7 +41,7 @@ class RecordedRunOptions(BaseModel):
 
   lr_hold_steps: int | None = None
 
-  min_lr_ratio: float | None = None
+  lr_min_ratio: float | None = None
 
   reasoning_effort: (
     Literal["off", "on", "minimal", "low", "medium", "high", "xhigh", "max"] | None
@@ -53,36 +53,48 @@ class RecordedRunOptions(BaseModel):
 
   top_k: int | None = None
 
-  evaluation_reasoning_effort: (
+  val_reasoning_effort: (
     Literal["off", "on", "minimal", "low", "medium", "high", "xhigh", "max"] | None
   ) = None
 
-  evaluation_temperature: float | None = None
+  val_temperature: float | None = None
 
-  evaluation_top_p: float | None = None
+  val_top_p: float | None = None
 
-  evaluation_top_k: int | None = None
+  val_top_k: int | None = None
+
+  val_max_output_tokens_per_turn: int | None = None
+
+  val_max_output_tokens_per_trajectory: int | None = None
+
+  val_max_turns_per_trajectory: int | None = None
+
+  val_trajectory_timeout_seconds: int | None = None
 
   num_steps: int | None = None
 
-  train_batch_size: int | None = None
+  batch_size: int | None = None
 
   group_size: int | None = None
 
-  samples_per_instance: int | None = None
+  min_trajectories_per_group: int | None = None
 
-  min_samples_per_group: int | None = None
+  max_concurrent_trajectories: int | None = None
 
-  max_active_rollouts: int | None = None
+  max_staleness: int | None = None
 
-  max_steps_off_policy: int | None = None
+  train_on_all_fail: bool | None = None
 
-  execution_timeout_seconds: int | None = None
+  train_on_all_pass: bool | None = None
 
-  batch_collection_idle_timeout_seconds: int | None = None
+  train_on_zero_advantage: bool | None = None
 
-  max_output_tokens_per_step: int | None = None
+  trajectory_timeout_seconds: int | None = None
 
-  max_total_tokens_per_trajectory: int | None = None
+  batch_timeout_seconds: int | None = None
+
+  max_output_tokens_per_turn: int | None = None
+
+  max_output_tokens_per_trajectory: int | None = None
 
   max_turns_per_trajectory: int | None = None

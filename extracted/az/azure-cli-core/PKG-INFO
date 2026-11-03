@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: azure-cli-core
-Version: 2.91.0
+Version: 2.92.0
 Summary: Microsoft Azure Command-Line Tools Core Module
-Home-page: https://github.com/Azure/azure-cli
-Author: Microsoft Corporation
-Author-email: azpycli@microsoft.com
-License: MIT
+Author-email: Microsoft Corporation <azpycli@microsoft.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/Azure/azure-cli
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
@@ -16,8 +15,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.10.0
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: argcomplete~=3.5.2
 Requires-Dist: azure-cli-telemetry==1.1.0.*
@@ -39,16 +38,7 @@ Requires-Dist: PyJWT>=2.1.0
 Requires-Dist: pyopenssl>=17.1.0
 Requires-Dist: py-deviceid
 Requires-Dist: requests[socks]
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 Microsoft Azure CLI Core Module
 ==================================

@@ -3,7 +3,7 @@
 Everything here lands in the run's ``metadata["launch"]`` block, never in the
 content-addressed execution record -- argv, hostnames, and env values differ per
 launch, and hashing them would mint a unique execution record per run and
-destroy dedup (design doc D1, docs/2026-08-04-reproducibility-capture-enforcement-design.md).
+destroy dedup (design doc D1, agent/src/probe/sdk/capture/code/DESIGN.md).
 
 Every capture is best-effort: failures collect into an ``errors`` list and
 capture functions never raise. Absence is recorded, not guessed.

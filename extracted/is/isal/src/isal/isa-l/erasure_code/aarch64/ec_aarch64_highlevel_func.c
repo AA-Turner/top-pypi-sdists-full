@@ -139,100 +139,106 @@ ec_encode_data_update_neon(int len, int k, int rows, int vec_i, unsigned char *g
         }
 }
 
+#ifdef __APPLE__
+#define ARM_STREAMING __arm_streaming
+#else
+#define ARM_STREAMING
+#endif
+
 /* SVE */
 extern void
 gf_vect_dot_prod_sve(int len, int vlen, unsigned char *gftbls, unsigned char **src,
-                     unsigned char *dest);
+                     unsigned char *dest) ARM_STREAMING;
 extern void
 gf_2vect_dot_prod_sve(int len, int vlen, unsigned char *gftbls, unsigned char **src,
-                      unsigned char **dest);
+                      unsigned char **dest) ARM_STREAMING;
 extern void
 gf_3vect_dot_prod_sve(int len, int vlen, unsigned char *gftbls, unsigned char **src,
-                      unsigned char **dest);
+                      unsigned char **dest) ARM_STREAMING;
 extern void
 gf_4vect_dot_prod_sve(int len, int vlen, unsigned char *gftbls, unsigned char **src,
-                      unsigned char **dest);
+                      unsigned char **dest) ARM_STREAMING;
 extern void
 gf_5vect_dot_prod_sve(int len, int vlen, unsigned char *gftbls, unsigned char **src,
-                      unsigned char **dest);
+                      unsigned char **dest) ARM_STREAMING;
 extern void
 gf_6vect_dot_prod_sve(int len, int vlen, unsigned char *gftbls, unsigned char **src,
-                      unsigned char **dest);
+                      unsigned char **dest) ARM_STREAMING;
 extern void
 gf_7vect_dot_prod_sve(int len, int vlen, unsigned char *gftbls, unsigned char **src,
-                      unsigned char **dest);
+                      unsigned char **dest) ARM_STREAMING;
+
+/* SVE2 */
 extern void
-gf_8vect_dot_prod_sve(int len, int vlen, unsigned char *gftbls, unsigned char **src,
-                      unsigned char **dest);
+gf_vect_dot_prod_sve2(int len, int vlen, unsigned char *gftbls, unsigned char **src,
+                      unsigned char *dest) ARM_STREAMING;
+extern void
+gf_2vect_dot_prod_sve2(int len, int vlen, unsigned char *gftbls, unsigned char **src,
+                       unsigned char **dest) ARM_STREAMING;
+extern void
+gf_3vect_dot_prod_sve2(int len, int vlen, unsigned char *gftbls, unsigned char **src,
+                       unsigned char **dest) ARM_STREAMING;
+extern void
+gf_4vect_dot_prod_sve2(int len, int vlen, unsigned char *gftbls, unsigned char **src,
+                       unsigned char **dest) ARM_STREAMING;
+extern void
+gf_5vect_dot_prod_sve2(int len, int vlen, unsigned char *gftbls, unsigned char **src,
+                       unsigned char **dest) ARM_STREAMING;
+extern void
+gf_6vect_dot_prod_sve2(int len, int vlen, unsigned char *gftbls, unsigned char **src,
+                       unsigned char **dest) ARM_STREAMING;
+extern void
+gf_7vect_dot_prod_sve2(int len, int vlen, unsigned char *gftbls, unsigned char **src,
+                       unsigned char **dest) ARM_STREAMING;
+
 extern void
 gf_vect_mad_sve(int len, int vec, int vec_i, unsigned char *gftbls, unsigned char *src,
-                unsigned char *dest);
+                unsigned char *dest) ARM_STREAMING;
+
 extern void
 gf_2vect_mad_sve(int len, int vec, int vec_i, unsigned char *gftbls, unsigned char *src,
-                 unsigned char **dest);
+                 unsigned char **dest) ARM_STREAMING;
 extern void
 gf_3vect_mad_sve(int len, int vec, int vec_i, unsigned char *gftbls, unsigned char *src,
-                 unsigned char **dest);
+                 unsigned char **dest) ARM_STREAMING;
 extern void
 gf_4vect_mad_sve(int len, int vec, int vec_i, unsigned char *gftbls, unsigned char *src,
-                 unsigned char **dest);
+                 unsigned char **dest) ARM_STREAMING;
 extern void
 gf_5vect_mad_sve(int len, int vec, int vec_i, unsigned char *gftbls, unsigned char *src,
-                 unsigned char **dest);
+                 unsigned char **dest) ARM_STREAMING;
 extern void
 gf_6vect_mad_sve(int len, int vec, int vec_i, unsigned char *gftbls, unsigned char *src,
-                 unsigned char **dest);
+                 unsigned char **dest) ARM_STREAMING;
 
-void
-ec_encode_data_sve(int len, int k, int rows, unsigned char *g_tbls, unsigned char **data,
-                   unsigned char **coding)
+#ifdef __APPLE__
+__arm_locally_streaming __attribute__((target("+sme")))
+#endif
+static void
+ec_encode_data_sve_impl(int len, int k, int rows, unsigned char *g_tbls, unsigned char **data,
+                        unsigned char **coding)
 {
-        if (len < 16) {
-                ec_encode_data_base(len, k, rows, g_tbls, data, coding);
-                return;
-        }
-
-        while (rows > 11) {
-                gf_6vect_dot_prod_sve(len, k, g_tbls, data, coding);
-                g_tbls += 6 * k * 32;
-                coding += 6;
-                rows -= 6;
-        }
-
-        switch (rows) {
-        case 11:
-                /* 7 + 4 */
-                gf_7vect_dot_prod_sve(len, k, g_tbls, data, coding);
-                g_tbls += 7 * k * 32;
-                coding += 7;
-                gf_4vect_dot_prod_sve(len, k, g_tbls, data, coding);
-                break;
-        case 10:
-                /* 6 + 4 */
-                gf_6vect_dot_prod_sve(len, k, g_tbls, data, coding);
-                g_tbls += 6 * k * 32;
-                coding += 6;
-                gf_4vect_dot_prod_sve(len, k, g_tbls, data, coding);
-                break;
-        case 9:
-                /* 5 + 4 */
-                gf_5vect_dot_prod_sve(len, k, g_tbls, data, coding);
-                g_tbls += 5 * k * 32;
-                coding += 5;
-                gf_4vect_dot_prod_sve(len, k, g_tbls, data, coding);
-                break;
-        case 8:
-                /* 4 + 4 */
+        while (rows > 7) {
                 gf_4vect_dot_prod_sve(len, k, g_tbls, data, coding);
                 g_tbls += 4 * k * 32;
                 coding += 4;
-                gf_4vect_dot_prod_sve(len, k, g_tbls, data, coding);
-                break;
+                rows -= 4;
+        }
+
+        switch (rows) {
         case 7:
-                gf_7vect_dot_prod_sve(len, k, g_tbls, data, coding);
+                /* 4 + 3 */
+                gf_4vect_dot_prod_sve(len, k, g_tbls, data, coding);
+                g_tbls += 4 * k * 32;
+                coding += 4;
+                gf_3vect_dot_prod_sve(len, k, g_tbls, data, coding);
                 break;
         case 6:
-                gf_6vect_dot_prod_sve(len, k, g_tbls, data, coding);
+                /* 4 + 2 */
+                gf_4vect_dot_prod_sve(len, k, g_tbls, data, coding);
+                g_tbls += 4 * k * 32;
+                coding += 4;
+                gf_2vect_dot_prod_sve(len, k, g_tbls, data, coding);
                 break;
         case 5:
                 gf_5vect_dot_prod_sve(len, k, g_tbls, data, coding);
@@ -255,13 +261,83 @@ ec_encode_data_sve(int len, int k, int rows, unsigned char *g_tbls, unsigned cha
 }
 
 void
-ec_encode_data_update_sve(int len, int k, int rows, int vec_i, unsigned char *g_tbls,
-                          unsigned char *data, unsigned char **coding)
+ec_encode_data_sve(int len, int k, int rows, unsigned char *g_tbls, unsigned char **data,
+                   unsigned char **coding)
 {
         if (len < 16) {
-                ec_encode_data_update_base(len, k, rows, vec_i, g_tbls, data, coding);
+                ec_encode_data_base(len, k, rows, g_tbls, data, coding);
                 return;
         }
+        ec_encode_data_sve_impl(len, k, rows, g_tbls, data, coding);
+}
+
+#ifdef __APPLE__
+__arm_locally_streaming __attribute__((target("+sme")))
+#endif
+static void
+ec_encode_data_sve2_impl(int len, int k, int rows, unsigned char *g_tbls, unsigned char **data,
+                         unsigned char **coding)
+{
+        while (rows > 7) {
+                gf_4vect_dot_prod_sve2(len, k, g_tbls, data, coding);
+                g_tbls += 4 * k * 32;
+                coding += 4;
+                rows -= 4;
+        }
+
+        switch (rows) {
+        case 7:
+                /* 4 + 3 */
+                gf_4vect_dot_prod_sve2(len, k, g_tbls, data, coding);
+                g_tbls += 4 * k * 32;
+                coding += 4;
+                gf_3vect_dot_prod_sve2(len, k, g_tbls, data, coding);
+                break;
+        case 6:
+                /* 4 + 2 */
+                gf_4vect_dot_prod_sve2(len, k, g_tbls, data, coding);
+                g_tbls += 4 * k * 32;
+                coding += 4;
+                gf_2vect_dot_prod_sve2(len, k, g_tbls, data, coding);
+                break;
+        case 5:
+                gf_5vect_dot_prod_sve2(len, k, g_tbls, data, coding);
+                break;
+        case 4:
+                gf_4vect_dot_prod_sve2(len, k, g_tbls, data, coding);
+                break;
+        case 3:
+                gf_3vect_dot_prod_sve2(len, k, g_tbls, data, coding);
+                break;
+        case 2:
+                gf_2vect_dot_prod_sve2(len, k, g_tbls, data, coding);
+                break;
+        case 1:
+                gf_vect_dot_prod_sve2(len, k, g_tbls, data, *coding);
+                break;
+        default:
+                break;
+        }
+}
+
+void
+ec_encode_data_sve2(int len, int k, int rows, unsigned char *g_tbls, unsigned char **data,
+                    unsigned char **coding)
+{
+        if (len < 16) {
+                ec_encode_data_base(len, k, rows, g_tbls, data, coding);
+                return;
+        }
+        ec_encode_data_sve2_impl(len, k, rows, g_tbls, data, coding);
+}
+
+#ifdef __APPLE__
+__arm_locally_streaming __attribute__((target("+sme")))
+#endif
+static void
+ec_encode_data_update_sve_impl(int len, int k, int rows, int vec_i, unsigned char *g_tbls,
+                               unsigned char *data, unsigned char **coding)
+{
         while (rows > 6) {
                 gf_6vect_mad_sve(len, k, vec_i, g_tbls, data, coding);
                 g_tbls += 6 * k * 32;
@@ -290,4 +366,15 @@ ec_encode_data_update_sve(int len, int k, int rows, int vec_i, unsigned char *g_
         default:
                 break;
         }
+}
+
+void
+ec_encode_data_update_sve(int len, int k, int rows, int vec_i, unsigned char *g_tbls,
+                          unsigned char *data, unsigned char **coding)
+{
+        if (len < 16) {
+                ec_encode_data_update_base(len, k, rows, vec_i, g_tbls, data, coding);
+                return;
+        }
+        ec_encode_data_update_sve_impl(len, k, rows, vec_i, g_tbls, data, coding);
 }

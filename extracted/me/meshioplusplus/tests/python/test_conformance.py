@@ -24,8 +24,8 @@ WRITABLE = sorted(meshioplusplus.formats()["writable"])
 # Writers (or the reader of a round trip) with no Python engine that exist only
 # in some native builds, keyed to the core flag that says so. The declaration
 # describes a build that has them; a build without one (the Windows CI job has
-# no zlib, so no gidpost; the wheels have no OpenCASCADE, so STEP does not read
-# back) skips.
+# no zlib, so no gidpost; a source build that found no OpenCASCADE cannot read
+# STEP back) skips.
 _NEEDS_CORE = {"gid": "__has_gidpost__", "step": "__has_occt__"}
 
 
@@ -148,7 +148,13 @@ def test_round_trip_matches_the_declaration(fmt):
     if spec is None:
         pytest.skip("undeclared (reported by test_every_writable_format_is_declared)")
     flag = _NEEDS_CORE.get(fmt)
-    if flag and not getattr(meshioplusplus._core, flag, False):
+    if fmt == "step":
+        from meshioplusplus._fit_cad import has_occt
+
+        flag = flag if not has_occt() else None
+    elif flag and getattr(meshioplusplus._core, flag, False):
+        flag = None
+    if flag:
         pytest.skip(f"{fmt}: this build is without {flag}")
     declared = {k: v for k, v in spec.items() if k != "note"}
     cells = list(declared["cells"]) if "cells" in declared else None

@@ -45,6 +45,7 @@ options:
     - name: ansible_winrm_password
     aliases:
     - password  # Needed for --ask-pass to come through on delegation
+    secret: true
   port:
     description:
     - The port for PSRP to connect on the remote target.
@@ -208,6 +209,7 @@ options:
     - The password for the O(certificate_key_pem) key file if it is encrypted.
     - This option requires pypsrp >= 0.9.0 to be installed.
     type: str
+    secret: true
     vars:
     - name: ansible_psrp_certificate_key_password
     version_added: '2.21'
@@ -746,17 +748,7 @@ class Connection(ConnectionBase):
             # NativeCommandError and NativeCommandErrorMessage are special
             # cases used for stderr from a subprocess, we will just print the
             # error message
-            if error.fq_error == 'NativeCommandErrorMessage' and not error.target_name:
-                # This can be removed once Server 2016 is EOL and no longer
-                # supported. PS 5.1 on 2016 will emit 1 error record under
-                # NativeCommandError being the first line, subsequent records
-                # are the raw stderr up to 4096 chars. Each entry is the raw
-                # stderr value without any newlines appended so we just use the
-                # value as is. We know it's 2016 as the target_name is empty in
-                # this scenario.
-                stderr_list.append(str(error))
-                continue
-            elif error.fq_error in ['NativeCommandError', 'NativeCommandErrorMessage']:
+            if error.fq_error in ['NativeCommandError', 'NativeCommandErrorMessage']:
                 stderr_list.append(f"{error}\r\n")
                 continue
 
@@ -782,8 +774,11 @@ class Connection(ConnectionBase):
             log_stdout = log_stderr = '<censored due to no log>'
 
         display.vvvvv("PSRP RC: %d" % rc, host=self._psrp_host)
-        display.vvvvv(f"PSRP STDOUT: {log_stdout}", host=self._psrp_host)
-        display.vvvvv(f"PSRP STDERR: {log_stderr}", host=self._psrp_host)
+        # The raw output is only shown under ANSIBLE_DEBUG. Module output may contain secrets which are not
+        # registered with the secret masker until the result has been parsed by the action plugin, so displaying
+        # the raw output here at a normal verbosity level could leak them.
+        display.debug(f"PSRP STDOUT: {log_stdout}")
+        display.debug(f"PSRP STDERR: {log_stderr}")
 
         # reset the host back output back to defaults, needed if running
         # multiple pipelines on the same RunspacePool

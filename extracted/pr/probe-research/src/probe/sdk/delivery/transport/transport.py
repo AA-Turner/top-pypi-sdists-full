@@ -25,6 +25,7 @@ from ....foundation.request_identity.surface import ATTRIBUTION_HEADER, SURFACE_
 from ....foundation.safe_warn import safe_warn
 from ....foundation.tls.tls import ssl_context
 from ...agent_session import AGENT_SESSION_HEADER
+from .notices import NOTICE_WATCHER
 from ...settings.settings import Settings
 from ...values import unstorable
 from .protocols import observer
@@ -481,6 +482,8 @@ class Transport(_TransportParts):
             # or change a setting (a later CLI command acts): one lookup per kind when
             # no header is there.
             device_mark.note_all(resp.headers)
+            # A notice set this process has not handled: read and shown off this thread.
+            NOTICE_WATCHER.handle_answer(self, resp.headers)
         if resp.status_code >= 400:
             if attempt > 1 and method.upper() == "DELETE" and _is_trash_notice(resp):
                 # A RETRIED delete finding the thing in the trash: the first attempt

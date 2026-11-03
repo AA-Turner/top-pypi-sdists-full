@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agentenv-framework
-Version: 0.9.1410
+Version: 0.9.1419
 Summary: SDK and CLI for building, deploying and running agent environments and the tasks that grade agents in them.
 Project-URL: Homepage, https://www.agentenvframework.com
 Project-URL: Documentation, https://www.agentenvframework.com/docs
@@ -29,7 +29,7 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Typing :: Typed
 Requires-Python: >=3.11.4
 Requires-Dist: a2a-sdk==0.3.26
-Requires-Dist: agentenv-framework-protocol[computer]==0.1.425
+Requires-Dist: agentenv-framework-protocol[computer]==0.1.434
 Requires-Dist: certifi>=2024.2.2
 Requires-Dist: click>=8.0.0
 Requires-Dist: cryptography>=42
@@ -46,6 +46,7 @@ Requires-Dist: pymongo>=4.7
 Requires-Dist: python-multipart>=0.0.13
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: starlette>=0.40
+Requires-Dist: tzdata>=2024.1
 Requires-Dist: uvicorn>=0.47
 Provides-Extra: aws
 Requires-Dist: boto3>=1.35.0; extra == 'aws'
@@ -107,6 +108,8 @@ Requires-Dist: requests>=2.31; extra == 'gcp'
 Provides-Extra: harness
 Requires-Dist: openenv>=0.10; extra == 'harness'
 Requires-Dist: openenv>=0.9; extra == 'harness'
+Provides-Extra: miles
+Requires-Dist: openenv>=0.9; extra == 'miles'
 Provides-Extra: nemo-gym
 Requires-Dist: nemo-gym>=0.7.0rc0; (python_full_version >= '3.13.14') and extra == 'nemo-gym'
 Requires-Dist: omegaconf>=2.3; (python_full_version >= '3.13.14') and extra == 'nemo-gym'

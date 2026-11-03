@@ -14,7 +14,10 @@ from ..utils.serialization import json_safe
 from ..utils.summary import display_database, format_crawl_summary
 from .connection import DatabaseConnection
 from .schema import SchemaManager
+from .job_sequence import resolve_configured_job_id
+from .search_job_sequence import resolve_job_key_search
 from .writer import DbWriter
+from ..utils.job_id import cached_job_id
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +62,7 @@ class IngestFlusher:
         self._started = True
         validate_settings(self.settings)
 
-        self.job_id = self.settings.get_identifier_value(spider)
+        self.job_id = resolve_configured_job_id(self.settings, spider)
         self.spider_name = getattr(spider, "name", None)
 
         if getattr(self.settings, "using_default_sqlite", False):
@@ -76,12 +79,21 @@ class IngestFlusher:
             schema.ensure_tables_exist()
             self.db_writer = DbWriter(self.db, self.settings)
             self.job_pk = self.db_writer.start_job(self.job_id, spider)
+            if not self.job_id:
+                self.job_id = cached_job_id(spider)
 
         if self._use_search():
             self.search_client = SearchClient(self.settings)
             self.search_client.ping()
             self.search_writer = SearchWriter(self.search_client, self.settings)
-            self.search_writer.start_job(self.job_id, spider)
+            self.job_id = resolve_job_key_search(
+                self.search_client, self.settings, spider, self.job_id
+            )
+            search_pk = self.search_writer.start_job(
+                self.job_id, spider, job_pk=self.job_pk
+            )
+            if self.job_pk is None:
+                self.job_pk = search_pk
 
         logger.info(
             "Ingest job job_id=%s pk=%s spider=%s db=%s search=%s",
@@ -112,11 +124,13 @@ class IngestFlusher:
             spider = getattr(self.crawler, "spider", None)
 
         if spider is not None and self.job_id is None:
-            self.job_id = self.settings.get_identifier_value(spider)
+            self.job_id = resolve_configured_job_id(self.settings, spider)
             self.spider_name = getattr(spider, "name", None)
 
         if self.db_writer and self.job_pk is None and spider is not None:
             self.job_pk = self.db_writer.start_job(self.job_id, spider)
+            if not self.job_id:
+                self.job_id = cached_job_id(spider)
 
         try:
             if self.db_writer:

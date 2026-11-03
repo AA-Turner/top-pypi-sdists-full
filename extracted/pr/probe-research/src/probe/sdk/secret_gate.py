@@ -82,7 +82,10 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..tap_core.secrets import _WINDOW_OVERLAP, low_diversity, redact, redact_quick, scan
+from ..foundation.transcripts.credential_scan.credential_scan import redact, scan
+from ..foundation.transcripts.credential_scan.quick import redact_quick
+from ..foundation.transcripts.credential_scan.values import low_diversity
+from ..foundation.transcripts.credential_scan.windows import _WINDOW_OVERLAP
 from .redaction import scan_accelerator, scrub_changes
 
 try:

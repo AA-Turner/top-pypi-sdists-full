@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from probe.analytics.generated import Event
 from probe.analytics.context import detached_context, outbox_context
-from probe.analytics.outcomes import InvokedBy, Via
+from probe.analytics.outcomes import InvokedBy, PrivateUvReason, Via
 from probe.analytics import sender  # call through the module: one binding for tests to patch
 from probe.analytics.throttle import _age_hours, _error_kind, stuck_report_due, stuck_status
 
@@ -45,6 +45,7 @@ EVENT_OUTBOX_RESTORED = Event.OUTBOX_RESTORED.value
 EVENT_OUTBOX_PAUSE_LIFTED = Event.OUTBOX_PAUSE_LIFTED.value
 EVENT_CAPTURE_REPAIR_APPLIED = Event.CAPTURE_REPAIR_APPLIED.value
 EVENT_SETTINGS_REMOTE_APPLIED = Event.SETTINGS_REMOTE_APPLIED.value
+EVENT_CAPTURE_SWITCHED = Event.CAPTURE_SWITCHED.value
 EVENT_DELIVERY_SUMMARY = Event.DELIVERY_SUMMARY.value
 EVENT_REPORT_UNDELIVERABLE = Event.REPORT_UNDELIVERABLE.value
 EVENT_DAEMON_ERROR = Event.DAEMON_ERROR.value
@@ -52,6 +53,7 @@ EVENT_SERVICE_STARTED = Event.SERVICE_STARTED.value
 EVENT_SERVICE_STATE = Event.SERVICE_STATE.value
 EVENT_SERVICE_STOPPED = Event.SERVICE_STOPPED.value
 EVENT_LIFEBOAT_ACTED = Event.LIFEBOAT_ACTED.value
+EVENT_UPDATES_PRIVATE_UV = Event.UPDATES_PRIVATE_UV.value
 EVENT_MCP_TOOL_SERVED = Event.MCP_TOOL_SERVED.value
 EVENT_EXCEPTION = Event.EXCEPTION.value
 #: The only events `emit_service_event` sends.
@@ -363,6 +365,27 @@ def emit_settings_remote_applied(
             unsupported=unsupported,
             reported=reported,
         )
+        return True
+    except Exception:
+        return False  # observability must never become observable
+
+
+def emit_private_uv(*, outcome: str, reason: str, uv_version: str, is_configured_index: bool,
+                    base_url: str | None) -> bool:
+    """`updates.private_uv`: an update found no `uv`, or only an older copy of Probe's own, and
+    tried to install the pinned one (`outcome`, a `PrivateUvOutcome`; `reason`, a
+    `PrivateUvReason` or "" when installed: never free text, which could carry an index URL's
+    token). Flushed at once: the update
+    execs the new release next, and an exec runs no atexit. True when sent. Never raises."""
+    try:
+        context = detached_context(base_url, via=Via.COMMAND)
+        if not context.enabled:
+            return False
+        allowed = {str(member) for member in PrivateUvReason}
+        closed = "" if not reason else str(reason) if str(reason) in allowed else str(PrivateUvReason.OTHER)
+        context.emit(EVENT_UPDATES_PRIVATE_UV, outcome=str(outcome), reason=closed,
+                     uv_version=str(uv_version), index="configured" if is_configured_index else "pypi")
+        sender._ensure_sender().request_flush()
         return True
     except Exception:
         return False  # observability must never become observable

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langgraph-checkpoint-redis
-Version: 0.5.2
+Version: 0.6.0
 Summary: Redis implementation of the LangGraph agent checkpoint saver and store.
 Home-page: https://www.github.com/redis-developer/langgraph-redis
 License: MIT
@@ -17,8 +17,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: langgraph-checkpoint (>=4.1.1,<5.0.0)
 Requires-Dist: orjson (>=3.9.0,<4.0.0)
-Requires-Dist: redis (>=5.2.1)
-Requires-Dist: redisvl (>=0.15.0,<1.0.0)
+Requires-Dist: redis (>=6.3.0,!=8.0.0,<9.0)
+Requires-Dist: redisvl (>=0.28.0,<1.0.0)
 Requires-Dist: tomli (>=2.0.1,<3.0.0) ; python_version < "3.11"
 Project-URL: Repository, https://www.github.com/redis-developer/langgraph-redis
 Description-Content-Type: text/markdown
@@ -298,19 +298,19 @@ You can make specific checkpoints persistent by removing their TTL. This is usef
 from langgraph.checkpoint.redis import RedisSaver
 
 # Create saver with default TTL
-saver = RedisSaver.from_conn_string("redis://localhost:6379", ttl={"default_ttl": 60})
-saver.setup()
+with RedisSaver.from_conn_string("redis://localhost:6379", ttl={"default_ttl": 60}) as saver:
+    saver.setup()
 
-# Save a checkpoint
-config = {"configurable": {"thread_id": "important-thread", "checkpoint_ns": ""}}
-saved_config = saver.put(config, checkpoint, metadata, {})
+    # Save a checkpoint
+    config = {"configurable": {"thread_id": "important-thread", "checkpoint_ns": ""}}
+    saved_config = saver.put(config, checkpoint, metadata, {})
 
-# Remove TTL from the checkpoint to make it persistent
-checkpoint_id = saved_config["configurable"]["checkpoint_id"]
-checkpoint_key = f"checkpoint:important-thread:__empty__:{checkpoint_id}"
-saver._apply_ttl_to_keys(checkpoint_key, ttl_minutes=-1)
+    # Remove TTL from the checkpoint to make it persistent
+    checkpoint_id = saved_config["configurable"]["checkpoint_id"]
+    checkpoint_key = f"checkpoint:important-thread:__empty__:{checkpoint_id}"
+    saver._apply_ttl_to_keys(checkpoint_key, ttl_minutes=-1)
 
-# The checkpoint is now persistent and won't expire
+    # The checkpoint is now persistent and won't expire
 ```
 
 When no TTL configuration is provided, checkpoints are persistent by default (no expiration).

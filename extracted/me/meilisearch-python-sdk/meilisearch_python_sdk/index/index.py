@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from csv import DictReader
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
@@ -11,9 +10,9 @@ from httpx2 import Client
 
 from meilisearch_python_sdk._http_requests import HttpRequests
 from meilisearch_python_sdk._task import wait_for_task
-from meilisearch_python_sdk.errors import InvalidDocumentError
 from meilisearch_python_sdk.index._common import (
     BaseIndex,
+    _load_documents_from_file,
     batch,
     build_encoded_url,
     embedder_json_to_embedders_model,
@@ -23,7 +22,6 @@ from meilisearch_python_sdk.index._common import (
     prepare_raw_file_upload,
     process_search_parameters,
     raise_on_no_documents,
-    validate_file_type,
     validate_ranking_score_threshold,
 )
 from meilisearch_python_sdk.index._common import combine_documents as combine_documents_
@@ -290,21 +288,26 @@ class Index(BaseIndex):
     def update(self, primary_key: str) -> Self:
         """Update the index primary key.
 
+        The primary key can only be changed when the index contains no documents. If the index
+        already has documents the update task fails and a MeilisearchTaskFailedError is raised.
+
         Args:
             primary_key: The primary key of the documents.
 
         Returns:
-            An instance of the AsyncIndex with the updated information.
+            An instance of the Index with the updated information.
 
         Raises:
             MeilisearchCommunicationError: If there was an error communicating with the server.
             MeilisearchApiError: If the Meilisearch API returned an error.
+            MeilisearchTaskFailedError: If the update task fails, for example because the index
+                already contains documents.
 
         Examples:
             >>> from meilisearch_python_sdk import Client
             >>> with Client("http://localhost.com", "masterKey") as client:
             >>>     index = client.index("movies")
-            >>>     updated_index = index.update()
+            >>>     updated_index = index.update(primary_key="id")
         """
         payload = {"primaryKey": primary_key}
         response = self._http_requests.patch(self._base_url_with_uid, payload)
@@ -313,6 +316,7 @@ class Index(BaseIndex):
             self._http_requests.parse_json(response)["taskUid"],
             timeout_in_ms=100000,
             json_handler=self._json_handler,
+            raise_for_status=True,
         )
         index_response = self._http_requests.get(self._base_url_with_uid)
         self.primary_key = self._http_requests.parse_json(index_response)["primaryKey"]
@@ -464,7 +468,7 @@ class Index(BaseIndex):
         """Get stats of the index.
 
         Args:
-            show_internal_database_sizes: Include internal database size inforamation in results.
+            show_internal_database_sizes: Include internal database size information in results.
                 Default = False.
             size_format: When present and set to human, then all database sizes in responses of the
                 stat routes will be returned as a string containing an appropriate unit (MiB, GiB,
@@ -587,7 +591,7 @@ class Index(BaseIndex):
                 updated causing breaking changes in this library without a major version bump so use
                 with caution.
             locales: Specifies the languages for the search. This parameter can only be used with
-                Milisearch >= v1.10.0. Defaults to None letting the Meilisearch pick.
+                Meilisearch >= v1.10.0. Defaults to None letting the Meilisearch pick.
             retrieve_vectors: Return document vector data with search result.
             media: The content of media is used as if it were a document to generate request
                 fragments from the searchFragments parameter. Defaults to None. This parameter can
@@ -769,10 +773,10 @@ class Index(BaseIndex):
                 updated causing breaking changes in this library without a major version bump so use
                 with caution.
             locales: Specifies the languages for the search. This parameter can only be used with
-                Milisearch >= v1.10.0. Defaults to None letting the Meilisearch pick.
+                Meilisearch >= v1.10.0. Defaults to None letting the Meilisearch pick.
             retrieve_vectors: Return document vector data with search result.
             exhaustive_facet_count: forcing the facet search to compute the facet counts the same
-                way as the paginated search. This parameter can only be used with Milisearch >=
+                way as the paginated search. This parameter can only be used with Meilisearch >=
                 v1.14.0. Defaults to None.
             personalize: Personalize the search results.
 
@@ -1100,13 +1104,19 @@ class Index(BaseIndex):
                 documents=documents,
                 primary_key=primary_key,
             )
-            if pre.get("document_result"):
+            if pre.get("document_result") is not None:
                 documents = pre["document_result"]
 
         response = self._http_requests.post(url, documents, compress=compress)
         result = TaskInfo(**self._http_requests.parse_json(response))
         if self._post_add_documents_plugins:
-            post = _run_plugins(self._post_add_documents_plugins, Event.POST, result=result)
+            post = _run_plugins(
+                self._post_add_documents_plugins,
+                Event.POST,
+                result=result,
+                documents=documents,
+                primary_key=primary_key,
+            )
             if isinstance(post.get("generic_result"), TaskInfo):
                 result = post["generic_result"]
 
@@ -1174,7 +1184,7 @@ class Index(BaseIndex):
             custom_metadata: An arbitrary string accessible via the task. Defaults to None.
             document_type: The type of document being added. Accepted types are json, csv, and
                 ndjson. For csv files the first row of the document should be a header row containing
-                the field names, and ever for should have a title.
+                the field names, and every column should have a title.
             csv_delimiter: A single ASCII character to specify the delimiter for csv files. This
                 can only be used if the file is a csv file. Defaults to comma.
             combine_documents: If set to True this will combine the documents from all the files
@@ -1185,7 +1195,7 @@ class Index(BaseIndex):
             The details of the task status.
 
         Raises:
-            InvalidDocumentError: If the docucment is not a valid format for Meilisearch.
+            InvalidDocumentError: If the document is not a valid format for Meilisearch.
             MeilisearchError: If the file path is not valid
             MeilisearchCommunicationError: If there was an error communicating with the server.
             MeilisearchApiError: If the Meilisearch API returned an error.
@@ -1258,7 +1268,7 @@ class Index(BaseIndex):
             custom_metadata: An arbitrary string accessible via the task. Defaults to None.
             document_type: The type of document being added. Accepted types are json, csv, and
                 ndjson. For csv files the first row of the document should be a header row containing
-                the field names, and ever for should have a title.
+                the field names, and every column should have a title.
             csv_delimiter: A single ASCII character to specify the delimiter for csv files. This
                 can only be used if the file is a csv file. Defaults to comma.
             combine_documents: If set to True this will combine the documents from all the files
@@ -1269,7 +1279,7 @@ class Index(BaseIndex):
             List of update ids to track the action.
 
         Raises:
-            InvalidDocumentError: If the docucment is not a valid format for Meilisearch.
+            InvalidDocumentError: If the document is not a valid format for Meilisearch.
             MeilisearchError: If the file path is not valid
             MeilisearchCommunicationError: If there was an error communicating with the server.
             MeilisearchApiError: If the Meilisearch API returned an error.
@@ -1346,7 +1356,7 @@ class Index(BaseIndex):
             The details of the task status.
 
         Raises:
-            InvalidDocumentError: If the docucment is not a valid format for Meilisearch.
+            InvalidDocumentError: If the document is not a valid format for Meilisearch.
             MeilisearchError: If the file path is not valid
             MeilisearchCommunicationError: If there was an error communicating with the server.
             MeilisearchApiError: If the Meilisearch API returned an error.
@@ -1375,7 +1385,7 @@ class Index(BaseIndex):
         csv_delimiter: str | None = None,
         compress: bool = False,
     ) -> list[TaskInfo]:
-        """Adds documents form a json file in batches to reduce RAM usage with indexing.
+        """Adds documents from a json file in batches to reduce RAM usage with indexing.
 
         Args:
             file_path: Path to the json file.
@@ -1392,7 +1402,7 @@ class Index(BaseIndex):
             List of update ids to track the action.
 
         Raises:
-            InvalidDocumentError: If the docucment is not a valid format for Meilisearch.
+            InvalidDocumentError: If the document is not a valid format for Meilisearch.
             MeilisearchError: If the file path is not valid
             MeilisearchCommunicationError: If there was an error communicating with the server.
             MeilisearchApiError: If the Meilisearch API returned an error.
@@ -1474,7 +1484,7 @@ class Index(BaseIndex):
         else:
             url = self._documents_url
 
-        with open(upload_path) as f:
+        with open(upload_path, encoding="utf-8") as f:
             data = f.read()
 
         response = self._http_requests.post(
@@ -1592,13 +1602,19 @@ class Index(BaseIndex):
                 documents=documents,
                 primary_key=primary_key,
             )
-            if pre.get("document_result"):
+            if pre.get("document_result") is not None:
                 documents = pre["document_result"]
 
         response = self._http_requests.put(url, documents, compress=compress)
         result = TaskInfo(**self._http_requests.parse_json(response))
         if self._post_update_documents_plugins:
-            post = _run_plugins(self._post_update_documents_plugins, Event.POST, result=result)
+            post = _run_plugins(
+                self._post_update_documents_plugins,
+                Event.POST,
+                result=result,
+                documents=documents,
+                primary_key=primary_key,
+            )
             if isinstance(post.get("generic_result"), TaskInfo):
                 result = post["generic_result"]
 
@@ -1678,7 +1694,7 @@ class Index(BaseIndex):
             custom_metadata: An arbitrary string accessible via the task. Defaults to None.
             document_type: The type of document being added. Accepted types are json, csv, and
                 ndjson. For csv files the first row of the document should be a header row containing
-                the field names, and ever for should have a title.
+                the field names, and every column should have a title.
             csv_delimiter: A single ASCII character to specify the delimiter for csv files. This
                 can only be used if the file is a csv file. Defaults to comma.
             combine_documents: If set to True this will combine the documents from all the files
@@ -1691,7 +1707,7 @@ class Index(BaseIndex):
             The details of the task status.
 
         Raises:
-            InvalidDocumentError: If the docucment is not a valid format for Meilisearch.
+            InvalidDocumentError: If the document is not a valid format for Meilisearch.
             MeilisearchError: If the file path is not valid
             MeilisearchCommunicationError: If there was an error communicating with the server.
             MeilisearchApiError: If the Meilisearch API returned an error.
@@ -1772,7 +1788,7 @@ class Index(BaseIndex):
             custom_metadata: An arbitrary string accessible via the task. Defaults to None.
             document_type: The type of document being added. Accepted types are json, csv, and
                 ndjson. For csv files the first row of the document should be a header row
-                containing the field names, and ever for should have a title.
+                containing the field names, and every column should have a title.
             csv_delimiter: A single ASCII character to specify the delimiter for csv files. This
                 can only be used if the file is a csv file. Defaults to comma.
             combine_documents: If set to True this will combine the documents from all the files
@@ -1785,7 +1801,7 @@ class Index(BaseIndex):
             List of update ids to track the action.
 
         Raises:
-            InvalidDocumentError: If the docucment is not a valid format for Meilisearch.
+            InvalidDocumentError: If the document is not a valid format for Meilisearch.
             MeilisearchError: If the file path is not valid
             MeilisearchCommunicationError: If there was an error communicating with the server.
             MeilisearchApiError: If the Meilisearch API returned an error.
@@ -1904,7 +1920,7 @@ class Index(BaseIndex):
         skip_creation: bool = False,
         compress: bool = False,
     ) -> list[TaskInfo]:
-        """Updates documents form a json file in batches to reduce RAM usage with indexing.
+        """Updates documents from a json file in batches to reduce RAM usage with indexing.
 
         Args:
             file_path: Path to the json file.
@@ -2005,7 +2021,7 @@ class Index(BaseIndex):
         else:
             url = self._documents_url
 
-        with open(upload_path) as f:
+        with open(upload_path, encoding="utf-8") as f:
             data = f.read()
 
         response = self._http_requests.put(
@@ -2178,7 +2194,7 @@ class Index(BaseIndex):
             >>> from meilisearch_python_sdk import Client
             >>> with Client("http://localhost.com", "masterKey") as client:
             >>>     index = client.index("movies")
-            >>>     index.delete_all_document()
+            >>>     index.delete_all_documents()
         """
         if self._pre_delete_all_documents_plugins:
             _run_plugins(self._pre_delete_all_documents_plugins, Event.PRE)
@@ -2218,7 +2234,7 @@ class Index(BaseIndex):
         settings = MeilisearchSettings(**response_json)
 
         if response_json.get("embedders"):
-            # Not coverted because it times out. It isn't an issue with the code here.
+            # Not covered because it times out. It isn't an issue with the code here.
             # https://github.com/meilisearch/meilisearch/issues/4585
             settings.embedders = embedder_json_to_settings_model(  # pragma: no cover
                 response_json["embedders"]
@@ -3479,7 +3495,7 @@ class Index(BaseIndex):
 
         return TaskInfo(**self._http_requests.parse_json(response))
 
-    # Not coverted because it times out. It isn't an issue with the code here.
+    # Not covered because it times out. It isn't an issue with the code here.
     # https://github.com/meilisearch/meilisearch/issues/4585
     def reset_embedders(self) -> TaskInfo:  # pragma: no cover
         """Reset an index's embedders settings to the default value.
@@ -3879,43 +3895,3 @@ def _run_plugins(
                 break
 
     return results
-
-
-def _load_documents_from_file(
-    file_path: Path | str,
-    csv_delimiter: str | None = None,
-    *,
-    json_handler: BuiltinHandler | OrjsonHandler,
-) -> list[dict[Any, Any]]:
-    if isinstance(file_path, str):
-        file_path = Path(file_path)
-
-    validate_file_type(file_path)
-
-    if file_path.suffix == ".csv":
-        if (
-            csv_delimiter
-            and len(csv_delimiter) != 1
-            or csv_delimiter
-            and not csv_delimiter.isascii()
-        ):
-            raise ValueError("csv_delimiter must be a single ascii character")
-        with open(file_path) as f:
-            if csv_delimiter:
-                documents = DictReader(f, delimiter=csv_delimiter)
-            else:
-                documents = DictReader(f)
-            return list(documents)
-
-    if file_path.suffix == ".ndjson":
-        with open(file_path) as f:
-            return [json_handler.loads(x) for x in f]
-
-    with open(file_path) as f:
-        data = f.read()
-        documents = json_handler.loads(data)
-
-        if not isinstance(documents, list):
-            raise InvalidDocumentError("Meilisearch requires documents to be in a list")
-
-        return documents

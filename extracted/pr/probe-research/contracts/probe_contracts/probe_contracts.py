@@ -1,5 +1,5 @@
-"""Contracts: the registry of every shared record, the vocabularies their fields use and the
-product-analytics event catalog."""
+"""Contracts: the registry of every shared record, the vocabularies their fields use, the
+product-analytics event catalog and the client-message vocabulary."""
 
 from __future__ import annotations
 
@@ -9,6 +9,15 @@ from enum import Enum
 from pydantic import BaseModel
 
 from .analytics import EventCatalog
+from .client_messages import (
+    Action,
+    Audience,
+    ClientMessage,
+    ClientMessageList,
+    ClientRefusalBody,
+    MessageCode,
+    Severity,
+)
 from .records import (
     AnchorLevel,
     Artifact,
@@ -26,6 +35,7 @@ from .records import (
     RunStatus,
     Span,
 )
+from .transcript_switch import SwitchedBy, TranscriptState
 
 
 @dataclass(frozen=True)
@@ -40,6 +50,11 @@ class Contracts:
     enums: tuple[type[Enum], ...]
     #: Every product-analytics event; each runtime's `Event` enum is drawn from it.
     events: EventCatalog
+    #: What the server tells a client (client_messages/), enums first: its own generated files,
+    #: so the stdlib-only tap and hooks get a copy.
+    messages: tuple[type, ...] = ()
+    #: Whether sessions upload as transcripts, and who turned them off (transcript_switch/).
+    transcript_switch: tuple[type[Enum], ...] = ()
 
 
 CONTRACTS = Contracts(
@@ -55,4 +70,6 @@ CONTRACTS = Contracts(
         LineageRelation,
     ),
     events=EventCatalog.load(),
+    messages=(Severity, Action, Audience, MessageCode, ClientMessage, ClientRefusalBody, ClientMessageList),
+    transcript_switch=(TranscriptState, SwitchedBy),
 )

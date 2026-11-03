@@ -20,8 +20,7 @@ To use it in your own code, type:
 
 """
 
-import os
-import sys
+import threading
 from collections import OrderedDict
 from logging import Logger
 from typing import Optional, Union, List, Pattern
@@ -32,7 +31,7 @@ from phonemizer.backend import BACKENDS
 from phonemizer.backend.base import BaseBackend
 from phonemizer.backend.espeak.language_switch import LanguageSwitch
 from phonemizer.backend.espeak.words_mismatch import WordMismatch
-from phonemizer.logger import get_logger
+from phonemizer.logger import default_logger
 from phonemizer.punctuation import Punctuation
 from phonemizer.separator import default_separator, Separator
 from phonemizer.utils import list2str, str2list
@@ -41,25 +40,41 @@ Backend = Literal['espeak', 'espeak-mbrola', 'festival', 'segments']
 
 # Backend instances are expensive to build: initializing the espeak shared
 # library takes on the order of 200ms, which dominates the cost of
-# phonemizing short texts. Because phonemize() builds a backend on every
-# call, repeated calls pay that cost every time. The instances are stateless
-# with respect to the text being phonemized, so they are cached here and
-# reused across calls with identical parameters.
-_BACKENDS_CACHE: 'OrderedDict[tuple, BaseBackend]' = OrderedDict()
+# phonemizing short texts. They are therefore cached here and reused across
+# calls to phonemize() with identical parameters.
+#
+# The cache is local to each thread. A backend must never be shared between
+# threads: the espeak library relies on global C state (this is why each
+# EspeakAPI instance loads its own copy of the library) and backends hold
+# per-call state (e.g. words count for the words mismatch policy).
+_BACKENDS_CACHE = threading.local()
+
+# Incremented by clear_backends_cache() so that every thread drops its cached
+# backends on its next call to phonemize().
+_CACHE_GENERATION = 0
 
 _CACHE_MAX_SIZE = 8
-"""Maximum number of backend instances kept alive simultaneously"""
+"""Maximum number of backend instances kept alive simultaneously per thread"""
+
+
+def _thread_cache() -> 'OrderedDict[tuple, BaseBackend]':
+    """Return the backends cache of the calling thread"""
+    if getattr(_BACKENDS_CACHE, 'generation', None) != _CACHE_GENERATION:
+        _BACKENDS_CACHE.backends = OrderedDict()
+        _BACKENDS_CACHE.generation = _CACHE_GENERATION
+    return _BACKENDS_CACHE.backends
 
 
 def _cached_backend(key, factory):
     """Return a backend for `key`, building it with `factory` if needed"""
+    cache = _thread_cache()
     try:
-        backend = _BACKENDS_CACHE.pop(key)
+        backend = cache.pop(key)
     except KeyError:
         backend = factory()
-        if len(_BACKENDS_CACHE) >= _CACHE_MAX_SIZE:
-            _BACKENDS_CACHE.popitem(last=False)
-    _BACKENDS_CACHE[key] = backend
+        if len(cache) >= _CACHE_MAX_SIZE:
+            cache.popitem(last=False)
+    cache[key] = backend
     return backend
 
 
@@ -67,10 +82,13 @@ def clear_backends_cache():
     """Free the backend instances cached by phonemize()
 
     Called for its side effect only. The cache is repopulated on the next
-    call to phonemize().
+    call to phonemize(). The backends cached by other threads are freed on
+    their next call to phonemize().
 
     """
-    _BACKENDS_CACHE.clear()
+    global _CACHE_GENERATION  # pylint: disable=global-statement
+    _CACHE_GENERATION += 1
+    _thread_cache()
 
 
 def phonemize(  # pylint: disable=too-many-arguments
@@ -88,7 +106,7 @@ def phonemize(  # pylint: disable=too-many-arguments
         language_switch: LanguageSwitch = 'keep-flags',
         words_mismatch: WordMismatch = 'ignore',
         njobs: int = 1,
-        logger: Logger = get_logger()):
+        logger: Optional[Logger] = None):
     """Multilingual text to phonemes converter
 
     Return a phonemized version of an input `text`, given its `language` and a
@@ -98,10 +116,11 @@ def phonemize(  # pylint: disable=too-many-arguments
     ----
 
     To improve the processing speed it is better to minimize the calls to this
-    function: provide the input text as a list and call phonemize() a single
-    time is much more efficient than calling it on each element of the list.
-    Indeed the initialization of the phonemization backend can be expensive,
-    especially for espeak. In one example,
+    function: providing the input text as a list and calling phonemize() a
+    single time is more efficient than calling it on each element of the
+    list. The phonemization backend is cached between calls with the same
+    parameters, but each call still has a cost, and the `njobs` option can
+    only parallelize the lines of a single call.
 
     Do this:
 
@@ -137,8 +156,9 @@ def phonemize(  # pylint: disable=too-many-arguments
         words, default to separator.default_separator. Syllable separator is
         considered only for the festival backend. Word separator is ignored by
         the 'espeak-mbrola' backend. Initialize it as follows:
-            >>> from phonemizer.separator import Separator
-            >>> separator = Separator(phone='-', word=' ')
+
+        >>> from phonemizer.separator import Separator
+        >>> separator = Separator(phone='-', word=' ')
 
     strip: bool, optional
         If True, don't output the last word and phone
@@ -156,7 +176,9 @@ def phonemize(  # pylint: disable=too-many-arguments
     preserve_punctuation: bool, optional
         When True, will keep the punctuation
         in the phonemized output. Not supported by the 'espeak-mbrola' backend.
-        Default to False and remove all the punctuation.
+        Default to False and remove all the punctuation. The words around
+        quotes and brackets are pronounced together, as without punctuation,
+        whereas the other marks end an utterance.
 
     punctuation_marks: str or re.Pattern, optional
         The punctuation marks to consider when dealing with punctuation,
@@ -200,15 +222,16 @@ def phonemize(  # pylint: disable=too-many-arguments
         outputs are finally collapsed.
 
     logger: logging.Logger
-        the logging instance where to send messages. If
-        not specified, use the default system logger.
+        the logging instance where to send messages. If not specified, use the
+        'phonemizer' logger, whose messages are handled by the logging
+        configuration of the application.
 
     Returns
     -------
     phonemized text: str or list of str
         The input ``text`` phonemized for the
         given ``language`` and ``backend``. The returned value has the same type of
-        the input text (either a list or a string), excepted if ``prepend_input``
+        the input text (either a list or a string), excepted if ``prepend_text``
         is True where the output is forced as a list of pairs (input_text,
         phonemized text).
 
@@ -219,11 +242,8 @@ def phonemize(  # pylint: disable=too-many-arguments
         if the ``language`` is not supported by the ``backend``, if any incompatible options are used.
 
     """
-    # ensure we are using a compatible Python version
-    if sys.version_info < (3, 6):  # pragma: nocover
-        logger.error(
-            'Your are using python-%s which is unsupported by the phonemizer, '
-            'please update to python>=3.6', ".".join(sys.version_info))
+    if logger is None:
+        logger = default_logger()
 
     # ensure the arguments are valid
     _check_arguments(
@@ -238,9 +258,12 @@ def phonemize(  # pylint: disable=too-many-arguments
     # initialize the phonemization backend, reusing a cached instance when
     # this exact configuration has been used before. The logger is part of
     # the key because backends hold on to it.
+    # pylint: disable=protected-access
+    installation = BACKENDS[backend]._installation()
     if backend == 'espeak':
         key = (backend, language, str(punctuation_marks), preserve_punctuation,
-               with_stress, tie, language_switch, words_mismatch, logger)
+               with_stress, tie, language_switch, words_mismatch, logger,
+               installation)
         phonemizer = _cached_backend(key, lambda: BACKENDS[backend](
             language,
             punctuation_marks=punctuation_marks,
@@ -251,13 +274,13 @@ def phonemize(  # pylint: disable=too-many-arguments
             words_mismatch=words_mismatch,
             logger=logger))
     elif backend == 'espeak-mbrola':
-        key = (backend, language, logger)
+        key = (backend, language, logger, installation)
         phonemizer = _cached_backend(key, lambda: BACKENDS[backend](
             language,
             logger=logger))
     else:  # festival or segments
         key = (backend, language, str(punctuation_marks), preserve_punctuation,
-               logger)
+               logger, installation)
         phonemizer = _cached_backend(key, lambda: BACKENDS[backend](
             language,
             punctuation_marks=punctuation_marks,
@@ -337,7 +360,7 @@ def _phonemize(  # pylint: disable=too-many-arguments
     text_type = type(text)
 
     # force the text as a list
-    text = [line.strip(os.linesep) for line in str2list(text)]
+    text = [line.strip('\r\n') for line in str2list(text)]
 
     # if preserving empty lines, note the index of each empty line
     if preserve_empty_lines:
@@ -364,6 +387,6 @@ def _phonemize(  # pylint: disable=too-many-arguments
     # expected by the parameters
     if prepend_text:
         return list(zip(text, phonemized))
-    if text_type == str:
+    if text_type is str:
         return list2str(phonemized)
     return phonemized

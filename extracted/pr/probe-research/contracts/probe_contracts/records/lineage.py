@@ -64,3 +64,8 @@ class LineageRelation(StrEnum):
     #: Paper -> an EARLIER paper in the same project, with a reason (`paper add --relates-to`); no cycle check.
     #: Reason required by the API, never a CHECK: app/sessions/erasure.py nulls one that quotes a session.
     RELATES_TO = "relates_to"
+    # Project -> project (0421: the links of 0153 / 0401, moved here).
+    #: "This project drew on that one." Between two projects only.
+    REFERENCES = "references"
+    #: "This project is a part of that one": replaced filing under a parent (0401). Between two projects only.
+    PART_OF = "part_of"

@@ -5,7 +5,8 @@ import datetime
 import functools
 import itertools
 import math
-from collections.abc import AsyncIterator, Sequence
+import warnings
+from collections.abc import AsyncIterator, Iterable, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -38,6 +39,7 @@ from cognite.client.data_classes import (
     DatapointsArrayList,
     DatapointsList,
     DatapointsQuery,
+    GapFillOptions,
     LatestDatapoint,
     LatestDatapointList,
     LatestDatapointQuery,
@@ -93,6 +95,26 @@ class DatapointsAPI(APIClient):
             feature_name="State time series datapoints",
             pluralize=True,
         )
+        self._gap_filling_warning = FeaturePreviewWarning(
+            api_maturity="beta",
+            sdk_maturity="alpha",
+            feature_name="Datapoints gap filling for aggregate queries",
+        )
+
+    def _maybe_warn_if_gap_filling_is_used(self, queries: Iterable[DatapointsQuery]) -> None:
+        if any(query.fill is not None for query in queries):
+            self._gap_filling_warning.warn()
+
+    @staticmethod
+    def _maybe_warn_deprecated_identifier(identifiers: Iterable[Identifier]) -> None:
+        if any(identifier.is_id or identifier.is_external_id for identifier in identifiers):
+            warnings.warn(
+                "Identifying time series by 'id' or 'external_id' when working with datapoints is deprecated and is scheduled "
+                "for removal on 2027-12-31. Identify time series by 'instance_id' instead (as CogniteTimeSeries instances in "
+                "the core data model). See https://docs.cognite.com/cdf/deprecated for details and migration guidance.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
 
     def _get_semaphore(self, operation: Literal["read", "write", "delete"]) -> asyncio.BoundedSemaphore:
         from cognite.client import global_config
@@ -247,6 +269,7 @@ class DatapointsAPI(APIClient):
             )
 
         user_queries = [queries] if (is_single := isinstance(queries, DatapointsQuery)) else queries
+        self._maybe_warn_deprecated_identifier(uq.identifier for uq in user_queries)
         dps_lst_cls: type[DatapointsArrayList | DatapointsList] = (
             DatapointsArrayList if return_arrays else DatapointsList
         )
@@ -264,6 +287,7 @@ class DatapointsAPI(APIClient):
             for uq in user_queries
         }
         self.query_validator(alive_queries.values())
+        self._maybe_warn_if_gap_filling_is_used(alive_queries.values())
 
         dps_lst: DatapointsArrayList | DatapointsList
         chunk_fn = functools.partial(split_into_chunks, chunk_size=chunk_size_datapoints)
@@ -336,6 +360,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> Datapoints | None: ...
 
     @overload
@@ -356,6 +381,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> DatapointsList: ...
 
     @overload
@@ -376,6 +402,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> Datapoints | None: ...
 
     @overload
@@ -396,6 +423,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> DatapointsList: ...
 
     @overload
@@ -416,6 +444,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> Datapoints | None: ...
 
     @overload
@@ -436,6 +465,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> DatapointsList: ...
 
     @overload
@@ -457,6 +487,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> DatapointsList: ...
 
     @overload
@@ -478,6 +509,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> DatapointsList: ...
 
     @overload
@@ -499,6 +531,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> DatapointsList: ...
 
     @overload
@@ -521,6 +554,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> DatapointsList: ...
 
     async def retrieve(
@@ -542,6 +576,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> Datapoints | DatapointsList | None:
         """`Retrieve datapoints for one or more time series <https://api-docs.cognite.com/20230101/tag/Time-series/operation/getMultiTimeSeriesDatapoints>`_.
 
@@ -583,6 +618,7 @@ class DatapointsAPI(APIClient):
             include_status (bool): Also return the status code, an integer, for each datapoint in the response. Only relevant for raw datapoint queries, and the object aggregates ``min_datapoint`` and ``max_datapoint``.
             ignore_bad_datapoints (bool): Treat datapoints with a bad status code as if they do not exist. If set to false, raw queries will include bad datapoints in the response, and aggregates will in general omit the time period between a bad datapoint and the next good datapoint. Also, the period between a bad datapoint and the previous good datapoint will be considered constant. Default: True.
             treat_uncertain_as_bad (bool): Treat datapoints with uncertain status codes as bad. If false, treat datapoints with uncertain status codes as good. Used for both raw queries and aggregates. Default: True.
+            fill (GapFillOptions | None): Enable `gap filling <https://docs.cognite.com/dev/concepts/aggregation/gap_filling>`_ for aggregate queries, e.g. ``GapFillOptions(limit="4h")``. See :class:`~cognite.client.data_classes.datapoints.GapFillOptions` for the available options. Default: None (no gap filling).
 
         Returns:
             Datapoints | DatapointsList | None: A ``Datapoints`` object containing the requested data, or a ``DatapointsList`` if multiple time series were asked for (the ordering is ids first, then external_ids). If `ignore_unknown_ids` is `True`, a single time series is requested and it is not found, the function will return `None`.
@@ -734,6 +770,21 @@ class DatapointsAPI(APIClient):
                 ...     id=42, start="2w-ago", target_unit_system="Imperial"
                 ... )
 
+            To get aggregates for intervals without raw datapoints, you can enable gap filling with ``fill``. Gaps between raw
+            datapoints of up to this size are interpolated, and the last datapoint is extrapolated forward for the same duration.
+            Like most other parameters, it can also be set per time series using ``DatapointsQuery``:
+
+                >>> from cognite.client.data_classes import GapFillOptions
+                >>> dps_lst = client.time_series.data.retrieve(
+                ...     instance_id=[
+                ...         NodeId("my-space", "foo"),
+                ...         DatapointsQuery(instance_id=NodeId("my-space", "bar"), fill=None),
+                ...     ],
+                ...     aggregates=["average", "count"],
+                ...     granularity="1h",
+                ...     fill=GapFillOptions(limit="4h"),
+                ... )
+
             To retrieve status codes for a time series, pass ``include_status=True``. This is only possible for raw datapoint queries.
             You would typically also pass ``ignore_bad_datapoints=False`` to not hide all the datapoints that are marked as uncertain or bad,
             which is the API's default behaviour. You may also use ``treat_uncertain_as_bad`` to control how uncertain values are interpreted.
@@ -768,8 +819,11 @@ class DatapointsAPI(APIClient):
             include_status=include_status,
             ignore_bad_datapoints=ignore_bad_datapoints,
             treat_uncertain_as_bad=treat_uncertain_as_bad,
+            fill=fill,
         )
         self.query_validator(parsed_queries := query.parse_into_queries())
+        self._maybe_warn_if_gap_filling_is_used(parsed_queries)
+        self._maybe_warn_deprecated_identifier(q.identifier for q in parsed_queries)
         dps_lst = await self._select_dps_fetch_strategy(parsed_queries)(self, parsed_queries).fetch_all_datapoints()
 
         if not query.is_single_identifier:
@@ -796,6 +850,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> DatapointsArray | None: ...
 
     @overload
@@ -816,6 +871,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> DatapointsArrayList: ...
 
     @overload
@@ -836,6 +892,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> DatapointsArray | None: ...
 
     @overload
@@ -856,6 +913,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> DatapointsArrayList: ...
 
     @overload
@@ -876,6 +934,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> DatapointsArray | None: ...
 
     @overload
@@ -896,6 +955,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> DatapointsArrayList: ...
 
     async def retrieve_arrays(
@@ -917,6 +977,7 @@ class DatapointsAPI(APIClient):
         include_status: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
     ) -> DatapointsArray | DatapointsArrayList | None:
         """`Retrieve datapoints for one or more time series <https://api-docs.cognite.com/20230101/tag/Time-series/operation/getMultiTimeSeriesDatapoints>`_.
 
@@ -943,6 +1004,7 @@ class DatapointsAPI(APIClient):
             include_status (bool): Also return the status code, an integer, for each datapoint in the response. Only relevant for raw datapoint queries, and the object aggregates ``min_datapoint`` and ``max_datapoint``.
             ignore_bad_datapoints (bool): Treat datapoints with a bad status code as if they do not exist. If set to false, raw queries will include bad datapoints in the response, and aggregates will in general omit the time period between a bad datapoint and the next good datapoint. Also, the period between a bad datapoint and the previous good datapoint will be considered constant. Default: True.
             treat_uncertain_as_bad (bool): Treat datapoints with uncertain status codes as bad. If false, treat datapoints with uncertain status codes as good. Used for both raw queries and aggregates. Default: True.
+            fill (GapFillOptions | None): Enable `gap filling <https://docs.cognite.com/dev/concepts/aggregation/gap_filling>`_ for aggregate queries, e.g. ``GapFillOptions(limit="4h")``. See :class:`~cognite.client.data_classes.datapoints.GapFillOptions` for the available options. Default: None (no gap filling).
 
         Returns:
             DatapointsArray | DatapointsArrayList | None: A ``DatapointsArray`` object containing the requested data, or a ``DatapointsArrayList`` if multiple time series were asked for (the ordering is ids first, then external_ids). If `ignore_unknown_ids` is `True`, a single time series is requested and it is not found, the function will return `None`.
@@ -1016,8 +1078,11 @@ class DatapointsAPI(APIClient):
             include_status=include_status,
             ignore_bad_datapoints=ignore_bad_datapoints,
             treat_uncertain_as_bad=treat_uncertain_as_bad,
+            fill=fill,
         )
         self.query_validator(parsed_queries := query.parse_into_queries())
+        self._maybe_warn_if_gap_filling_is_used(parsed_queries)
+        self._maybe_warn_deprecated_identifier(q.identifier for q in parsed_queries)
         dps_lst = await self._select_dps_fetch_strategy(parsed_queries)(
             self, parsed_queries
         ).fetch_all_datapoints_numpy()
@@ -1046,6 +1111,7 @@ class DatapointsAPI(APIClient):
         ignore_unknown_ids: bool = False,
         ignore_bad_datapoints: bool = True,
         treat_uncertain_as_bad: bool = True,
+        fill: GapFillOptions | None = None,
         uniform_index: bool = False,
         include_status: bool = False,
         include_unit: bool = True,
@@ -1079,6 +1145,7 @@ class DatapointsAPI(APIClient):
             ignore_unknown_ids (bool): Whether to ignore missing time series rather than raising an exception. Default: False
             ignore_bad_datapoints (bool): Treat datapoints with a bad status code as if they do not exist. If set to false, raw queries will include bad datapoints in the response, and aggregates will in general omit the time period between a bad datapoint and the next good datapoint. Also, the period between a bad datapoint and the previous good datapoint will be considered constant. Default: True.
             treat_uncertain_as_bad (bool): Treat datapoints with uncertain status codes as bad. If false, treat datapoints with uncertain status codes as good. Used for both raw queries and aggregates. Default: True.
+            fill (GapFillOptions | None): Enable `gap filling <https://docs.cognite.com/dev/concepts/aggregation/gap_filling>`_ for aggregate queries, e.g. ``GapFillOptions(limit="4h")``. See :class:`~cognite.client.data_classes.datapoints.GapFillOptions` for the available options. Default: None (no gap filling).
             uniform_index (bool): If only querying aggregates AND a single granularity is used (that's NOT a calendar granularity like month/quarter/year) AND no limit is used AND no timezone is used, specifying `uniform_index=True` will return a dataframe with an equidistant datetime index from the earliest `start` to the latest `end` (missing values will be NaNs). If these requirements are not met, a ValueError is raised. Default: False
             include_status (bool): Also return the status code, an integer, for each datapoint in the response. Only relevant for raw datapoint queries, and the object aggregates ``min_datapoint`` and ``max_datapoint``. Also adds the status info as a separate level in the columns (MultiIndex).
             include_unit (bool): Include the unit_external_id in the dataframe columns, if present (separate MultiIndex level)
@@ -1170,8 +1237,11 @@ class DatapointsAPI(APIClient):
             include_status=include_status,
             ignore_bad_datapoints=ignore_bad_datapoints,
             treat_uncertain_as_bad=treat_uncertain_as_bad,
+            fill=fill,
         )
         self.query_validator(parsed_queries := query.parse_into_queries())
+        self._maybe_warn_if_gap_filling_is_used(parsed_queries)
+        self._maybe_warn_deprecated_identifier(q.identifier for q in parsed_queries)
         fetcher = self._select_dps_fetch_strategy(parsed_queries)(self, parsed_queries)
 
         if not uniform_index:
@@ -1541,6 +1611,11 @@ class DatapointsAPI(APIClient):
             ignore_unknown_ids=ignore_unknown_ids,
             dps_client=self,
         )
+        self._maybe_warn_deprecated_identifier(
+            Identifier.load(id=dct.get("id"), external_id=dct.get("externalId"))
+            for dct in fetcher._all_identifiers
+            if "id" in dct or "externalId" in dct
+        )
         res = await fetcher.fetch_datapoints()
         if not fetcher.input_is_singleton:
             return LatestDatapointList._load(res)
@@ -1653,7 +1728,9 @@ class DatapointsAPI(APIClient):
                 >>> client.time_series.data.insert(data, external_id="foo")
         """
 
-        post_dps_object = Identifier.of_either(id, external_id, instance_id).as_dict()
+        identifier = Identifier.of_either(id, external_id, instance_id)
+        self._maybe_warn_deprecated_identifier([identifier])
+        post_dps_object = identifier.as_dict()
         post_dps_object["datapoints"] = datapoints
         await DatapointsPoster(self).insert([post_dps_object])
 
@@ -1761,6 +1838,12 @@ class DatapointsAPI(APIClient):
         """
         if not isinstance(datapoints, Sequence):
             raise TypeError("Input to 'insert_multiple' must be a list of dictionaries")
+        # Items identified by instance_id (or malformed ones, validated later by the poster) are skipped:
+        self._maybe_warn_deprecated_identifier(
+            Identifier(xid)
+            for dct in datapoints
+            if isinstance(dct, dict) and (xid := dct.get("id") or dct.get("external_id") or dct.get("externalId"))
+        )
         await DatapointsPoster(self).insert(datapoints)
 
     async def insert_states(self, items: StateDatapointsInsert | Sequence[StateDatapointsInsert]) -> None:
@@ -1932,8 +2015,9 @@ class DatapointsAPI(APIClient):
         if end_ms <= start_ms:
             raise ValueError(f"{end=} must be larger than {start=}")
 
-        identifier = Identifier.of_either(id, external_id, instance_id).as_dict()
-        delete_dps_object = {**identifier, "inclusiveBegin": start_ms, "exclusiveEnd": end_ms}
+        identifier = Identifier.of_either(id, external_id, instance_id)
+        self._maybe_warn_deprecated_identifier([identifier])
+        delete_dps_object = {**identifier.as_dict(), "inclusiveBegin": start_ms, "exclusiveEnd": end_ms}
         await self._delete_datapoints_ranges([delete_dps_object])
 
     async def delete_ranges(self, ranges: list[dict[str, Any]]) -> None:
@@ -1956,14 +2040,17 @@ class DatapointsAPI(APIClient):
                 >>> client.time_series.data.delete_ranges(ranges)
         """
         valid_ranges = []
+        identifiers = []
         for time_range in ranges:
             identifier = validate_user_input_dict_with_identifier(time_range, required_keys={"start", "end"})
+            identifiers.append(identifier)
             valid_range = dict(
                 **identifier.as_dict(),
                 inclusiveBegin=timestamp_to_ms(time_range["start"]),
                 exclusiveEnd=timestamp_to_ms(time_range["end"]),
             )
             valid_ranges.append(valid_range)
+        self._maybe_warn_deprecated_identifier(identifiers)
         await self._delete_datapoints_ranges(valid_ranges)
 
     async def _delete_datapoints_ranges(self, delete_range_objects: list[dict]) -> None:

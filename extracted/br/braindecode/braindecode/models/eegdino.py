@@ -5,15 +5,15 @@
 # License: BSD (3-clause)
 from __future__ import annotations
 
-from typing import Sequence
-from warnings import warn
+from typing import Dict, Optional, Sequence, Union
 
 import torch
-import torch.nn.functional as F
 from torch import nn
 
+from braindecode.functional import spectral_input
 from braindecode.models.base import EEGModuleMixin
-from braindecode.modules import DropPath, PatchTokenizer
+from braindecode.models.util import warn_if_sfreq_differs
+from braindecode.modules import PatchTokenizer, PreNormBlock, TimmAttention
 
 
 class EEGDINO(EEGModuleMixin, nn.Module):
@@ -156,6 +156,10 @@ class EEGDINO(EEGModuleMixin, nn.Module):
        Intervention (MICCAI 2025).
     """
 
+    _channel_target = (
+        "Fp1 Fp2 F7 F3 Fz F4 F8 T7 C3 Cz C4 T8 P7 P3 Pz P4 P8 O1 O2".split()
+    )
+
     def __init__(
         self,
         n_outputs=None,
@@ -183,6 +187,8 @@ class EEGDINO(EEGModuleMixin, nn.Module):
         drop_prob: float = 0.1,
         return_features: bool = False,
         return_encoder_output: bool = False,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
         super().__init__(
             n_outputs=n_outputs,
@@ -191,6 +197,8 @@ class EEGDINO(EEGModuleMixin, nn.Module):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
 
@@ -207,12 +215,7 @@ class EEGDINO(EEGModuleMixin, nn.Module):
                 f"({n_channel_embeddings}); the released weights use 19."
             )
 
-        if self._sfreq is not None and self.sfreq != 200:
-            warn(
-                f"EEG-DINO was trained at 200 Hz but sfreq={self.sfreq}. Inputs are "
-                "not resampled internally; results may be unreliable.",
-                UserWarning,
-            )
+        warn_if_sfreq_differs("EEG-DINO", self._sfreq, 200)
 
         self.tokenizer = PatchTokenizer(
             patch_size, n_times=self.n_times, learnable=False
@@ -233,8 +236,21 @@ class EEGDINO(EEGModuleMixin, nn.Module):
         self.emb_dim = self.patch_embedding.emb_dim
 
         self.encoder_layers = nn.ModuleList(
-            _TransformerEncoderLayer(
-                self.emb_dim, nhead, dim_feedforward, activation, drop_prob
+            PreNormBlock(
+                self.emb_dim,
+                # BEiT attention with q/v biases, in the reference op order
+                TimmAttention(
+                    self.emb_dim,
+                    nhead,
+                    qv_bias=True,
+                    attn_drop=drop_prob,
+                    proj_drop=drop_prob,
+                    exact=True,
+                ),
+                _MLP(
+                    self.emb_dim, dim_feedforward, activation=activation, drop=drop_prob
+                ),
+                drop_path=drop_prob,
             )
             for _ in range(n_layer)
         )
@@ -242,9 +258,9 @@ class EEGDINO(EEGModuleMixin, nn.Module):
 
         self.final_layer = self._make_head()
 
-        self._init_weights()
+        self._init_parameters()
 
-    def _init_weights(self):
+    def _init_parameters(self):
         nn.init.trunc_normal_(self.global_tokens, std=0.02)
 
     def _make_head(self):
@@ -260,10 +276,14 @@ class EEGDINO(EEGModuleMixin, nn.Module):
         mirroring :meth:`braindecode.models.CBraMod.reset_head`.
         """
         self._n_outputs = n_outputs
+        self._update_init_kwargs(n_outputs=n_outputs)
         self.return_encoder_output = False
+        self._update_init_kwargs(return_encoder_output=False)
         self.final_layer = self._make_head()
 
-    def forward(self, x, return_features: bool | None = None):
+    def forward(
+        self, x: torch.Tensor, return_features: Optional[bool] = None
+    ) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
         """Forward pass.
 
         Parameters
@@ -350,6 +370,9 @@ class _PatchEmbedding(nn.Module):
     decoupled positional embedding.
     """
 
+    # Hub configs store the conv spec as nested lists, which TorchScript cannot type.
+    __jit_unused_properties__ = ["emb_dim"]
+
     def __init__(
         self,
         patch_size,
@@ -412,80 +435,25 @@ class _PatchEmbedding(nn.Module):
             .permute(0, 2, 3, 1, 4)
             .flatten(3, 4)
         )
-        spectrum = torch.fft.rfft(x, dim=-1, norm="forward").abs()
+        spectrum = torch.fft.rfft(spectral_input(x), dim=-1, norm="forward")
+        spectrum = spectrum.abs().to(x)
         patch_emb = time_tokens + self.spectral_proj(spectrum)
 
         # Decoupled positional embedding: one-hot channel + depthwise temporal conv.
         # The one-hot uses the first ``n_chans`` of the ``n_channel_embeddings``
         # slots, so the released 19-slot embedding serves any n_chans <= 19.
-        channel_ids = torch.arange(n_chans, device=x.device)
-        one_hot = F.one_hot(channel_ids, self.n_channel_embeddings).to(
-            self.channel_embedding.weight.dtype
+        # one_hot(arange(n_chans)) as an identity slice: F.one_hot reads the
+        # index range on the host (a device sync).
+        one_hot = torch.eye(
+            n_chans,
+            self.n_channel_embeddings,
+            device=x.device,
+            dtype=self.channel_embedding.weight.dtype,
         )
         channel_emb = self.channel_embedding(one_hot)
         patch_emb = patch_emb + channel_emb.unsqueeze(0).unsqueeze(2)
         temporal_emb = self.time_encoding(patch_emb.permute(0, 3, 1, 2))
         return patch_emb + temporal_emb.permute(0, 2, 3, 1)
-
-
-class _TransformerEncoderLayer(nn.Module):
-    """Pre-norm transformer block (no LayerScale, matching the released config)."""
-
-    def __init__(
-        self, emb_dim, nhead, dim_feedforward, activation=nn.GELU, drop_prob=0.1
-    ):
-        super().__init__()
-        self.norm1 = nn.LayerNorm(emb_dim)
-        self.attn = _Attention(emb_dim, nhead, attn_drop=drop_prob, proj_drop=drop_prob)
-        self.drop_path = DropPath(drop_prob) if drop_prob > 0.0 else nn.Identity()
-        self.norm2 = nn.LayerNorm(emb_dim)
-        self.mlp = _MLP(emb_dim, dim_feedforward, activation=activation, drop=drop_prob)
-
-    def forward(self, x):
-        x = x + self.drop_path(self.attn(self.norm1(x)))
-        x = x + self.drop_path(self.mlp(self.norm2(x)))
-        return x
-
-
-class _Attention(nn.Module):
-    """BEiT-style attention: fused ``qkv`` without bias plus separate q/v biases.
-
-    ``head_dim`` is decoupled from ``emb_dim`` (``all_head_dim = head_dim *
-    nhead``) so a custom ``nhead`` need not divide ``emb_dim``. For the released
-    presets ``nhead=8`` divides every ``emb_dim`` (200/512/1024), so this is a
-    no-op there and the released ``qkv``/``proj`` shapes are preserved.
-    """
-
-    def __init__(self, emb_dim, nhead=8, attn_drop=0.0, proj_drop=0.0):
-        super().__init__()
-        if not 1 <= nhead <= emb_dim:
-            raise ValueError(
-                f"nhead ({nhead}) must be in [1, emb_dim={emb_dim}] so head_dim >= 1."
-            )
-        self.nhead = nhead
-        head_dim = emb_dim // nhead
-        all_head_dim = head_dim * nhead
-        self.scale = head_dim**-0.5
-        self.qkv = nn.Linear(emb_dim, all_head_dim * 3, bias=False)
-        self.q_bias = nn.Parameter(torch.zeros(all_head_dim))
-        self.v_bias = nn.Parameter(torch.zeros(all_head_dim))
-        self.attn_drop = nn.Dropout(attn_drop)
-        self.proj = nn.Linear(all_head_dim, emb_dim)
-        self.proj_drop = nn.Dropout(proj_drop)
-
-    def forward(self, x):
-        bias = torch.cat((self.q_bias, torch.zeros_like(self.v_bias), self.v_bias))
-        qkv = F.linear(x, self.qkv.weight, bias)
-        batch, tokens, _ = qkv.shape
-        query, key, value = (
-            qkv.reshape(batch, tokens, 3, self.nhead, -1)
-            .permute(2, 0, 3, 1, 4)
-            .unbind(0)
-        )
-        attn = (query * self.scale @ key.transpose(-2, -1)).softmax(dim=-1)
-        attn = self.attn_drop(attn)
-        out = (attn @ value).transpose(1, 2).flatten(2)
-        return self.proj_drop(self.proj(out))
 
 
 class _MLP(nn.Module):
@@ -526,7 +494,7 @@ class _ClassificationHead(nn.Module):
             nn.Linear(emb_dim // 4, n_outputs),
         )
 
-    def forward(self, patch_tokens, n_chans):
+    def forward(self, patch_tokens: torch.Tensor, n_chans: int) -> torch.Tensor:
         x = self.token_proj(patch_tokens)
         x = x.reshape(x.shape[0], n_chans, -1, x.shape[2]).mean(dim=1)
         x = self.time_proj(x).mean(dim=1)

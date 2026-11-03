@@ -1,10 +1,10 @@
 """BurstCapture through its Python face.
 
-The C suite (`native/tests/test_burst_capture_core.c`) owns the algorithm's
-claims. What is asserted here is what only the BINDING can get wrong: that
-the windows come back as an array a caller can index, that the event record's
-fields land in the right columns, and that the state triplet round-trips
-through `bytes`.
+The C suite (`native/tests/burst_capture/test_burst_capture_core.c`) owns the
+algorithm's claims. What is asserted here is what only the BINDING can get
+wrong: that the windows come back as an array a caller can index, that the
+event record's fields land in the right columns, and that the state triplet
+round-trips through `bytes`.
 """
 
 import numpy as np
@@ -387,7 +387,7 @@ def test_an_impossible_pd_says_so_rather_than_failing_quietly():
     Both faces are asserted: a warning for the caller who is not looking, and
     a value for the one who would rather ask than catch. A declared
     diagnostic that nothing exercises is how one stops working invisibly —
-    which is `BurstAcquisition`'s own F3.
+    which is `BurstAcquisition`'s own finding `underpowered_warning_untested`.
     """
     with pytest.warns(UserWarning, match="cannot meet the requested pd"):
         cap = BurstCapture(

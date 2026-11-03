@@ -92,18 +92,20 @@ class TerminalMixin:
         beacon_tags: list | None,
         *,
         accounting: dict | None = None,
+        deferred: bool = True,
     ) -> dict:
-        """Journal the terminal PATCH behind this run's queued ops."""
+        """Journal the terminal PATCH behind this run's queued ops. ``deferred=False``: a close
+        `finish()` then waits on (it is not marked `probe_finish.deferred`)."""
         # Behind the open's snapshot writes too: an interrupted close may get here before
         # `_close_finalize` settled them, so shut that gate now, without waiting (plan O3).
         self._settle_open_snapshot(time.monotonic())
-        block: dict[str, Any] = {
-            **(accounting or {}),
-            "deferred": True,
-            "ended_at": ended_at,
-            "pending_at_exit": pending_count,
-            "session_id": self.session_id,
-        }
+        block: dict[str, Any] = {**(accounting or {})}
+        if deferred:
+            block["deferred"] = True
+        block["ended_at"] = ended_at
+        if deferred:
+            block["pending_at_exit"] = pending_count
+        block["session_id"] = self.session_id
         body: dict[str, Any] = {
             "status": status,
             "ended_at": ended_at,

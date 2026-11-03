@@ -1024,6 +1024,10 @@ class RepairCause(enum.StrEnum):
     # registry, or a bounded apply met a source that moved before its commit.
     CATALOGUE_LAG = "catalogue_lag"
     SOURCE_MOVED = "source_moved"
+    # A strict recall resolver refused: no admitted checkpoint names its
+    # request, or the catalogue holds no rows for the checkpoint it names.
+    RESOLVER_CHECKPOINT_ABSENT = "resolver_checkpoint_absent"
+    RESOLVER_ENTRIES_UNAVAILABLE = "resolver_entries_unavailable"
 
 
 class DeclineCause(enum.StrEnum):
@@ -1036,6 +1040,30 @@ class DeclineCause(enum.StrEnum):
 
     OBSERVATION_TIMED_OUT = "observation_timed_out"
     UNOBSERVED_DRIFT = "unobserved_drift"
+
+
+class CatchUpDecline(enum.StrEnum):
+    """Why a lag-only catch-up left its lag to a full pass, as the token the worker logs.
+
+    A closed set: one token per refusal that `catch_up_lagging_delta` and its
+    caller implement. The finish line carries it because a hosted cell redacts
+    the free-text decline line, so without it a declined catch-up has no cause.
+    """
+
+    NOT_CURRENT = "not_current"
+    OUTPACED = "outpaced"
+    REPLAY_FAILED = "replay_failed"
+    STORE_ERROR = "store_error"
+    STORE_FAILED = "store_failed"
+    STORE_MISSING = "store_missing"
+    SCHEMA = "schema"
+    IDENTITY = "identity"
+    NOT_LIVE = "not_live"
+    NO_CHECKPOINT = "no_checkpoint"
+    INSTANCE = "instance"
+    INCOMPLETE = "incomplete"
+    SOURCE_PROOF = "source_proof"
+    ERROR = "error"
 
 
 class RepairStage(enum.StrEnum):
@@ -1082,7 +1110,7 @@ def _log_repair_finished(
     awaited: int = 0,
     deferred: int = 0,
     parked_s: float = 0.0,
-    declined_for: DeclineCause | None = None,
+    declined_for: DeclineCause | CatchUpDecline | None = None,
     promoted: bool | None = None,
 ) -> None:
     """Name one repair pass's result and the stage that produced it.
@@ -1097,7 +1125,8 @@ def _log_repair_finished(
     `parked_s` is the part of `duration_s` that the pass's rebuild waited at its
     yields for foreground work, such as an apply that holds the mutation boundary.
     `declined_for` names the bound that ended a pass that declined for a moving
-    source, and is absent for any other result.
+    source, or the refusal that left a catch-up's lag to a full pass, and is
+    absent for any other result.
     """
     fields: dict[str, object] = {
         "kind": kind,
@@ -2163,6 +2192,11 @@ def live_catalog_compatible(vault_root: Path) -> bool:
     return get_store(vault_root).live_catalog_compatible()
 
 
+def live_catalog_release_current(vault_root: Path) -> bool | None:
+    """Whether the running release built the live catalogue, or None when unknown."""
+    return get_store(vault_root).live_catalog_release_current()
+
+
 def assess_live_catalog(
     vault_root: Path, *, require_live_projection: bool = True
 ) -> CatalogAssessment:
@@ -2268,14 +2302,18 @@ def request_repair(
     vault_root: Path,
     *,
     deferred_paths: list[Path] | None = None,
+    lag_only: bool = False,
     cause: RepairCause | None = None,
 ) -> None:
     """Non-walking retry seam for a request refused by runtime admission.
 
     `deferred_paths` narrows the repair to a targeted retry of those paths (see
-    `_schedule_repair`); `cause` is the token the worker logs. A narrow
-    request that names nothing the catalogue indexes is dropped, never widened
-    into the whole-catalogue pass that an empty path list would request.
+    `_schedule_repair`); `lag_only` asks for the catch-up of the registry delta,
+    which moves up to the full pass on any decline; `cause` is the token the
+    worker logs. A narrow request that names nothing the catalogue indexes is
+    dropped, never widened into the whole-catalogue pass that an empty path
+    list would request. Unlike `request_lag_repair`, this seam leaves runtime
+    admission as it is: a refused request proves nothing about the catalogue.
     """
     if not maintained_content_index_enabled():
         return
@@ -2283,7 +2321,7 @@ def request_repair(
         deferred_paths = _lexical_markdown(deferred_paths)
         if not deferred_paths:
             return
-    _schedule_repair(vault_root, deferred_paths=deferred_paths, cause=cause)
+    _schedule_repair(vault_root, deferred_paths=deferred_paths, lag_only=lag_only, cause=cause)
 
 
 def request_lag_repair(vault_root: Path) -> None:
@@ -2482,21 +2520,26 @@ def _caught_up_without_rebuild(vault_root: Path, store) -> bool:
             return False
         if _admit_if_current(vault_root):
             return True
-        return _log_catch_up_decline("not_current")
+        return _log_catch_up_decline(store, CatchUpDecline.NOT_CURRENT)
     except Exception as error:  # noqa: BLE001 - a failed catch-up must still rebuild
         if _is_repair_contention(error):
             raise
-        log.info("lexical catch-up declined (%s); rebuilding", error)
-        return False
+        # The traceback stays local: a hosted cell strips exc_info.
+        log.debug("lexical catch-up raised", exc_info=True)
+        return _log_catch_up_decline(store, CatchUpDecline.ERROR, error=type(error).__name__)
 
 
-def _log_catch_up_decline(reason: str, **detail: int | str) -> bool:
-    """Log why a lag-only request still costs a full pass, and return False.
+def _log_catch_up_decline(store, reason: CatchUpDecline, **detail: int | str) -> bool:
+    """Record and log why a lag-only request still costs a full pass; return False.
 
-    Each reason is the fixed name of one refusal in `catch_up_lagging_delta` or
-    its caller, and `detail` holds counts, scope names or an error class, never
-    a vault path, so the next whole-corpus pass is attributable.
+    `detail` holds counts, scope names or an error class, never a vault path,
+    so the next whole-corpus pass is attributable. The store keeps the reason
+    for the worker's finish line, the only part of this a hosted cell retains.
+    The first refusal of a round wins: a store error inside the outpaced stamp
+    must not be reported as the `outpaced` that its caller logs next.
     """
+    if getattr(store, "_last_catch_up_decline", None) is None:
+        store._last_catch_up_decline = reason
     fields = "".join(f" {key}={value}" for key, value in detail.items())
     log.info("lexical catch-up declined (%s)%s; rebuilding", reason, fields)
     return False
@@ -2667,7 +2710,15 @@ def _schedule_repair(
                     else:
                         catch_up_result = "targeted" if caught_up else "declined"
                     _log_repair_finished(
-                        "catch_up", catch_up_result, RepairStage.TARGETED, catch_up_started
+                        "catch_up",
+                        catch_up_result,
+                        RepairStage.TARGETED,
+                        catch_up_started,
+                        declined_for=(
+                            getattr(store, "_last_catch_up_decline", None)
+                            if catch_up_result == "declined"
+                            else None
+                        ),
                     )
                     if caught_up:
                         # A request arriving meanwhile is level-triggered: the
@@ -4835,6 +4886,7 @@ class LexicalStore:
         self._last_catch_up_advanced = False
         # Which bound ended the last pass that declined for a moving source.
         self._last_decline_cause: DeclineCause | None = None
+        self._last_catch_up_decline: CatchUpDecline | None = None
         # Seconds the last rebuild waited at its yields for foreground work:
         # requests and every wait for or hold of a mutation boundary.
         self._last_parked_seconds = 0.0
@@ -4980,13 +5032,32 @@ class LexicalStore:
         # identity work; a catalogue read opens two of these.
         with call_spans.span("lexical.connect"):
             with reserved_paths._subsystem_authority_scope("lexstore"):
-                with call_spans.entered(
-                    "lexical.connect.guard",
-                    reserved_paths._identity_coordination_scope(
-                        self.vault_root,
-                        descriptor_ids=descriptor_ids,
-                    ),
-                ):
+                if descriptor_id == "lexical-store":
+                    # An open of the live store that is already there changes no identity, so
+                    # it skips the identity gate and the generation bump: a read must not
+                    # queue behind a writer. A missing store is created under the full guard.
+                    try:
+                        with call_spans.entered(
+                            "lexical.connect.guard",
+                            reserved_paths._identity_coordination_scope(
+                                self.vault_root,
+                                descriptor_ids=descriptor_ids,
+                                identity_may_change=False,
+                            ),
+                        ):
+                            return self._connect_owned(path, create=False)
+                    except FileNotFoundError:
+                        pass
+                # The guard span above already covered a missing live store's connect; only a
+                # connect that has not been spanned yet gets one here.
+                fallback = reserved_paths._identity_coordination_scope(
+                    self.vault_root,
+                    descriptor_ids=descriptor_ids,
+                )
+                if descriptor_id == "lexical-store":
+                    with fallback:
+                        return self._connect_owned(path)
+                with call_spans.entered("lexical.connect.guard", fallback):
                     return self._connect_owned(path)
 
     def _connect_owned(
@@ -4994,6 +5065,7 @@ class LexicalStore:
         path: Path | None = None,
         *,
         publish: bool = True,
+        create: bool = True,
     ) -> sqlite3.Connection:
         target = path if path is not None else self.path
         descriptor_id = reserved_paths.state_target_descriptor_id(
@@ -5008,7 +5080,7 @@ class LexicalStore:
                 self.vault_root,
                 target,
                 descriptor_id,
-                create=True,
+                create=create,
             ) as retained_target:
                 return self._connect_retained(
                     retained_target,
@@ -6012,6 +6084,11 @@ class LexicalStore:
         ).fetchone()
         return str(row[0]) if row is not None else None
 
+    def _catalog_release_current(self, conn: sqlite3.Connection) -> bool:
+        """Whether the running release built the rows behind `conn` (see `_stamp_whole_build`)."""
+        row = conn.execute("SELECT value FROM meta WHERE key = 'catalog_release'").fetchone()
+        return row is not None and row[0] == __version__
+
     def _stamp_whole_build(self, conn: sqlite3.Connection) -> None:
         """Record the schema and the release that derived every page row (caller owns the txn).
 
@@ -6565,7 +6642,7 @@ class LexicalStore:
             updated = page.updated or "0000-00-00"
             # Scene-frame children carry the parent video they collapse into;
             # unparseable rows (page is None) stay NULL like ordinary pages.
-            emitted_parent_path = page.parent_media + ".md" if page.parent_media else None
+            emitted_parent_path = page.emitted_parent
             eligibility = _eligibility_columns(page)
             eligibility_view = _eligibility_view_json(page)
             content_hash = getattr(page, "snapshot_hash", None)
@@ -6954,6 +7031,7 @@ class LexicalStore:
         from . import freshness as freshness_module
 
         self._last_catch_up_advanced = False
+        self._last_catch_up_decline = None
         plans: list[dict[str, _CatchUpPlan]] = [{}]
         rows_at_start: dict[str, tuple[bool, bool]] = {}
         lagging = self._lagging_catch_up_paths(plans[0], rows_at_start)
@@ -6981,7 +7059,9 @@ class LexicalStore:
                             taken,
                         )
                         return False
-                    return _log_catch_up_decline("outpaced", paths=len(lagging), steps=taken)
+                    return _log_catch_up_decline(
+                        self, CatchUpDecline.OUTPACED, paths=len(lagging), steps=taken
+                    )
                 taken += 1
                 chunk, pending = pending[:cap], pending[cap:]
                 # Taken before the step reads any file: an edit after it has an
@@ -7000,7 +7080,9 @@ class LexicalStore:
                     # stay in the lag that the next round re-reads.
                     continue
                 if not applied:
-                    return _log_catch_up_decline("replay_failed", paths=len(chunk))
+                    return _log_catch_up_decline(
+                        self, CatchUpDecline.REPLAY_FAILED, paths=len(chunk)
+                    )
                 steps.append(_CatchUpStep(marks, frozenset(chunk)))
             plans.append({})
             lagging = self._lagging_catch_up_paths(plans[-1], rows_at_start)
@@ -7102,7 +7184,9 @@ class LexicalStore:
         except VaultLockError as error:
             log.info("lexical catch-up stamp deferred (%s)", error)
         except sqlite3.Error as error:
-            return _log_catch_up_decline("store_error", error=type(error).__name__)
+            return _log_catch_up_decline(
+                self, CatchUpDecline.STORE_ERROR, error=type(error).__name__
+            )
         return moved and not frozen
 
     def _lagging_catch_up_paths(
@@ -7121,43 +7205,46 @@ class LexicalStore:
         from . import freshness as freshness_module
 
         if self._failed:
-            _log_catch_up_decline("store_failed")
+            _log_catch_up_decline(self, CatchUpDecline.STORE_FAILED)
             return None
         if not self.path.exists():
-            _log_catch_up_decline("store_missing")
+            _log_catch_up_decline(self, CatchUpDecline.STORE_MISSING)
             return None
         lagging: set[str] = set()
         try:
             conn = self._connect()
             try:
                 if not self._schema_is_current(conn):
-                    _log_catch_up_decline("schema")
+                    _log_catch_up_decline(self, CatchUpDecline.SCHEMA)
                     return None
                 identity = catalog_semantic_identity(self.vault_root)
                 if self._meta_catalog_identity(conn) != identity:
-                    _log_catch_up_decline("identity")
+                    _log_catch_up_decline(self, CatchUpDecline.IDENTITY)
                     return None
                 for scope in freshness_module.SCOPES:
                     if not freshness_module.recall_is_live(self.vault_root, scope):
-                        _log_catch_up_decline("not_live", scope=scope)
+                        _log_catch_up_decline(self, CatchUpDecline.NOT_LIVE, scope=scope)
                         return None
                     stored = self._meta_checkpoint(conn, scope)
                     current = freshness_module.recall_checkpoint(self.vault_root, scope)
                     if stored is None or current is None:
-                        _log_catch_up_decline("no_checkpoint", scope=scope)
+                        _log_catch_up_decline(
+                            self, CatchUpDecline.NO_CHECKPOINT, scope=scope
+                        )
                         return None
                     if stored.instance_id != current.instance_id:
-                        _log_catch_up_decline("instance", scope=scope)
+                        _log_catch_up_decline(self, CatchUpDecline.INSTANCE, scope=scope)
                         return None
                     delta = freshness_module.recall_delta_since(
                         self.vault_root, scope, stored
                     )
                     if not delta.complete:
-                        _log_catch_up_decline("incomplete", scope=scope)
+                        _log_catch_up_decline(self, CatchUpDecline.INCOMPLETE, scope=scope)
                         return None
                     if delta.requires_source_proof:
                         _log_catch_up_decline(
-                            "source_proof",
+                            self,
+                            CatchUpDecline.SOURCE_PROOF,
                             scope=scope,
                             changed=len(delta.changed),
                             deleted=len(delta.deleted),
@@ -7179,7 +7266,9 @@ class LexicalStore:
             finally:
                 conn.close()
         except sqlite3.Error as error:
-            _log_catch_up_decline("store_error", error=type(error).__name__)
+            _log_catch_up_decline(
+                self, CatchUpDecline.STORE_ERROR, error=type(error).__name__
+            )
             return None
         return lagging
 
@@ -8295,8 +8384,7 @@ class LexicalStore:
             return "schema"
         if self._meta_catalog_identity(conn) != identity:
             return "identity"
-        release = conn.execute("SELECT value FROM meta WHERE key = 'catalog_release'").fetchone()
-        if release is None or release[0] != __version__:
+        if not self._catalog_release_current(conn):
             return "release"
         # A whole-corpus build reads nothing from the live file; a copy would
         # carry its damage into every later repair, so check the copy once.
@@ -8523,6 +8611,26 @@ class LexicalStore:
             # so a standby waits on the serving worker rather than building a
             # whole catalogue beside one it merely found busy.
             return classify_sqlite_error(error) == "transient"
+        finally:
+            if conn is not None:
+                conn.close()
+
+    def live_catalog_release_current(self) -> bool | None:
+        """Whether the running release built the live catalogue, or None when unknown.
+
+        Read-only and O(1), like `live_catalog_compatible`. False means another
+        release's whole build derived every row, so `_seed_from_live` would not
+        reuse them; None (no maintained store, no file, a failed read) decides
+        nothing.
+        """
+        if backend() == "python" or self._failed or not self.path.exists():
+            return None
+        conn: sqlite3.Connection | None = None
+        try:
+            conn = self._connect()
+            return self._catalog_release_current(conn)
+        except sqlite3.Error:
+            return None
         finally:
             if conn is not None:
                 conn.close()
@@ -10675,7 +10783,7 @@ class LexicalStore:
                 if page is None:
                     continue
                 expected_title = page.title
-                expected_parent = page.parent_media + ".md" if page.parent_media else None
+                expected_parent = page.emitted_parent
                 stored_eligibility = tuple(None if value is None else str(value) for value in row[4:])
                 if (
                     row[1] != expected_title

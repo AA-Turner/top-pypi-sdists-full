@@ -1,29 +1,111 @@
 # Authors: Robin Schirrmeister <robintibor@gmail.com>
 #          Hubert Banville <hubert.jbanville@gmail.com>
+#          Julien Gadonneix <juliengado.2001@gmail.com>
 #
 # License: BSD (3-clause)
 import inspect
+import math
+import sys
 import warnings
+from collections.abc import Callable as CallableABC
 from copy import deepcopy
-from functools import wraps
+from functools import lru_cache, wraps
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Sequence
+from types import SimpleNamespace
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Literal,
+    Optional,
+    Sequence,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
+import mne
 import numpy as np
-import pandas as pd
-import pydantic
 import torch  # noqa: F401  # exposed so TorchScript can resolve ``torch`` through the BatchNorm-guard wrapper's __globals__
+from mne.io.constants import FIFF
 from torch import nn
+from torchaudio.transforms import Resample
 
-models_dict = {}
-# Interpolated models are channel-interpolating wrappers around existing
-# braindecode backbones (see :func:`braindecode.models.InterpolatedModel`).
-# They are derivatives of existing models rather than standalone
-# architectures, so they are kept in a separate registry to avoid polluting
-# ``models_dict`` (e.g. for benchmarking that iterates over all "real" models).
-interpolated_models_dict = {}
+from braindecode import modules as bd_modules
+from braindecode.util import resolve_montage_name
 
-_IMPORT_ADAPTER = pydantic.TypeAdapter(pydantic.ImportString)
+# Canonical MNE channel-type name for the electrode kinds braindecode models
+# tell apart.
+_KIND_TO_CH_TYPE = {
+    FIFF.FIFFV_EEG_CH: "eeg",
+    FIFF.FIFFV_SEEG_CH: "seeg",
+    FIFF.FIFFV_DBS_CH: "dbs",
+    FIFF.FIFFV_ECOG_CH: "ecog",
+}
+
+#: MNE channel types recorded from inside the skull.
+INTRACRANIAL_CH_TYPES = frozenset({"seeg", "dbs", "ecog"})
+
+
+# Read through ``models_dict`` (module ``__getattr__`` below), which fills it on
+# first access so importing braindecode does not import every model.
+_models_dict: dict[str, Any] = {}
+# Annotations only, for type checkers; the values come from ``__getattr__``.
+models_dict: dict[str, Any]
+_summary_table: "pd.DataFrame"
+
+if TYPE_CHECKING:
+    import pandas as pd
+else:  # hidden from checkers so misspelled names stay errors
+
+    def __getattr__(name):
+        if name == "models_dict":
+            if not _models_dict:
+                _init_models_dict()
+            return _models_dict
+        if name == "_summary_table":  # read summary.csv once, on first access
+            table = globals()[name] = get_summary_table()
+            return table
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+# Resolve serialized classes by exact lookup, never by importing a config path.
+# Include public aliases and the defining paths emitted by get_config().
+_CONFIG_MODULE_TYPES = {}
+for _module in (nn, bd_modules):
+    for _name, _type in vars(_module).items():
+        if (
+            not _name.startswith("_")
+            and isinstance(_type, type)
+            and issubclass(_type, nn.Module)
+        ):
+            _CONFIG_MODULE_TYPES[f"{_module.__name__}.{_name}"] = _type
+            _CONFIG_MODULE_TYPES[f"{_type.__module__}.{_type.__qualname__}"] = _type
+
+
+def resolve_config_type(value):
+    """Decode a shipped module class without importing user-selected modules.
+
+    Python class/callable objects supplied by application code are left intact;
+    serialized strings must name a public torch.nn or braindecode.modules class.
+    """
+    if not isinstance(value, str):
+        return value
+    try:
+        return _CONFIG_MODULE_TYPES[value]
+    except KeyError:
+        raise ValueError(f"Unsupported serialized module type: {value!r}") from None
+
+
+def _has_type_annotation(annotation):
+    """Whether an annotation includes a class or callable argument."""
+    return (
+        annotation in (type, CallableABC)
+        or get_origin(annotation) in (type, CallableABC)
+        or any(_has_type_annotation(arg) for arg in get_args(annotation))
+    )
 
 
 _EEG_PARAMS = frozenset(
@@ -142,7 +224,10 @@ def build_model_config(model) -> dict:
             elif not _is_jsonable(val):
                 continue
             config[name] = val
-    chs_info = getattr(model, "_chs_info", None)
+    layer = getattr(model, "channel_layer", None)  # save the input, not the target
+    chs_info = (
+        layer.chs_info if layer is not None else getattr(model, "_chs_info", None)
+    )
     if chs_info is not None:
         config["chs_info"] = model._serialize_chs_info(chs_info)
     return config
@@ -154,7 +239,7 @@ def resolve_type_kwargs(cls, kwargs):
     When a model config is saved to JSON, ``type[nn.Module]`` parameters
     (e.g. ``activation=nn.ELU``) are stored as dotted import paths like
     ``"torch.nn.modules.activation.ELU"``.  This function resolves them
-    back to actual types using :class:`pydantic.ImportString`.
+    back to known shipped module classes without importing config-selected modules.
 
     Parameters
     ----------
@@ -168,17 +253,25 @@ def resolve_type_kwargs(cls, kwargs):
     dict
         The same *kwargs* dict, with type strings resolved.
     """
-    for name, param in inspect.signature(cls.__init__).parameters.items():
+    init = inspect.unwrap(cls.__init__)
+    for name, param in inspect.signature(init).parameters.items():
         val = kwargs.get(name)
-        if isinstance(val, str) and "." in val and isinstance(param.default, type):
-            try:
-                kwargs[name] = _IMPORT_ADAPTER.validate_python(val)
-            except pydantic.ValidationError:
-                warnings.warn(
-                    f"Could not resolve type string {val!r} for parameter "
-                    f"{name!r} in {cls.__name__}",
-                    stacklevel=2,
-                )
+        if not isinstance(val, str):
+            continue
+        is_type = param.default is not inspect.Parameter.empty and isinstance(
+            param.default, type
+        )
+        if not is_type and param.annotation is not inspect.Parameter.empty:
+            # Resolve only this effective argument, not unrelated metadata or
+            # return annotations (which may use TYPE_CHECKING-only imports).
+            annotation = get_type_hints(
+                SimpleNamespace(__annotations__={name: param.annotation}),
+                globalns=init.__globals__,
+                localns=dict(vars(cls)),
+            )[name]
+            is_type = _has_type_annotation(annotation)
+        if is_type:
+            kwargs[name] = resolve_config_type(val)
     return kwargs
 
 
@@ -188,29 +281,25 @@ def resolve_type_kwargs(cls, kwargs):
 
 
 def _init_models_dict():
-    import braindecode.models as models
+    from braindecode import models
+    from braindecode.models.base import EEGModuleMixin
 
-    for m in inspect.getmembers(models, inspect.isclass):
-        if (
-            issubclass(m[1], models.base.EEGModuleMixin)
-            and m[1] != models.base.EEGModuleMixin
-        ):
-            # Interpolated models are wrappers around existing backbones
-            # (identified by the ``_TARGET_CHS_INFO`` class attribute set by
-            # :func:`braindecode.models.InterpolatedModel`). Keep them in a
-            # dedicated registry instead of ``models_dict``.
-            if getattr(m[1], "_TARGET_CHS_INFO", None) is not None:
-                interpolated_models_dict[m[0]] = m[1]
-            else:
-                models_dict[m[0]] = m[1]
+    # Plain getattr over every public name: a model that fails to import raises here.
+    found = {}
+    for name in sorted(models._LAZY):
+        obj = getattr(models, name)
+        is_model = inspect.isclass(obj) and issubclass(obj, EEGModuleMixin)
+        if is_model and obj is not EEGModuleMixin:
+            found[name] = obj
+    # One update() publishes every entry at once, so no thread sees a partial dict.
+    _models_dict.update(found)
 
 
 def _get_model_class(model_name: str):
     """Return the model class registered under ``model_name``.
 
-    Searches both the standard :data:`models_dict` and the
-    :data:`interpolated_models_dict` so that interpolated models remain
-    resolvable by name (e.g. for skorch wrappers and pydantic configs).
+    Looks the name up in :data:`models_dict` (e.g. for skorch wrappers and
+    pydantic configs).
 
     Parameters
     ----------
@@ -225,14 +314,11 @@ def _get_model_class(model_name: str):
     Raises
     ------
     ValueError
-        If ``model_name`` is not found in either registry.
+        If ``model_name`` is not a registered model.
     """
-    if not models_dict and not interpolated_models_dict:
-        _init_models_dict()
-    if model_name in models_dict:
-        return models_dict[model_name]
-    if model_name in interpolated_models_dict:
-        return interpolated_models_dict[model_name]
+    registry = sys.modules[__name__].models_dict  # also honours a patched models_dict
+    if model_name in registry:
+        return registry[model_name]
     raise ValueError(f"Unknown model name {model_name!r}.")
 
 
@@ -266,30 +352,120 @@ SigArgName = Literal[
 #   the model tested in case the default_signal_params are not
 #   compatible with this model.  May also be a zero-argument
 #   callable returning a dict (used to defer imports that would
-#   create circular dependencies).
+#   create circular dependencies, or the fixture-montage load).
 #   The keys of this dictionary can only be among those of
 #   default_signal_params.
 ################################################################
 
 _rng = np.random.default_rng(12)
-# Default 3-channel chs_info used by most model tests
+
+
+@lru_cache(maxsize=1)
+def _fixture_montage_chs() -> tuple[tuple[str, tuple[float, ...]], ...]:
+    """Channels of the montage that supplies the test fixtures' real positions.
+
+    The montage is ``standard_1005``, spelled ``colin27_1005`` on MNE >= 1.13
+    (see :func:`braindecode.util.resolve_montage_name`; the positions are
+    identical). The positions are read back from ``info["chs"][i]["loc"]``
+    after :meth:`mne.Info.set_montage`, i.e. in the head frame and in metres,
+    exactly what a user gets from ``raw.set_montage(...)``. ``loc[3:]`` is set
+    to zeros rather than to MNE's ``[0, 0, 0, nan, ...]`` padding, like the
+    other canonical fixtures of this module (LaBraM, BENDR, BaRISTA): a NaN
+    would only add noise to models that check ``np.isfinite(loc).all()``.
+
+    The four legacy 10-20 aliases that the montage lists at exactly the
+    position of their modern name (T3=T7, T4=T8, T5=P7, T6=P8) are dropped:
+    a channel is kept only if no channel listed before it has the same
+    position, so that no two channels share a position (339 channels remain).
+
+    Loading the montage costs about 5 ms once ``braindecode`` is imported
+    (about 0.2 s in a process where ``mne.channels`` is not imported yet). It
+    is deferred to the first call and cached, so that importing ``braindecode``
+    never reads the montage file nor risks a montage-name deprecation warning.
+
+    Returns
+    -------
+    tuple of (str, tuple of float)
+        ``(ch_name, loc)`` for every channel of the montage except the
+        dropped co-located legacy aliases (339 channels), ``loc`` having the
+        12 elements of MNE's format.
+    """
+    montage = mne.channels.make_standard_montage(resolve_montage_name("standard_1005"))
+    info = mne.create_info(montage.ch_names, 1.0, "eeg")
+    info.set_montage(montage)
+    chs = []
+    seen = set()
+    for ch in info["chs"]:
+        position = tuple(np.round(ch["loc"][:3], 6).tolist())
+        if position in seen:  # legacy alias of a channel listed before
+            continue
+        seen.add(position)
+        loc = np.zeros(12)
+        loc[:3] = ch["loc"][:3]
+        chs.append((ch["ch_name"], tuple(loc.tolist())))
+    return tuple(chs)
+
+
+def _draw_chs_info(n_chans: int, rng: np.random.Generator) -> list[dict]:
+    """Draw ``n_chans`` distinct real EEG channels of the fixture montage.
+
+    "Distinct" holds for the names and for the positions (see
+    :func:`_fixture_montage_chs`).
+
+    Each channel keeps its real name together with its real head-frame
+    position, so that models that look channels up by name see the position
+    that goes with the name.
+
+    Parameters
+    ----------
+    n_chans : int
+        Number of distinct channels to draw.
+    rng : numpy.random.Generator
+        Source of the draw. Same state, same channels.
+
+    Returns
+    -------
+    list of dict
+        ``{"ch_name": str, "kind": "eeg", "loc": ndarray of 12 floats}``.
+
+    Raises
+    ------
+    ValueError
+        If the montage has fewer than ``n_chans`` channels.
+    """
+    montage_chs = _fixture_montage_chs()
+    if n_chans > len(montage_chs):
+        raise ValueError(
+            f"Cannot draw {n_chans} distinct channels from a montage of "
+            f"{len(montage_chs)} channels; pass chs_info explicitly."
+        )
+    return [
+        {
+            "ch_name": montage_chs[i][0],
+            "kind": "eeg",
+            "loc": np.array(montage_chs[i][1]),
+        }
+        for i in rng.choice(len(montage_chs), size=n_chans, replace=False)
+    ]
+
+
+# Default 3-channel chs_info used by most model tests: the real 10-10 channels
+# C1, C2 and C3 of the montage of ``_fixture_montage_chs`` (head frame, metres).
+# They are inlined, as loading the montage here would slow ``import
+# braindecode`` down; ``test_chs_info_3ch_matches_the_montage`` checks them.
 _chs_info_3ch = [
-    {
-        "ch_name": f"C{i}",
-        "kind": "eeg",
-        "loc": _rng.random(12),
-    }
-    for i in range(1, 4)
+    {"ch_name": name, "kind": "eeg", "loc": np.array([x, y, z, *[0.0] * 9])}
+    for name, (x, y, z) in {
+        "C1": (-0.03793783, 0.02633745, 0.12977061),
+        "C2": (0.03589271, 0.02635814, 0.12841234),
+        "C3": (-0.06714873, 0.02335823, 0.10451068),
+    }.items()
 ]
-# 4-channel variant: MNE interpolation requires >=4 digitisation points
-_chs_info_4ch = [
-    {
-        "ch_name": f"C{i}",
-        "kind": "eeg",
-        "loc": _rng.random(12),
-    }
-    for i in range(1, 5)
-]
+# Draws of the former random locs (3 channels, then a removed 4-channel
+# fixture), kept so that the sEEG locs that the BaRISTA entry below still draws
+# from ``_rng`` are unchanged; BaRISTA is the only later reader of ``_rng``.
+_rng.random(3 * 12)
+_rng.random(4 * 12)
 
 
 def _get_labram_chs_info() -> list[dict]:
@@ -338,24 +514,135 @@ def _get_bendr_chs_info() -> list[dict]:
     return result
 
 
+# FreeSurfer's left-hemisphere Desikan-Killiany cortical gyri occupy the
+# contiguous id block 1000-1035 of its bundled colour table (the right
+# hemisphere mirrors it 1000 ids higher). DKT drops five of these 36 ids:
+# 1000 (``unknown``) and 1004 (``corpuscallosum``) are not cortical parcels,
+# and 1001 (``bankssts``), 1032 (``frontalpole``), 1033 (``temporalpole``) are
+# the three gyri whose boundaries the DKT protocol could not define reliably,
+# so they were folded into their neighbours. These are FreeSurfer *ids*, not
+# parcel names, so the exclusion needs no name vocabulary.
+_DK_LH_CORTICAL_IDS = range(1000, 1036)
+_DKT_EXCLUDED_IDS = frozenset({1000, 1001, 1004, 1032, 1033})
+
+# Aseg subcortical structures get a ``Left-``/``Right-`` id pair for every
+# lateralized entry; DKT keeps the structures whose left id falls in 10-18
+# and that have a ``Right-`` counterpart elsewhere in the table. The 3rd/4th
+# ventricles and the brain stem fall in that id range too but have no
+# ``Right-`` counterpart, so this test excludes them by structure, not by
+# typing their names.
+_ASEG_LH_IDS = range(10, 19)
+
+# MAPA's released region embedding orders the six kept aseg structures as
+# Hippocampus, Amygdala, Caudate, Putamen, Pallidum, Thalamus-Proper. That is
+# neither ascending-id order (Thalamus, Caudate, Putamen, Pallidum,
+# Hippocampus, Amygdala) nor alphabetical order (Amygdala, Caudate,
+# Hippocampus, Pallidum, Putamen, Thalamus-Proper): no table MNE ships
+# encodes it. It is the one piece of metadata this helper cannot derive --
+# confirmed only by the released checkpoint, via the state-dict transplant in
+# ``test_mapa_released_checkpoint_reproduces_the_reference_features`` -- so it
+# is kept as a permutation of *positions* in the alphabetically-sorted,
+# MNE-derived set below, never as a list of structure names.
+_ASEG_SLOT_PERMUTATION: tuple[int, ...] = (2, 0, 1, 4, 3, 5)
+
+
+def dkt_region_slots() -> tuple[str, ...]:
+    """FreeSurfer DKT region names in MAPA's released embedding slot order.
+
+    The 62 hemisphere-qualified cortical parcels come first (left hemisphere,
+    then right, each alphabetically sorted), then the 12 subcortical
+    structures (left, then right, in the released, non-alphabetical order --
+    see ``_ASEG_SLOT_PERMUTATION``). Every name comes straight out of
+    :func:`mne.read_freesurfer_lut`, MNE's bundled FreeSurfer colour table
+    (no download); braindecode contributes only the id-based selection rule
+    and the slot order, never a hand-typed name list.
+
+    Returns
+    -------
+    tuple of str
+        The 74 region names, index ``i`` being embedding slot ``i``.
+    """
+    lut, _ = mne.read_freesurfer_lut()
+    cortical = sorted(
+        name.removeprefix("ctx-lh-")
+        for name, id_ in lut.items()
+        if id_ in _DK_LH_CORTICAL_IDS and id_ not in _DKT_EXCLUDED_IDS
+    )
+    aseg_lh_alpha = sorted(
+        name.removeprefix("Left-")
+        for name, id_ in lut.items()
+        if id_ in _ASEG_LH_IDS
+        and name.startswith("Left-")
+        and f"Right-{name.removeprefix('Left-')}" in lut
+    )
+    aseg = tuple(aseg_lh_alpha[i] for i in _ASEG_SLOT_PERMUTATION)
+    return (
+        tuple(f"ctx-lh-{parcel}" for parcel in cortical)
+        + tuple(f"ctx-rh-{parcel}" for parcel in cortical)
+        + tuple(f"Left-{structure}" for structure in aseg)
+        + tuple(f"Right-{structure}" for structure in aseg)
+    )
+
+
+def _dance_signal_params() -> dict[str, Any]:
+    """DANCE signal parameters, deferred as their channels come from a montage.
+
+    19 distinct real channels, drawn with a fixed seed: the same channels on
+    every call, whatever the order of the tests.
+    """
+    return {
+        "n_chans": 19,
+        # 1 s @ 200 Hz: CPU float16/bfloat16 dilated convolutions take a
+        # scalar path, so 32 s windows took 25 min per dtype case.
+        "n_times": 200,
+        "sfreq": 200.0,
+        "input_window_seconds": 1.0,
+        "n_outputs": 4,
+        "chs_info": _draw_chs_info(19, np.random.default_rng(19)),
+    }
+
+
+# (name, required signal parameters, test parameters). The test parameters are
+# signal parameters the default test signal does not fit, plus, for the
+# largest models, architecture arguments that keep the test instance small
+# (CI runners hold four of them at once; the released configurations are
+# covered by test_pretrained_compat).
 models_mandatory_parameters: list[
-    tuple[str, list[SigArgName], dict[SigArgName, Any] | None | Any]
+    tuple[str, list[SigArgName], dict[str, Any] | None | Any]
 ] = [
     ("ATCNet", ["n_chans", "n_outputs", "n_times"], None),
+    ("AXON", ["chs_info", "n_outputs"], {"sfreq": 200.0, "n_times": 1000}),
+    (
+        "BaRISTA",
+        ["chs_info", "n_outputs", "n_times"],
+        {
+            # 3 s at the paper's 2048 Hz, i.e. 12 patches of 512 samples.
+            "n_times": 6144,
+            "sfreq": 2048.0,
+            # Intracranial positions, in metres as MNE stores them, so that the
+            # default coordinate-scale spatial encoding gets distinct bins.
+            "chs_info": [
+                {
+                    "ch_name": f"E{i + 1}",
+                    "kind": "seeg",
+                    "loc": np.concatenate(
+                        [0.06 * (2 * _rng.random(3) - 1), np.zeros(9)]
+                    ),
+                }
+                for i in range(8)
+            ],
+        },
+    ),
     ("BDTCN", ["n_chans", "n_outputs"], None),
     ("Deep4Net", ["n_chans", "n_outputs", "n_times"], None),
     ("DeepSleepNet", ["n_chans", "n_outputs", "n_times"], None),
     ("EEGConformer", ["n_chans", "n_outputs", "n_times"], None),
+    ("EEGCLIP", ["n_chans", "n_outputs", "n_times"], None),
     ("EEGInceptionERP", ["n_chans", "n_outputs", "n_times", "sfreq"], None),
     ("EEGInceptionMI", ["n_chans", "n_outputs", "n_times", "sfreq"], None),
     ("EEGITNet", ["n_chans", "n_outputs", "n_times"], None),
     ("EEGNet", ["n_chans", "n_outputs", "n_times"], None),
     ("EEGPT", ["n_chans", "n_outputs", "n_times", "chs_info"], None),
-    (
-        "InterpolatedEEGPT",
-        ["chs_info", "n_outputs", "n_times"],
-        {"chs_info": _chs_info_4ch},  # MNE interpolation needs >=4 channels
-    ),
     ("ShallowFBCSPNet", ["n_chans", "n_outputs", "n_times"], None),
     (
         "SleepStagerBlanco2020",
@@ -363,6 +650,16 @@ models_mandatory_parameters: list[
         {"n_chans": 4},  # n_chans dividable by n_groups=2
     ),
     ("SleepStagerChambon2018", ["n_chans", "n_outputs", "n_times", "sfreq"], None),
+    (
+        "SleepFM",
+        ["n_chans", "n_outputs", "n_times", "sfreq"],
+        {"n_chans": 3, "n_times": 640, "sfreq": 128.0},
+    ),
+    (
+        "SleepFMStager",
+        ["n_chans", "n_outputs", "n_times", "sfreq"],
+        {"n_chans": 3, "n_times": 640, "sfreq": 128.0},
+    ),
     (
         "AttnSleep",
         ["n_outputs", "n_times", "sfreq"],
@@ -375,10 +672,17 @@ models_mandatory_parameters: list[
     ("TIDNet", ["n_chans", "n_outputs", "n_times"], None),
     ("USleep", ["n_chans", "n_outputs", "n_times", "sfreq"], {"sfreq": 128.0}),
     ("BIOT", ["n_chans", "n_outputs", "sfreq", "n_times"], None),
+    # The default 1000 samples leave 1 STFT frame; the centre pooling needs 10.
     (
-        "InterpolatedBIOT",
-        ["chs_info", "n_outputs", "sfreq", "n_times"],
-        {"chs_info": _chs_info_4ch},  # MNE interpolation needs >=4 channels
+        "BrainBERT",
+        ["n_chans", "n_outputs", "n_times"],
+        {"n_times": 2048, "sfreq": 2048.0},  # the pretraining rate, 1 s windows
+    ),
+    ("PopulationTransformer", ["n_chans", "n_outputs", "n_times"], None),
+    (
+        "DuIN",
+        ["n_chans", "n_outputs", "n_times"],
+        {"n_times": 3000, "sfreq": 1000.0},  # the downstream 3 s windows at 1 kHz
     ),
     ("AttentionBaseNet", ["n_chans", "n_outputs", "n_times"], None),
     (
@@ -387,11 +691,6 @@ models_mandatory_parameters: list[
         # Callable: Labram requires the exact 128-ch canonical order; deferred to
         # avoid a circular import (util.py is loaded by base.py before labram.py).
         lambda: {"chs_info": _get_labram_chs_info()},
-    ),
-    (
-        "InterpolatedLaBraM",
-        ["chs_info", "n_outputs", "n_times"],
-        {"chs_info": _chs_info_4ch},  # MNE interpolation needs >=4 channels
     ),
     ("EEGSimpleConv", ["n_chans", "n_outputs", "sfreq"], None),
     ("SPARCNet", ["n_chans", "n_outputs", "n_times"], None),
@@ -404,15 +703,12 @@ models_mandatory_parameters: list[
     ("MSVTNet", ["n_chans", "n_outputs", "n_times"], None),
     ("EEGMiner", ["n_chans", "n_outputs", "n_times", "sfreq"], {"sfreq": 200.0}),
     ("CTNet", ["n_chans", "n_outputs", "n_times"], None),
+    ("MSCFormer", ["n_chans", "n_outputs", "n_times"], None),
+    ("TMSANet", ["n_chans", "n_outputs", "n_times"], None),
     ("TCFormer", ["n_chans", "n_outputs", "n_times"], None),
     ("SincShallowNet", ["n_chans", "n_outputs", "n_times", "sfreq"], {"sfreq": 250.0}),
     ("SCCNet", ["n_chans", "n_outputs", "n_times", "sfreq"], {"sfreq": 200.0}),
     ("SignalJEPA", ["chs_info"], None),
-    (
-        "InterpolatedSignalJEPA",
-        ["chs_info"],
-        {"chs_info": _chs_info_4ch},  # MNE interpolation needs >=4 channels
-    ),
     ("SignalJEPA_Contextual", ["chs_info", "n_times", "n_outputs"], None),
     ("SignalJEPA_PostLocal", ["n_chans", "n_times", "n_outputs"], None),
     ("SignalJEPA_PreLocal", ["n_chans", "n_times", "n_outputs"], None),
@@ -478,21 +774,46 @@ models_mandatory_parameters: list[
     ("PBT", ["n_chans", "n_outputs", "n_times"], None),
     ("SSTDPN", ["n_chans", "n_outputs", "n_times", "sfreq"], None),
     ("BrainModule", ["n_chans", "n_outputs", "n_times", "sfreq"], None),
+    ("Brant", ["n_chans", "n_outputs", "n_times", "sfreq"], None),
+    # 3072 samples, the pretrained length: 12 s at 256 Hz or 3 s at 1024 Hz
+    ("EpiNT", ["n_chans", "n_outputs", "n_times"], {"n_times": 3072, "sfreq": 256.0}),
     (
         "BENDR",
         ["n_chans", "n_outputs", "n_times"],
         # Callable: BENDR now requires chs_info to match BENDR_CHANNEL_ORDER
         # when supplied; deferred to avoid a circular import (util.py is loaded
         # by base.py before bendr.py).
-        lambda: {"chs_info": _get_bendr_chs_info()},
-    ),
-    (
-        "InterpolatedBENDR",
-        ["chs_info", "n_outputs", "n_times"],
-        {"chs_info": _chs_info_4ch},  # MNE interpolation needs >=4 channels
+        lambda: {
+            "chs_info": _get_bendr_chs_info(),
+            # 1M parameters instead of the released 157M (5.2 GB to script).
+            "encoder_h": 64,
+            "contextualizer_hidden": 128,
+            "transformer_layers": 2,
+        },
     ),
     ("LUNA", ["n_chans", "n_times", "n_outputs"], None),
+    (
+        "MAPA",
+        ["chs_info", "n_outputs", "n_times"],
+        {
+            # 1 s at the paper's 2048 Hz, i.e. 32 frames of the 32 Hz clock.
+            "n_times": 2048,
+            "sfreq": 2048.0,
+            # Clinical sEEG labels, which MAPA reads the array and the contact
+            # number off: two arrays of unequal length.
+            "chs_info": [
+                {"ch_name": name, "kind": "seeg"}
+                for name in ("LA1", "LA2", "LA5", "LB3", "LB7")
+            ],
+        },
+    ),
     ("MEDFormer", ["n_chans", "n_outputs", "n_times"], None),
+    ("MIRepNet", ["n_chans", "n_outputs"], None),
+    (
+        "TFMTokenizer",
+        ["n_chans", "n_outputs", "n_times", "sfreq"],
+        {"sfreq": 200.0, "n_times": 1000},
+    ),
     ("STEEGFormer", ["n_chans", "n_outputs", "n_times"], None),
     (
         "MVPFormer",
@@ -510,41 +831,76 @@ models_mandatory_parameters: list[
         },
     ),
     ("CBraMod", ["n_outputs"], None),
+    ("CSBrain", ["n_outputs"], None),
     (
         "CodeBrain",
         ["n_chans", "n_outputs", "n_times"],
-        {"n_chans": 19, "n_times": 6000},
+        # 5 patches; test_foundation_models runs the pretraining 19 x 6000 geometry
+        {"n_chans": 19, "n_times": 1000},
     ),
     ("DGCNN", ["n_chans", "n_outputs", "n_times", "chs_info"], None),
+    ("GCNsNet", ["n_chans", "n_outputs", "n_times"], None),
+    ("BrainOmni", ["chs_info", "n_outputs", "n_times", "sfreq"], None),
+    ("BrainTokenizer", ["chs_info", "n_times", "sfreq"], None),
+    (
+        "DIVER1",
+        ["chs_info", "n_outputs", "n_times"],
+        {"sfreq": 500.0},
+    ),
     ("EEGDINO", ["n_chans", "n_outputs", "n_times"], None),
+    (
+        "NeuroRVQ",
+        ["n_chans", "n_outputs", "n_times", "sfreq"],
+        {
+            "n_chans": 3,
+            "n_times": 600,
+            "sfreq": 200.0,
+            "chs_info": [
+                {"ch_name": name, "kind": "eeg"} for name in ("F3", "F4", "Cz")
+            ],
+        },
+    ),
+    (
+        "NeuroRVQTokenizer",
+        ["n_chans", "n_outputs", "n_times", "sfreq", "chs_info"],
+        {
+            "n_chans": 3,
+            "n_times": 200,
+            "sfreq": 200.0,
+            "chs_info": [
+                {"ch_name": name, "kind": "eeg"} for name in ("F3", "F4", "Cz")
+            ],
+        },
+    ),
     (
         "DANCE",
         ["n_outputs", "n_chans", "n_times", "sfreq", "chs_info"],
-        {
-            "n_chans": 19,
-            "n_times": 6400,  # 32 s @ 200 Hz, above the depth-10 stack minimum
-            "sfreq": 200.0,
-            "input_window_seconds": 32.0,
-            "n_outputs": 4,
-            "chs_info": [
-                {
-                    "ch_name": f"E{i + 1}",
-                    "kind": "eeg",
-                    "loc": _rng.random(12),
-                }
-                for i in range(19)
-            ],
-        },
+        _dance_signal_params,
     ),
     (
         "ZUNA",
         ["chs_info", "n_outputs", "n_times"],
         {
-            "n_times": 1280,
+            "n_times": 256,  # 1 s: 8 patches per channel
             "sfreq": 256.0,
-            "input_window_seconds": 5.0,
+            "input_window_seconds": 1.0,
+            # 0.4M parameters instead of the released 172M: scripting and
+            # serializing the full model took 5.6 GB per test worker.
+            "dim": 128,
+            "n_layers": 2,
+            "n_heads": 2,
         },
     ),
+    (
+        "SeizureTransformer",
+        ["n_chans", "n_outputs", "n_times"],
+        {
+            "n_chans": 19,
+            "n_times": 1024,  # 4 s @ 256 Hz keeps the 38M-parameter model fast in CI
+            "sfreq": 256.0,
+        },
+    ),
+    ("Guetschel2026", ["chs_info", "n_outputs", "n_times"], {"sfreq": 200.0}),
 ]
 
 ################################################################
@@ -553,140 +909,6 @@ models_mandatory_parameters: list[
 # Their output shape may difer from the expected output shape
 # for classification models.
 ################################################################
-non_classification_models = [
-    "SignalJEPA",
-    "InterpolatedSignalJEPA",
-    # Emits a (batch, T_out, vocab) sequence for CTC, not class logits.
-    "MetaNeuromotorHand",
-    "EMG2QwertyNet",
-    # Dense per-frame pose sequences (batch, T, n_joints), not logits.
-    "VEMG2Pose",
-    "NeuroPose",
-    "SensingDynamics",
-    # forward returns (batch, num_latents, n_outputs) dense per-token logits,
-    # not class logits.
-    "DANCE",
-]
-
-################################################################
-
-default_signal_params: dict[SigArgName, Any] = {
-    "n_times": 1000,
-    "sfreq": 250.0,
-    "n_outputs": 2,
-    "chs_info": _chs_info_3ch,
-    "n_chans": len(_chs_info_3ch),
-    "input_window_seconds": 4.0,
-}
-
-
-def _get_signal_params(
-    signal_params: dict[SigArgName, Any] | None | Any,
-    required_params: list[SigArgName] | None = None,
-) -> dict[SigArgName, Any]:
-    """Get signal parameters for model initialization in tests.
-
-    ``signal_params`` may also be a zero-argument callable that returns a
-    ``dict``; this is used to defer imports that would cause circular
-    dependencies at module-load time (e.g. the Labram canonical channel list).
-    """
-    if callable(signal_params):
-        signal_params = signal_params()
-    sp = deepcopy(default_signal_params)
-    if signal_params is not None:
-        sp.update(signal_params)
-        if "chs_info" in signal_params and "n_chans" not in signal_params:
-            sp["n_chans"] = len(signal_params["chs_info"])
-        if "n_chans" in signal_params and "chs_info" not in signal_params:
-            sp["chs_info"] = [
-                {"ch_name": f"C{i}", "kind": "eeg", "loc": _rng.random(12)}
-                for i in range(signal_params["n_chans"])
-            ]
-        assert isinstance(sp["n_times"], int)
-        assert isinstance(sp["sfreq"], float)
-        assert isinstance(sp["input_window_seconds"], float)
-        if "input_window_seconds" not in signal_params:
-            sp["input_window_seconds"] = sp["n_times"] / sp["sfreq"]
-        if "sfreq" not in signal_params:
-            sp["sfreq"] = sp["n_times"] / sp["input_window_seconds"]
-        if "n_times" not in signal_params:
-            sp["n_times"] = int(sp["input_window_seconds"] * sp["sfreq"])
-    if required_params is not None:
-        sp = {
-            k: sp[k] for k in set((signal_params or {}).keys()).union(required_params)
-        }
-    return sp
-
-
-def _get_possible_signal_params(
-    signal_params: dict[SigArgName, Any], required_params: list[SigArgName]
-):
-    sp = signal_params
-
-    # List possible model kwargs:
-    output_kwargs = []
-    output_kwargs.append(dict(n_outputs=sp["n_outputs"]))
-
-    if "n_outputs" not in required_params:
-        output_kwargs.append(dict(n_outputs=None))
-
-    channel_kwargs = []
-    channel_kwargs.append(dict(chs_info=sp["chs_info"], n_chans=None))
-    if "chs_info" not in required_params:
-        channel_kwargs.append(dict(n_chans=sp["n_chans"], chs_info=None))
-    if "n_chans" not in required_params and "chs_info" not in required_params:
-        channel_kwargs.append(dict(n_chans=None, chs_info=None))
-
-    time_kwargs = []
-    time_kwargs.append(
-        dict(n_times=sp["n_times"], sfreq=sp["sfreq"], input_window_seconds=None)
-    )
-    time_kwargs.append(
-        dict(
-            n_times=None,
-            sfreq=sp["sfreq"],
-            input_window_seconds=sp["input_window_seconds"],
-        )
-    )
-    time_kwargs.append(
-        dict(
-            n_times=sp["n_times"],
-            sfreq=None,
-            input_window_seconds=sp["input_window_seconds"],
-        )
-    )
-    if "n_times" not in required_params and "sfreq" not in required_params:
-        time_kwargs.append(
-            dict(
-                n_times=None,
-                sfreq=None,
-                input_window_seconds=sp["input_window_seconds"],
-            )
-        )
-    if (
-        "n_times" not in required_params
-        and "input_window_seconds" not in required_params
-    ):
-        time_kwargs.append(
-            dict(n_times=None, sfreq=sp["sfreq"], input_window_seconds=None)
-        )
-    if "sfreq" not in required_params and "input_window_seconds" not in required_params:
-        time_kwargs.append(
-            dict(n_times=sp["n_times"], sfreq=None, input_window_seconds=None)
-        )
-    if (
-        "n_times" not in required_params
-        and "sfreq" not in required_params
-        and "input_window_seconds" not in required_params
-    ):
-        time_kwargs.append(dict(n_times=None, sfreq=None, input_window_seconds=None))
-
-    return [
-        dict(**o, **c, **t)
-        for o in output_kwargs
-        for c in channel_kwargs
-        for t in time_kwargs
-    ]
 
 
 ################################################################
@@ -697,6 +919,8 @@ def get_summary_table(dir_name=None):
         dir_path = Path(dir_name) if not isinstance(dir_name, Path) else dir_name
 
     path = dir_path / "summary.csv"
+
+    import pandas as pd
 
     df = pd.read_csv(
         path,
@@ -710,6 +934,7 @@ def get_summary_table(dir_name=None):
 def extract_channel_locations_from_chs_info(
     chs_info: Optional[Sequence[Dict[str, Any]]],
     num_channels: Optional[int] = None,
+    fill_missing: bool = False,
 ) -> Optional[np.ndarray]:
     """Extract 3D channel locations from MNE-style channel information.
 
@@ -726,19 +951,31 @@ def extract_channel_locations_from_chs_info(
     num_channels : int or None
         If specified, only extract the first ``num_channels`` channel locations.
         If None, extract all available channels.
+    fill_missing : bool
+        If False (default), extraction stops at the first channel whose location
+        is missing or malformed, so the result may be shorter than requested,
+        and an all-zero montage yields None. If True, each such channel
+        contributes a row of ``NaN`` instead, an all-zero montage yields all
+        ``NaN``, and the result always has one row per requested channel.
 
     Returns
     -------
     channel_locations : np.ndarray of shape (n_channels, 3) or None
         Array of 3D channel locations in cartesian coordinates. Returns None if
-        no valid locations are found.
+        no valid locations are found, unless ``fill_missing=True``, in which
+        case missing locations are reported as ``NaN`` rows and None is only
+        returned when ``chs_info`` is None or no channel was requested.
 
     Notes
     -----
     - This function handles both 12-element MNE location format (using indices 0:3)
       and 3-element location format (using directly).
-    - Invalid or missing locations cause extraction to stop at that point.
-    - Returns None if no valid locations can be extracted.
+    - Invalid or missing locations cause extraction to stop at that point, unless
+      ``fill_missing=True``.
+    - An all-zero montage is treated as no montage at all, which is also how
+      :func:`has_valid_locations` reads it.
+    - Returns None if no valid locations can be extracted, except with
+      ``fill_missing=True`` as described above.
     - This is a unified utility compatible with models like SignalJEPA and LUNA.
 
     Examples
@@ -756,26 +993,22 @@ def extract_channel_locations_from_chs_info(
     locations = []
     n_to_extract = num_channels if num_channels is not None else len(chs_info)
 
-    for i, ch_info in enumerate(chs_info[:n_to_extract]):
-        if not isinstance(ch_info, dict):
-            break
-
-        loc = ch_info.get("loc")
-        if loc is None:
-            break
-
+    for i in range(n_to_extract):
+        ch_info = chs_info[i] if i < len(chs_info) else None
+        loc = ch_info.get("loc") if isinstance(ch_info, dict) else None
         try:
-            loc_array = np.asarray(loc, dtype=np.float32)
-
-            # MNE format: 12-element array with electrode position at indices 0:3
-            if loc_array.ndim == 1 and loc_array.size >= 3:
-                coordinates = loc_array[:3]
-            else:
-                break
-
-            locations.append(coordinates)
+            coordinates = np.asarray(loc, dtype=np.float32)
         except (ValueError, TypeError):
+            coordinates = np.asarray(np.nan, dtype=np.float32)
+
+        if coordinates.ndim == 1 and coordinates.size >= 3:
+            coordinates = coordinates[:3]
+        elif fill_missing:
+            coordinates = np.full(3, np.nan, dtype=np.float32)
+        else:
             break
+
+        locations.append(coordinates)
 
     if len(locations) == 0:
         return None
@@ -784,12 +1017,120 @@ def extract_channel_locations_from_chs_info(
 
     # Check positions are not all zero / degenerate
     if np.allclose(result, 0):
-        return None
+        if not fill_missing:
+            return None
+        # An all-zero montage carries no position, just like an absent one
+        result = np.full_like(result, np.nan)
 
     return result
 
 
-def positions_from_chs_info(chs_info) -> np.ndarray:
+def resolve_channel_indices(
+    chs_info: Sequence[Dict[str, Any]],
+    channel_names: Sequence[str],
+    *,
+    montage: Optional[str] = None,
+    metric: str | Callable = "cosine",
+) -> Optional[list[int]]:
+    """Resolve input channels into an ordered, case-insensitive vocabulary.
+
+    Exact names take precedence over positions, as in the pretrained channel
+    embeddings of SignalJEPA and LaBraM. Optionally, map unknown names to the
+    nearest angular standard-montage site. This selects embedding indices; it
+    does not interpolate signals or change the supplied channel information.
+
+    Parameters
+    ----------
+    chs_info : sequence of dict
+        MNE channel metadata. Positional fallback requires finite, nonzero
+        ``loc[:3]`` in metres in the head frame. Missing ``coord_frame`` means
+        head coordinates (for hand-built dictionaries); explicit non-head
+        frames are rejected because channel dictionaries lack fiducials needed
+        to transform them. Known names do not require valid positions.
+    channel_names : sequence of str
+        Ordered embedding vocabulary. Multiple inputs may select the same slot.
+    montage : str | None
+        Standard MNE montage supplying reference sites for unknown names.
+        Native montage coordinates are transformed to head coordinates with
+        MNE's public fiducial transform. None enables name-only resolution.
+    metric : str | callable
+        Distance metric accepted by :func:`sklearn.metrics.pairwise_distances`.
+        Applied to sphere-centred unit directions, not raw electrode positions.
+        The default, "cosine", preserves nearest-angular-site matching. A
+        callable takes two direction vectors and returns their distance.
+        Used only for positional fallback; exact names always take precedence.
+
+    Returns
+    -------
+    list of int | None
+        One index per input channel, or None if any channel cannot be resolved.
+        The caller chooses whether to raise or use a model-specific fallback.
+
+    Notes
+    -----
+    Angular distances are measured about a least-squares sphere centre fitted
+    to the full reference montage, not the selected vocabulary or input subset.
+    This removes radius dependence without making the mapping depend on which
+    input channels are present. Nearest-site assignment is a heuristic, not an
+    exact correspondence to a pretrained sensor layout.
+    """
+    name_to_index = {name.upper(): i for i, name in enumerate(channel_names)}
+    indices = [name_to_index.get(ch.get("ch_name", "").upper()) for ch in chs_info]
+    unresolved = [i for i, index in enumerate(indices) if index is None]
+    if not unresolved:
+        return cast(list[int], indices)
+    if montage is None:
+        return None
+
+    unknown = [chs_info[i] for i in unresolved]
+    if any(
+        ch.get("coord_frame", FIFF.FIFFV_COORD_HEAD)
+        not in (FIFF.FIFFV_COORD_HEAD, "head")
+        for ch in unknown
+    ):
+        return None
+    locations = extract_channel_locations_from_chs_info(unknown)
+    if (
+        locations is None
+        or len(locations) != len(unknown)
+        or not np.isfinite(locations).all()
+        or np.any(np.linalg.norm(locations, axis=1) == 0)
+    ):
+        return None
+
+    standard = mne.channels.make_standard_montage(resolve_montage_name(montage))
+    standard.apply_trans(
+        mne.channels.compute_native_head_t(standard, on_missing="raise")
+    )
+    positions = {
+        name.upper(): xyz for name, xyz in standard.get_positions()["ch_pos"].items()
+    }
+    site_indices = [
+        i for i, name in enumerate(channel_names) if name.upper() in positions
+    ]
+    if not site_indices:
+        return None
+    sites = np.array([positions[channel_names[i].upper()] for i in site_indices])
+    points = np.array(list(positions.values()))
+    design = np.c_[2 * points, np.ones(len(points))]
+    solution, *_ = np.linalg.lstsq(design, (points**2).sum(axis=1), rcond=None)
+    centre = solution[:3]
+    radial = np.concatenate([locations, sites]) - centre
+    norms = np.linalg.norm(radial, axis=1, keepdims=True)
+    if not np.isfinite(norms).all() or np.any(norms <= 1e-7):
+        return None
+    directions = radial / norms
+    from sklearn.metrics import pairwise_distances_argmin
+
+    nearest = pairwise_distances_argmin(
+        directions[: len(locations)], directions[len(locations) :], metric=metric
+    )
+    for i, j in zip(unresolved, nearest):
+        indices[i] = site_indices[int(j)]
+    return cast(list[int], indices)
+
+
+def positions_from_chs_info(chs_info):
     """``(n_chans, 2)`` electrode xy normalized to ``[0, 1]`` per axis.
 
     Takes the raw 3D sensor coordinates ``ch["loc"][:3]``, keeps ``xy`` and
@@ -801,15 +1142,26 @@ def positions_from_chs_info(chs_info) -> np.ndarray:
 
     Parameters
     ----------
-    chs_info : list of dict
+    chs_info : list of dict or torch.Tensor
         MNE-style channel info dicts, each with a ``"loc"`` array whose first
-        three entries are the head-frame ``x, y, z`` coordinates.
+        three entries are the head-frame ``x, y, z`` coordinates, or a floating
+        coordinate tensor of shape ``(n_chans, 3)`` in consistent units.
 
     Returns
     -------
-    numpy.ndarray
-        ``(n_chans, 2)`` float positions in ``[0, 1]``.
+    numpy.ndarray or torch.Tensor
+        ``(n_chans, 2)`` float positions in ``[0, 1]``. Dictionary inputs retain
+        the NumPy float64 result. Tensor inputs preserve device and dtype and
+        support autograd and TorchScript. This does not return raw xyz or
+        convert metres to millimetres.
     """
+    if isinstance(chs_info, torch.Tensor):
+        xy = chs_info[:, :2]
+        # Preserve the floor and backward intermediates at small half spans.
+        if xy.dtype == torch.float16 or xy.dtype == torch.bfloat16:
+            xy = xy.float()
+        mn, mx = xy.amin(dim=0), xy.amax(dim=0)
+        return ((xy - mn) / (mx - mn).clamp_min(1e-9)).to(chs_info.dtype)
     xyz = np.array([ch["loc"][:3] for ch in chs_info], dtype=float)
     xy = xyz[:, :2]
     mn, mx = xy.min(axis=0), xy.max(axis=0)
@@ -817,7 +1169,20 @@ def positions_from_chs_info(chs_info) -> np.ndarray:
 
 
 def has_valid_locations(chs_info) -> bool:
-    """``True`` if ``chs_info`` carries finite, non-all-zero electrode locations."""
+    """Whether a montage has finite, not approximately all-zero locations.
+
+    ``chs_info`` accepts MNE channel dictionaries or a coordinate tensor of
+    shape ``(n_chans, 3)``. Coordinates retain their input units. The result is
+    a montage-wide Python bool, not a per-channel mask; zero rows are allowed
+    when another row is nonzero. The all-zero tolerance is ``1e-8``.
+    For a TorchScript-compatible per-row check, use :func:`valid_location_mask`.
+    """
+    if isinstance(chs_info, torch.Tensor):
+        return bool(
+            chs_info.numel() > 0
+            and torch.isfinite(chs_info).all()
+            and chs_info.abs().max().item() > 1e-8
+        )
     if chs_info is None:
         return False
     try:
@@ -831,4 +1196,108 @@ def has_valid_locations(chs_info) -> bool:
     return True
 
 
-_summary_table = get_summary_table()
+def valid_location_mask(locations: torch.Tensor) -> torch.Tensor:
+    """Flag finite, exactly nonzero coordinate rows without changing their units.
+
+    Parameters
+    ----------
+    locations : torch.Tensor
+        Coordinates of shape ``(..., 3)``, in any consistent coordinate frame
+        and units (e.g. xyz in metres or millimetres, not normalized xy).
+
+    Returns
+    -------
+    torch.Tensor
+        Boolean mask of shape ``(..., 1)`` on the input device. Unlike
+        :func:`has_valid_locations`, this tests each row against exact zero,
+        not an approximate montage-wide zero. Supports TorchScript.
+    """
+    return torch.isfinite(locations).all(dim=-1, keepdim=True) & (locations != 0).any(
+        dim=-1, keepdim=True
+    )
+
+
+def warn_if_sfreq_differs(
+    model_name: str, sfreq: Optional[float], pretrained_sfreq: float
+) -> None:
+    """Warn when ``sfreq`` differs from the rate the released weights expect.
+
+    A randomly initialised model may run at any rate, so this warns instead of
+    raising. ``sfreq=None`` (not given) does not warn.
+    """
+    if sfreq is not None and abs(float(sfreq) - pretrained_sfreq) > 1e-6:
+        warnings.warn(
+            f"{model_name} was pretrained at {pretrained_sfreq:g} Hz, got "
+            f"sfreq={sfreq}. Resample the data to {pretrained_sfreq:g} Hz to use "
+            "the pretrained weights.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
+def _in_model_resample(
+    model_name: str, sfreq: float, model_sfreq: int, n_times: int
+) -> tuple[Resample, int]:
+    """A :class:`torchaudio.transforms.Resample` from the integer ``sfreq`` to
+    ``model_sfreq``, with a warning, and the resampled length of ``n_times``.
+
+    The kernel follows from the two rates, so it stays out of the state dict and
+    pretrained weights load into a resampling model unchanged.
+    """
+    if sfreq != round(sfreq):
+        raise ValueError(f"{model_name} resamples integer rates only, got {sfreq}.")
+    warnings.warn(
+        f"{model_name} was trained at {model_sfreq} Hz; the {sfreq:g} Hz input is "
+        "resampled inside the model.",
+        UserWarning,
+    )
+    resample = Resample(int(sfreq), model_sfreq)
+    resample.register_buffer("kernel", resample.kernel, persistent=False)
+    return resample, math.ceil(n_times * model_sfreq / sfreq)  # torchaudio's length
+
+
+def channel_types_from_chs_info(
+    chs_info: Optional[Sequence[Dict[str, Any]]],
+    num_channels: Optional[int] = None,
+) -> list[str]:
+    """Canonical MNE channel-type name for each channel of ``chs_info``.
+
+    Parameters
+    ----------
+    chs_info : list of dict or None
+        MNE-style channel info dicts, typically from ``mne.Info.chs``. Each
+        ``"kind"`` entry may be an MNE FIFF integer code or a plain type string.
+    num_channels : int or None
+        Number of channels to report. Channels beyond ``chs_info`` yield
+        ``"unknown"``, so the returned list always has this length. If None, one
+        entry per ``chs_info`` channel is returned (empty when it is None).
+
+    Returns
+    -------
+    list of str
+        Lowercase channel-type names such as ``"eeg"``, ``"seeg"``, ``"ecog"`` or
+        ``"dbs"``, and ``"unknown"`` where the kind is missing or is not one of
+        the electrode kinds resolved here.
+
+    Notes
+    -----
+    Only electrode kinds are resolved. An MNE ``"kind"`` code does not identify
+    every channel type on its own: code 2 is shared by ``"eeg"`` and ``"csd"``,
+    code 1 by ``"grad"`` and ``"mag"``, because MNE disambiguates those with
+    ``"unit"`` and ``"coil_type"``. Use :func:`mne.channel_type` with a full
+    :class:`mne.Info` when those channel types matter.
+    """
+    if num_channels is None:
+        num_channels = len(chs_info) if chs_info is not None else 0
+
+    types = []
+    for i in range(num_channels):
+        ch_info = chs_info[i] if chs_info is not None and i < len(chs_info) else None
+        kind = ch_info.get("kind") if isinstance(ch_info, dict) else None
+        if isinstance(kind, str):
+            types.append(kind.lower())
+        elif isinstance(kind, int):
+            types.append(_KIND_TO_CH_TYPE.get(kind, "unknown"))
+        else:
+            types.append("unknown")
+    return types

@@ -57,9 +57,9 @@ class MetricsMixin:
 
     def _next_step(self, kind: str) -> int:
         with self._steps_lock:
-            # The hardware rail never consults the resume floor: its steps
-            # are epoch-derived, not counted, and stay invisible to the
-            # training rails' resume machinery.
+            # Hardware never consults the resume floor. Only a bare
+            # log(kind="hardware") counts here: the collector derives epoch
+            # steps and log_hw sends none (hardware/DESIGN.md).
             floor = 0 if kind == "hardware" else self._auto_step_floor
             step = self._steps.get(kind, floor)
             self._steps[kind] = step + 1
@@ -298,14 +298,8 @@ class MetricsMixin:
             )
 
         if other:
-            if step is None:
-                _diagnostics.warn(
-                    f"dropped non-numeric {sorted(other)} — a step record needs a step "
-                    "index, and step=None was passed explicitly to mean no step axis. "
-                    "Omit step= to auto-increment, or pass one.",
-                    stacklevel=stacklevel,
-                )
-            elif kind != "model":
+            # Kind first: log_hw sends no step, so the step=None advice would mislead it.
+            if kind != "model":
                 # StepCreate has no `kind` — a step record is keyed on
                 # (run, step_index) alone. So a hardware value at hardware-step 3
                 # would merge into the model loop's record at step 3. Numeric
@@ -315,6 +309,13 @@ class MetricsMixin:
                     f"dropped non-numeric {sorted(other)} from a {kind!r} log — step "
                     "records are keyed by step index alone, with no kind, so these "
                     "would overwrite the model loop's record at the same step.",
+                    stacklevel=stacklevel,
+                )
+            elif step is None:
+                _diagnostics.warn(
+                    f"dropped non-numeric {sorted(other)} — a step record needs a step "
+                    "index, and step=None was passed explicitly to mean no step axis. "
+                    "Omit step= to auto-increment, or pass one.",
                     stacklevel=stacklevel,
                 )
             else:
@@ -416,7 +417,7 @@ class MetricsMixin:
         self,
         metrics: dict[str, Any],
         *,
-        step: int | None = _UNSET,
+        step: int | None = None,
         wall_clock: str | None = None,
         strict: bool | None = None,
         **dims: Any,
@@ -424,7 +425,16 @@ class MetricsMixin:
         """Log hardware metrics with real dimensions (host/rank/device, fold #9).
 
         ``run.log_hw({"gpu_temp": 88}, device=3, host="n1")`` sends
-        ``dimensions={"device": 3, "host": "n1"}``, kind=hardware."""
+        ``dimensions={"device": 3, "host": "n1"}``, kind=hardware.
+
+        With ``step`` omitted the points carry NO step: they are keyed by
+        ``wall_clock``, this call's time, unique within the process (give ranks
+        their own dims, e.g. ``rank=``), and charted on it when they start the
+        series (use your own keys, not the collector's). So they never share an
+        identity with the collector's epoch-grid points, nor with another
+        handle's points on the same run. Two points of one series at an equal
+        explicit ``wall_clock`` are one point (the first wins). An explicit
+        ``step`` is stored as given."""
         return self.log(
             metrics,
             step=step,

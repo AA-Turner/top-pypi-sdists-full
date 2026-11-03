@@ -43,10 +43,15 @@ class CachedCatalogBase(Generic[T]):
         return restored
 
     async def _deleted(self, item_id: StrObjectId, before: T) -> T:
-        """`before` was read once through the cache, as the asset service always did; the write uses the id as asked."""
-        await self.inner.mark_deleted(item_id)
-        await self.assets.invalidate(before.id, before.company_id)
-        return before
+        return await deleted_through_the_cache(self.inner, self.assets, item_id, before)
+
+
+async def deleted_through_the_cache(inner, assets, item_id: StrObjectId, before: T) -> T:
+    """The asset service's `delete`: `before` was read once through the cache, the store marks the id as asked and the
+    item and the lists are cleared after it. Shared with the caches that are not a catalog (`CachedSourceRepository`)."""
+    await inner.mark_deleted(item_id)
+    await assets.invalidate(before.id, before.company_id)
+    return before
 
 
 class CachedCatalogRepository(CachedCatalogBase[T]):

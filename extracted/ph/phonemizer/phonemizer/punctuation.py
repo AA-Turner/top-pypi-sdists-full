@@ -14,9 +14,9 @@
 # along with phonemizer. If not, see <http://www.gnu.org/licenses/>.
 """Implementation of punctuation processing"""
 
-import collections
+import itertools
 import re
-from typing import List, Union, Tuple, Pattern
+from typing import List, Optional, Union, Tuple, Pattern
 
 from phonemizer.utils import str2list
 from phonemizer.separator import Separator
@@ -28,8 +28,17 @@ _DEFAULT_MARKS = ';:,.!?¡¿—…"«»“”(){}[]'
 # as punctuation when they sit between two digits.
 _DECIMAL_SEPARATORS = ',.'
 
-_MarkIndex = collections.namedtuple(
-    '_mark_index', ['index', 'mark', 'position'])
+# Marks that do not break an utterance: the words on both sides are
+# pronounced together, as without punctuation. The other marks end an
+# utterance, see Punctuation.is_inline().
+#
+# This list comes from the behavior of espeak-ng 1.52, observed by giving it
+# texts such as "les X amis" and "from X the house" with each mark X, not
+# from its documentation. The marks ;:,.!?¡¿—… end a clause, phonemized
+# apart. Quotes and brackets do not: espeak only inserts a short pause, which
+# blocks the French liaison (‹› do not even do that). Phonemizer goes further
+# and pronounces the words around them as if the marks were not there.
+_INLINE_MARKS = '"«»“”‘’„‹›()[]{}'
 
 
 class Punctuation:
@@ -61,15 +70,17 @@ class Punctuation:
     @property
     def marks(self):
         """The punctuation marks as a string"""
-        if self._marks:
+        if self._marks is not None:
             return self._marks
         raise ValueError('punctuation initialized from regex, cannot access marks as a string')
 
     @marks.setter
     def marks(self, value: Union[str, Pattern]):
         if isinstance(value, Pattern):
-            # catch the pattern surrounded by zero or more spaces on either side
-            self._marks_re = re.compile(r'((' + value.pattern + r')|\s)+')
+            # catch the pattern surrounded by zero or more spaces on either
+            # side. An empty pattern matches nothing rather than empty strings.
+            self._marks_re = re.compile(
+                r'((' + value.pattern + r')|\s)+' if value.pattern else r'(?!)')
             self._marks = None
         elif isinstance(value, str):
             self._marks = ''.join(set(value))
@@ -98,8 +109,10 @@ class Punctuation:
                 alternatives.append(f'(?<![0-9])[{escaped}]')
                 alternatives.append(f'[{escaped}](?![0-9])')
 
+            # with no marks at all, match nothing rather than empty strings
             self._marks_re = re.compile(
-                fr'(\s*(?:{"|".join(alternatives)})+\s*)+')
+                fr'(\s*(?:{"|".join(alternatives)})+\s*)+'
+                if alternatives else r'(?!)')
         else:
             raise ValueError('punctuation marks must be defined as a string or re.Pattern')
 
@@ -118,130 +131,201 @@ class Punctuation:
             return aux(text)
         return [aux(line) for line in text]
 
-    def preserve(self, text: Union[List[str], str]) -> Tuple[List[List[str]], List[_MarkIndex]]:
-        """Removes punctuation from `text`, allowing for furter restoration
+    @staticmethod
+    def is_inline(mark: str) -> bool:
+        """Returns True if `mark` does not break the utterance
 
-        This method returns the text as a list of punctuated chunks, along with
-        a list of punctuation marks for furter restoration:
-
-            'hello, my world!' -> ['hello', 'my world'], [',', '!']
+        Quotes and brackets are inline marks: the words on both sides of them
+        are pronounced together. The other marks, such as commas or periods,
+        end an utterance, as do the marks not known to be inline.
 
         """
-        text: List[str] = str2list(text)
-        preserved_text = []
-        preserved_marks = []
+        mark = ''.join(mark.split())
+        return bool(mark) and all(char in _INLINE_MARKS for char in mark)
 
-        for num, line in enumerate(text):
-            line, marks = self._preserve_line(line, num)
-            preserved_text += line
-            preserved_marks += marks
-        return [line for line in preserved_text if line], preserved_marks
+    def preserve(self, text: Union[List[str], str]) \
+            -> Tuple[List[str], List[List[Union[int, str]]]]:
+        """Removes punctuation from `text`, allowing for further restoration
 
-    def _preserve_line(self, line: str, num: int) -> Tuple[List[str], List[_MarkIndex]]:
-        """Auxiliary method for Punctuation.preserve()"""
-        matches = list(re.finditer(self._marks_re, line))
-        if not matches:
-            return [line], []
+        Returns the `chunks` of text between the punctuation marks, to be
+        phonemized, and, for each line of `text`, its parts in order: the
+        index of a chunk in `chunks` or a punctuation mark:
 
-        # the line is made only of punctuation marks
-        if len(matches) == 1 and matches[0].group() == line:
-            return [], [_MarkIndex(num, line, 'A')]
+            ['hello, my world!', 'ok'] -> ['hello', 'my world', 'ok'],
+                [[0, ', ', 1, '!'], [2]]
 
-        # build the list of mark indexes required to restore the punctuation
-        marks = []
-        for match in matches:
-            # find the position of the punctuation mark in the utterance:
-            # begin (B), end (E), in the middle (I) or alone (A)
-            position = 'I'
-            if match == matches[0] and line.startswith(match.group()):
-                position = 'B'
-            elif match == matches[-1] and line.endswith(match.group()):
-                position = 'E'
-            marks.append(_MarkIndex(num, match.group(), position))
+        """
+        chunks = []
+        lines = []
+        for line in str2list(text):
+            parts = []
+            cursor = 0
+            # Cut at the matched spans. Searching for the mark text would also
+            # cut a decimal point that uses the same character.
+            for match in self._marks_re.finditer(line):
+                if line[cursor:match.start()]:
+                    parts.append(len(chunks))
+                    chunks.append(line[cursor:match.start()])
+                parts.append(match.group())
+                cursor = match.end()
+            if line[cursor:]:
+                parts.append(len(chunks))
+                chunks.append(line[cursor:])
+            lines.append(parts)
+        return chunks, lines
 
-        # split the line into sublines, each separated by a punctuation mark
-        preserved_line = []
-        for mark in marks:
-            split = line.split(mark.mark)
-            prefix, suffix = split[0], mark.mark.join(split[1:])
-            preserved_line.append(prefix)
-            line = suffix
+    def inline_groups(self, lines: List[List[Union[int, str]]]) \
+            -> List[List[int]]:
+        """Returns the chunks separated by inline marks only
 
-        # append any trailing text to the preserved line
-        return preserved_line + [line], marks
+        `lines` is as returned by preserve(). Each group lists the indices of
+        consecutive chunks of a line separated by inline marks (quotes or
+        brackets, see is_inline()). The backends phonemize such a group as a
+        whole as well, so that its words are pronounced in context, see
+        restore().
+
+        """
+        groups = []
+        for parts in lines:
+            group = []
+            for num, part in enumerate(parts):
+                if not isinstance(part, int):
+                    continue
+                if (group and num >= 2 and parts[num - 2] == group[-1]
+                        and self.is_inline(parts[num - 1])):
+                    group.append(part)
+                else:
+                    if len(group) > 1:
+                        groups.append(group)
+                    group = [part]
+            if len(group) > 1:
+                groups.append(group)
+        return groups
+
+    @staticmethod
+    def can_align(sep: Separator) -> bool:
+        """Returns True if the inline marks can be placed in context with `sep`
+
+        The marks are placed by counting the phonemized words, split on the
+        word separator. It must not be empty nor found in the other separators.
+
+        """
+        return bool(sep.word) and not any(
+            sep.word in other for other in (sep.phone, sep.syllable))
+
+    @staticmethod
+    def _words(text: str, sep: Separator) -> List[str]:
+        """The words of a phonemized `text`, split on the word separator"""
+        return [word for word in text.split(sep.word) if word]
+
+    @classmethod
+    def _context(cls, text: List[str], group: List[int], phonemized: str,
+                 sep: Separator) -> Optional[List[str]]:
+        """Splits a group phonemized as a whole at its inline marks
+
+        Returns the phonemized `group`, cut at the inline marks into one part
+        per chunk, or None if the marks cannot be placed for sure.
+
+        A backend can join words, or split a word in several ones, and so the
+        number of words is not the same in input and output. Here the words
+        phonemized in context must be as many as the words of each chunk
+        phonemized alone, which are then known to be the same words: a mark
+        is placed after the words of the chunks before it.
+
+        This cannot detect two changes that cancel out in a group, such as two
+        words joined across a mark along with a word split in context only.
+        The words themselves cannot be compared: in context, a backend changes
+        them on purpose (liaisons, weak forms or stresses), and not only next
+        to the marks. No such case was found in tests on espeak and festival.
+
+        """
+        if not cls.can_align(sep):
+            return None
+
+        counts = [len(cls._words(text[chunk], sep)) for chunk in group]
+        if not all(counts) or len(cls._words(phonemized, sep)) != sum(counts):
+            return None
+
+        # cut before the first word of each chunk but the first one
+        starts = set(itertools.accumulate(counts[:-1]))
+        pieces = phonemized.split(sep.word)
+        cuts = [0]
+        nwords = 0
+        for num, piece in enumerate(pieces):
+            if piece:
+                if nwords in starts:
+                    cuts.append(num)
+                nwords += 1
+        cuts.append(len(pieces))
+        return [sep.word.join(pieces[start:end])
+                for start, end in zip(cuts, cuts[1:])]
 
     @classmethod
     def restore(cls, text: Union[str, List[str]],
-                marks: List[_MarkIndex],
+                lines: List[List[Union[int, str]]],
                 sep: Separator,
-                strip: bool) -> List[str]:
+                strip: bool,
+                context: Optional[List[Tuple[List[int], str]]] = None) \
+            -> List[str]:
         """Restore punctuation in a text.
 
-        This is the reverse operation of Punctuation.preserve(). It takes a
-        list of punctuated chunks and a list of punctuation marks, as well as
-        the separator and strip parameters used by phonemize. It returns the
-        punctuated text as a list:
+        This is the reverse operation of Punctuation.preserve(). It takes the
+        phonemized chunks and the parts of each line, as well as the separator
+        and strip parameters used by phonemize. It returns the punctuated text
+        as a list:
 
-            ['hello', 'my world'], [',', '!'] -> ['hello, my world!']
+            ['hello', 'my world', 'ok'], [[0, ', ', 1, '!'], [2]]
+                -> ['hello, my world!', 'ok']
+
+        The internal spaces of the marks are replaced by the word separator.
+        `context` optionally gives, for groups of chunks as returned by
+        inline_groups(), the group phonemized as a whole. It is used in place
+        of the chunks phonemized alone when the inline marks can be placed in
+        it for sure.
 
         """
         text = str2list(text)
+
+        # the chunks of the groups phonemized in context, replacing the chunks
+        # phonemized alone, when their marks can be placed
+        position = {
+            part: (num, pos) for num, parts in enumerate(lines)
+            for pos, part in enumerate(parts) if isinstance(part, int)}
+        in_context = {}
+        for group, phonemized in context or []:
+            # the chunks of a group are separated by a single inline mark
+            places = [position.get(chunk) for chunk in group]
+            if None in places or any(
+                    second != (first[0], first[1] + 2)
+                    or not cls.is_inline(lines[first[0]][first[1] + 1])
+                    for first, second in zip(places, places[1:])):
+                continue
+            parts = cls._context(text, group, phonemized, sep)
+            if parts is not None:
+                in_context.update(zip(group, parts))
+
         punctuated_text = []
-        pos = 0
-
-        while text or marks:
-
-            if not marks:
-                for line in text:
-                    # if strip is False, ensure the final word ends with a word separator
-                    if not strip and sep.word and not line.endswith(sep.word):
-                        line = line + sep.word
-                    punctuated_text.append(line)
-                text = []
-            elif not text:
-                # nothing has been phonemized, returns the marks alone, with internal
-                # spaces replaced by the word separator
-                punctuated_text.append(re.sub(' ', sep.word, ''.join(m.mark for m in marks)))
-                marks = []
-
-            else:
-                current_mark = marks[0]
-                if current_mark.index == pos:
-
-                    # place the current mark here
-                    mark = marks[0]
-                    marks = marks[1:]
-                    # replace internal spaces in the current mark with the word separator
-                    mark = re.sub(' ', sep.word, mark.mark)
-
-                    # remove the word last separator from the current word
-                    if sep.word and text[0].endswith(sep.word):
-                        text[0] = text[0][:-len(sep.word)]
-
-                    if current_mark.position == 'B':
-                        text[0] = mark + text[0]
-                    elif current_mark.position == 'E':
-                        punctuated_text.append(text[0] + mark + ('' if strip or mark.endswith(sep.word) else sep.word))
-                        text = text[1:]
-                        pos = pos + 1
-                    elif current_mark.position == 'A':
-                        punctuated_text.append(mark + ('' if strip or mark.endswith(sep.word) else sep.word))
-                        pos = pos + 1
-                    else:
-                        # position == 'I'
-                        if len(text) == 1:  # pragma: nocover
-                            # a corner case where the final part of an intermediate
-                            # mark (I) has not been phonemized
-                            text[0] = text[0] + mark
-                        else:
-                            first_word = text[0]
-                            text = text[1:]
-                            text[0] = first_word + mark + text[0]
-
+        for line in lines:
+            punctuated = ''
+            mark = None
+            for part in line:
+                if isinstance(part, str):
+                    # remove the last word separator before the mark, and
+                    # replace its internal spaces with the word separator
+                    if sep.word and punctuated.endswith(sep.word):
+                        punctuated = punctuated[:-len(sep.word)]
+                    mark = part.replace(' ', sep.word)
+                    punctuated += mark
                 else:
-                    punctuated_text.append(text[0])
-                    text = text[1:]
-                    pos = pos + 1
+                    chunk = in_context.get(part, text[part])
+                    # a chunk phonemized as nothing does not follow the mark
+                    if chunk:
+                        punctuated += chunk
+                        mark = None
 
+            # a final mark is followed by a word separator, if not stripped
+            if mark is not None and not strip and not mark.endswith(sep.word):
+                punctuated += sep.word
+            punctuated_text.append(punctuated)
 
         return punctuated_text

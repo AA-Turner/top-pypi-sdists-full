@@ -10,6 +10,7 @@ from __future__ import annotations
 import atexit
 import ctypes
 import hashlib
+import http.client
 import ipaddress
 import json
 import logging
@@ -43,6 +44,9 @@ from . import capabilities as capabilities_module
 from . import curation as curation_module
 from .cli_ops import OpError, leaf_contract_code
 from .mutation_lock import (
+    COORDINATOR_IDENTITY_DOMAIN,
+    COORDINATOR_IDENTITY_GATE,
+    COORDINATOR_VAULT_BOUNDARY,
     VaultMutationCoordinator,
     _mutation_busy,
     canonical_mutation_identity,
@@ -2002,6 +2006,10 @@ class LeaseConfig:
                     "WRITER_LEASE_CONFIG: EXOMEM_WRITER_LEASE_IDLE_SECONDS must be 0 (disabled) "
                     "or >= EXOMEM_WRITER_LEASE_TTL"
                 )
+        elif topology == "single-host":
+            # No other replica can reach a literal loopback coordinator, so an idle
+            # release hands authority to nobody and the next read pays a takeover.
+            idle_release_seconds = 0.0
         else:
             # The default tracks the TTL so raising EXOMEM_WRITER_LEASE_TTL
             # alone can never trip the idle>=ttl validation and brick startup.
@@ -2423,6 +2431,8 @@ class LeaseCoordinatorClient:
         if not config.enabled:
             raise ValueError("coordinator client requires enabled configuration")
         self.config = config
+        # Each thread keeps its own connection, so no request waits on another thread's.
+        self._kept = threading.local()
 
     def acquire(self, *, collection_store_capability: str | None = None) -> LeaseRecord:
         body = {
@@ -2719,6 +2729,51 @@ class LeaseCoordinatorClient:
             ).open
         return open_request(request, timeout=self.config.timeout_seconds)
 
+    def _get_kept_alive(self, request: urllib.request.Request) -> Any:
+        """The JSON of a GET to the loopback coordinator, over this thread's one open connection.
+
+        Every status RPC otherwise pays a new opener and a new TCP connection. A GET changes nothing,
+        so a connection that the coordinator closed while idle is replaced once, and the GET repeats.
+        The answer is never cached, `http.client` never uses a proxy, and no status outside 2xx is
+        followed: a redirect refuses like any other status.
+        """
+        reused = getattr(self._kept, "connection", None) is not None
+        try:
+            response, data = self._exchange(request)
+        except ConnectionError:
+            if not reused:
+                raise
+            response, data = self._exchange(request)
+        if not 200 <= response.status < 300:
+            raise urllib.error.HTTPError(request.full_url, response.status, response.reason, response.headers, None)
+        return json.loads(data.decode("utf-8"))
+
+    def _exchange(self, request: urllib.request.Request) -> tuple[http.client.HTTPResponse, bytes]:
+        connection = getattr(self._kept, "connection", None)
+        if connection is None:
+            origin = urllib.parse.urlsplit(self.config.url or "")
+            connect = http.client.HTTPSConnection if origin.scheme == "https" else http.client.HTTPConnection
+            connection = self._kept.connection = connect(
+                origin.hostname, origin.port, timeout=self.config.timeout_seconds)
+        try:
+            connection.request("GET", request.selector, headers=dict(request.header_items()))
+            response = connection.getresponse()
+            data = response.read()
+        except BaseException as error:
+            self._drop_kept_connection()
+            # A protocol error is no OSError, which the caller maps; a reset is one, and stays one to retry.
+            if isinstance(error, http.client.HTTPException) and not isinstance(error, ConnectionError):
+                raise urllib.error.URLError(error) from None
+            raise
+        if response.will_close:
+            self._drop_kept_connection()
+        return response, data
+
+    def _drop_kept_connection(self) -> None:
+        connection, self._kept.connection = getattr(self._kept, "connection", None), None
+        if connection is not None:
+            connection.close()
+
     def _json_request(self, method: str, route: str, body: dict | None) -> urllib.request.Request:
         url = f"{self.config.url}{route}"
         headers = {"Accept": "application/json", "User-Agent": _COORDINATOR_USER_AGENT}
@@ -2740,8 +2795,11 @@ class LeaseCoordinatorClient:
     ) -> dict[str, Any]:
         request = self._json_request(method, route, body)
         try:
-            with self._open_request(request) as response:
-                payload = json.loads(response.read().decode("utf-8"))
+            if method == "GET" and self.config.topology == "single-host":
+                payload = self._get_kept_alive(request)
+            else:
+                with self._open_request(request) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
             if not isinstance(payload, dict):
                 raise ValueError("response is not an object")
             return payload
@@ -4880,14 +4938,24 @@ class LeaseManager:
             pass
 
     def _mutation_coordinator_for(
-        self, vault_root: os.PathLike[str] | str
+        self,
+        vault_root: os.PathLike[str] | str,
+        *,
+        kind: str = COORDINATOR_VAULT_BOUNDARY,
+        name: str | None = None,
     ) -> VaultMutationCoordinator:
-        """Construct this manager's canonical boundary for one vault."""
+        """Construct this manager's canonical boundary for one vault.
+
+        `kind` and `name` say which lock a refusal came from; a synthetic reserved-identity
+        lock passes its own.
+        """
         return VaultMutationCoordinator(
             self.config.state_dir,
             vault_root,
             timeout_seconds=self._mutation_timeout_seconds,
             poll_interval_seconds=self._mutation_poll_interval_seconds,
+            kind=kind,
+            name=name,
         )
 
     @contextmanager
@@ -5248,7 +5316,7 @@ class LeaseManager:
         if mutation.next_borrower_deadline() is None:
             # Every borrower gave up during the handoff, so no reader needs a new generation.
             return 0
-        _bump_commit_generation(self.config.state_dir, vault_root)
+        _bump_commit_generation(self.config.state_dir, vault_root, operation="boundary_lend")
         return mutation.lend(until=now + room_seconds)
 
     @contextmanager
@@ -5263,8 +5331,11 @@ class LeaseManager:
         operation: str | None = None,
         holder_kind: str = "reserved-state",
         deadline: float | None = None,
-    ) -> Iterator[str]:
-        """Coordinate one owner's identities without serializing other owners."""
+    ) -> Iterator[str | None]:
+        """Coordinate one owner's identities without serializing other owners.
+
+        Yields the identity generation token under the gate, or None on the domain-only path.
+        """
 
         ordered_domains = tuple(sorted(set(domains)))
         if not ordered_domains or any(
@@ -5275,54 +5346,97 @@ class LeaseManager:
         vault_identity = canonical_mutation_identity(vault_root)
         manager_deadline = time.monotonic() + self._mutation_timeout_seconds
         deadline = manager_deadline if deadline is None else min(deadline, manager_deadline)
-        gate = self._mutation_coordinator_for(f"reserved-identity-v1:gate:{vault_identity}")
+        gate = self._mutation_coordinator_for(
+            f"reserved-identity-v1:gate:{vault_identity}", kind=COORDINATOR_IDENTITY_GATE
+        )
+        domain_locks = [
+            (
+                domain,
+                self._mutation_coordinator_for(
+                    f"reserved-identity-v1:{domain}:{vault_identity}",
+                    kind=COORDINATOR_IDENTITY_DOMAIN,
+                    name=domain,
+                ),
+            )
+            for domain in ordered_domains
+        ]
 
-        def enter(
-            stack: ExitStack,
-            mutation: VaultMutationCoordinator,
-            *,
-            operation_label: str | None = operation,
-        ) -> None:
+        def hold_args(label: str) -> dict[str, Any]:
+            return {
+                "request_id": request_id,
+                "operation": f"{operation}:{label}" if operation is not None else label,
+                "holder_kind": holder_kind,
+                "publish_holder_metadata": False,
+            }
+
+        def enter(stack: ExitStack, mutation: VaultMutationCoordinator, label: str) -> None:
             stack.enter_context(
                 mutation.hold(
-                    timeout_seconds=max(0.0, deadline - time.monotonic()),
-                    request_id=request_id,
-                    operation=operation_label,
-                    holder_kind=holder_kind,
-                    publish_holder_metadata=False,
+                    timeout_seconds=max(0.0, deadline - time.monotonic()), **hold_args(label)
                 )
             )
 
-        def enter_domains(stack: ExitStack) -> None:
-            for domain in ordered_domains:
-                identity = f"reserved-identity-v1:{domain}:{vault_identity}"
-                mutation = self._mutation_coordinator_for(identity)
-                label = f"{operation}:{domain}" if operation is not None else domain
-                enter(stack, mutation, operation_label=label)
-
         if exclusive:
             with ExitStack() as gate_stack:
-                gate_label = f"{operation}:gate" if operation is not None else "gate"
-                enter(gate_stack, gate, operation_label=gate_label)
+                enter(gate_stack, gate, "gate")
                 with ExitStack() as domains_stack:
-                    enter_domains(domains_stack)
+                    for domain, mutation in domain_locks:
+                        enter(domains_stack, mutation, domain)
                     yield _read_reserved_identity_generation(self.config.state_dir, vault_root)
             return
 
+        if not advance_generation:
+            # No gate: this owner changes no identity, so no scanner needs ordering against it,
+            # and it holds only its own domains. It never asks for the gate while it holds them
+            # (reserved_paths forbids widening), so no domain-then-gate wait exists to invert the
+            # exclusive scanner's gate-then-domains order.
+            with ExitStack() as domains_stack:
+                for domain, mutation in domain_locks:
+                    enter(domains_stack, mutation, domain)
+                # No token: reading it without the gate would race the bump's replace, which fails on
+                # Windows while a reader holds the file open, and no domain-only caller uses it.
+                yield None
+            return
+
+        # Admission order matches the exclusive scanner: gate first, then domains. Only a wait for
+        # one lock is ever blocking, and it starts with nothing held; every other lock is tried.
+        # A try never waits, so holding one lock while trying the next adds no wait-for edge. The
+        # lock won by waiting is kept, so a stream of short owners cannot take it back at release.
+        admission = [("gate", gate), *domain_locks]
         with ExitStack() as domains_stack:
-            with ExitStack() as gate_stack:
-                gate_label = f"{operation}:gate" if operation is not None else "gate"
-                enter(gate_stack, gate, operation_label=gate_label)
-                # Admission order matches the exclusive scanner: gate first,
-                # then domains.  The domain stack outlives the gate so exact
-                # owners still release admission before doing their work,
-                # without the gate/domain inversion that can deadlock a scan.
-                enter_domains(domains_stack)
-                generation = (
-                    _bump_reserved_identity_generation(self.config.state_dir, vault_root)
-                    if advance_generation
-                    else _read_reserved_identity_generation(self.config.state_dir, vault_root)
-                )
+            gate_stack = ExitStack()
+            with gate_stack:
+                held: set[str] = set()
+                won: tuple[str, VaultMutationCoordinator] | None = None
+                while True:
+                    if won is not None:
+                        # The deadline is checked here, not only inside the wait, so the retry
+                        # loop cannot outlive it; a lock still busy then is refused by name.
+                        label, mutation = won
+                        remaining = max(0.0, deadline - time.monotonic())
+                        stack = gate_stack if label == "gate" else domains_stack
+                        stack.enter_context(
+                            mutation.hold(timeout_seconds=remaining, **hold_args(label))
+                        )
+                        held.add(label)
+                        won = None
+                    for label, mutation in admission:
+                        if label in held:
+                            continue
+                        stack = gate_stack if label == "gate" else domains_stack
+                        if stack.enter_context(mutation.try_hold(**hold_args(label))):
+                            held.add(label)
+                            continue
+                        # Busy: release everything and wait for this lock alone.
+                        gate_stack.close()
+                        domains_stack.close()
+                        held.clear()
+                        won = (label, mutation)
+                        break
+                    else:
+                        break
+                generation = _bump_reserved_identity_generation(self.config.state_dir, vault_root)
+                gate_stack.close()
             yield generation
 
     @contextmanager
@@ -5360,7 +5474,11 @@ class LeaseManager:
 
     @contextmanager
     def absorbing_mutation_guard(
-        self, vault_root: os.PathLike[str] | str, *, operation: str
+        self,
+        vault_root: os.PathLike[str] | str,
+        *,
+        operation: str,
+        request_id: str | None = None,
     ) -> Iterator[VaultMutationCoordinator]:
         """`mutation_guard`, waiting out an ordinary busy boundary before the body runs.
 
@@ -5372,8 +5490,14 @@ class LeaseManager:
         because it may have consumed the request stream. The caller's place in line and its
         waiter slot end with the acquire: it no longer waits.
         """
-        if not _writes_absorb_contention():
-            with self.mutation_guard(vault_root, operation=operation) as mutation:
+        # A re-entrant hold never contends, and waiting in line would wait on this thread.
+        if (
+            not _writes_absorb_contention()
+            or self._mutation_coordinator_for(vault_root).current_thread_holds_boundary()
+        ):
+            with self.mutation_guard(
+                vault_root, request_id=request_id, operation=operation
+            ) as mutation:
                 yield mutation
             return
 
@@ -5384,7 +5508,9 @@ class LeaseManager:
 
             def acquire() -> VaultMutationCoordinator:
                 with mutation_lock.absorbing_busy():
-                    return held.enter_context(self.mutation_guard(vault_root, operation=operation))
+                    return held.enter_context(
+                        self.mutation_guard(vault_root, request_id=request_id, operation=operation)
+                    )
 
             yield self._absorb_contention(
                 operation,
@@ -5393,9 +5519,9 @@ class LeaseManager:
                 ),
                 acquire,
                 absorbable=refused_before_the_body,
-                request_id=str(uuid.uuid4()),
+                request_id=request_id or str(uuid.uuid4()),
                 join_on_arrival=True,
-                # The /upload route or the session park hands the refusal to its caller and records it.
+                # The caller of the guard hands the refusal to its client and records it.
                 seam_records=True,
             )
 
@@ -5472,7 +5598,9 @@ class LeaseManager:
                     # (wide or narrow), which is what lets the validity-stamp
                     # comparison skip the in-boundary corpus stat-walk.
                     if advance_generation:
-                        _bump_commit_generation(self.config.state_dir, vault_root)
+                        _bump_commit_generation(
+                            self.config.state_dir, vault_root, operation=operation
+                        )
         finally:
             _ACTIVE_LEASE_MANAGER.reset(manager_token)
             if direct_token is not None:
@@ -6615,6 +6743,9 @@ class LeaseManager:
             or narrow_maintenance_job
             or narrow_curation_proposal
             or narrow_episode_record
+            # Issuance writes no vault-owned file: upload and download mint a token over a private
+            # copy or store, and a session open or rotate writes only its own SQLite transaction.
+            or authorization_issuance
             or (
                 command.name in _NARROW_BOUNDARY_COMMANDS
                 and not os.environ.get("EXOMEM_WIDE_MUTATION_BOUNDARY")
@@ -6693,10 +6824,12 @@ class LeaseManager:
                         with guard:
                             yield
                     finally:
-                        if not narrow_boundary:
-                            # Post-terminal housekeeping takes later, shorter holds that
-                            # would overwrite this one before the journal row is written.
-                            wide_hold["timing"] = last_mutation_timing()
+                        # The vault boundary's own hold: later holds of other coordinators
+                        # (identity gate, domains, review state) do not replace it, and
+                        # post-terminal housekeeping's later vault holds are not yet taken.
+                        wide_hold["timing"] = last_mutation_timing(
+                            self._mutation_coordinator_for(mutation_subject)
+                        )
                 finally:
                     _ACTIVE_FAST_ACK_SESSION.reset(token)
 
@@ -6866,7 +6999,11 @@ class LeaseManager:
                     idempotency_key=effective_public_idempotency_key,
                 ),
             )
-        projected = project_terminal(result, response_detail)
+        from .command_surface import outcome_verb_of
+
+        projected = project_terminal(
+            result, response_detail, outcome_verb=outcome_verb_of(command, kwargs)
+        )
         from .governance import scrubber as governance_scrubber
 
         return governance_scrubber._trusted_issuance_projection(
@@ -7191,8 +7328,9 @@ class LeaseManager:
 
         The store thread makes each attempt once and hands back a refusal raised before anything
         committed (`_run_store_attempt`), so it never parks while this write waits its turn.
-        Routing proves ownership under the boundary and changes nothing, so its busy is waited out too.
-        `routed` is the first routing's store server, or the busy refusal it raised.
+        Routing reads ownership without the boundary (`ReadScope.proof`), so it never refuses as busy;
+        the guard is first met on the store thread, where the queue wait absorbs it.
+        `routed` is the first routing's store server.
         """
         from .collection_store import runtime as store_runtime
 
@@ -7202,7 +7340,7 @@ class LeaseManager:
         wait = _ContentionWait(
             self._capture_queue, _capture_wait_seconds(self._mutation_timeout_seconds)
         )
-        routing = received = False
+        received = False
         current: _StoreAttempt | None = None
         refusal_journal: list[Callable[[], None]] = []
 
@@ -7219,21 +7357,13 @@ class LeaseManager:
             return func(command, *injected, **call_kwargs)
 
         def attempt() -> Any:
-            nonlocal routing, received, current
+            nonlocal received, current
             current = _StoreAttempt(
                 holds_ticket=wait.ticket is not None,
                 resubmission=received,
                 deadline=wait.deadline,
             )
-            routing = True
-            if wait.absorbed:
-                with mutation_lock.absorbing_busy():
-                    server = store_runtime.route(command.name, injected[0], kwargs)
-            elif isinstance(routed, OpError):
-                raise routed
-            else:
-                server = routed
-            routing = False
+            server = store_runtime.route(command.name, injected[0], kwargs) if wait.absorbed else routed
             token = _ACTIVE_STORE_ATTEMPT.set(current)
             try:
                 if server is None:
@@ -7251,13 +7381,6 @@ class LeaseManager:
                 received = received or current.received
 
         def absorbable(error: OpError) -> bool:
-            if routing:
-                if error.code != "MUTATION_BUSY":
-                    return False
-                # Routing refuses before `invoke` runs, so this seam journals the refusal the caller finally sees.
-                refusal_journal[:] = [lambda: _record_store_queue_refusal(
-                    command, call_kwargs, injected[0], error, wait.waited_ms() / 1000)]
-                return True
             if current is None or error is not current.handed_off:
                 return False
             # The journal row, if any, of the refusal the caller would see now.
@@ -8022,8 +8145,14 @@ def read_commit_generation(vault_or_cell: os.PathLike[str] | str) -> int | None:
         return None
 
 
-def _bump_commit_generation(state_dir: Path, vault_or_cell: os.PathLike[str] | str) -> None:
-    """Advance the counter; called while the mutation boundary is held."""
+def _bump_commit_generation(
+    state_dir: Path, vault_or_cell: os.PathLike[str] | str, *, operation: str | None = None
+) -> None:
+    """Advance the counter; called while the mutation boundary is held.
+
+    `operation` only labels the log line that says which writer staled the stamps.
+    """
+    logger.info("commit generation advanced by %s", operation or "unnamed operation")
     try:
         path = _commit_generation_path(state_dir, vault_or_cell)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -8389,21 +8518,17 @@ def _collection_store_thread(func):
             # Keep demand visible between the routing proof and queue insertion.
             with foreground_priority.foreground():
                 if not (read_only or import_status) and _writes_absorb_contention():
-                    try:
-                        with mutation_lock.absorbing_busy():
-                            routed = store_runtime.route(command.name, injected[0], kwargs)
-                    except OpError as error:
-                        # Routing proves ownership under the boundary and changes nothing.
-                        if error.code != "MUTATION_BUSY":
-                            raise
-                        routed = error
+                    routed = store_runtime.route(command.name, injected[0], kwargs)
                     if routed is not None:
                         return get_manager()._attempt_store_write(func, command, injected, kwargs, routed)
                     return func(command, *injected, **kwargs)
-                server = store_runtime.route(command.name, injected[0], kwargs)
+                routing = store_runtime.route_with_proof(command.name, injected[0], kwargs)
+                server = routing.server
                 if server is not None:
                     return server.call(
                         lambda: func(command, *injected, **kwargs),
+                        # A read hands the proof that routed it to the store thread, which skips its own.
+                        initial=routing.proof if read_only else None,
                         # A read cannot start a job, revise a declaration or leave views pending; waking
                         # every tick after it kept the store thread busy beside the next request.
                         wake_maintenance=not (read_only or import_status),
@@ -8536,6 +8661,21 @@ def invoke_command(
             )
 
     if (
+        command.name == "maintain_memory"
+        and read_only
+        and active_surface is not None
+        and active_surface.surface in _REQUEST_BOUND_REMOTE_SURFACES
+    ):
+        from . import maintenance_jobs
+
+        # A preview reads every page, which outlasts a request on a large vault: the owner's preview
+        # starts a read-only job and returns its handle. Any other caller keeps the synchronous preview.
+        if maintenance_jobs.is_job_preview(kwargs) and maintenance_jobs.is_owner(injected[0]):
+            job_start = True
+            # A fix or backfill-ids preview may omit `dry_run`: the job's dispatch is explicit.
+            kwargs = {**kwargs, "dry_run": True}
+
+    if (
         not read_only
         and selector_error is None
         and active_surface is not None
@@ -8644,18 +8784,27 @@ def invoke_command(
     # the way out, so an except-block outside it records credential blocks into
     # a collector that is already gone, and emits no receipt for a governed read
     # that touched withheld items before failing.
+    from . import published_admission
     from .collection_store import ownership
+    from .collection_store import preview as store_preview
 
+    # The command's store-owned pages are decided on one store request per decision shape, dropped
+    # with the command; a refused request withholds them together for the rest of it.
     with ownership.read_scope(injected[0]) as ownership_scope, \
-            disclosure_boundary(injected[0], command.name) as collector:
+            disclosure_boundary(injected[0], command.name) as collector, \
+            published_admission.deciding():
         # The dispatcher's own checks before the body, which the leaf span alone does not separate.
         call_spans.record_span_since("command.leaf_pre", "command.leaf_start")
         try:
             # Fixed phase labels carry timing only, never caller or vault data.
             with body_meter as measured, call_spans.span("command.body", measured):
                 result = _invoke()
-            with call_spans.span("command.terminal_filter"):
+            # The terminal filter decides the store-owned pages in a scope of its own, so it asks the
+            # store live rather than replaying the body's verdict; the one place that scope can
+            # withhold the pages is here, so this is also where the owner is told it did.
+            with call_spans.span("command.terminal_filter"), published_admission.deciding(own=True):
                 result = postfilter(command.name, result, injected[0], request_kwargs=kwargs)
+                result = store_preview.note_withheld_pages(command.name, result, injected[0])
         except BaseException as error:
             try:
                 with call_spans.span("command.terminal_filter"):

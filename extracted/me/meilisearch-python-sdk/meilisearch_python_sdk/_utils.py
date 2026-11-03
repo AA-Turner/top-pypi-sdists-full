@@ -10,15 +10,6 @@ from typing import TYPE_CHECKING
 from httpx2 import AsyncClient as HttpxAsyncClient
 from httpx2 import Client as HttpxClient
 
-from meilisearch_python_sdk.errors import (
-    DecodeError,
-    ExpiredSignatureError,
-    ImmatureSignatureError,
-    InvalidIssuedAtError,
-    InvalidJTIError,
-    InvalidSignatureError,
-    InvalidSubjectError,
-)
 from meilisearch_python_sdk.json_handler import BuiltinHandler, OrjsonHandler
 
 if TYPE_CHECKING:
@@ -42,6 +33,72 @@ def get_client(
         return client
 
     return client.http_client
+
+
+def _format_datetime(value: datetime) -> str:
+    if value.tzinfo is None:
+        return f"{value.isoformat()}Z"
+
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _join_values(values: str | list[str] | list[int]) -> str:
+    if isinstance(values, str):
+        return values
+
+    return ",".join([str(x) for x in values])
+
+
+def process_params(
+    uids: list[int] | None = None,
+    index_uids: list[str] | None = None,
+    statuses: str | list[str] | None = None,
+    types: str | list[str] | None = None,
+    before_enqueued_at: datetime | None = None,
+    after_enqueued_at: datetime | None = None,
+    before_started_at: datetime | None = None,
+    after_finished_at: datetime | None = None,
+    batch_uids: list[int] | None = None,
+    canceled_by: list[int] | None = None,
+    after_started_at: datetime | None = None,
+    before_finished_at: datetime | None = None,
+    limit: int | None = None,
+    from_: int | str | None = None,
+    reverse: bool | None = None,
+) -> dict[str, str]:
+    parameters = {}
+    if uids is not None:
+        parameters["uids"] = _join_values(uids)
+    if batch_uids is not None:
+        parameters["batchUids"] = _join_values(batch_uids)
+    if index_uids is not None:
+        parameters["indexUids"] = _join_values(index_uids)
+    if canceled_by is not None:
+        parameters["canceledBy"] = _join_values(canceled_by)
+    if statuses is not None:
+        parameters["statuses"] = _join_values(statuses)
+    if types is not None:
+        parameters["types"] = _join_values(types)
+    if before_enqueued_at:
+        parameters["beforeEnqueuedAt"] = _format_datetime(before_enqueued_at)
+    if after_enqueued_at:
+        parameters["afterEnqueuedAt"] = _format_datetime(after_enqueued_at)
+    if before_started_at:
+        parameters["beforeStartedAt"] = _format_datetime(before_started_at)
+    if after_started_at:
+        parameters["afterStartedAt"] = _format_datetime(after_started_at)
+    if before_finished_at:
+        parameters["beforeFinishedAt"] = _format_datetime(before_finished_at)
+    if after_finished_at:
+        parameters["afterFinishedAt"] = _format_datetime(after_finished_at)
+    if limit is not None:
+        parameters["limit"] = str(limit)
+    if from_ is not None:
+        parameters["from"] = str(from_)
+    if reverse is not None:
+        parameters["reverse"] = str(reverse).lower()
+
+    return parameters
 
 
 def _jwt_b64encode(data: bytes) -> str:
@@ -68,61 +125,3 @@ def encode_jwt(*, payload: JsonDict, key: str, json_handler: BuiltinHandler | Or
     sig = _jwt_b64encode(hmac.new(key.encode(), message.encode(), hashlib.sha256).digest())
 
     return f"{message}.{sig}"
-
-
-def decode_jwt(
-    *, token: str, key: str, json_handler: BuiltinHandler | OrjsonHandler, leeway: float = 0
-) -> JsonDict:
-    header_b64, payload_b64, sig_b64 = token.split(".")
-    message = f"{header_b64}.{payload_b64}"
-    expected = _jwt_b64encode(hmac.new(key.encode(), message.encode(), hashlib.sha256).digest())
-
-    if not hmac.compare_digest(sig_b64, expected):
-        raise InvalidSignatureError("Signature verification failed")
-
-    padding = "=" * (4 - len(payload_b64) % 4)
-
-    try:
-        payload = json_handler.loads(base64.urlsafe_b64decode(payload_b64 + padding))
-    except Exception as e:
-        raise DecodeError(f"Invalid payload string: {e}") from e
-
-    if not isinstance(payload, dict):
-        raise DecodeError("Invalid payload string: must be a json object")
-
-    now = datetime.now(tz=UTC).timestamp()
-
-    if "iat" in payload:
-        try:
-            iat = int(payload["iat"])
-        except (ValueError, TypeError):
-            raise InvalidIssuedAtError("Issued At claim (iat) must be an integer.") from None
-
-        if iat > (now + leeway):
-            raise ImmatureSignatureError("The token is not yet valid (iat)")
-
-    if "nbf" in payload:
-        try:
-            nbf = int(payload["nbf"])
-        except (ValueError, TypeError):
-            raise DecodeError("Not Before claim (nbf) must be an integer.") from None
-
-        if nbf > (now + leeway):
-            raise ImmatureSignatureError("The token is not yet valid (nbf)")
-
-    if "exp" in payload:
-        try:
-            exp = int(payload["exp"])
-        except (ValueError, TypeError):
-            raise DecodeError("Expiration Time claim (exp) must be an integer.") from None
-
-        if exp <= (now - leeway):
-            raise ExpiredSignatureError("Signature has expired")
-
-    if "sub" in payload and not isinstance(payload["sub"], str):
-        raise InvalidSubjectError("Subject must be a string")
-
-    if "jti" in payload and not isinstance(payload["jti"], str):
-        raise InvalidJTIError("JWT ID must be a string")
-
-    return payload

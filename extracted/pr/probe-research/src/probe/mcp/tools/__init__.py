@@ -1,19 +1,21 @@
-"""The MCP tools, split by tool and view family; ResearchReadService composes their mixins. Front door of
-the old `probe.mcp.service`: every name it had, read live; a patch lands on every piece binding it."""
+"""The MCP tools: one reads/ mixin per tool, one views/ file per view family, composed by ResearchReadService.
+Front door of the old `probe.mcp.service`: every name it had, read live; a patch lands on every piece binding it."""
 
 from __future__ import annotations
 
 from ...foundation.front_door.front_door import serve_pieces
 
 # Every piece loads here, as the old module ran whole on import (statically, so the deploy
-# gate's import walk in scripts/test_gate.py sees each one; serve_pieces loads the nested ones).
-from . import view, browse, corpus, entity, listing, literature, metrics, search, tools  # noqa: F401
+# gate's import walk in scripts/ci/test_gate.py sees each one; serve_pieces loads the nested ones).
+from . import view, corpus, tools  # noqa: F401
+# The moved pieces stay attributes of this package for one release (`probe.mcp.tools.entity`).
+from .reads import browse, entity, listing, literature, metrics, search  # noqa: F401
 
 #: The old module's pieces, in the split's load order: a write through the door reaches these only.
 _PIECES = (
     "probe.mcp.tools.shaping.session_work",
     "probe.mcp.tools.view",
-    "probe.mcp.tools.browse",
+    "probe.mcp.tools.reads.browse",
     "probe.mcp.tools.shaping.shaping",
     "probe.mcp.tools.corpora.docs",
     "probe.mcp.tools.corpora.team",
@@ -21,16 +23,19 @@ _PIECES = (
     "probe.mcp.tools.shaping.cards",
     "probe.mcp.tools.shaping.cursors",
     "probe.mcp.tools.views.files",
-    "probe.mcp.tools.entity",
-    "probe.mcp.tools.listing",
-    "probe.mcp.tools.listings.catalog",
-    "probe.mcp.tools.listings.files",
-    "probe.mcp.tools.listings.notes",
-    "probe.mcp.tools.listings.runs",
-    "probe.mcp.tools.listings.workspaces",
-    "probe.mcp.tools.literature",
-    "probe.mcp.tools.metrics",
-    "probe.mcp.tools.search",
+    "probe.mcp.tools.reads.entity",
+    "probe.mcp.tools.reads.listing",
+    "probe.mcp.tools.reads.listings.catalog",
+    "probe.mcp.tools.reads.listings.files",
+    "probe.mcp.tools.reads.listings.notes",
+    "probe.mcp.tools.reads.listings.runs",
+    "probe.mcp.tools.reads.listings.workspaces",
+    "probe.mcp.tools.reads.literature",
+    "probe.mcp.tools.reads.metrics",
+    "probe.mcp.tools.reads.search",
+    "probe.mcp.tools.reads.sql",
+    "probe.mcp.tools.reads.context",
+    "probe.mcp.tools.reads.compare",
     "probe.mcp.tools.views.branches",
     "probe.mcp.tools.views.catalog",
     "probe.mcp.tools.views.code",
@@ -58,33 +63,33 @@ _HOMES = {
     "_delivery_cursor_stand_in": "probe.mcp.tools.shaping.cursors",
     "_split_get_cursor": "probe.mcp.tools.shaping.cursors",
     "_join_get_cursor": "probe.mcp.tools.shaping.cursors",
-    # probe.mcp.tools.entity
-    "hashlib": "probe.mcp.tools.entity",
-    "View": "probe.mcp.tools.entity",
-    "ContinuationError": "probe.mcp.tools.entity",
-    "_encode_delivery_cursor": "probe.mcp.tools.entity",
-    "omit_defaults": "probe.mcp.tools.entity",
-    "current_delivery": "probe.mcp.tools.entity",
-    "source_changed": "probe.mcp.tools.entity",
-    "CATALOG_NO_MATCH": "probe.mcp.tools.entity",
-    "_INTENT_KINDS": "probe.mcp.tools.entity",
-    "_INTENT_CARD_FIELDS": "probe.mcp.tools.entity",
-    # probe.mcp.tools.listing
-    "json": "probe.mcp.tools.listing",
-    "uuid": "probe.mcp.tools.listing",
-    "_branches": "probe.mcp.tools.listing",
-    "BrowseMode": "probe.mcp.tools.listing",
-    "NoteCatalogKind": "probe.mcp.tools.listing",
-    # probe.mcp.tools.metrics
-    "math": "probe.mcp.tools.metrics",
-    "islice": "probe.mcp.tools.metrics",
-    "serialize": "probe.mcp.tools.metrics",
-    "_GROUPED_ROWS_MAX": "probe.mcp.tools.metrics",
-    "_GROUPED_ROWS_DEFAULT": "probe.mcp.tools.metrics",
-    "_EXPORT_PAGE_MAX": "probe.mcp.tools.metrics",
-    "_EXPORT_PAGE_DEFAULT": "probe.mcp.tools.metrics",
-    "_SERIES_BUDGET_HEADROOM": "probe.mcp.tools.metrics",
-    "_CURSOR_TOKEN_SLACK": "probe.mcp.tools.metrics",
+    # probe.mcp.tools.reads.entity
+    "hashlib": "probe.mcp.tools.reads.entity",
+    "View": "probe.mcp.tools.reads.entity",
+    "ContinuationError": "probe.mcp.tools.reads.entity",
+    "_encode_delivery_cursor": "probe.mcp.tools.reads.entity",
+    "omit_defaults": "probe.mcp.tools.reads.entity",
+    "current_delivery": "probe.mcp.tools.reads.entity",
+    "source_changed": "probe.mcp.tools.reads.entity",
+    "CATALOG_NO_MATCH": "probe.mcp.tools.reads.entity",
+    "_INTENT_KINDS": "probe.mcp.tools.reads.entity",
+    "_INTENT_CARD_FIELDS": "probe.mcp.tools.reads.entity",
+    # probe.mcp.tools.reads.listing
+    "json": "probe.mcp.tools.reads.listing",
+    "uuid": "probe.mcp.tools.reads.listing",
+    "_branches": "probe.mcp.tools.reads.listing",
+    "BrowseMode": "probe.mcp.tools.reads.listing",
+    "NoteCatalogKind": "probe.mcp.tools.reads.listing",
+    # probe.mcp.tools.reads.metrics
+    "math": "probe.mcp.tools.reads.metrics",
+    "islice": "probe.mcp.tools.reads.metrics",
+    "serialize": "probe.mcp.tools.reads.metrics",
+    "_GROUPED_ROWS_MAX": "probe.mcp.tools.reads.metrics",
+    "_GROUPED_ROWS_DEFAULT": "probe.mcp.tools.reads.metrics",
+    "_EXPORT_PAGE_MAX": "probe.mcp.tools.reads.metrics",
+    "_EXPORT_PAGE_DEFAULT": "probe.mcp.tools.reads.metrics",
+    "_SERIES_BUDGET_HEADROOM": "probe.mcp.tools.reads.metrics",
+    "_CURSOR_TOKEN_SLACK": "probe.mcp.tools.reads.metrics",
     # probe.mcp.tools.view
     "dataclass": "probe.mcp.tools.view",
     "field": "probe.mcp.tools.view",
@@ -95,25 +100,27 @@ _HOMES = {
     "_VIEW_OPTIONS": "probe.mcp.tools.view",
     "_supported_views": "probe.mcp.tools.view",
     "_views_offered": "probe.mcp.tools.view",
-    # probe.mcp.tools.browse
-    "dataclass_replace": "probe.mcp.tools.browse",
-    "Any": "probe.mcp.tools.browse",
-    "errors": "probe.mcp.tools.browse",
-    "links": "probe.mcp.tools.browse",
-    "accounting": "probe.mcp.tools.browse",
-    "EntityType": "probe.mcp.tools.browse",
-    "EnvelopeState": "probe.mcp.tools.browse",
-    "MissingMarker": "probe.mcp.tools.browse",
-    "_annotate": "probe.mcp.tools.browse",
+    # probe.mcp.tools.reads.browse
+    "dataclass_replace": "probe.mcp.tools.reads.browse",
+    "Any": "probe.mcp.tools.reads.browse",
+    "errors": "probe.mcp.tools.reads.browse",
+    "links": "probe.mcp.tools.reads.browse",
+    "accounting": "probe.mcp.tools.reads.browse",
+    "EntityType": "probe.mcp.tools.reads.browse",
+    "EnvelopeState": "probe.mcp.tools.reads.browse",
+    "MissingMarker": "probe.mcp.tools.reads.browse",
+    "_annotate": "probe.mcp.tools.reads.browse",
     # probe.mcp.tools.tools
     "datetime": "probe.mcp.tools.tools",
     "timezone": "probe.mcp.tools.tools",
-    "MAX_ROWS_CEILING": "probe.mcp.tools.tools",
     "ResearchOSSource": "probe.mcp.tools.tools",
     "_now": "probe.mcp.tools.tools",
-    "_text": "probe.mcp.tools.tools",
     "_compact": "probe.mcp.tools.tools",
     "ResearchReadService": "probe.mcp.tools.tools",
+    # probe.mcp.tools.reads.sql
+    "MAX_ROWS_CEILING": "probe.mcp.tools.reads.sql",
+    # probe.mcp.tools.reads.context
+    "_text": "probe.mcp.tools.reads.context",
     # probe.mcp.tools.corpora.docs
     "Callable": "probe.mcp.tools.corpora.docs",
     "_MIN_TOKEN_BUDGET": "probe.mcp.tools.corpora.docs",
@@ -167,14 +174,14 @@ _HOMES = {
     "NON_BACKEND_CORPORA": "probe.mcp.tools.corpus",
     "_KB_TOOL_VALUES": "probe.mcp.tools.corpus",
     "_map_search_in": "probe.mcp.tools.corpus",
-    # probe.mcp.tools.search
-    "BackendRetrieval": "probe.mcp.tools.search",
-    "BackendSearchState": "probe.mcp.tools.search",
-    "CollapseMode": "probe.mcp.tools.search",
-    "is_docs_only": "probe.mcp.tools.search",
-    "_BACKEND_CHANNEL_CAP": "probe.mcp.tools.search",
-    "_TRANSCRIPTS_NOT_PROJECT_SCOPED": "probe.mcp.tools.search",
-    "_echoes_project_scope": "probe.mcp.tools.search",
+    # probe.mcp.tools.reads.search
+    "BackendRetrieval": "probe.mcp.tools.reads.search",
+    "BackendSearchState": "probe.mcp.tools.reads.search",
+    "CollapseMode": "probe.mcp.tools.reads.search",
+    "is_docs_only": "probe.mcp.tools.reads.search",
+    "_BACKEND_CHANNEL_CAP": "probe.mcp.tools.reads.search",
+    "_TRANSCRIPTS_NOT_PROJECT_SCOPED": "probe.mcp.tools.reads.search",
+    "_echoes_project_scope": "probe.mcp.tools.reads.search",
     # probe.mcp.tools.corpora.team
     "Channel": "probe.mcp.tools.corpora.team",
     "ChannelError": "probe.mcp.tools.corpora.team",
@@ -200,8 +207,8 @@ _HOMES = {
     "_README_STATE_NOTES": "probe.mcp.tools.views.code",
     "_README_UNAVAILABLE_NOTES": "probe.mcp.tools.views.code",
     "_readme_note": "probe.mcp.tools.views.code",
-    # probe.mcp.tools.literature
-    "WebState": "probe.mcp.tools.literature",
+    # probe.mcp.tools.reads.literature
+    "WebState": "probe.mcp.tools.reads.literature",
     # probe.mcp.tools.views.sessions
     "_TRANSCRIPT_AGENTS": "probe.mcp.tools.views.sessions",
     "_SESSIONS_ROUTE_MAX": "probe.mcp.tools.views.sessions",

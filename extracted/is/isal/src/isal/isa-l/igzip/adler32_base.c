@@ -31,7 +31,7 @@
 #include "igzip_checksums.h"
 
 uint32_t
-adler32_base(uint32_t adler32, uint8_t *start, uint32_t length)
+adler32_base(uint32_t adler32, uint8_t *start, uint64_t length)
 {
         uint8_t *end, *next = start;
         uint64_t A, B;
@@ -60,5 +60,5 @@ adler32_base(uint32_t adler32, uint8_t *start, uint32_t length)
         A = A % ADLER_MOD;
         B = B % ADLER_MOD;
 
-        return B << 16 | A;
+        return (uint32_t) ((B << 16) | A);
 }

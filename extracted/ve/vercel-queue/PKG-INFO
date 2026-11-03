@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: vercel-queue
-Version: 0.10.0
+Version: 0.10.1
 Summary: Vercel Queue client for Python
 License-Expression: MIT
 License-File: LICENSE
@@ -11,7 +11,7 @@ Requires-Dist: python-multipart>=0.0.20
 Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: vercel-headers>=0.7.2
 Requires-Dist: vercel-internal-core<0.3.0,>=0.2.2
-Requires-Dist: vercel-oidc>=0.10.0
+Requires-Dist: vercel-oidc>=0.11.0
 Provides-Extra: devserver
 Requires-Dist: uvicorn; extra == 'devserver'
 Provides-Extra: trio

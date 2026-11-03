@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from keyword import iskeyword
 from pathlib import Path  # noqa: TC003 - used at runtime by Pydantic
 from threading import RLock
 from typing import TYPE_CHECKING, Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
+from datamodel_code_generator._config_fields import DEFAULT_ENCODING
 from datamodel_code_generator._format_types import (
     DateClassType,
     DatetimeClassType,
@@ -19,7 +19,11 @@ from datamodel_code_generator._format_types import (
     PythonVersionMin,
 )
 from datamodel_code_generator._shared_types import DefaultPutDict, LiteralType
-from datamodel_code_generator.base_config import BaseGenerateConfig, _validate_additional_import_paths
+from datamodel_code_generator.base_config import (
+    BaseGenerateConfig,
+    _schema_validator_base_class_name_error,
+    _validate_additional_import_paths,
+)
 from datamodel_code_generator.enums import (
     DEFAULT_SHARED_MODULE_NAME,
     AliasGenerator,
@@ -51,10 +55,7 @@ from datamodel_code_generator.enums import (
     XMLSchemaVersion,
 )
 from datamodel_code_generator.model import pydantic_v2
-from datamodel_code_generator.model.base import (  # noqa: TC001 - used by Pydantic at runtime
-    DataModel,
-    DataModelFieldBase,
-)
+from datamodel_code_generator.model.base import DataModel, DataModelFieldBase
 from datamodel_code_generator.model.scalar import DataTypeScalar
 from datamodel_code_generator.model.union import DataTypeUnion
 from datamodel_code_generator.types import DataTypeManager, StrictTypes
@@ -74,10 +75,7 @@ else:
 
 def validate_schema_validator_base_class_name(value: str | None) -> str | None:
     """Validate the generated shared schema validator base class name."""
-    if value is None:
-        return value
-    if not value.isidentifier() or iskeyword(value):
-        msg = f"--schema-validator-base-class-name '{value}' is not a valid Python identifier"
+    if (msg := _schema_validator_base_class_name_error(value)) is not None:
         raise ValueError(msg)
     return value
 
@@ -116,16 +114,30 @@ def _rebuild_config_model(model_type: type[BaseModel], types_namespace: dict[str
         model_type.model_rebuild(_types_namespace=types_namespace)
 
 
+_CONFIG_TYPES_NAMESPACE: dict[str, Any] = {
+    "ConstructorFieldOrder": ConstructorFieldOrder,
+    "DataModel": DataModel,
+    "DataModelFieldBase": DataModelFieldBase,
+    "DataTypeManager": DataTypeManager,
+    "DefaultValueType": DefaultValueType,
+    "OpenAPIAsDefinitions": OpenAPIAsDefinitions,
+    "StrictTypes": StrictTypes,
+    "UnionMode": UnionMode,
+}
+"""The names the deferred config models resolve when they are rebuilt."""
+
+
+def _config_types_namespace(*names: str) -> dict[str, Any]:
+    """Return the part of ``_CONFIG_TYPES_NAMESPACE`` a deferred model resolves when it is rebuilt."""
+    return {name: _CONFIG_TYPES_NAMESPACE[name] for name in names}
+
+
 def _rebuild_generate_config() -> None:
     _rebuild_config_model(
         GenerateConfig,
-        {
-            "ConstructorFieldOrder": ConstructorFieldOrder,
-            "DefaultValueType": DefaultValueType,
-            "OpenAPIAsDefinitions": OpenAPIAsDefinitions,
-            "StrictTypes": StrictTypes,
-            "UnionMode": UnionMode,
-        },
+        _config_types_namespace(
+            "ConstructorFieldOrder", "DefaultValueType", "OpenAPIAsDefinitions", "StrictTypes", "UnionMode"
+        ),
     )
 
 
@@ -205,7 +217,7 @@ class ParserConfig(BaseModel):
     reuse_model: bool = False
     reuse_scope: ReuseScope | None = None
     shared_module_name: str = DEFAULT_SHARED_MODULE_NAME
-    encoding: str = "utf-8"
+    encoding: str = DEFAULT_ENCODING
     enum_field_as_literal: LiteralType | None = None
     enum_field_as_literal_map: dict[str, str] | None = None
     ignore_enum_constraints: bool = False

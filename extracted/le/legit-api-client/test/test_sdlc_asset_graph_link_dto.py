@@ -39,7 +39,7 @@ class TestSdlcAssetGraphLinkDto(unittest.TestCase):
                 source_type = 'Unknown',
                 target_id = '',
                 target_type = 'Unknown',
-                evidences = legit_api_client.models.sdlc_asset_graph_link_dto_evidences.SdlcAssetGraphLinkDto_evidences(
+                evidences = legit_api_client.models.sdlc_asset_graph_link_dto_evidences.SdlcAssetGraphLinkDtoEvidences(
                     unknown = [
                         ''
                         ], 

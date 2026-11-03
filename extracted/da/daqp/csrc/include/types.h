@@ -77,6 +77,9 @@ typedef struct{
 
     // Equality-reduction policy: DAQP_EQ_REDUCTION_{OFF,AUTO,ON}
     int eq_reduction;
+
+    // Presolve mixed-integer problems when they are set up or updated (1) or not (0)
+    int presolve;
 }DAQPSettings;
 
 
@@ -85,6 +88,7 @@ typedef struct{
     int depth;
     int WS_start;
     int WS_end;
+    c_float lb; // Lower bound on internal objective
 }DAQPNode;
 
 typedef struct{
@@ -105,6 +109,11 @@ typedef struct{
 
     int* root_WS; // Working set of the latest root relaxation (warm starts the next solve)
     int n_root_WS;
+
+    c_float* RinvD; // Diagonal R of an LP with a singular Hessian (see daqp_bnb_prox)
+    c_float* reg; // eps_j of the regularization eps_j/2*x_j^2 in daqp_bnb_prox
+    c_float* xtmp; // Workspace for x
+    DAQPProblem* ps_qp; // Presolved copy of the problem (see daqp_presolve)
 }DAQPBnB;
 
 typedef struct{
@@ -229,6 +238,21 @@ typedef struct{
     DAQPLDPData other;
 }DAQPEqElim;
 
+/*
+ * Hierarchy of a hierarchical QP (see hierarchical.c): level i is formed by the
+ * constraints [break_points[i-1], break_points[i]), and level 0 is hard. The
+ * reflection of coordinate k is V[k*n-k*(k-1)/2 : +n-k] (with scalar tau[k]).
+ */
+typedef struct{
+    int nh; // Number of levels
+    int* break_points; // (not owned)
+
+    c_float* M; // Rows of all constraints, simple bounds included (m x n)
+    c_float* Mu; // M*u (m)
+    c_float* V; // Householder vectors of the eliminations (packed, n(n+1)/2)
+    c_float* tau; // Householder scalars (n)
+}DAQPHierarchy;
+
 typedef struct{
     DAQPProblem* qp;
     // LDP data
@@ -282,9 +306,9 @@ typedef struct{
 
     // BnB
     DAQPBnB* bnb;
-    // Hierarchical QP
-    int nh;
-    int* break_points;
+    int outer_iter; // Outer iterations (proximal and AVI solvers)
+    // Hierarchical QP (NULL if not hierarchical)
+    DAQPHierarchy* hierarchy;
     // AVI
     DAQPAVI* avi;
     // Equality elimination (NULL if the LDP is not reduced)
@@ -313,9 +337,6 @@ typedef struct{
 
     int state;
 }DAQPWorkspace;
-
-#define DAQP_IS_HIERARCHICAL(work) \
-    ((work)->break_points != NULL && (work)->nh > 1)
 
 # ifdef __cplusplus
 }

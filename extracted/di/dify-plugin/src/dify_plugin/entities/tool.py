@@ -154,6 +154,13 @@ class ToolParameter(BaseModel):
         default_factory=list,
         description="The conditions that control whether the parameter is shown",
     )
+    reset_on_change: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Sibling parameter names that reset this parameter to its default or "
+            "empty value when changed"
+        ),
+    )
 
     @model_validator(mode="after")
     def validate_multiple(self) -> "ToolParameter":
@@ -287,6 +294,7 @@ class ToolProviderConfiguration(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def validate_credentials_schema(cls, data: dict) -> dict:
+        data = dict(data)
         original_credentials_for_provider: dict[str, dict] = data.get(
             "credentials_for_provider",
             {},

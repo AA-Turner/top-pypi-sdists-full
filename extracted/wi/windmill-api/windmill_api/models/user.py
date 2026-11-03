@@ -29,6 +29,8 @@ class User:
         folders_read (List[str]):
         folders_owners (List[str]):
         name (Union[Unset, str]):
+        role (Union[Unset, str]): The member's workspace role by name (`developer`, `operator` or a custom role). Admin
+            is the separate `is_admin` flag.
         groups (Union[Unset, List[str]]):
         added_via (Union[Unset, None, UserAddedVia]):
         is_service_account (Union[Unset, bool]):
@@ -47,6 +49,7 @@ class User:
     folders_read: List[str]
     folders_owners: List[str]
     name: Union[Unset, str] = UNSET
+    role: Union[Unset, str] = UNSET
     groups: Union[Unset, List[str]] = UNSET
     added_via: Union[Unset, None, "UserAddedVia"] = UNSET
     is_service_account: Union[Unset, bool] = UNSET
@@ -69,6 +72,7 @@ class User:
         folders_owners = self.folders_owners
 
         name = self.name
+        role = self.role
         groups: Union[Unset, List[str]] = UNSET
         if not isinstance(self.groups, Unset):
             groups = self.groups
@@ -98,6 +102,8 @@ class User:
         )
         if name is not UNSET:
             field_dict["name"] = name
+        if role is not UNSET:
+            field_dict["role"] = role
         if groups is not UNSET:
             field_dict["groups"] = groups
         if added_via is not UNSET:
@@ -136,6 +142,8 @@ class User:
 
         name = d.pop("name", UNSET)
 
+        role = d.pop("role", UNSET)
+
         groups = cast(List[str], d.pop("groups", UNSET))
 
         _added_via = d.pop("added_via", UNSET)
@@ -163,6 +171,7 @@ class User:
             folders_read=folders_read,
             folders_owners=folders_owners,
             name=name,
+            role=role,
             groups=groups,
             added_via=added_via,
             is_service_account=is_service_account,

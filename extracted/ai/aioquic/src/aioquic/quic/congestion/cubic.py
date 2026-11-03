@@ -1,4 +1,5 @@
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from ..packet_builder import QuicSentPacket
 from .base import (
@@ -43,12 +44,12 @@ class CubicCongestionControl(QuicCongestionControl):
 
         self.last_ack = 0.0
 
-    def W_cubic(self, t) -> int:
+    def W_cubic(self, t: float) -> int:
         W_max_segments = self._W_max / self._max_datagram_size
         target_segments = K_CUBIC_C * (t - self.K) ** 3 + (W_max_segments)
         return int(target_segments * self._max_datagram_size)
 
-    def is_reno_friendly(self, t) -> bool:
+    def is_reno_friendly(self, t: float) -> bool:
         return self.W_cubic(t) < self._W_est
 
     def is_concave(self) -> bool:

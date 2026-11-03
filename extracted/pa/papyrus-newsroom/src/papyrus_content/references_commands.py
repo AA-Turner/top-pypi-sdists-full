@@ -309,25 +309,41 @@ def references_suggest_links(flags: list[str]) -> None:
     print(json.dumps(suggest_for(client, provider, reference_id, corpus_id=corpus_id, calibration=load_calibration(client), dry_run=not apply), indent=2))
 
 
+def references_retire_junk_suggestions(flags: list[str]) -> None:
+    """``papyrus references retire-junk-suggestions [--execute]``.
+
+    Lists the open ``auto:vector`` concept suggestions whose concept is a bookkeeping node (an author, a coverage, comment, quality-rating or relevance node;
+    src/papyrus_content/junk_suggestions.py). It writes nothing unless ``--execute`` is given; then it marks each suggestion rejected (reason
+    ``not_a_concept``, by ``auto:cleanup``), so it leaves the queue and is not offered again. Nothing is deleted."""
+    from .junk_suggestions import retire_junk_suggestions
+    options = parse_options(flags)
+    client, _ = create_authoring_client()
+    result = retire_junk_suggestions(client, execute=bool(options.get("execute")))
+    print(json.dumps({key: value for key, value in result.items() if key != "rows"}, indent=2))
+    for row in result["rows"]:
+        print(f"references\tretire-junk-suggestions\t{'retired' if result['executed'] else 'would retire'}\t{row['relationId']}\t{row['nodeKind']}\t{row['nodeKey']}\t{row['score']}")
+
+
 def references_backfill_feed_keys(flags: list[str]) -> None:
-    """``papyrus references backfill-feed-keys --site KEY [--corpus-key KEY] [--positive-label LABEL] [--dry-run]``.
+    """``papyrus references backfill-feed-keys (--site KEY | --corpus-key KEY[,KEY...] | --all-corpora) [--positive-label LABEL] [--dry-run]``.
 
     Sets the keys the References page pages through (src/papyrus_content/reference_feed_backfill.py) from each Reference's status and its
-    current Cyclotron decision. It writes only those fields. ``--dry-run`` prints the counts and writes nothing.
+    current Cyclotron decision. It writes only those fields. ``--dry-run`` prints the counts and writes nothing. ``--site KEY`` covers
+    ``knowledge-corpus-KEY``; ``--corpus-key`` names other corpora (comma-separated); ``--all-corpora`` covers every KnowledgeCorpus the
+    backend lists. The backend is the one the CLI is configured for (docs/operator-cli.md), not something ``--site`` selects.
     """
-    from .reference_feed_backfill import backfill_feed_keys
+    from .reference_feed_backfill import backfill_feed_keys, corpus_ids_for
     options = parse_options(flags)
-    site = normalize_string(options.get("site"))
-    if not site:
-        raise ValueError("references backfill-feed-keys needs --site KEY.")
     apply = resolve_mutation_apply(options, "references backfill-feed-keys")
-    corpus_key = normalize_string(options.get("corpus-key")) or site
     client, _ = create_authoring_client()
-    result = backfill_feed_keys(client, corpus_id=f"knowledge-corpus-{corpus_key}",
-                                positive_label=normalize_string(options.get("positive-label")) or "include", dry_run=not apply,
-                                progress=lambda line: print(f"references\tbackfill-feed-keys\tprogress\t{line}") if int(line.split()[0]) % 100 == 0 else None)
-    for key, value in result.items():
-        print(f"references\tbackfill-feed-keys\t{key}\t{value}")
+    corpus_ids = corpus_ids_for(client, site=normalize_string(options.get("site")), corpus_keys=normalize_string(options.get("corpus-key")),
+                                all_corpora=bool(options.get("all-corpora")))
+    for corpus_id in corpus_ids:
+        result = backfill_feed_keys(client, corpus_id=corpus_id, positive_label=normalize_string(options.get("positive-label")) or "include",
+                                    dry_run=not apply,
+                                    progress=lambda line: print(f"references\tbackfill-feed-keys\tprogress\t{line}") if int(line.split()[0]) % 100 == 0 else None)
+        for key, value in result.items():
+            print(f"references\tbackfill-feed-keys\t{key}\t{value}")
 
 
 def references_backfill_reviewed_feed_key(flags: list[str]) -> None:

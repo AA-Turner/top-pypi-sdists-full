@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from .....tap_core.secrets import Finding, _keyword_windows, scan
+from .....foundation.transcripts.credential_scan.credential_scan import Finding, scan
+from .....foundation.transcripts.credential_scan.quick import _keyword_windows
 
 
 class PatternScanner:

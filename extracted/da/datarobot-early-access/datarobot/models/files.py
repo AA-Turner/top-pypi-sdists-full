@@ -43,12 +43,16 @@ from datarobot.utils.waiters import wait_for_async_resolution
 
 
 class CatalogAccessType(StrEnum):
-    """Enum of catalog access types for filtering search results."""
+    """Enum of catalog access types for filtering search results.
 
-    OWNED = "owned"
+    ``OWNED`` is a deprecated alias of ``OWNER``, kept for backward compatibility.
+    """
+
+    OWNER = "owner"
     SHARED = "shared"
     CREATED = "created"
     ANY = "any"
+    OWNED = "owner"
 
 
 _file_schema = t.Dict({
@@ -814,7 +818,7 @@ class Files(APIObject):
 
         access_type: Optional[CatalogAccessType] (default: CatalogAccessType.ANY)
             Access type used to filter returned results:
-            'owned' items are owned by the requester, 'shared' items have been shared with the requester,
+            'owner' items are owned by the requester, 'shared' items have been shared with the requester,
             'created' items have been created by the requester, and 'any' items matches all.
 
         Returns
@@ -1571,7 +1575,7 @@ class FilesCatalogSearch(APIObject, HumanReadable):
 
         access_type: Optional[CatalogAccessType] (default: CatalogAccessType.ANY)
             Access type used to filter returned results:
-            'owned' items are owned by the requester, 'shared' items have been shared with the requester,
+            'owner' items are owned by the requester, 'shared' items have been shared with the requester,
             'created' items have been created by the requester, and 'any' items matches all.
 
         Returns

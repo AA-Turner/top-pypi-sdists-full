@@ -38,7 +38,7 @@ _PIN = {"ccd_iterations": '<option ccd_iterations="{was}"/>', "ccd_tolerance": '
         "tolerance": '<option tolerance="{was}"/>', "impratio": '<option impratio="{was}"/>'}
 
 
-def _load(scene: str) -> tuple[dict, Any]:
+def _load(scene: str) -> tuple[dict, dict]:
     try:
         with open(os.path.join(scene, "manifest.json")) as f:
             manifest = json.load(f)
@@ -48,7 +48,13 @@ def _load(scene: str) -> tuple[dict, Any]:
     if manifest.get("engine") != "mujoco":
         raise PortError(f"{scene} was exported from {manifest.get('engine')!r}; check-model --engine mujoco-warp "
                         "takes a MuJoCo scene")
-    return manifest, np.load(os.path.join(scene, "reference.npz"), allow_pickle=True)
+
+    try:
+        with np.load(os.path.join(scene, "reference.npz"), allow_pickle=False) as z:
+            return manifest, {k: z[k] for k in z.files}
+    except ValueError:
+        raise PortError(f"{scene}/reference.npz holds an array only a pickle reads, which check-model does not read: "
+                        "export the scene again with seq port export") from None
 
 
 def _inertia_tensors(inertia: np.ndarray, iquat: np.ndarray) -> np.ndarray:
@@ -185,7 +191,7 @@ def check_model(scene: str, engine: str = "mujoco-warp") -> dict:
     for entry in manifest["models"]:
         key = entry["key"]
         m = mujoco.MjModel.from_xml_path(os.path.join(scene, entry["xml"]))
-        was = {f[len(key) + 1:]: ref[f] for f in ref.files if f.startswith(f"{key}.")}
+        was = {f[len(key) + 1:]: ref[f] for f in ref if f.startswith(f"{key}.")}
         now = reference(m)
         item = {"key": key, "episodes": entry["episodes"], "compile": compare_reference(was, now),
                 "options": compare_options(was, now), "unsupported": engine_support(m, engine)}

@@ -177,6 +177,14 @@ static int
 gf_gen_decode_matrix(u8 *encode_matrix, u8 *decode_matrix, u8 *invert_matrix, u8 *temp_matrix,
                      u8 *decode_index, u8 *frag_err_list, int nerrs, int k, int m);
 
+static void
+encode_data_sparse(const int k, const int k2, const int p, const int len, u8 *g_tbls_faster,
+                   u8 **frag_ptrs, uint8_t **parity_ptrs, u8 *g_tbls)
+{
+        ec_encode_data(len / 2, k, p, g_tbls_faster, frag_ptrs, parity_ptrs);
+        ec_encode_data(len / 2, k2, p, &g_tbls[k2 * p * 32], frag_ptrs, &parity_ptrs[p]);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -378,10 +386,8 @@ main(int argc, char *argv[])
                 if (benchmark) {
                         struct perf start;
                         BENCHMARK(&start, BENCHMARK_TIME,
-                                  ec_encode_data(len / 2, k, p, g_tbls_faster, frag_ptrs,
-                                                 parity_ptrs);
-                                  ec_encode_data(len / 2, k2, p, &g_tbls[k2 * p * 32], frag_ptrs,
-                                                 &parity_ptrs[p]));
+                                  encode_data_sparse(k, k2, p, len, g_tbls_faster, frag_ptrs,
+                                                     parity_ptrs, g_tbls));
                         printf("ec_piggyback_encode_sparse: ");
                         perf_print(start, m2 * len / 2);
                 }
@@ -436,6 +442,18 @@ main(int argc, char *argv[])
                 }
         }
         printf(" } done all: Pass\n");
+
+        free(encode_matrix);
+        free(decode_matrix);
+        free(invert_matrix);
+        free(temp_matrix);
+        free(g_tbls);
+        for (i = 0; i < k; i++)
+                free(frag_ptrs[i]);
+        for (i = 0; i < p2; i++)
+                free(parity_ptrs[i]);
+        for (i = 0; i < p2; i++)
+                free(recover_outp[i]);
 
         return 0;
 }

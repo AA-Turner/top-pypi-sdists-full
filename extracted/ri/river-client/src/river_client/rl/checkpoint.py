@@ -21,6 +21,7 @@ import numpy as np
 
 from river_client.images import ImageStore, map_images
 
+from .batch import TrainingBatch
 from .config import _integer
 from .trajectory import _SPAN_ARRAYS, _Spilled, decode_state, encode_state
 
@@ -1153,6 +1154,10 @@ def _read_all_spilled(value):
 
 
 def _pack_arrays(value, stream, spilled=None):
+    if isinstance(value, TrainingBatch):
+        # Journal batches are built and written one datum at a time, so a
+        # save never holds an update's datums at once.
+        return [_pack_arrays(encode_state(datum), stream) for datum in value]
     if isinstance(value, _Spilled):
         # A rewritten span copies its spilled bytes into the new segment.
         value = spilled[id(value)] if spilled else value.read()

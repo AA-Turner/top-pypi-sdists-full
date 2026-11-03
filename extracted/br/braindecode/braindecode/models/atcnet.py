@@ -1,7 +1,6 @@
 # Authors: Cedric Rommel <cedric.rommel@inria.fr>
 #
 # License: BSD (3-clause)
-import math
 from typing import Optional
 
 import torch
@@ -10,6 +9,7 @@ from mne.utils import warn
 from torch import nn
 from torch.nn.utils.parametrize import is_parametrized, register_parametrization
 
+from braindecode.functional import scaled_dot_product_attention
 from braindecode.models.base import EEGModuleMixin
 from braindecode.modules import (
     CausalConv1d,
@@ -164,7 +164,8 @@ class ATCNet(EEGModuleMixin, nn.Module):
         dataset.
     sfreq : int, optional
         Sampling frequency of the inputs, in Hz. Default to 250 Hz, as in
-        BCI-IV 2a dataset.
+        BCI-IV 2a dataset, unless ``n_times`` and ``input_window_seconds``
+        are both given, in which case it is inferred from them.
     conv_block_n_filters : int
         Number temporal filters in the first convolutional layer of the
         convolutional block, denoted F1 in figure 2 of the paper [1]_. Defaults
@@ -256,7 +257,7 @@ class ATCNet(EEGModuleMixin, nn.Module):
         n_chans=None,
         n_outputs=None,
         input_window_seconds=None,
-        sfreq=250.0,
+        sfreq=None,
         conv_block_n_filters=16,
         conv_block_kernel_length_1=64,
         conv_block_kernel_length_2=16,
@@ -278,6 +279,8 @@ class ATCNet(EEGModuleMixin, nn.Module):
         chs_info=None,
         n_times=None,
     ):
+        if sfreq is None and (n_times is None or input_window_seconds is None):
+            sfreq = 250.0
         super().__init__(
             n_outputs=n_outputs,
             n_chans=n_chans,
@@ -444,8 +447,10 @@ class ATCNet(EEGModuleMixin, nn.Module):
         # ----- Sliding window -----
         sw_concat: list[torch.Tensor] = []  # to store sliding window outputs
         # for w in range(self.n_windows):
-        for idx, (attention, tcn_module, final_layer) in enumerate(
-            zip(self.attention_blocks, self.temporal_conv_nets, self.final_layer)
+        # (final_layer is not zipped in: with concat=True it holds a single
+        # layer, which would stop the loop after the first window)
+        for idx, (attention, tcn_module) in enumerate(
+            zip(self.attention_blocks, self.temporal_conv_nets)
         ):
             conv_feat_w = conv_feat[..., idx : idx + self.Tw]
             # Dimension: (batch_size, F2, Tw)
@@ -458,13 +463,14 @@ class ATCNet(EEGModuleMixin, nn.Module):
             tcn_feat = tcn_module(att_feat)[..., -1]
             # Dimension: (batch_size, F2)
 
-            # Outputs of sliding window can be either averaged after being
-            # mapped by dense layer or concatenated then mapped by a dense
-            # layer
-            if not self.concat:
-                tcn_feat = final_layer(tcn_feat)
-
             sw_concat.append(tcn_feat)
+
+        # Outputs of sliding window can be either averaged after being
+        # mapped by dense layer or concatenated then mapped by a dense
+        # layer
+        if not self.concat:
+            for idx, final_layer in enumerate(self.final_layer):
+                sw_concat[idx] = final_layer(sw_concat[idx])
 
         # ----- Aggregation and prediction -----
         if self.concat:
@@ -823,6 +829,12 @@ class _TCNResidualBlock(nn.Module):
         # (reshaping_conv may be nn.Identity, which the helper skips).
         _register_max_norm(conv_max_norm, self.conv1, self.conv2, self.reshaping_conv)
 
+    def reset_parameters(self) -> None:
+        """Initialize this block's weights (the constructor initializes each
+        convolution as it builds it)."""
+        nn.init.kaiming_uniform_(self.conv1.weight)
+        nn.init.kaiming_uniform_(self.conv2.weight)
+
     def forward(self, X):
         # Dimension: (batch_size, F2, Tw)
         # ----- Double dilated convolutions -----
@@ -925,20 +937,10 @@ class _MHA(nn.Module):
         K_ = torch.cat(K.split(self.head_dim, -1), 0)  # (B', S, D')
         V_ = torch.cat(V.split(self.head_dim, -1), 0)  # (B', S, D')
 
-        # Attention weights of size (num_heads * batch_size, n, m):
-        # measures how similar each pair of Q and K is.
-        W = torch.softmax(
-            Q_.bmm(K_.transpose(-2, -1)) / math.sqrt(self.head_dim),
-            -1,  # (B', D', S)
-        )  # (B', N, M)
-
-        # Multihead output (batch_size, seq_len, dim):
-        # weighted sum of V where a value gets more weight if its corresponding
-        # key has larger dot product with the query.
+        # Multihead output (batch_size, seq_len, dim): softmax(Q K^T / sqrt(d)) V
+        # per head, heads merged back along the feature axis.
         H = torch.cat(
-            (W.bmm(V_)).split(  # (B', S, S)  # (B', S, D')
-                batch_size, 0
-            ),  # [(B, S, D')] * num_heads
+            scaled_dot_product_attention(Q_, K_, V_, exact=True).split(batch_size, 0),
             -1,
         )  # (B, S, D)
 

@@ -1498,8 +1498,9 @@ register_action_spec(
                 required=False,
                 unit="s",
                 help=(
-                    "Stop after this long.  Empty: at the last waypoint, or, "
-                    "without waypoints, at the scenario's end."
+                    "Stop after this long.  Empty: at the last waypoint or "
+                    "keyframe, whichever is later, or, with neither, at the "
+                    "scenario's end."
                 ),
             ),
             FieldSpec(
@@ -3853,7 +3854,7 @@ register_condition_spec(
             "defined even when the gap is steady, which is what makes it the "
             "following-distance measure; it is undefined, and never fires, "
             "while the follower is stopped.  Measured in a straight line by "
-            "default, which on a curve under-reads and past a quarter turn "
+            "default, which on a curve under-reads and past a half turn "
             "stops firing entirely; measure along the road to avoid that."
         ),
     )
@@ -4719,13 +4720,25 @@ register_condition_spec(
                     "happens) or 0 for an event."
                 ),
             ),
+            FieldSpec(
+                name="max_ng_seconds",
+                label="Max NG seconds",
+                kind="number",
+                default=0.0,
+                help=(
+                    "How long, in total, the metric may meet the rule before "
+                    "the run fails; 0 fails it at the first frame that does."
+                ),
+            ),
             _tolerance_field("", "0.1 in the metric's unit"),
         ),
         description=(
-            "How the ego drives, read off the world: a collision, leaving the "
-            "road, driving against the lane, how close it comes to other road "
-            "users or the lane edge (AlpaSim's metrics).  Usually a fail "
-            "condition."
+            "How the ego drove, computed once the run is over: a collision, "
+            "leaving the road, driving against the lane, how close it came to "
+            "other road users or the lane edge (AlpaSim's metrics), and how "
+            "critical CriMe and CommonRoad-Reach found it.  A fail condition: "
+            "the run fails when the metric met the rule for longer than the "
+            "max NG seconds."
         ),
     )
 )

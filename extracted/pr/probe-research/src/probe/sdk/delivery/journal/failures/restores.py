@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
-from probe._shared import oscompat
+from probe.foundation.os_backend import os_backend as oscompat
 from probe.foundation.compat.compat import StrEnum
 from probe.foundation.durable.durable import SYNC_FILE, file_lock, fsync_directory, now_iso, write_text_atomic
 

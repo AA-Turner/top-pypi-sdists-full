@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import operator
-import re
 from dataclasses import dataclass
-from enum import Enum
 from functools import cache
 from importlib.resources import files
 from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from datamodel_code_generator import _option_names
+from datamodel_code_generator._name_words import pascal_words
+from datamodel_code_generator._option_names import configured_value
 from datamodel_code_generator._recommend._signals import (
     SignalName,
     normalize_name,
@@ -22,9 +23,9 @@ if TYPE_CHECKING:
     from collections.abc import Set as AbstractSet
 
     from datamodel_code_generator._recommend._signals import Signals
+    from datamodel_code_generator._recommend_vocabulary import OptionValue
 
 RULES_RESOURCE = "recommender_rules.json"
-OptionValue: TypeAlias = bool | str | list[str]
 Operator: TypeAlias = Literal[">=", ">", "<=", "<", "==", "!="]
 Category: TypeAlias = Literal[
     "io",
@@ -53,7 +54,6 @@ _OPERATORS: dict[str, Callable[[float, float], bool]] = {
     "==": operator.eq,
     "!=": operator.ne,
 }
-_WORDS = re.compile(r"[A-Za-z0-9]+")
 
 
 class _Data(BaseModel):
@@ -179,29 +179,18 @@ class Decision:
         return all(value is False for value in self.values.values())
 
 
-def toml_value(value: object) -> Any:
-    """Return a config value as pyproject.toml spells it, for comparing rule values with a configuration."""
-    if isinstance(value, Enum):
-        return str(value.value)
-    return [toml_value(item) for item in value] if isinstance(value, tuple | list) else value
-
-
-@cache
-def _option_strings() -> dict[str, tuple[str, ...]]:
-    from datamodel_code_generator.arguments import arg_parser  # noqa: PLC0415
-
-    return {action.dest: tuple(action.option_strings) for action in arg_parser._actions if action.option_strings}  # noqa: SLF001
-
-
 def option_arguments(field: str, value: OptionValue) -> list[str] | None:
     """Return the CLI arguments that set a config field to a value, or None when no option can express it."""
-    option = f"--{field.replace('_', '-')}"
-    if value is True:
-        return [option]
-    if value is False:
-        negative = f"--no-{field.replace('_', '-')}"
-        return [negative] if negative in _option_strings().get(field, ()) else None
-    return [option, *value] if isinstance(value, list) else [option, value]
+    from datamodel_code_generator.cli_options import _negative_option  # noqa: PLC0415
+
+    return _option_names.option_arguments(field, value, negative=_negative_option)
+
+
+def values_arguments(values: Mapping[str, OptionValue]) -> list[str]:
+    """Return the CLI arguments that set config fields to values, leaving out the values no option can express."""
+    from datamodel_code_generator.cli_options import _negative_option  # noqa: PLC0415
+
+    return _option_names.values_arguments(values.items(), negative=_negative_option)
 
 
 def _rule_values(rule: Rule) -> dict[str, OptionValue]:
@@ -211,13 +200,13 @@ def _rule_values(rule: Rule) -> dict[str, OptionValue]:
     only shown, so any generation option may be one.
     """
     if rule.optional is None:
-        from datamodel_code_generator.preset import PresetConfig  # noqa: PLC0415
+        from datamodel_code_generator.preset import PresetConfig, _pyproject_values  # noqa: PLC0415
 
-        return {item.field_name: item.pyproject_value for item in PresetConfig(**rule.set).items()}
+        return _pyproject_values(PresetConfig(**rule.set).items())
     from datamodel_code_generator.config import GenerateConfig  # noqa: PLC0415
 
     validated = GenerateConfig.model_validate(rule.set)
-    return {name: toml_value(getattr(validated, name)) for name in rule.set}
+    return {name: configured_value(validated, name) for name in rule.set}
 
 
 @cache
@@ -244,10 +233,8 @@ def matches(condition: Condition, counts: Mapping[str, int]) -> bool:
 
 def pascal_case_input_stem(stem: str | None, taken: AbstractSet[str]) -> str | None:
     """Return a class name made of the words of an input file name, unless a named schema already has that name."""
-    if not stem or not (words := _WORDS.findall(stem)):
+    if not stem or not (name := pascal_words(stem, digit_prefix="Model")):
         return None
-    name = "".join(word[:1].upper() + word[1:] for word in words)
-    name = name if name[0].isalpha() else f"Model{name}"
     return None if normalize_name(name) in taken else name
 
 

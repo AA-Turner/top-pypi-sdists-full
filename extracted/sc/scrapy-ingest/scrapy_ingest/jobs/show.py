@@ -4,6 +4,7 @@ from contextlib import contextmanager
 
 from ..exceptions import ConfigurationError, IngestConnectionError
 from ..utils.console import format_table
+from .sql import jobs_select_sql
 
 _KEYS, _LABELS = zip(
     *(
@@ -91,32 +92,29 @@ def _fetchall(db, sql, params=()):
         return cur.fetchall()
 
 
-def _sql_list_filters(status=None, spider=None):
+def _sql_list_filters(settings, status=None, spider=None):
     clauses, params = [], []
     if status:
-        clauses.append("status = %s")
+        clauses.append("j.status = %s")
         params.append(status)
     if spider:
-        clauses.append("spider_name = %s")
+        clauses.append("s.name = %s")
         params.append(spider)
     if not clauses:
         return "", ()
     return f" WHERE {' AND '.join(clauses)}", tuple(params)
 
 
-def _search_list_filters(status=None, spider=None):
-    filters = []
-    if status:
-        filters.append({"term": {"status": status}})
-    if spider:
-        filters.append({"term": {"spider_name": spider}})
-    return tuple(filters)
+def _search_list_filters(client, settings, status=None, spider=None):
+    from ..database.search_helpers import search_job_filters
+
+    return tuple(search_job_filters(client, settings, status=status, spider=spider))
 
 
 def fetch_job(db, settings, job_id):
     """Return a job dict keyed by column name, or ``None`` if not found."""
     row = db.execute(
-        f"SELECT {', '.join(_KEYS)} FROM {settings.db_jobs_table} WHERE job_id = %s",
+        f"{jobs_select_sql(settings, _KEYS)} WHERE j.job_id = %s",
         (job_id,),
     )
     return _row_dict(_KEYS, row) if row else None
@@ -130,16 +128,14 @@ def fetch_job_search(client, settings, job_id):
 
 def fetch_jobs(db, settings, *, limit=50, status=None, spider=None):
     """Return recent jobs from SQL, newest first."""
-    table = settings.db_jobs_table
-    cols = ", ".join(_LIST_KEYS)
-    where, params = _sql_list_filters(status, spider)
-    order = "started_at DESC, id DESC"
+    where, params = _sql_list_filters(settings, status, spider)
+    order = "j.started_at DESC, j.id DESC"
     dialect = getattr(settings, "db_dialect", "postgres")
     if dialect not in ("mysql", "sqlite"):
-        order = "started_at DESC NULLS LAST, id DESC"
+        order = "j.started_at DESC NULLS LAST, j.id DESC"
     rows = _fetchall(
         db,
-        f"SELECT {cols} FROM {table}{where} ORDER BY {order} LIMIT %s",
+        f"{jobs_select_sql(settings, _LIST_KEYS)}{where} ORDER BY {order} LIMIT %s",
         params + (limit,),
     )
     return [_row_dict(_LIST_KEYS, row) for row in rows]
@@ -150,9 +146,18 @@ def fetch_jobs_search(client, settings, *, limit=50, status=None, spider=None):
     docs = client.search_documents(
         _jobs_index(settings),
         size=limit,
-        filters=_search_list_filters(status, spider),
+        filters=_search_list_filters(client, settings, status, spider),
     )
-    return [_normalize_job(doc, _LIST_KEYS) for doc in docs]
+    names = client.spider_names_by_id(
+        settings.db_spiders_table, {d.get("spider_id") for d in docs}
+    )
+    out = []
+    for doc in docs:
+        row = _normalize_job(doc, _LIST_KEYS)
+        if row is not None:
+            row["spider_name"] = names.get(int(doc.get("spider_id") or 0), "")
+            out.append(row)
+    return out
 
 
 def format_job_show(job):

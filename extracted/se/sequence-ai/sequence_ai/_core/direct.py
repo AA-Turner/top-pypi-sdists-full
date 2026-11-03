@@ -60,6 +60,10 @@ from .direct_episode import _EPISODE_LOST, _STATE_GONE, _Episodes
 
 
 _NO_PLACE = "no_place"
+
+
+
+_COPY_STUCK = "copy_stuck"
 from .direct_observe import _ObservationStream
 from . import seat as _seat
 
@@ -289,6 +293,7 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
         self._standby_ask_from: Optional[float] = None
         self._standby_retry_s = 0.0
         self._switched = False
+        self._stuck = False
         self._lease_deadline: Optional[float] = None
         self._lease_ttl_s: float = 0.0
         self._renew_again_at = 0.0
@@ -503,11 +508,17 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
             except Unavailable as exc:
 
 
-                if exc.details.get("reason") == "draining":
+
+                if exc.details.get("reason") in ("draining", _COPY_STUCK):
                     attempts += 1
                     if attempts > self._max_reconnects or self._past(deadline):
                         raise
-                    self._reconnect(worker, backoff_attempt=attempts, standby="is going away")
+                    ran = exc.details.get("ran_s")
+                    why = ("is going away" if exc.details.get("reason") == "draining"
+                           else f"was stuck on an act for {ran:g} s" if isinstance(ran, (int, float))
+                           else "was stuck on an act")
+                    self._reconnect(worker, backoff_attempt=attempts, standby=why,
+                                    stuck=exc.details.get("reason") == _COPY_STUCK)
                     continue
 
 
@@ -557,7 +568,7 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
                 if busy_since is not None and now + wait - busy_since >= _SAY_BUSY_AFTER_S:
 
                     busy_since = None
-                    warn(f"waiting for a free copy of the policy on its worker: {exc}")
+                    warn(f"waiting for an available copy of the policy on its worker: {exc}")
                 time.sleep(wait)
 
     def _unkept(self, episode: str, first: Any, own: tuple) -> bool:
@@ -643,13 +654,26 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
         self._ensure_connected()
         return self.contract
 
+    def place(self) -> None:
+        """One POST /v1/act/connect now: the robot's ask for a place, as wait_until_ready() sends it when its ready
+        poll says the robot holds nothing (`cold`) or waits in line (`queued`) - a poll only looks. Seated on a running
+        worker, it returns, the connection to that worker opening behind it (prewarm); a worker started for it, nearest
+        it, or its place in line is raised as a first act's connect raises them (Unavailable warming / queued), as is
+        anything else. A worker connection it still has holds no seat on the platform's word: it connects anew, as a
+        reconnect does.
+"""
+        self._assert_open()
+        with self._lock:
+            if self._worker is not None:
+                self._worker.gone = True
+            self._connect(renew=False)
+
     def get(self, path: str) -> dict:
         """Catalogue and readiness stay on the gateway — they are control-plane lookups.
 
-        A ready poll that names this session places its robot as a connect would - a seat, a seat on the worker the
-        poll starts for it, or a place in line - so it is given back as a connect's is: at close(), the end of a
-        `with`, collection, exit and SIGTERM / SIGHUP. Before, a robot that only polled ready() gave nothing back, and
-        one that gave up while its worker started held that seat for the platform's 300 s lease.
+        A ready poll only looks: what places a robot - a seat, a worker started for it, a place in line - is its connect
+        (place, or its first act's). A poll that names this session keeps alive what the session holds, so it is given
+        back as a connect's seat is: at close(), the end of a `with`, collection, exit and SIGTERM / SIGHUP.
         
 When the answer asks it (`keepalive`), the place is kept alive while the Policy
         is open, as a connect's seat is - a robot told ready keeps its seat until its first act, however long."""
@@ -663,6 +687,7 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
         if placing:
             self._in_line = isinstance(body, dict) and body.get("status") == "queued"
             self._seat_alive(body, ready=True)
+
 
 
             self._trace_ready_poll(body)
@@ -775,14 +800,26 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
     def _say_where(self, where: Any) -> None:
         """Where the worker this robot now acts on runs, as the platform names its regions - "US East", never a
         provider's region - and about how far from the robot when no worker nearer it had room: said once each time
-        its worker changes, on stderr as the seat's other notices are. Nothing from a platform that says none.
-        
+        its worker changes, on stderr as the seat's other notices are. A close-loop seat (where["close_loop"]) - a
+        running worker a region away the robot still closes its loop on - says it still closes the loop, by the robot's
+        own network ("network") or the default round trip ("default"), rather than only that the round trip is longer.
+        Nothing from a platform that says none.
+
 """
         if not isinstance(where, dict) or not isinstance(where.get("region"), str) or not where["region"]:
             return
         far = where.get("far_km")
-        tail = (f", about {round(float(far), -2):,.0f} km from this robot: no worker nearer it had room, so each act's "
-                "round trip is that much longer" if isinstance(far, (int, float)) and far > 0 else "")
+        km = (f", about {round(float(far), -2):,.0f} km from this robot"
+              if isinstance(far, (int, float)) and far > 0 else "")
+        loop = where.get("close_loop")
+        if loop in ("network", "default"):
+            est = "your network's estimate" if loop == "network" else "the default round trip"
+            tail = (f"{km}: none in its own region had room, but this worker was already running and "
+                    f"by {est} it still closes the loop")
+        elif km:
+            tail = f"{km}: no worker nearer it had room, so each act's round trip is that much longer"
+        else:
+            tail = ""
         print(f"[sequences] {self._model}: its worker runs in {where['region']}{tail}", file=sys.stderr, flush=True)
 
 
@@ -811,7 +848,7 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
             trace = self._trace
             if trace is None or trace.done:
                 trace = self._trace = ConnectTrace(self._report_trace, reconnect=self._connected_once)
-        request = self._connect_request(move=move)
+        request = self._connect_request(move=move, again=not renew and self._connected_once)
         t_connect = trace.attempt() if trace is not None else time.monotonic()
         try:
             body = self._gateway.post("/v1/act/connect", request, timeout_s=self._timeout_s)
@@ -856,15 +893,17 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
             trace.failed(error_of(exc))
 
     def _trace_ready_poll(self, body: Any) -> None:
-        """Begin (or go on with) the connect trace on a placing ready poll - the robot's first ask for a worker.
+        """Begin (or go on with) the connect trace on a ready poll that names this session - the robot's first ask for a
+        worker.
 
-        WHY: wait_until_ready() polls /v1/act/ready until the platform says ready and only THEN runs connect_ahead(),
-        which makes the connect; a trace begun in _connect therefore left the robot's whole wait for a starting worker
-        out of `seq policy status`'s "how fast to the first answer" - it read the connect and first act alone (hbprobe
-        waited to {"t": 106.8} yet status read p50 756 ms). Begun here, the wait is counted (cold_start / queue) while a
-        poll is answered not-ready; _connect (connect_ahead, or the first act) reuses this same trace (self._trace, not
-        done), so total_ms spans the first ask to the first act. A robot that gives up or is interrupted mid-wait ends it
-        in the stage it waited in (connect_stopped, waits._gave_up); one already on a worker is not a new connect.
+        WHY: wait_until_ready() polls /v1/act/ready before its connects - the one that places the robot, the one that
+        opens its connection once it is ready - and a trace begun in _connect left the robot's wait for a starting
+        worker out of `seq policy status`'s "how fast to the first answer" - it read the connect and first act alone
+        (hbprobe waited to {"t": 106.8} yet status read p50 756 ms). Begun here, the wait is counted (cold_start /
+        queue) while a poll says a worker starts for the robot or it waits in line; _connect (place, connect_ahead, or
+        the first act) reuses this same trace (self._trace, not done), so total_ms spans the first ask to the first act.
+        A robot that gives up or is interrupted mid-wait ends it in the stage it waited in (connect_stopped,
+        waits._gave_up); one already on a worker is not a new connect.
 
         
 """
@@ -874,8 +913,11 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
             if self._trace is None or self._trace.done:
                 self._trace = ConnectTrace(self._report_trace, reconnect=self._connected_once)
 
-            if not (isinstance(body, dict) and body.get("ready") is True):
-                self._trace.wait(queued=isinstance(body, dict) and body.get("status") == "queued")
+
+
+            said = body if isinstance(body, dict) else {}
+            if said.get("ready") is not True and said.get("status") != "cold":
+                self._trace.wait(queued=said.get("status") == "queued")
 
     def _report_trace(self, report: dict) -> None:
         """A connect's trace ended: its report to the Policy's reporter (on_trace), best effort."""
@@ -883,11 +925,17 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
         if said is not None:
             said(report)
 
-    def _connect_request(self, *, move: bool) -> dict:
-        """The body of one POST /v1/act/connect, the session marked as having reached it. Under _lock."""
+    def _connect_request(self, *, move: bool, again: bool = False) -> dict:
+        """The body of one POST /v1/act/connect, the session marked as having reached it. Under _lock. `again`: a
+        connect, not a renewal, of a robot that was connected before - one whose seat went with a worker that went away
+        is then seated by the platform as a robot moving off it (a free seat beside robots first), never as a new one."""
         request = {"model": self._planner or self._model, **({"policy": self._model} if self._planner else {}),
                    "session": self._session, "standby": True, **({"move": True} if move else {}),
                    **({"switched": True} if self._switched else {}),
+
+
+                   **({"stuck": True} if self._stuck else {}),
+                   **({"again": True} if again else {}),
 
                    **({"teleop": True} if self.teleop else {})}
 
@@ -935,7 +983,7 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
         self._seat_alive(body)
         self._take_standby(body.get("standby"))
         self._plan_standby_ask(body.get("standby_retry_s"))
-        self._switched = False
+        self._switched = self._stuck = False
 
 
 
@@ -1167,10 +1215,12 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
 
     def _take_contract(self, body: dict) -> None:
         """Keep what connect returned of the policy's declarations: how its answers play (hz, action_chunk_valid_len,
-        action_chunk_replan_at, contract 0.5.35)."""
+        action_chunk_replan_at, contract 0.5.35) and how long its robot waits for an answer where it sets that
+        (max_wait_for_batch, contract 0.5.45) - what late.py holds an answer to."""
         if not isinstance(body, dict):
             return
-        self._plays = {k: body[k] for k in ("hz", "action_chunk_valid_len", "action_chunk_replan_at") if body.get(k)}
+        self._plays = {k: body[k] for k in ("hz", "action_chunk_valid_len", "action_chunk_replan_at",
+                                            "max_wait_for_batch") if body.get(k)}
         self.contract = {}
 
     def _ensure_connected(self) -> None:
@@ -1242,7 +1292,7 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
         return NotOpen("open", None if why == _STILL_OPENING else why, time.monotonic() - t0)
 
     def _reconnect(self, stale: _WorkerTransport, *, backoff_attempt: Optional[int],
-                   standby: Optional[str] = None) -> None:
+                   standby: Optional[str] = None, stuck: bool = False) -> None:
         """
         Reconnect through the gateway, unless another thread already did it for this worker.
 
@@ -1253,7 +1303,8 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
 
         `standby`: why the worker failed, when it stopped answering or is going away - the act then goes to the
         standby copy the platform keeps it, at once and with no backoff, when there is one (_switch). A worker that
-        rotated its secret (401) is the same worker: reconnected through the gateway, as before.
+        rotated its secret (401) is the same worker: reconnected through the gateway, as before. `stuck`: its copy was
+        stuck on an act (503 copy_stuck) - with no standby, its connect says so, and the platform seats it elsewhere.
         """
         if standby is not None and self._switch(stale, standby):
             return
@@ -1264,6 +1315,7 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
                 raise SequencesError("connection was closed during reconnect")
             if self._worker is not stale:
                 return
+            self._stuck = self._stuck or stuck
             try:
                 self._connect(renew=False)
                 _marked.force(self)
@@ -1274,6 +1326,14 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
 
                 stale.gone = True
                 raise
+
+    def _driven_by_a_person(self) -> bool:
+        """A person drives this robot (connect(teleop=True)): act() answers from the person's chunks and sends nothing to
+        its worker, yet the robot is in a run - its lease renewed ahead as an acting robot's is, so the act its model
+        answers once the person hands it back waits on no renewal.
+"""
+        teleop = self.teleop
+        return teleop is not None and getattr(teleop, "driver", None) == "human"
 
     def _renew_ahead(self) -> None:
         """From the seat keepalive's thread, once the lease's renewal is _RENEW_AHEAD_BEATS beats away and the robot is in
@@ -1298,7 +1358,7 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
             if (self._closed or self._renewing or worker is None or self._lease_deadline is None
                     or (now < self._lease_deadline - ahead and not asks) or now < self._renew_again_at
                     or (self._rotate is not None and not self._episode_open)
-                    or not worker.acted_within(_RENEW_AHEAD_ACTED_S)):
+                    or not (worker.acted_within(_RENEW_AHEAD_ACTED_S) or self._driven_by_a_person())):
                 return
             if asks:
                 if self._standby_ask_from is not None and now - self._standby_ask_from < _STANDBY_FAST_S:

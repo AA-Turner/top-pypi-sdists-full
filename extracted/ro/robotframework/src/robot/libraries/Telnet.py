@@ -42,8 +42,9 @@ class Telnet:
 
     > [!NOTE]
     > Telnet is deprecated as a standard library and needs to be installed
-    > separately in the future. For more information, see issue
-    > [#3537](https://github.com/robotframework/robotframework/issues/3537).
+    > separately in the future. The library is available as a standalone
+    > project, [robotframework-telnetlibrary](https://pypi.org/project/robotframework-telnetlibrary/),
+    > that can be installed with `pip install robotframework-telnetlibrary`.
 
     ### Table of contents
 
@@ -823,7 +824,7 @@ class TelnetConnection(telnetlib.Telnet):
             level: Default log level to use for logging.
 
         Returns:
-            The dld default log level.
+            The old default log level.
 
         The old default log level is returned and can be used to restore the
         log level later.

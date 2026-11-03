@@ -31,6 +31,7 @@ from .base import dump_report_data, field_to_title, fields_to_titles, raise_pars
 from .helpers.record import get_record_uids
 from .helpers.timeout import parse_timeout
 from .record import RecordRemoveCommand
+from .aram import raise_if_audit_report_failed
 from .utils import SyncDownCommand
 from .. import api, utils, crypto, constants, rest_api, vault, vault_extensions
 from ..display import bcolors
@@ -1508,6 +1509,8 @@ class ShareReportCommand(Command):
                 if not folder_result.get('success'):
                     continue
                 for accessor in folder_result.get('accessors', []):
+                    if accessor.get('denied_access'):
+                        continue
                     if ShareReportCommand._is_nested_folder_owner(folder_info, accessor):
                         continue
                     permissions = ShareReportCommand._get_nested_folder_permission_label(accessor)
@@ -1831,9 +1834,10 @@ class ShareReportCommand(Command):
                 return False
 
         rs = api.communicate(params, rq)
+        raise_if_audit_report_failed(rs, 'share-report')
 
         if rs['result'] == 'success':
-            audit_events = rs['audit_event_overview_report_rows']
+            audit_events = rs.get('audit_event_overview_report_rows') or []
 
             # sort list by creation date
             audit_events = sorted(audit_events, key=lambda i: i['created'])

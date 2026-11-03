@@ -127,6 +127,33 @@ def create_server(
         stateless_http=True,
     )
 
+    _register_browse_and_search(mcp, svc)
+    _register_entity_and_metrics(mcp, svc)
+    _register_sql_and_papers(mcp, svc)
+
+    # The three deprecation stubs (`get_metrics_grouped`,
+    # `get_run_coordinates`, `export_metric_points`) are GONE. They were
+    # kept for one release, that release happened, and carrying them past a
+    # vocabulary change would put three dead names teaching the OLD words
+    # into every session's catalog -- the context tax the rename exists to
+    # stop paying.
+
+    # NOTE: there is no research_trace_file. It was removed, not overlooked: no
+    # /v1/artifacts/trace route has ever existed, so it answered `matches: []` to
+    # every query and an agent read that as "this file has no lineage" — a
+    # confident wrong answer. To trace a path/URI/hash, use research_search: its
+    # exact channel matches artifacts and returns REAL hits. If the backend ever
+    # ships a trace index, tests/test_parity.py fails with the route unreachable.
+
+    # Resources retired: all four were thin aliases over research_get, and an
+    # agent that can call get_entity never needed a URI for the same payload.
+    # They were four more things to keep in sync with the view matrix.
+
+    return mcp
+
+
+def _register_browse_and_search(mcp, svc):
+    """Register `browse` and `search` on the server, in catalog order."""
     @mcp.tool()
     @_tool
     def browse(
@@ -337,6 +364,9 @@ def create_server(
                 token_budget=token_budget,
             )
 
+
+def _register_entity_and_metrics(mcp, svc):
+    """Register `entity` and `metrics` (with the metrics read they share)."""
     @mcp.tool()
     @_tool
     # The view and option glosses are REPEATED in the description on purpose:
@@ -573,6 +603,9 @@ def create_server(
             max_points=max_points,
         )
 
+
+def _register_sql_and_papers(mcp, svc):
+    """Register `query_sql` and `find_papers`."""
     # Read-only SQL. The description, both argument docs and the limits are
     # GENERATED from research-os app/sql/prompt.py: one tool, one set of words,
     # and the dashboard assistant reads it through this tool too. The description
@@ -652,26 +685,6 @@ def create_server(
                 expand=expand,
             )
 
-    # The three deprecation stubs (`get_metrics_grouped`,
-    # `get_run_coordinates`, `export_metric_points`) are GONE. They were
-    # kept for one release, that release happened, and carrying them past a
-    # vocabulary change would put three dead names teaching the OLD words
-    # into every session's catalog -- the context tax the rename exists to
-    # stop paying.
-
-    # NOTE: there is no research_trace_file. It was removed, not overlooked: no
-    # /v1/artifacts/trace route has ever existed, so it answered `matches: []` to
-    # every query and an agent read that as "this file has no lineage" — a
-    # confident wrong answer. To trace a path/URI/hash, use research_search: its
-    # exact channel matches artifacts and returns REAL hits. If the backend ever
-    # ships a trace index, tests/test_parity.py fails with the route unreachable.
-
-    # Resources retired: all four were thin aliases over research_get, and an
-    # agent that can call get_entity never needed a URI for the same payload.
-    # They were four more things to keep in sync with the view matrix.
-
-    return mcp
-
 
 def main() -> None:
     """The stdio server: a child of the caller's coding agent, on their machine.
@@ -683,9 +696,9 @@ def main() -> None:
     try:
         create_server().run(transport="stdio")
     except Exception as exc:
-        from probe import analytics as telemetry_mod
+        from probe.sdk import diagnostics
 
-        telemetry_mod.report_crash(exc, surface="mcp_stdio")
+        diagnostics.report_crash(exc, surface="mcp_stdio")
         raise
 
 

@@ -1,15 +1,20 @@
 """Adapt rollout datums to prepared custom objectives."""
 
 import json
+import threading
 from collections.abc import Callable
 from dataclasses import asdict
+from functools import partial
 
 import numpy as np
 
 from river_client.losses import CustomLoss, _input_array, _input_columns
 
+from .batch import TrainingBatch
 from .checkpoint import fingerprint
 from .requirements import LossRequirements
+
+_ADAPTER_LOCK = threading.Lock()
 
 
 _INPUTS = {
@@ -53,6 +58,13 @@ def loss_contract(
 
 
 def custom_batch(data, loss: CustomLoss, custom_loss_inputs: Callable | None):
+    """Convert datums into the custom loss's declared inputs.
+
+    A ``TrainingBatch`` converts each datum when it is built, so the adapter
+    may run again for the same trajectory (for example on replay).
+    """
+    if isinstance(data, TrainingBatch):
+        return data.with_items(custom=partial(_custom_datum, loss, custom_loss_inputs))
     schemas = {column["name"]: column for column in _input_columns(loss.inputs)}
     result = []
     for datum in data:
@@ -81,17 +93,27 @@ def custom_batch(data, loss: CustomLoss, custom_loss_inputs: Callable | None):
             if k not in {"old_logprobs", "advantages", "loss_mask"}
         }
         converted["loss_data"] = columns
-        columns = (
-            custom_loss_inputs(converted)
-            if custom_loss_inputs is not None
-            else {name: columns[name] for name in loss.inputs}
-        )
+        # Datums can be built on several threads at once, for example by a
+        # submission and a checkpoint save. Adapters are never called
+        # concurrently, and their outputs are copied before another call.
+        with _ADAPTER_LOCK:
+            columns = (
+                custom_loss_inputs(converted)
+                if custom_loss_inputs is not None
+                else {name: columns[name] for name in loss.inputs}
+            )
+            if columns.keys() != schemas.keys():
+                raise ValueError("custom loss inputs differ from the declared schema")
+            columns = {
+                name: _input_array(values, schemas[name]).copy()
+                for name, values in columns.items()
+            }
         converted.pop("sampling_metadata", None)
-        if columns.keys() != schemas.keys():
-            raise ValueError("custom loss inputs differ from the declared schema")
-        converted["loss_data"] = {
-            name: _input_array(values, schemas[name]).copy()
-            for name, values in columns.items()
-        }
+        converted["loss_data"] = columns
         result.append(converted)
     return result
+
+
+def _custom_datum(loss, custom_loss_inputs, datum):
+    (converted,) = custom_batch([datum], loss, custom_loss_inputs)
+    return converted

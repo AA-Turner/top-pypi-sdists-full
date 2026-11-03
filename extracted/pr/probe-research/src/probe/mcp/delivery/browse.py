@@ -286,32 +286,12 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
             state = {**state, "streams": stream_mask}
         return encode_cursor(_pack_state(state), request)
 
-    stream_mask = None
     root_ref = arguments.get("ref")
-    if root_ref is None:
-        phases = ["projects"]
-    elif isinstance(root_ref, str) and root_ref.startswith("project:"):
-        phases = ["experiments", "runs", "subprojects"]
-        stream_mask = state.get("streams")
-        if stream_mask is None:
-            # Remember the original selection, since `cursor` becomes our
-            # delivery token and is no longer an initial primary-list cursor.
-            stream_mask = (
-                sum(
-                    1 << i
-                    for i, name in enumerate(phases)
-                    if arguments.get(_CURSOR_PARAMETERS[name])
-                )
-                or 7
-            )
-        if type(stream_mask) is not int or not 1 <= stream_mask <= 7:
-            fail()
-        phases = [name for i, name in enumerate(phases) if stream_mask & (1 << i)]
-    elif isinstance(root_ref, str) and root_ref.startswith("experiment:"):
-        phases = ["runs"]
-    else:
+    planned = _plan_tree_phases(root_ref, arguments, state, fail)
+    if planned is None:
         # Preserve the source's normal scope validation/error behavior.
         return call(arguments)
+    phases, stream_mask = planned
     phase = state.get("phase", 0)
     if type(phase) is not int or not 0 <= phase < len(phases):
         fail()
@@ -563,3 +543,33 @@ def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
                 return candidate
         raise ContinuationError("Browse identity exceeds this budget; use a larger token_budget.")
     return last
+
+
+def _plan_tree_phases(root_ref, arguments, state, fail):
+    """The tree's phases under this root, and a project's stream mask; None for a root the tree does
+    not walk (the source answers that call itself)."""
+    stream_mask = None
+    if root_ref is None:
+        phases = ["projects"]
+    elif isinstance(root_ref, str) and root_ref.startswith("project:"):
+        phases = ["experiments", "runs", "subprojects"]
+        stream_mask = state.get("streams")
+        if stream_mask is None:
+            # Remember the original selection, since `cursor` becomes our
+            # delivery token and is no longer an initial primary-list cursor.
+            stream_mask = (
+                sum(
+                    1 << i
+                    for i, name in enumerate(phases)
+                    if arguments.get(_CURSOR_PARAMETERS[name])
+                )
+                or 7
+            )
+        if type(stream_mask) is not int or not 1 <= stream_mask <= 7:
+            fail()
+        phases = [name for i, name in enumerate(phases) if stream_mask & (1 << i)]
+    elif isinstance(root_ref, str) and root_ref.startswith("experiment:"):
+        phases = ["runs"]
+    else:
+        return None
+    return phases, stream_mask

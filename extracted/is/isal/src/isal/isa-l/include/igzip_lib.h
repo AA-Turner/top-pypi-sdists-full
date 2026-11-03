@@ -805,6 +805,13 @@ isal_deflate_reset_dict(struct isal_zstream *stream, struct isal_dict *dict_str)
  * not include previous blocks so new blocks are fully independent. Switching
  * between flush types is supported.
  *
+ * A SYNC_FLUSH or FULL_FLUSH always emits the empty stored block (sync marker)
+ * that byte aligns the output, even when avail_in is 0 and the stream is already
+ * byte aligned (internal_state.state == ZSTATE_NEW_HDR). This differs from zlib,
+ * which treats such a redundant flush as a no-op (Z_BUF_ERROR, no output bytes).
+ * Callers that perform precautionary or double flushes should account for these
+ * extra sync bytes, or skip the call when no input is pending.
+ *
  * If a compression dictionary is required, the dictionary can be set calling
  * isal_deflate_set_dictionary before calling isal_deflate.
  *
@@ -837,6 +844,15 @@ isal_deflate(struct isal_zstream *stream);
  * For stateless the flush types NO_FLUSH and FULL_FLUSH are supported.
  * FULL_FLUSH will byte align the output deflate block so additional blocks can
  * be easily appended.
+ *
+ * To produce a complete, self-terminating deflate stream (one whose final block
+ * has the BFINAL bit set), end_of_stream must be non-zero. With NO_FLUSH,
+ * end_of_stream is forced on automatically; with FULL_FLUSH it is not, so a
+ * FULL_FLUSH call with end_of_stream set to 0 emits a non-final block by design.
+ * Decompressing such an unterminated stream with isal_inflate_stateless()
+ * returns ISAL_END_INPUT once all input is consumed, even though the data was
+ * decoded correctly. Set end_of_stream to non-zero on the last (or only) call to
+ * mark the end of the stream.
  *
  * If the gzip_flag is set to IGZIP_GZIP, a generic gzip header and the gzip
  * trailer are written around the deflate compressed data. If gzip_flag is set
@@ -986,9 +1002,15 @@ isal_inflate(struct inflate_state *state);
  * avail_out must be large enough to fit the entire decompressed
  * output. Dictionaries are not supported.
  *
+ * ISAL_END_INPUT is returned when the input ends before a final deflate block
+ * (one with the BFINAL bit set) is reached. This happens, for example, when
+ * decompressing output produced by isal_deflate_stateless() with FULL_FLUSH and
+ * end_of_stream left at 0: the data is decoded correctly but the stream is not
+ * terminated. See isal_deflate_stateless() for how to emit a final block.
+ *
  * @param  state Structure holding state information on the compression streams.
  * @return ISAL_DECOMP_OK (if everything is ok),
- *         ISAL_END_INPUT (if all input was decompressed),
+ *         ISAL_END_INPUT (if input ended before a final deflate block),
  *         ISAL_NEED_DICT,
  *         ISAL_OUT_OVERFLOW (if output buffer ran out of space),
  *         ISAL_INVALID_BLOCK,

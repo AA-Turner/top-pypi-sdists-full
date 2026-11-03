@@ -113,7 +113,7 @@ class Diagnostics(APIResource):
 
     Args:
       options: Evaluation settings, as for createEvalRun, such as reasoning_effort and
-        max_output_tokens_per_step; the diagnostic sets its own sample counts.
+        max_output_tokens_per_turn; the diagnostic sets its own sample counts.
 
       extra_headers: Send extra headers
 
@@ -184,7 +184,7 @@ class Diagnostics(APIResource):
 
     Args:
       options: Evaluation settings, as for createEvalRun, such as reasoning_effort and
-        max_output_tokens_per_step; the diagnostic sets its own sample counts.
+        max_output_tokens_per_turn; the diagnostic sets its own sample counts.
 
       extra_headers: Send extra headers
 

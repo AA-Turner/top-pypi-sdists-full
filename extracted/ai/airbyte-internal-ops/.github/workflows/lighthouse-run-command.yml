@@ -1,14 +1,14 @@
-name: Project Lighthouse Daily
+name: Project Lighthouse Weekdays
 
 on:
   schedule:
-    # Run daily at 14:00 UTC
-    - cron: "0 14 * * *"
+    # Weekdays at 14:00 UTC; Monday's run also covers Friday through Sunday fire dates.
+    - cron: "0 14 * * 1-5"
       timezone: "Etc/UTC"
   workflow_dispatch:
     inputs:
       run_date:
-        description: "Run date. UTC fire date in YYYY-MM-DD format (defaults to yesterday)."
+        description: "Run date. UTC fire date in YYYY-MM-DD format (defaults to yesterday; on Mondays, Friday through Sunday)."
         required: false
         type: string
       dry_run:
@@ -54,7 +54,8 @@ jobs:
           source="main"
           is_pr="false"
           live="false"
-          run_date="$(date -u -d yesterday +%F)"
+          run_date=""
+          date_args=""
 
           [[ -n "$LIGHTHOUSE_PR" ]] && ! [[ "$LIGHTHOUSE_PR" =~ ^[1-9][0-9]*$ ]] && echo "::error::Invalid PR number." && exit 1
           [[ -n "$LIGHTHOUSE_COMMENT_ID" ]] && [[ -z "$LIGHTHOUSE_PR" ]] && echo "::error::Comment ID requires a PR number." && exit 1
@@ -62,6 +63,7 @@ jobs:
 
           if [[ -n "$INPUT_RUN_DATE" ]]; then
             run_date="$INPUT_RUN_DATE"
+            date_args="--date $INPUT_RUN_DATE"
           fi
 
           if [[ "$GITHUB_EVENT_NAME" == "schedule" && "$LIVE_VAR" == "true" ]] || \
@@ -90,6 +92,7 @@ jobs:
             printf "live=%s\n" "$live"
             printf "live_flag=%s\n" "$live_flag"
             printf "run_date=%s\n" "$run_date"
+            printf "date_args=%s\n" "$date_args"
           } | tee -a "$GITHUB_OUTPUT"
 
       - name: Append comment with Lighthouse job link
@@ -159,13 +162,17 @@ jobs:
             printf '%s\n' "$prod_db_delimiter"
           } >> "$GITHUB_ENV"
 
-      - name: 'Run Lighthouse Command: `airbyte-ops lighthouse run --date "${{ steps.resolve-vars.outputs.run_date }}" "${{ steps.resolve-vars.outputs.live_flag }}"`'
+      - name: Run Lighthouse Command (${{ steps.resolve-vars.outputs.run_date || 'default dates' }})
         env:
           ZENDESK_SUBDOMAIN: ${{ secrets.ZENDESK_SUBDOMAIN }}
           ZENDESK_EMAIL: ${{ secrets.ZENDESK_EMAIL }}
           ZENDESK_API_TOKEN: ${{ secrets.ZENDESK_API_TOKEN }}
           SLACK_HYDRA_BOT_TOKEN: ${{ secrets.SLACK_HYDRA_BOT_TOKEN }}
-        run: uv run airbyte-ops lighthouse run --date "${{ steps.resolve-vars.outputs.run_date }}" "${{ steps.resolve-vars.outputs.live_flag }}"
+          LIGHTHOUSE_DATE_ARGS: ${{ steps.resolve-vars.outputs.date_args }}
+          LIGHTHOUSE_LIVE_FLAG: ${{ steps.resolve-vars.outputs.live_flag }}
+        run: |
+          read -r -a date_args <<< "$LIGHTHOUSE_DATE_ARGS"
+          uv run airbyte-ops lighthouse run "${date_args[@]}" "$LIGHTHOUSE_LIVE_FLAG"
 
       - name: Upload Lighthouse plan
         if: always()

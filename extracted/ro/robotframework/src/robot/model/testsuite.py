@@ -238,8 +238,9 @@ class TestSuite(ModelObject, Generic[KW, TC]):
         if self.rpa is None:
             rpa = name = None
             for suite in self.suites:
-                suite.validate_execution_mode()
-                if rpa is None:
+                if suite.validate_execution_mode() is None:
+                    continue
+                elif rpa is None:
                     rpa = suite.rpa
                     name = suite.full_name
                 elif rpa is not suite.rpa:

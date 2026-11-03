@@ -7,7 +7,7 @@
 //! Cached build dependencies are exposed through the same `/simple/*` and
 //! `/files/*` routes as scenario packages.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -18,14 +18,17 @@ use wiremock::{
     matchers::{header_exists, method, path},
 };
 
-use uv_distribution_filename::WheelFilename;
+use uv_distribution_filename::{VariantLabel, WheelFilename};
+use uv_distribution_types::{PEP_825_SCHEMA, PEP_850_SCHEMA};
 use uv_normalize::PackageName;
-use uv_pep440::VersionSpecifiers;
+use uv_pep440::{Version, VersionSpecifiers};
 
 use crate::http_server::{HttpServer, content_type_for_filename};
 use crate::vendor::{VendorArtifact, vendor_artifacts};
 
-use super::scenario::{ArtifactMetadata, PackageMetadata, Scenario, WheelTag};
+use super::scenario::{
+    ArtifactMetadata, PackageMetadata, Scenario, VariantWheel, Variants, WheelTag,
+};
 use super::scenarios_dir;
 use super::wheel::{DEFAULT_WHEEL_TAG, WheelBuilder, generate_sdist, sha256_hex};
 
@@ -35,10 +38,10 @@ const PACKSE_UPLOAD_TIME: &str = "2024-03-24T00:00:00Z";
 struct IndexFile {
     filename: String,
     sha256: String,
-    distribution: DistributionMetadata,
+    distribution: Option<DistributionMetadata>,
 }
 
-/// Distribution-specific fields in the Simple API.
+/// Metadata for a distribution file, omitted for a release's `variants.json` sidecar.
 #[derive(Default)]
 struct DistributionMetadata {
     requires_python: Option<VersionSpecifiers>,
@@ -95,6 +98,12 @@ impl PackseServer {
         Self::from_scenario(&Scenario::empty())
     }
 
+    /// Start a mock server from a Packse scenario given as a TOML string.
+    pub fn from_toml(toml: &str) -> Result<Self, toml::de::Error> {
+        let scenario = toml::from_str(toml)?;
+        Ok(Self::from_scenario(&scenario))
+    }
+
     /// Start a mock server for the given scenario.
     pub fn from_scenario(scenario: &Scenario) -> Self {
         Self::start(scenario, true)
@@ -119,6 +128,11 @@ impl PackseServer {
     /// The Simple API index URL (e.g., `http://127.0.0.1:PORT/simple/`).
     pub fn index_url(&self) -> String {
         format!("{}/simple/", self.server.url())
+    }
+
+    /// The Simple API index URL for testing relative distribution links.
+    pub fn relative_index_url(&self) -> String {
+        format!("{}/relative/simple/", self.server.url())
     }
 
     /// Return the URL for a generated distribution file.
@@ -146,20 +160,7 @@ impl ServerIndex {
             index.packages.insert(package_name.clone(), Vec::new());
 
             for (version, meta) in &package.versions {
-                if let Some(wheel_metadata) = &meta.wheel {
-                    let wheel = WheelBuilder::new(package_name, version)
-                        .requires(&meta.requires)
-                        .extras(&meta.extras)
-                        .requires_python(meta.requires_python.as_ref())
-                        .entry_points(&meta.entry_points);
-                    for tag in wheel_tags(&meta.wheel_tags) {
-                        index.register_generated(
-                            package_name,
-                            wheel.tag(tag).build(),
-                            (meta, wheel_metadata),
-                        );
-                    }
-                }
+                index.register_wheels(package_name, version, meta);
 
                 if let Some(sdist_metadata) = &meta.sdist {
                     index.register_generated(
@@ -172,7 +173,7 @@ impl ServerIndex {
                             meta.requires_python.as_ref(),
                             &meta.entry_points,
                         ),
-                        (meta, sdist_metadata),
+                        Some((meta, sdist_metadata)),
                     );
                 }
             }
@@ -194,7 +195,7 @@ impl ServerIndex {
                 IndexFile {
                     filename: artifact.filename.to_string(),
                     sha256: artifact.sha256.to_string(),
-                    distribution: DistributionMetadata::default(),
+                    distribution: Some(DistributionMetadata::default()),
                 },
                 FileData::Vendor(artifact),
             );
@@ -203,23 +204,76 @@ impl ServerIndex {
         index
     }
 
+    /// Register the wheels and variant metadata for a package version.
+    fn register_wheels(
+        &mut self,
+        package_name: &PackageName,
+        version: &Version,
+        meta: &PackageMetadata,
+    ) {
+        let wheel = WheelBuilder::new(package_name, version)
+            .requires(&meta.requires)
+            .extras(&meta.extras)
+            .requires_python(meta.requires_python.as_ref())
+            .entry_points(&meta.entry_points);
+        if let Some(wheel_metadata) = &meta.wheel {
+            for tag in wheel_tags(&meta.wheel_tags) {
+                self.register_generated(
+                    package_name,
+                    wheel.tag(tag).build(),
+                    Some((meta, wheel_metadata)),
+                );
+            }
+        }
+
+        let Some(variants) = &meta.variants else {
+            return;
+        };
+        let default_artifact = ArtifactMetadata::default();
+        let artifact = meta.wheel.as_ref().unwrap_or(&default_artifact);
+        for (label, variant) in &variants.wheels {
+            let metadata = variant_metadata(variants, [(label, variant)]);
+            let wheel = wheel.variant(label, &metadata);
+            let tags = if variant.wheel_tags.is_empty() {
+                &meta.wheel_tags
+            } else {
+                &variant.wheel_tags
+            };
+            for tag in wheel_tags(tags) {
+                self.register_generated(
+                    package_name,
+                    wheel.tag(tag).build(),
+                    Some((meta, artifact)),
+                );
+            }
+        }
+
+        let filename = format!(
+            "{}-{version}-variants.json",
+            package_name.as_dist_info_name()
+        );
+        let metadata = variant_metadata(variants, &variants.wheels).into_bytes();
+        self.register_generated(package_name, (filename, metadata), None);
+    }
+
     fn register_generated(
         &mut self,
         package_name: &PackageName,
         (filename, bytes): (String, Vec<u8>),
-        (package, artifact): (&PackageMetadata, &ArtifactMetadata),
+        distribution: Option<(&PackageMetadata, &ArtifactMetadata)>,
     ) {
         let sha256 = sha256_hex(&bytes);
+        let distribution = distribution.map(|(package, artifact)| DistributionMetadata {
+            requires_python: package.requires_python.clone(),
+            upload_time: artifact.upload_time.clone(),
+            yanked: package.yanked,
+        });
         self.register_file(
             package_name.clone(),
             IndexFile {
                 filename,
                 sha256,
-                distribution: DistributionMetadata {
-                    requires_python: package.requires_python.clone(),
-                    upload_time: artifact.upload_time.clone(),
-                    yanked: package.yanked,
-                },
+                distribution,
             },
             FileData::Bytes(bytes.into()),
         );
@@ -238,6 +292,32 @@ fn wheel_tags(tags: &[WheelTag]) -> impl Iterator<Item = &str> {
         .chain(tags.is_empty().then_some(DEFAULT_WHEEL_TAG))
 }
 
+fn variant_metadata<'a>(
+    variants: &Variants,
+    wheels: impl IntoIterator<Item = (&'a VariantLabel, &'a VariantWheel)>,
+) -> String {
+    let properties = wheels
+        .into_iter()
+        .map(|(label, wheel)| (label, &wheel.properties))
+        .collect::<BTreeMap<_, _>>();
+    // TODO(konsti): Use one schema for fixtures with and without providers once the variant
+    // metadata format is finalized.
+    let schema = if variants.providers.is_some() {
+        PEP_850_SCHEMA
+    } else {
+        PEP_825_SCHEMA
+    };
+    let mut metadata = json!({
+        "$schema": schema,
+        "default-priorities": { "namespace": variants.namespaces },
+        "variants": properties,
+    });
+    if let Some(providers) = &variants.providers {
+        metadata["providers"] = json!(providers);
+    }
+    metadata.to_string()
+}
+
 fn handle_request(
     req: &Request,
     server_uri: &str,
@@ -245,6 +325,12 @@ fn handle_request(
     hashes: bool,
 ) -> ResponseTemplate {
     let path = req.url.path();
+    // Resolve artifact links under `/relative/files/` from either spelling of the package URL.
+    let (path, artifact_root) = match path.strip_prefix("/relative") {
+        Some(path) if path.ends_with('/') => (path, "../.."),
+        Some(path) => (path, ".."),
+        None => (path, server_uri),
+    };
 
     if let Some(pkg) = extract_package_name(path) {
         let Ok(package_name) = PackageName::from_str(pkg) else {
@@ -252,7 +338,7 @@ fn handle_request(
         };
 
         if let Some(entry) = index.packages.get(&package_name) {
-            return build_simple_api_response(pkg, entry, server_uri, hashes);
+            return build_simple_api_response(pkg, entry, artifact_root, hashes);
         }
         return ResponseTemplate::new(404);
     }
@@ -370,28 +456,35 @@ fn parse_byte_range(range: &str, length: usize) -> Option<(usize, usize)> {
 fn build_simple_api_response(
     package_name: &str,
     entry: &[IndexFile],
-    server_uri: &str,
+    artifact_root: &str,
     hashes: bool,
 ) -> ResponseTemplate {
     let files: Vec<serde_json::Value> = entry
         .iter()
         .map(|file| {
-            let url = format!("{server_uri}/files/{}", file.filename);
+            let url = format!("{artifact_root}/files/{}", file.filename);
             let mut file_obj = json!({
                 "filename": file.filename,
                 "url": url,
                 "hashes": {},
-                "upload-time": file.distribution.upload_time.as_deref()
-                    .unwrap_or(PACKSE_UPLOAD_TIME),
             });
             if hashes {
                 file_obj["hashes"] = json!({ "sha256": file.sha256 });
             }
-            if let Some(requires_python) = &file.distribution.requires_python {
-                file_obj["requires-python"] = json!(requires_python);
-            }
-            if file.distribution.yanked {
-                file_obj["yanked"] = json!(true);
+            // `variants.json` is listed alongside distributions without these attributes.
+            if let Some(distribution) = &file.distribution {
+                file_obj["upload-time"] = json!(
+                    distribution
+                        .upload_time
+                        .as_deref()
+                        .unwrap_or(PACKSE_UPLOAD_TIME)
+                );
+                if let Some(requires_python) = &distribution.requires_python {
+                    file_obj["requires-python"] = json!(requires_python);
+                }
+                if distribution.yanked {
+                    file_obj["yanked"] = json!(true);
+                }
             }
             file_obj
         })
@@ -445,6 +538,23 @@ mod tests {
         assert_eq!(extract_package_name("/simple/foo/bar"), None);
     }
 
+    #[tokio::test]
+    async fn relative_index_emits_relative_file_urls() -> Result<()> {
+        let server = PackseServer::new("simple/single-package.toml");
+        for (package_path, root) in [("a/", "../.."), ("a", "..")] {
+            let page: serde_json::Value =
+                reqwest::get(format!("{}{package_path}", server.relative_index_url()))
+                    .await?
+                    .json()
+                    .await?;
+            assert_eq!(
+                page["files"][0]["url"],
+                format!("{root}/files/a-1.0.0-py3-none-any.whl")
+            );
+        }
+        Ok(())
+    }
+
     #[test]
     fn server_index_construction_does_not_load_vendor_artifacts() {
         let _index = ServerIndex::new(&Scenario::empty());
@@ -458,7 +568,7 @@ mod tests {
 
     #[tokio::test]
     async fn serves_artifact_upload_times() -> Result<()> {
-        let scenario = toml::from_str::<Scenario>(
+        let server = PackseServer::from_toml(
             r#"
 name = "artifact-upload-times"
 
@@ -481,7 +591,6 @@ wheel = {}
 wheel = false
 "#,
         )?;
-        let server = PackseServer::from_scenario(&scenario);
 
         let a: serde_json::Value = reqwest::get(format!("{}a/", server.index_url()))
             .await?
@@ -519,7 +628,7 @@ wheel = false
 
     #[tokio::test]
     async fn file_requests_support_byte_ranges() -> Result<()> {
-        let scenario = toml::from_str::<Scenario>(
+        let server = PackseServer::from_toml(
             r#"
 name = "range-requests"
 
@@ -533,7 +642,6 @@ satisfiable = true
 sdist = false
 "#,
         )?;
-        let server = PackseServer::from_scenario(&scenario);
         let url = server.file_url("a-1.0.0-py3-none-any.whl");
         let client = reqwest::Client::new();
 

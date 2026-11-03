@@ -19,7 +19,7 @@ from typing import Any
 
 import httpx
 
-from seq import columns
+from seq import columns, safe_path
 from seq._account import auth_headers, credential
 from seq._gateway import DEFAULT_BASE_URL
 from seq.errors import raise_for, unreachable
@@ -62,12 +62,13 @@ def _call(method: str, path: str, base_url: str | None, body: dict | None = None
 
 def _unpack(data: bytes, dest: pathlib.Path) -> list[str]:
     """The download's files written under `dest`, its top folder (`<name>-v<n>/`) left out: files and folders only, and
-    none whose path would land outside `dest`. Returns their paths."""
+    none whose path would land outside `dest` - on Windows too, where "\\" separates and "C:" names a drive
+    (safe_path). Returns their paths."""
     out = []
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
         for member in tf.getmembers():
-            parts = pathlib.PurePosixPath(member.name).parts[1:]
-            if not parts or ".." in parts or member.name.startswith("/") or not (member.isfile() or member.isdir()):
+            parts = (safe_path.parts_of(member.name) or [])[1:]
+            if not parts or not (member.isfile() or member.isdir()):
                 continue
             target = dest.joinpath(*parts)
             if member.isdir():
@@ -210,28 +211,6 @@ def error_line(error: Any, stage: str | None = None, width: int = 100) -> str:
     return first.removesuffix(":").rstrip()[:width]
 
 
-def copy_line(row: dict | None) -> str | None:
-    """A version's own copy in its owner's storage - its base and everything its build added, kept so the version can
-    be built again exactly as it is: its size when whole, what is missing when not; None for a version made before the
-    platform kept copies, or an official template's (the platform keeps those). While the copy is being made - after
-    the version is ready - which attempt it is, and what the ones before it stopped at."""
-    got = row or {}
-    if got.get("dependencies_state") == "copying":
-        attempt = got.get("copy_attempt") or 1
-        before = "; ".join(str(m) for m in got.get("copy_tried") or [])
-        return ("being frozen: kept in your storage as its version dependencies"
-                + (f", attempt {attempt}: the one before stopped at {before}" if attempt > 1 and before else
-                   f", attempt {attempt}" if attempt > 1 else ""))
-    if got.get("self_contained") is True:
-        size = got.get("dependencies_bytes")
-        return ("frozen: kept whole in your storage" + (f", {int(size) / 1e9:.1f} GB" if isinstance(size, (int, float))
-                                                         else "") + " (its version dependencies)")
-    if got.get("self_contained") is False:
-        missing = "; ".join(str(m) for m in got.get("not_self_contained") or []) or "not all of it could be kept"
-        return f"not fully frozen: {missing}"
-    return None
-
-
 def versions(name: str, base_url: str | None = None, echo=print) -> dict:
     """`seq policy versions <name>`: a deployment's versions, newest first - building, serving, every earlier one kept until
     it is deleted, one on its way out ("deleting") - each
@@ -278,8 +257,6 @@ def versions(name: str, base_url: str | None = None, echo=print) -> dict:
             echo(f"{'':{lead}}  ↳ failed in its {b['failed_stage']} step" + (f": {first}" if first else ""))
         elif r.get("error"):
             echo(f"{'':{lead}}  ↳ {error_line(r['error'])}")
-        if copy := copy_line(r):
-            echo(f"{'':{lead}}  ↳ {copy}")
 
     listed = {r["version"] for r in rows}
     older = [b for b in built if b.get("version") not in listed]
@@ -302,10 +279,6 @@ def versions(name: str, base_url: str | None = None, echo=print) -> dict:
                      + f"; replaced by v{b['replaced_by']}")
     if any(r["state"] == "kept" for r in rows):
         echo(f"go back to one with `seq policy rollback {name}@v<ver>` (no rebuild)")
-    from seq.freeze import footer
-
-    if said := footer("policy", name, rows):
-        echo(said)
     if built:
         echo(f"a build's steps: seq policy logs {name}@v<ver> --build")
     serving_row = next((r for r in rows if r["state"] == "serving"), None)
@@ -525,11 +498,6 @@ def _deletion_said(plan: dict, *, force: bool = False) -> list[str]:
     if plan.get("dataset"):
         out.append(f"keep its captured data as the dataset {plan['dataset']}: it is never deleted with the policy, "
                    "and is billed as storage until you delete it with seq volume rm")
-    from seq import deps_cost
-
-    copies = deps_cost.delete_line(plan.get("dependencies"))
-    if copies:
-        out.append(copies)
 
 
     evals = plan.get("evals")
@@ -553,6 +521,9 @@ def promote(name: str, *, base_url: str | None = None, echo=None) -> dict:
     """Make the dev policy `name` a production one, taking one of the account's production policies; run with a
     production key, which reaches production policies alone. Nothing printed unless asked (`echo`), as a CI step runs
     it.
+    The policy itself becomes production, not a copy of it: to keep one in dev, fork it first (`fork`, which copies its
+    code, settings and weights).
+
     A planner is promoted as a policy is, from its members up, and keeps the keys it holds (the answer's `kind`); a
     policy a dev planner names is promoted with the platform's warning that the planner plans for it no more until it
     is promoted too (the answer's `warnings`)."""

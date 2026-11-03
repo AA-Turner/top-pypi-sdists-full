@@ -76,6 +76,17 @@ def wait_steps(valid_len: Any, replan_at: Any) -> Optional[int]:
     return max(0, valid_len - (replan_at if whole(replan_at) else valid_len))
 
 
+def wait_said(said: Any) -> str:
+    """What follows a batching policy's seats of its max_wait_for_batch, as the gateway says it beside them (a deploy's
+    summary, the fleet): each robot's wait where it is set, that it is not where it is not; "" for one that does not
+    batch, which says nothing of it."""
+    if not isinstance(said, dict) or "max_wait_for_batch" not in said:
+        return ""
+    wait = said["max_wait_for_batch"]
+    return (f", each waiting up to {wait:g} s for an answer (max_wait_for_batch)" if wait
+            else "; max_wait_for_batch not set")
+
+
 def duration(seconds: float) -> str:
     """How long a robot waited, as the platform says it: 600 -> "10 min", 90 -> "90 s"."""
     s = int(round(float(seconds)))
@@ -121,9 +132,15 @@ def explain(details: Optional[Mapping[str, Any]], *, retry_after_s: Optional[flo
 
         gpu, waited = d.get("gpu") or "this card", d.get("waited_s")
         where = f" in {d['region']}" if isinstance(d.get("region"), str) and d["region"] else ""
+        if queued:
+
+            most = d.get("queue_timeout_s")
+            up_to = f", for up to {duration(most)}" if isinstance(most, (int, float)) else ""
+            return (f"No {gpu} is available{where} right now; {in_line} for one{up_to}, and nothing is billed while "
+                    "you wait.")
         if not isinstance(waited, (int, float)):
             return f"{gpu} is out of stock{where} right now; try again {_when(retry_after_s)}."
-        return f"No {gpu} came free{where} in the {duration(waited)} this robot waited; try again in a minute."
+        return f"No {gpu} became available{where} in the {duration(waited)} this robot waited; try again in a minute."
     if reason == "deployment_full":
         cap = f"max_gpus={count(d.get('max_gpus'))}"
         return (f"This deployment already holds its {cap} GPUs and every slot is taken; "

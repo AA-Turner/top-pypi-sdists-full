@@ -3,15 +3,18 @@ from __future__ import annotations
 from logging import getLogger
 from typing import TYPE_CHECKING
 
+from airflow import __version__ as airflow_version
 from airflow.policies import hookimpl
 from packaging.version import Version
-
-from cosmos.constants import AIRFLOW_VERSION
 
 if TYPE_CHECKING:
     from airflow.models.taskinstance import TaskInstance
 
 log = getLogger(__name__)
+
+# Airflow imports this module while `import airflow` loads policy plugins, so importing cosmos.constants here
+# (which itself runs `import airflow`) would hit a partially initialised module.
+AIRFLOW_VERSION = Version(airflow_version)
 
 
 def _is_watcher_sensor(task_instance: TaskInstance) -> bool:
@@ -33,7 +36,7 @@ def _is_watcher_sensor(task_instance: TaskInstance) -> bool:
 
 @hookimpl
 def task_instance_mutation_hook(task_instance: TaskInstance) -> None:
-    from cosmos.settings import watcher_dbt_execution_queue
+    from cosmos.settings import watcher_dbt_retry_queue
 
     # In Airflow 3.x the task_instance_mutation_hook try_number starts at None or 0
     # in Airflow 2.x it starts at 1
@@ -42,11 +45,11 @@ def task_instance_mutation_hook(task_instance: TaskInstance) -> None:
     else:
         retry_number = 2
 
-    if watcher_dbt_execution_queue and task_instance.try_number and _is_watcher_sensor(task_instance):
+    if watcher_dbt_retry_queue and task_instance.try_number and _is_watcher_sensor(task_instance):
         if task_instance.try_number >= retry_number:
             log.info(
-                "Setting task %s to use watcher dbt execution queue: %s",
+                "Setting task %s to use watcher dbt retry queue: %s",
                 task_instance.task_id,
-                watcher_dbt_execution_queue,
+                watcher_dbt_retry_queue,
             )
-            task_instance.queue = watcher_dbt_execution_queue
+            task_instance.queue = watcher_dbt_retry_queue

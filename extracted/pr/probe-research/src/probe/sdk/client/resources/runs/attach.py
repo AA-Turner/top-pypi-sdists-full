@@ -172,6 +172,15 @@ class RunAttachMixin:
                 self._no_such(kind, slug, self.list_projects(limit=200).items),
                 maybe_hidden_hint(getattr(self.settings, "workspace_limit", None)),
             )
+        if slug.startswith("id:"):
+            # Only ever the id (a session home's, Codex O1): found wherever it is filed, so
+            # `run()` names a mismatch with `project`; the slug lookups below match slugs.
+            from probe.sdk.client.ids import _is_uuid
+
+            bare = slug[len("id:"):]
+            if not _is_uuid(bare):
+                raise errors.NotFoundError(f"no experiment with id {bare!r}: an id: ref takes a uuid")
+            return self.get_experiment(bare)
         # An experiment: in the named project first (one request), then -- only
         # on a miss -- every project's, so an experiment filed elsewhere comes
         # back for `run()` to name the mismatch ("not in project ...") rather

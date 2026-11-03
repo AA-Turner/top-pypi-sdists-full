@@ -712,10 +712,14 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     self._options = options or CheckpointManagerOptions()
     self._multiprocessing_options = self._options.multiprocessing_options
 
+    # Per-manager namespace for awaitable-signal keys, applied around save
+    # dispatch so that other managers in the same process are unaffected.
+    self._signals_namespace = (
+        self._multiprocessing_options.barrier_sync_key_prefix
+        or future.AwaitableSignalsContract.awaitable_signals_contract_prefix
+    )
     if self._options.enable_per_process_directory_creation:
-      future.AwaitableSignalsContract.awaitable_signals_contract_prefix += (
-          f'_{multihost.process_index()}'
-      )
+      self._signals_namespace += f'_{multihost.process_index()}'
 
     self._save_decision_policy = (
         self._options.save_decision_policy
@@ -922,6 +926,15 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
 
     self._last_save_time = None
     self._wait_for_prev_save_duration = 0.0
+    # Timestamp of the most recently started checkpoint save (step N); used by
+    # `should_save()` to measure `duration_lost_secs` when a preemption save is
+    # skipped.
+    self._latest_checkpoint_time = _INIT_TIME
+    # Timestamp of the checkpoint save preceding the current save (step N-1);
+    # stashed before `self._checkpoints` prunes old steps so
+    # `_finalize_checkpoint()` can compute `duration_saved_secs`.
+    self._prior_checkpoint_time = _INIT_TIME
+    self._last_preemption_skip_logged_step: Optional[int] = None
 
     logging.info(
         '[process=%s][thread=%s] CheckpointManager created,  primary_host=%s,'
@@ -1210,6 +1223,34 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     """Returns True if a preemption sync point has been reached."""
     return utils.reached_preemption(step)
 
+  def _record_preemption_save_skipped(
+      self,
+      step: int,
+      current_time: datetime.datetime,
+      reason: str,
+  ) -> None:
+    """Records telemetry when a checkpoint save is skipped on a preemption step."""
+    if not multihost.is_primary_host(
+        self._multiprocessing_options.primary_host
+    ):
+      return
+    if self._last_preemption_skip_logged_step == step:
+      return
+    self._last_preemption_skip_logged_step = step
+    cc_enabled = int(self._is_continuous_checkpointing_enabled())
+    duration = current_time - self._latest_checkpoint_time
+    jax.monitoring.record_event_duration_secs(
+        '/jax/checkpoint/write/preempt/duration_lost_secs',
+        duration.total_seconds(),
+        reason=reason,
+        continuous_checkpointing_enabled=cc_enabled,
+    )
+    jax.monitoring.record_event(
+        '/jax/checkpoint/write/preempt/save_skipped',
+        reason=reason,
+        continuous_checkpointing_enabled=cc_enabled,
+    )
+
   def should_save(self, step: int) -> bool:
     """Returns True if a checkpoint should be saved for the current step.
 
@@ -1221,13 +1262,20 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     Returns:
       True if the checkpoint should be saved.
     """
+    current_time = datetime.datetime.now(tz=datetime.timezone.utc)
     if self._options.read_only:
       logging.warning('%s is read only, save will be skipped', self.directory)
+      if self.reached_preemption(step):
+        self._record_preemption_save_skipped(step, current_time, 'read_only')
       return False
     last_checkpoint_step = self.latest_step()
     # Ensure current step is between the last step and next step (accounting for
     # save interval).
     if last_checkpoint_step is not None and last_checkpoint_step >= step:
+      if self.reached_preemption(step):
+        self._record_preemption_save_skipped(
+            step, current_time, 'step_already_saved'
+        )
       return False
 
     if self._options.enable_should_save_is_saving_in_progress_check:
@@ -1237,7 +1285,7 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     reached_preemption = self.reached_preemption(step)
     current_step_info = checkpoint_info.CheckpointInfo(
         step=step,
-        time=datetime.datetime.now(tz=datetime.timezone.utc),
+        time=current_time,
         metrics=None,
     )
     context = save_decision_policy_lib.DecisionContext(
@@ -1245,9 +1293,18 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
         reached_preemption=reached_preemption,
         multiprocessing_options=self._multiprocessing_options,
     )
-    return self._save_decision_policy.should_save(
+    should_save_result = self._save_decision_policy.should_save(
         current_step_info, previous_steps=self._checkpoints, context=context  # pyrefly: ignore[bad-argument-type]
     )
+    if not should_save_result and reached_preemption:
+      if is_saving_in_progress:
+        skip_reason = 'save_in_progress'
+      elif self._is_continuous_checkpointing_enabled():
+        skip_reason = 'minimum_interval_not_met'
+      else:
+        skip_reason = 'policy_rejected'
+      self._record_preemption_save_skipped(step, current_time, skip_reason)
+    return should_save_result
 
   def _get_save_directory(
       self,
@@ -1456,7 +1513,14 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
               self._is_continuous_checkpointing_enabled()
           ),
       )
-    self.wait_until_finished()
+    in_save_wait_start_time = time.time()
+    self._wait_until_finished()
+    # Only the wait inside this call falls within the blocking save envelope.
+    # `_wait_for_prev_save_duration` also accumulates `wait_until_finished()`
+    # calls made outside of `save()` (e.g. before eval or restore), which are
+    # kept in step statistics but must not be attributed to this save's
+    # blocking phase metrics.
+    in_save_wait_duration_secs = time.time() - in_save_wait_start_time
     step_stats.wait_for_prev_duration_secs = self._wait_for_prev_save_duration
     self._wait_for_prev_save_duration = 0.0
     if (
@@ -1534,37 +1598,37 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     )
     step_stats.checkpointer_blocking_start_time = time.time()
     if isinstance(self._checkpointer, Checkpointer):
-      skip_sync = bool(
-          isinstance(self._checkpointer, AsyncCheckpointer)
-          and self._options.file_options
-          and self._options.file_options.skip_sync_file_validations
-      )
       # `Checkpointer.save()` folds these into its own blocking metrics so that
       # each is recorded once per save and spans the full blocking save.
-      self._checkpointer.save(
-          save_directory,
-          args=args,
-          custom_metadata=custom_metadata,
-          force=not skip_sync,
-          save_context=checkpointer_lib.SaveContext(
-              checkpoint_start_time=(
-                  step_stats.checkpoint_manager_blocking_start_time
-              ),
-              start_sync_duration_secs=cm_start_sync_duration,
-              wait_prev_duration_secs=step_stats.wait_for_prev_duration_secs,
-          ),
-      )
+      with future.signals_namespace(self._signals_namespace):
+        self._checkpointer.save(
+            save_directory,
+            args=args,
+            custom_metadata=custom_metadata,
+            force=True,
+            save_context=checkpointer_lib.SaveContext(
+                checkpoint_start_time=(
+                    step_stats.checkpoint_manager_blocking_start_time
+                ),
+                start_sync_duration_secs=cm_start_sync_duration,
+                wait_prev_duration_secs=in_save_wait_duration_secs,
+            ),
+        )
     else:
-      self._checkpointer.save(
-          save_directory, args=args, custom_metadata=custom_metadata, force=True
-      )
+      with future.signals_namespace(self._signals_namespace):
+        self._checkpointer.save(
+            save_directory,
+            args=args,
+            custom_metadata=custom_metadata,
+            force=True,
+        )
       jax.monitoring.record_event_duration_secs(
           '/jax/orbax/write/checkpoint_start_sync_duration_secs',
           cm_start_sync_duration,
       )
       jax.monitoring.record_event_duration_secs(
           '/jax/orbax/write/blocking_wait_prev_duration_secs',
-          step_stats.wait_for_prev_duration_secs,
+          in_save_wait_duration_secs,
       )
     step_stats.checkpointer_blocking_duration_secs = (
         time.time() - step_stats.checkpointer_blocking_start_time
@@ -1886,11 +1950,10 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
       return checkpoint_infos
 
   def _add_checkpoint_info(self, step: int, metrics: Optional[PyTree]):
-    self._checkpoints.append(
-        CheckpointInfo(
-            step, datetime.datetime.now(tz=datetime.timezone.utc), metrics
-        )
-    )
+    checkpoint_time = datetime.datetime.now(tz=datetime.timezone.utc)
+    self._prior_checkpoint_time = self._latest_checkpoint_time
+    self._latest_checkpoint_time = checkpoint_time
+    self._checkpoints.append(CheckpointInfo(step, checkpoint_time, metrics))
 
   def _root_metadata_file_path(self, legacy: bool = False) -> epath.Path:
     if not self._metadata_dir.exists():
@@ -2061,6 +2124,23 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     If some checkpointers are of type :py:class:`.AsyncCheckpointer`, however,
     this method will wait until each of these checkpointers is finished.
     """
+    self._wait_until_finished_impl(manual=True)
+
+  def _wait_until_finished(self):
+    """Like `wait_until_finished()`, but for internal callers.
+
+    Used by `save()` and `close()` so that their waits are not recorded as
+    manual `wait_until_finished()` calls.
+    """
+    self._wait_until_finished_impl(manual=False)
+
+  def _wait_until_finished_impl(self, *, manual: bool):
+    """Blocks until any incomplete save operations are completed.
+
+    Args:
+      manual: Whether this is an explicit user call to `wait_until_finished()`,
+        as opposed to the automatic wait inside `save()` or `close()`.
+    """
     start_time = time.time()
     process_index = multihost.process_index()
     current_thread = threading.current_thread()
@@ -2122,6 +2202,14 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
             duration,
         )
         self._wait_for_prev_save_duration += duration
+        if manual:
+          # Explicit user call (e.g. before eval or restore), as opposed to the
+          # automatic wait inside `save()` (recorded as
+          # /jax/orbax/write/blocking_wait_prev_duration_secs) or `close()`.
+          jax.monitoring.record_event_duration_secs(
+              '/jax/orbax/write/manual_wait_until_finished_duration_secs',
+              duration,
+          )
 
   def is_saving_in_progress(self) -> bool:
     """Returns whether a checkpoint save is in progress."""
@@ -2171,15 +2259,14 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
       # If another checkpoint has not been previously saved, measures the time
       # since program start.
       if self.reached_preemption(step):
-        if self._checkpoints.size() > 1:
-          previous_time = self._checkpoints[-2].time
-        else:
-          previous_time = _INIT_TIME
         assert not self._checkpoints.empty()
-        duration = self._checkpoints[-1].time - previous_time
+        duration = self._checkpoints[-1].time - self._prior_checkpoint_time
         jax.monitoring.record_event_duration_secs(
             '/jax/checkpoint/write/preempt/duration_saved_secs',
             duration.total_seconds(),
+            continuous_checkpointing_enabled=int(
+                self._is_continuous_checkpointing_enabled()
+            ),
         )
 
   def _finalize(self, step: int, steps_to_remove: List[int]):
@@ -2220,7 +2307,7 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
 
   def close(self):
     """Waits for outstanding operations to finish and closes internal objects."""
-    self.wait_until_finished()
+    self._wait_until_finished()
     self._checkpointer.close()
     # Call after checkpointer.close().
     self._non_blocking_metadata_store.close()

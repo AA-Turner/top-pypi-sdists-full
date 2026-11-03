@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sequence-ai
-Version: 0.55.0
+Version: 0.56.0
 Summary: The inference and benchmark platform for physical AI: deploy a robot policy, run it on your robot, score it.
 Project-URL: Homepage, https://generalsequences.com
 Project-URL: Documentation, https://generalsequences.com/docs/
@@ -27,7 +27,7 @@ Requires-Python: >=3.9
 Requires-Dist: httpx<1,>=0.24
 Requires-Dist: pillow>=10
 Requires-Dist: pydantic>=2; python_version >= '3.10'
-Requires-Dist: sequence-base<0.9,>=0.8.2; python_version >= '3.10'
+Requires-Dist: sequence-base<0.9,>=0.8.3; python_version >= '3.10'
 Provides-Extra: data
 Requires-Dist: av>=17; (python_version >= '3.10') and extra == 'data'
 Requires-Dist: numpy>=1.24; extra == 'data'
@@ -39,7 +39,7 @@ Requires-Dist: numpy>=1.24; extra == 'dev'
 Requires-Dist: pillow>=10; extra == 'dev'
 Requires-Dist: pyarrow>=14; extra == 'dev'
 Requires-Dist: pytest>=7; extra == 'dev'
-Requires-Dist: sequence-base<0.9,>=0.8.2; (python_version >= '3.10') and extra == 'dev'
+Requires-Dist: sequence-base<0.9,>=0.8.3; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: zstandard>=0.22; extra == 'dev'
 Provides-Extra: observe
 Requires-Dist: av>=17; (python_version >= '3.10') and extra == 'observe'
@@ -62,10 +62,13 @@ seq init pi05-droid my-pi05              # an official template: the policy, the
 seq deploy my-pi05                       # the platform builds it and serves it, as your own deployment
 ```
 
-A key starting `seq_dev_` is a dev key: it manages your dev policies and the account, so the CLI and your own code use
-it. A production policy is managed with a production key, `seq_prod_`, and a robot connects with its own robot key,
-`seq_robot_`: made on a policy's Robot keys tab in the console, it drives that one policy and nothing else. A key made
-before these prefixes starts `seq_live_` and works as it did
+A key starting `seq_dev_` is a dev key: it manages your dev policies and reads the account, so the CLI and your own code
+use it; making keys, paying and changing the account take you signed in (`seq login`, once, in your browser; `seq
+login --profile NAME` keeps another sign-in apart, and `seq profile list` shows them). Adding a card and deleting the
+account are done on the console's pages, which `seq billing card` and `seq account delete` open. A production policy is managed
+with a production key, `seq_prod_`, and a robot connects with its own robot key, `seq_robot_`: made on a policy's
+Robot keys tab in the console, it drives that one policy and nothing else. A key made before these prefixes starts
+`seq_live_` and works as it did
 ([the kinds of key](https://generalsequences.com/docs/reference/#keys)).
 
 What changed in each release: [generalsequences.com/docs/changelog](https://generalsequences.com/docs/changelog/).
@@ -265,8 +268,8 @@ that finds every slot taken and no GPU left waits in line — its `act()` waits 
 ## A planner plans for its members
 
 A planner is a deployment of yours that plans for its members - policies, or planners below it - on its own clock or
-when woken. A policy stays the tool a planner calls: each robot connects straight to its own policy, and what a planner
-plans for a robot reaches that robot's episode, `episode.state["seq.plans"]`, where its policy's act function reads it.
+when woken. A policy stays the tool a planner calls: each robot connects through the planner to its own policy, and what
+a planner plans for a robot reaches that robot's episode, `episode.state["seq.plans"]`, where its policy's act function reads it.
 You write a planner as a class with one `@seq.plan` method and deploy it with `seq deploy`, after its members:
 
 ```python
@@ -281,12 +284,12 @@ class SiteAPlanner_user:
 ```
 
 `members=` names what it plans for, each deployed already. Its `plan(self, group)`, plain or async, is handed
-`group.members`: a policy member (`m.kind == "policy"`) has `m.robots`, the robots connected to that policy, each with
+`group.members`: a policy member (`m.kind == "policy"`) has `m.robots`, the robots connected to that policy through this
+planner, each with
 `r.id` and `r.state`, its episode, read only; a planner member (`m.kind == "planner"`) has `m.state`, what that planner
 hands up. What it returns is keyed by `r.id` for a robot - written into that robot's `seq.plans` - or by `m.id` for a
 planner below - written into that planner's `group.state["seq.plans"]`. `wake_on=` names keys whose arrival plans at
-once instead of at the next tick. A planner answers no act: it has no `@seq.infer`, `@seq.observe`, `@seq.reset` or
-`@seq.on_episode`.
+once instead of at the next tick. A planner answers no act: it has no `@seq.infer`, `@seq.observe` or `@seq.on_episode`.
 
 Planners nest - one above names the planners below it as its members:
 
@@ -299,8 +302,10 @@ class BuildingPlanner_user:
         return {m.id: {"goal_user": pick_goal_user(m.state)} for m in group.members}
 ```
 
-A robot does not change: `sequence_ai.connect(model="pick_policy_user")`, `observe(...)`, `act()`. What only a
-planner reads - a site's iPad, an operator, audio - goes to the planner's own observe, into its
+A robot connects through the planner, naming its policy - `sequence_ai.connect("site_a_planner_user",
+policy="pick_policy_user")` - then calls `observe(...)` and `act()` as ever; until the planner's first plan for its
+episode, `act()` raises `WaitingForPlan` (act again after its `.retry_after_s`). A robot connected to its policy alone
+is no planner's. What only a planner reads - a site's iPad, an operator, audio - goes to the planner's own observe, into its
 `group.state["seq.observations"]`, never into a policy:
 
 ```python
@@ -308,7 +313,8 @@ sequence_ai.planner("site_a_planner_user").observe({"say_user": "the red cups fi
 ```
 
 Each planner holds a key for each of its members: `seq planner key add site_a_planner_user --member
-pick_policy_user` prints one, once (`seq.planner_key_add` from a provisioning script); `seq planner key list
+pick_policy_user` issues one - a deployed member's key the platform holds itself, and a device's (`--member
+ipad_site_a_user`) is printed once (`seq.planner_key_add` from a provisioning script); `seq planner key list
 site_a_planner_user` lists them by their last four, and `seq planner key revoke site_a_planner_user <id or last four>`
 stops one. A robot keeps its own robot key to its policy (`seq robot add --policy <name>`).
 
@@ -323,14 +329,14 @@ call from controlling.
 
 ### A worker stays warm for 10 minutes
 
-After its last request a worker stays for its idle timeout, 10 minutes, and every call inside that window is warm.
-The clock restarts on each request, so a loop that calls even once a minute never goes cold. Cross the window with no
-calls and the worker stops; the next connect pays the cold start again.
+After its last act a worker stays for its idle timeout, 10 minutes, and every act inside that window is warm.
+The clock restarts on each act, so a loop that acts even once a minute never goes cold. Cross the window with no
+acts and the worker stops; the next connect pays the cold start again.
 
 ```
 connect ──► cold start ──► warm ◄───────── 10 min idle timeout ─────────► stopped
                              ▲                                              │
-                             └────── any call restarts the window ──────────┘
+                             └────── any act restarts the window ───────────┘
 ```
 
 **Why 10 minutes, and not longer.** A held GPU bills whether or not you call it, and a session
@@ -343,7 +349,7 @@ The practical consequence, if you are running a batch of experiments: **the gap 
 what costs you, not the number of them.** Ten tasks run back to back pay one cold start; the same
 ten with a 20-minute analysis gap between each pay ten.
 
-`wait_until_ready()` reports on a worker and starts a cold one, but it does not hold a running one —
+`wait_until_ready()` starts a cold worker (its connect does), but it does not hold a running one —
 only acting does.
 
 ### Connect first, then drive
@@ -359,9 +365,12 @@ while running:
 
 `wait_until_ready()` needs no observation — a robot should be able to bring its model up before
 it is in position, which is exactly when it has no frame worth sending. The poll is authenticated but
-**not billed**: it touches no GPU. It is also what *starts* the worker, so polling it is the
-thing that brings the model up, not merely a way to watch - and the worker it starts is billed from the moment
-its machine has its GPU, its start included.
+**not billed**: it touches no GPU, and it starts nothing — a poll only looks. While the robot holds nothing
+(no seat, no worker starting for it, no place in line) the answer says `cold`, and `wait_until_ready()` then
+connects: that seats the robot on a running worker with room, or starts a worker for it in the region nearest
+the robot — by where its connect comes from, so behind a VPN, where the VPN exits — or puts it in line, where its
+connect asks for a seat again at the line's pace. A worker started for it is billed from the moment its machine
+has its GPU, its start included.
 
 `ready()` is the non-blocking form, returning `(ready, eta_seconds)` - a `Ready` that, once a worker serves, also
 says the card it runs on: `card` and `usd_per_hour` (one worker's price an hour on it, as billed).
@@ -385,9 +394,9 @@ Connecting to a cold deployment does not stall — it answers 503 at once with t
 is what you see with `startup_timeout_s=0`:
 
 ```python
-policy.observe(observation)
-try:
-    chunk = policy.act()                     # connect(..., startup_timeout_s=0)
+try:                                         # connect(..., startup_timeout_s=0)
+    policy.observe(observation)              # its first observe() raises too: it connects
+    chunk = policy.act()
 except sequence_ai.Unavailable as exc:
     if exc.warming:
         print(f"loading; ready in ~{exc.retry_after_s}s")   # 174
@@ -410,16 +419,17 @@ loop's to handle: an arm whose rows run out while `act()` waits should hold, and
 
 A deployment whose every slot is taken, with no GPU left to start another worker, is waited out the same way: the
 robot is put in line, and `act()` asks again at the pace your key's rate limit allows, printing
-`[sequences] queued for a GPU slot: position 2, about 30s …` (`on_queue=` replaces the line). It gives up after two
+`[sequences] queued for a seat: position 2, about 30s — …` (`on_queue=` replaces the line). It gives up after two
 minutes in line with the reason in one sentence. Closing the policy (`with` does it) gives its slot —
 or its place in line — to the next robot at once.
 
 A slot follows the policy that holds it. While the policy is open, the SDK keeps the slot alive in the background,
 between acts too, so a robot that stops for a minute or two to reset its scene keeps it. It is given back the moment
 the policy closes (`close()`, or the end of a `with`), is garbage-collected, or its process exits or is stopped
-(`SIGTERM`, `SIGHUP`); a process that is killed or loses its network gives it back within 60 s. So is what `ready()`
-gives a robot before its first act — the slot it is told ready with, the worker a poll starts for it, its place in
-line — so a robot that gives up waiting frees them for the robots behind it at once, or within 60 s when it is killed.
+(`SIGTERM`, `SIGHUP`); a process that is killed or loses its network gives it back within 60 s. So is what
+`wait_until_ready()`'s connect gives a robot before its first act — its slot, the worker started for it, its place
+in line — so a robot that gives up waiting frees them for the robots behind it at once, or within 60 s when it is
+killed.
 A robot cut off from the platform for up to about 40 s keeps its slot (up to 60 s when the cut comes just after a
 keepalive, sent every 20 s); one cut off for longer is told on stderr that its slot went, and its next act takes one again or waits in
 line. Ending an episode does not give it back — the same policy acts again — so close the policy when the robot is
@@ -444,8 +454,9 @@ service cancels. `inference_ms` did not move between the two (119 ms against
 111 ms) — every millisecond of the difference was transport. A direct measurement against the
 worker agreed: 181 ms for the same 11.2 kB.
 
-**Send JPEG, not arrays.** A frame as a list of integers is roughly 16x the bytes of the same
-frame as base64 JPEG, and it is the most common way to land on the slow side of that table.
+**Send compressed frames, not raw arrays.** An array goes as its raw bytes - a 224x224 RGB frame is 150 kB, the same
+frame as JPEG 11.6 kB (below) - and it is the most common way to land on the slow side of that table.
+`sequence_ai.Video(frame)` sends a camera's frames as low-latency video (`pip install "sequence-ai[observe]"`).
 
 **Use quality 95. Do not go below 90.** With the sampling noise pinned, on a real DROID frame:
 
@@ -474,13 +485,12 @@ data = sequence_ai.encode(img)
 `mode="pad"` keeps the aspect ratio and pads the rest black (openpi's `resize_with_pad`);
 `"stretch"` fills the box. The filter is one of `nearest`, `box`, `bilinear`, `hamming`, `bicubic`,
 `lanczos`. Neither has a default: they are how the policy was trained, and a frame fitted another way
-differs pixel by pixel. A frame that is not its camera's size is refused on the worker, and the act that reads it
-says so: the frame's size, the size its camera reads, and the `sequence_ai.resize_image(...)` call that fits it.
+differs pixel by pixel. Nothing checks a frame's size on the way: a frame of another size reaches the policy as it is.
 
 Fitted on the robot, a pi0.5 camera's 224x224 frame was 11.6 kB on the wire; the same frame sent at
 640 px and resized on the worker, as `encode()` did until 0.34.12, was 44.9 kB.
 
-**Always JPEG.** Measured in action space against the model's own call-to-call spread, quality 95
+**JPEG, never PNG.** Measured in action space against the model's own call-to-call spread, quality 95
 is indistinguishable from lossless; the cliff is far below, so there is no reason to spend 3-4x the
 payload on PNG — a native 1280x720 frame uploaded whole as PNG is 3.6 MB per view.
 
@@ -493,9 +503,8 @@ from placing the cube in the bowl in 5.3 s to never lifting it at all, with its 
 ## What your deployment reads
 
 Its own inputs: whatever you hand `policy.observe(x)`, sent as it is — a dict of frames, arrays, numbers and strings,
-in the shape the policy reads. Nothing on the robot checks them against a declaration: a policy that cannot read an
-observation answers with its own error. The size of a camera's frames is what the worker checks,
-where the policy declares it ([above](#fit-each-frame-on-the-robot-the-way-the-policy-was-trained)).
+in the shape the policy reads. Nothing checks them against a declaration: a policy that cannot read an
+observation answers with its own error.
 
 ## What to do with the rows that come back
 
@@ -657,7 +666,7 @@ seq eval run toy-policy --benchmark toy-benchmark --adapter toy-adapter --dry-ru
 seq eval run toy-policy --benchmark toy-benchmark --adapter toy-adapter
 ```
 
-The same from Python — `seq.deploy(Cls)` does what `seq deploy <file>` does:
+The same from Python — `seq.deploy(Cls)` does what `seq deploy <folder>` does:
 
 ```python
 import seq
@@ -670,7 +679,6 @@ report.metrics["success"].overall   # the share of episodes whose last step said
 report.metrics["success"].per_task  # each task's value with its episode count
 report.cost_usd         # actual dollars, reconciled from real GPU-seconds
 report.dashboard_url    # the eval in the console
-report.videos           # the recordings the platform made, if any
 ```
 
 `--adapter ./toy-adapter/adapter.py:ToyAdapter` registers a local file first. `seq adapter ls` lists your
@@ -684,29 +692,33 @@ lists them, `--benchmark toy-benchmark@v2` runs an eval on a kept one, and `seq 
 one for good. `seq deploy --override` deletes the version evals run once the new one has passed its check; if the new
 one fails, nothing is deleted.
 
-`seq eval status <id>` says an eval's status (queued for GPUs, running, completed, failed or canceled) and `seq eval
-cancel <id>` stops it; `seq eval report <id> [--wait] [--videos DIR] [--csv [-o PATH]]` reads it later - with, under the
-policy's load, what the eval's own measurements say is worth declaring (a `hint:` line), as the console says it in its
-Load's tip; `seq eval ls <policy>` lists a deployment's evals over time, 50 a page (`--limit N`, and `--cursor C` for
-the next page, as the page's last line says — every `ls` pages this way, the same pages as the console).
+`seq eval status <id>` says an eval's status (pending, queued for GPUs, running, completed, failed or canceled) and `seq
+eval cancel <id>` stops it; `seq eval report <id> [--wait] [--csv [-o PATH]] [--records DIR] [--replays DIR]` reads it
+later - with, under the policy's load, what the eval's own measurements say is worth declaring (a `hint:` line), as the
+console says it in its Load's tip; `--records DIR` saves each episode's record, what its policy was sent and answered.
+`seq eval ls <policy>` lists a deployment's evals over time, 50 a page (`--limit N`, and `--cursor C` for the next page,
+as the page's last line says — the lists of policies, benchmarks, adapters, evals (an adapter's come whole, its newest
+200) and volumes page this way, the same pages as the console).
 
 **You lay the eval out; the platform never picks the numbers.** The policy runs on its own machines
-(`--policy-machines`, on the deployment's cards unless `--policy-gpu` names one) and the benchmark on its own GPU
+(`--policy-machines`, on the deployment's own card) and the benchmark on its own GPU
 machines (`--benchmark-machines`, each on the benchmark's card — an L4, RTX-PRO-6000, T4 or A100, or a CPU machine for a
 `gpu="cpu"` benchmark — each building the worlds the eval needs); unset, each is one machine. `--spend-cap USD` is the
 eval's spend cap, and
 `--param eval.max_seconds=N` an episode's time limit on the robot's clock. Every card counts against your account's
 limit: past it the eval is refused, and while your
-cards are busy the whole eval waits for them (up to 10 minutes, then it is canceled; nothing is held or billed while
+cards are busy the whole eval waits for them (up to 10 minutes, then it fails with stop reason `queue_timeout`;
+nothing is held or billed while
 it waits, and `seq eval status <id>` shows the wait) — never a silently smaller layout. `--dry-run` shows the layout,
-the cards against your account (what serving and evals hold, what is free, how many short and why) and the estimate.
+the cards against your account (what serving and evals hold, what is available, how many short and why) and the estimate.
 `--sweep` adds arms to the same eval, run side by side on the same episodes. If the policy cannot
 read what the benchmark sends, it raises on its first act and the eval stops there (stop reason `refused`, in the
 policy's own words, billed only for what ran) rather than handing you a silently-wrong score.
 
 **The full reference — a benchmark's tasks, seeds and time limit, its constructor (`init=`) and its `@seq.reset` /
 `@seq.step` (a vectorized one's `@seq.concurrent(sizes=[N])`), `assets=` and the 3D replay, an adapter's two functions, billing,
-composite (VLM) evals, and every `seq.eval` parameter — is in [`eval.md`](eval.md).**
+composite (VLM) evals, and every `seq.eval` parameter — is in `eval.md`, installed with the package as
+`seq/eval.md`.**
 
 ## Safety
 
@@ -762,12 +774,12 @@ Every error the platform sends has one shape — `detail`, `code`, `retryable`, 
 |---|---|---|---|
 | `InvalidRequest` | `invalid_request`, `payload_too_large` | fix the request; it fails the same way every time | 2 |
 | `AuthError` | `unauthenticated` | the key is missing, revoked or expired | 3 |
-| `PermissionDenied` | `forbidden` | this key may not do that — a robot key used for chat, a key bound to another deployment | 3 |
-| `OutOfCredit` | `insufficient_credit`, `budget_exhausted` | stop and hold; top up, or raise the deployment's budget | 6 |
+| `PermissionDenied` | `forbidden` | this key may not do that — a robot key calling a model its policy does not declare, a key bound to another deployment | 3 |
+| `OutOfCredit` | `insufficient_credit`, `budget_exhausted` | stop and hold: this month's monthly limit is reached (it resets on the 1st), or usage past the monthly credit needs a payment method (add one on the console's Billing page); or raise the deployment's budget | 6 |
 | `NotFound` | `not_found` | no such name — or not yours, which reads the same | 4 |
 | `Gone` | `gone` | retired on purpose; `.replacement` names what to use instead | 4 |
 | `Conflict` | `conflict` | the state is in the way: a name taken; a deployment building, failed or stopped; a limit reached — your account's GPUs all in use is `details["reason"] == "gpu_limit_reached"`, and the message says what serving and evals hold; deleting a secret a deployment still uses is `details["reason"] == "secret_in_use"` with the deployments in `details["deployments"]` (`seq secret rm --force` deletes anyway) | 5 |
-| `Unavailable` | `busy`, `warming`, `unavailable`, `upstream_error`, `timeout` | worth retrying after `.retry_after_s`; `.warming` means a cold worker and `.queued` a robot in line for a slot — the SDK waits both out on every `act()`, within `startup_timeout_s`; with no GPU free, `details["reason"]` says why (`gpu_busy`, `gpu_low_stock`, `deployment_full`, `queue_timeout`) | 7 |
+| `Unavailable` | `busy`, `warming`, `unavailable`, `upstream_error`, `timeout` | worth retrying after `.retry_after_s`; `.warming` means a cold worker and `.queued` a robot in line for a slot — the SDK waits both out on every `act()`, within `startup_timeout_s`; with no GPU available, `details["reason"]` says why (`gpu_busy`, `gpu_limit_reached`, `gpu_low_stock`, `deployment_full`, `in_line`, `queue_timeout`) | 7 |
 | `PolicyError` | `policy_error` | your policy's own code raised, or broke its declared contract; `.remote_traceback` has its frames. A built-in exception (`ValueError`, …) comes back as itself | 1 |
 | `InternalError` | `internal`, `dependency_missing` | ours: report it with `.request_id` | 1 |
 
@@ -782,7 +794,7 @@ When a deployment misbehaves — some control requests slower than expected, or 
 two read-only commands localize the fault and pull the record for a single request by its id:
 
 ```bash
-seq policy doctor <deployment>              # probe the direct-connect chain segment by segment
+seq policy doctor <deployment>              # its state, capacity, last start and a worker's /ping, segment by segment
 seq policy logs   <deployment>              # structured logs, connect + worker sinks merged, time-ordered
 seq policy logs   <deployment> --rid r-…    # one request: worker phase joined to client timing, attributed
 ```
@@ -794,14 +806,16 @@ timing beside the worker's own.
 
 `seq policy logs <name>` shows your workers' own lines — the model load, every act with its request id and timings,
 every error with its reason — beside one line per connect and the timings your robots' clients reported. `seq policy
-logs <name> --rid r-…` joins one request across all three. Lines are kept seven days. Times print on this machine's
+logs <name> --rid r-…` joins one request across all three. Acts and prints are kept 7 days, refused requests 14, the
+rest 30. Times print on this machine's
 clock with the zone's name (`14:05:09 EDT`, or a `── Mon 2026-10-12 · EDT ──` line above a day's lines); usage and
 bills - `seq usage`, a policy's monthly budget, your plan's credit - go by the billing period, the UTC month, and say
 UTC. `--json` gives the platform's own timestamps. Authorization is enforced server-side against your
 `SEQUENCES_API_KEY`; you only see your own deployments. For the account side, `seq account` (`sequence_ai.account()`)
-shows your balance, usage, limits and GPUs.
+shows what this month has spent under your plan's monthly limit, usage, limits and GPUs.
 
-Full walkthrough, the segment catalog and the redaction guarantee are in [`observability.md`](observability.md).
+Full walkthrough, the segment catalog and the redaction guarantee are in `observability.md`, installed with the package
+as `seq/observability.md`.
 
 ## Authoring & deploying your own policy
 
@@ -818,6 +832,7 @@ machine, the declaration is pure data the gateway builds from.
 import seq
 
 @seq.policy(
+    hz=15,                                     # the steps a second its answers play at: every policy names it
     gpu="L4",                                  # the one card `seq gpus` lists ("H100:2" is two of them), or "cpu";
                                                # a start waits for it and never switches to another
     max_gpus=1,                                # the most cards it holds at once: required on a GPU
@@ -851,8 +866,8 @@ class your repository already has deploys as it is: its constructor is handed wh
 
 `seq deploy [folder]` (this one, `.`, by default) uploads the folder, whole — its helpers, configs and `third_party/`
 with it — and that snapshot is the version's code: nothing of an earlier version is kept. The class it deploys is found
-by reading the folder's files: its one `@seq.policy`, `@seq.benchmark` or `@seq.adapter` class (an adapter beside a
-policy or a benchmark is not the one); of several, `--name` picks one by its name. Its file is then imported here, on
+by reading the folder's files: its one `@seq.policy`, `@seq.planner`, `@seq.benchmark` or `@seq.adapter` class (an
+adapter beside a policy or a benchmark is not the one); of several, `--name` picks one by its name. Its file is then imported here, on
 this machine, as it is on the platform — so what the file imports at its top (`torch` and the like) must be installed
 where you run `seq deploy`, `--dry-run` too: by its path in the folder (`policy/OpenWAM/model.py` →
 `policy.OpenWAM.model`), the folder first on `sys.path` and the class's own folder second, as running its file would,
@@ -888,7 +903,7 @@ write is the build order, one for one.
 | `seq.Image.from_dockerfile("Dockerfile", context=".")` | build from your own Dockerfile; `context` is the directory its `COPY` / `ADD` read, shipped with the deploy |
 | `.apt_install(*pkgs)` | system libraries (`apt-get install`) |
 | `.uv_pip_install(*pkgs)` | Python packages (`uv pip install`) |
-| `.run_commands(*cmds, secrets=[seq.Secret.from_name("gh")])` | arbitrary build commands, run in order; `secrets=` reach these commands alone |
+| `.run_commands(*cmds)` | arbitrary build commands, run in order |
 | `.env({...})` | build-time environment variables (`PORT`, `SEQ_*` and the import path are the platform's) |
 | `.add_local_file("config.yaml", "/root/config.yaml")` | a local file, baked into the image at that path (one in the deploy's folder is the folder's copy) |
 | `.add_local_dir("assets", "/root/assets")` | a local directory, likewise (code-sized: checkpoints go in `weights=`) |
@@ -898,33 +913,35 @@ write is the build order, one for one.
 base already has (it must be 3.11 or later). An official `python:*` base brings its own; a Dockerfile brings its own
 unless you pass `python=`.
 
-A build step that needs a credential — a private git repo, a private package index — declares it on that step:
-`.run_commands("pip install git+https://$GH_TOKEN@github.com/acme/private", secrets=[seq.Secret.from_name("gh")])`.
-Only that step sees `GH_TOKEN`, only while it runs; no image layer and no worker holds it.
+A build step's own credential — for a private git repo or a private package index, `.run_commands(...,
+secrets=[...])` — is not available yet for a policy: a policy's build that declares one fails.
 
 The platform's own runtime packages (an HTTP server, pydantic, numpy, pillow) go in right after the
 base, **before** your steps — so a version you pin (`.uv_pip_install("numpy==1.26.4")`) is the one your
 policy runs with.
 
-`@seq.policy(deps=[...])` is shorthand for a trailing `.uv_pip_install(...)`, so a quick policy needs
-no explicit `image=` at all. Build-time `env` carries ordinary variables only — a credential put there
-is rejected, because the image is not a place for secrets (see below).
+With no `image=`, a policy's image is made from its project's own dependency files. Build-time `env` carries ordinary
+variables only: a `seq.Secret` there is refused, and a
+key typed in as a string would be baked into the image - credentials go in `@seq.policy(secrets=[...])`, handed to the
+policy as it starts (see below).
 
 ### Where it runs, how long it may take, and what the build is doing
 
-- **`gpu="L4"`** is the one card the deployment runs on. A start waits up to 10 minutes for it to come free and never
+- **`gpu="L4"`** is the one card the deployment runs on. A start waits up to 10 minutes for it to become available and never
   switches to another card; past it the robot is told which card and how long it waited. A list runs on its first
   card.
-- Workers run wherever a card is free; a policy does not choose where.
+- Workers start in the region nearest each robot, or in the one `region=` names
+  ([below](#state-across-steps-and-more-than-one-robot-at-a-time)).
 - **`timeouts=seq.Timeouts(startup=900, request=5)`**: a worker that has not loaded within `startup` seconds
   fails (the build check is held to the same), and one inference longer than `request` seconds is answered `504`;
   one still running a `request` later ends its copy, and a fresh copy starts on the same worker (`seq policy logs`
   says `reason=hung`). Defaults: 1800 and 300.
-- **`seq deploy`** shows each phase of the build as it begins — the image, the weights, the worker loading, its
-  snapshot, the `/act` check — with the newest line of the build's log; **`seq policy logs <name> --build`** prints the newest version's
+- **`seq deploy`** shows each phase of the build as it begins — the weights, the machine, the image, the worker
+  loading, the `/act` check — with the newest line of the build's log; **`seq policy logs <name> --build`** prints the newest version's
   phases and its whole log, then or later (`seq policy logs <name>@v3 --build`: version 3's).
-- **`seq secret set <name>`** reaches deployments that declare the secret without a re-deploy: their next workers
-  start with the new value (running ones keep the old one until they are replaced).
+- **`seq secret set <name>`** reaches deployments that declare the secret without a re-deploy: their running workers
+  take the new value in `os.environ` (read it there when you use it, not once at load), and the next ones start with
+  it; a `SEQUENCES_API_KEY` secret reaches the next ones alone.
 - **`models=["qwen3-8-27b"]`** names the platform models the policy calls while it runs (a planner's VLM, a decide
   model). The robot key that drives the deployment may call exactly these on `/v1/chat` and `/v1/decide` — any other
   model is refused `403`, and your key is never needed on the robot or the worker. `seq deploy` refuses a name the
@@ -944,26 +961,27 @@ only its load is checked, and the platform says how to mark one.
 
 A keyword of `@seq.infer` with a default is an inference parameter:
 `def infer(self, obs, *, seed=None, replan_steps: int = 5)` declares `replan_steps`. Its type is the annotation
-(or the default's): `int`, `float`, `bool` or `str`. `seq deploy --dry-run` lists them. Their defaults are the
+(or the default's): `int`, `float`, `bool`, `str` or `list[float]`. `seq deploy --dry-run` lists them. Their defaults are the
 policy's settings, the same for every robot: `seq policy set <name> params.replan_steps=3` sets one at once, with no
 redeploy; `params.replan_steps=` puts it back to the code's default. A robot names none of its own - what differs between robots goes in their observations, `policy.observe(x)`.
 An eval sets one with `seq eval run … --param replan_steps=3` (or
 `--sweep replan_steps=2,5` to compare values). The worker casts each to its declared type and refuses, before
 any inference, a name the policy does not declare (`400 params`). Unset, the default applies. An eval sets an
 adapter's `__init__` keywords and a benchmark's constructor keywords the same way, plus its own
-`eval.max_seconds` — see [Parameters in an eval](eval.md#parameters-in-an-eval).
+`eval.max_seconds` — see "Parameters in an eval" in `seq/eval.md`, installed with the package.
 
 ### State across steps, and more than one robot at a time
 
 - **What a policy keeps of an episode is read from how it is written.** An `@seq.infer` that takes
   `episode: seq.Episode` is handed it: `episode.state` is a dict of its own, empty on the episode's first act and the
-  same object on every act after, dropped by the platform at the episode's end — so keep nothing of an episode on
-  `self`: a copy serves one robot, but an eval plays several episodes in turn on one copy. A class that keeps a
-  robot's state on itself — a KV cache, a frame window — frees it in an `@seq.on_episode`
-  method, `def end(self, episode)` or `def end(self)`, or starts afresh in an `@seq.reset` one, and each episode then
-  holds a copy of its own (with an `@seq.reset` method, which is handed nothing, even beside an `@seq.infer` that
-  takes `episode`); beside `@seq.concurrent` an `@seq.on_episode` method is handed its own episode's, and an
-  `@seq.reset` one is refused, a batch's episodes sharing a copy. Without `@seq.concurrent`, a class with an
+  same object on every act after, saved for the robot's standby copy and with capture - so keep it small;
+  `episode.local`, a dict of its own beside it, is never saved - a frame history, a GPU cache - and starts empty on a
+  standby that takes the episode on; the platform drops both at the episode's end — so keep nothing of an episode on
+  `self`: a copy serves one robot, but an eval plays several episodes in turn on one copy. One `@seq.on_episode`
+  method, `def on_episode(self, episode)`, runs as each episode begins (`episode.phase == "start"`) and as it ends
+  (`"end"`); a policy has no `@seq.reset`. A class that keeps a robot's state on itself — a KV cache, a frame window —
+  starts it afresh there as the episode begins, and each episode then holds a copy of its own; beside
+  `@seq.concurrent` its `@seq.on_episode` is handed its own episode's, a batch's episodes sharing a copy. Without `@seq.concurrent`, a class with an
   `@seq.observe` method keeps an episode's state in `episode.state` when that method and its `@seq.infer` one both
   take `episode`, and on itself, a copy an episode, when either takes none. A robot ends its episode with
   `policy.end_episode()`, and `close()` ends one left open; an episode with no act for 5 minutes (a robot that
@@ -988,8 +1006,17 @@ adapter's `__init__` keywords and a benchmark's constructor keywords the same wa
   `gpu="TYPE:N"`'s N); by default one copy sees every card of its worker and splits them itself. Without more, a copy
   serves one robot at a time.
   `@seq.concurrent(sizes=[1, 2, 4, 8])` on the `@seq.infer` method lists the batch sizes infer is called with - the
-  sizes the model was compiled for - and infer then takes a list and returns a list, one answer each, in the same
-  order; a sample episode (`@seq.sample`) goes beside it. Before a worker says it is ready it times each listed size
+  sizes the model was compiled for - and infer then takes the acts that run together as one batch: the platform
+  stacks their inputs, each array along a new first axis (numbers too; text a list), a first axis that differs
+  padded with `<key>_mask` beside it, (B, L) and True where real, a key not every act sends a list with None where one
+  sent none; each inference parameter is one value, acts that
+  set others going in calls of their own, each padded to a listed size with its last act's inputs and seed (rows
+  no act gets back); `seed` is a list of the batch's rows, `episode` of its acts' own episodes. Infer returns one batch,
+  its arrays a row
+  an act (or a list of answers in order), and each act gets its row. `@seq.concurrent(sizes=[...], collate=False)`
+  hands infer the list instead - every argument a list, one entry an act - for a policy that batches its acts in
+  its own code. A sample episode (`@seq.sample`) goes beside it. Before a worker says it is ready it times each
+  listed size
   on the sample episode, and a copy then seats robots while two things hold. Its latency: the largest size whose batch
   answers within the time its robots can wait for an answer - the steps from `action_chunk_replan_at` to
   `action_chunk_valid_len`, at `hz`. Its load: their batches fill at most 90% of the time between a robot's asks,
@@ -999,10 +1026,16 @@ adapter's `__init__` keywords and a benchmark's constructor keywords the same wa
   robot's is held, within the time its robot has left, so robots whose acts come close together share a batch - no
   robot is told when to send. An earlier replan step gives an act longer to wait and asks more often: a policy its
   load seats one robot a copy seats more with a later one.
-  `seq.collate(obs, buckets=[1, 2, 4, 8])`
-  stacks that list into one batch — each array along a new first axis, a first axis that differs padded with
-  `<key>_mask` beside it, the batch padded to a size the model was compiled for — `seq.uncollate(out, n)` splits the
-  answer back, and `group_by=` keeps requests whose parameters differ apart. A call that raises is run again act by
+  `@seq.policy(max_wait_for_batch=1.7)` lets each robot wait up to that many seconds for an answer, from when it
+  sends its act, so that its act can share a batch: a copy then seats robots by that wait in place of the steps they
+  play while an answer comes - the largest size whose batch answers within it, the robot's round trip and 50 ms to
+  spare included - while their batches fill at most 90% of a robot's time between asks, its replan step after its
+  wait for the answer. A policy that asks at its last valid step, one robot a copy without it, seats as many as answer
+  within the wait: one whose batches of 1, 2, 4 and 8 take 1.09, 1.16, 1.28 and 1.61 s (p95) on an L4 seats 1 robot a
+  copy unset, 2 at 1.3 s, 4 at 1.4 s and 8 at 1.75 s for robots 47 ms from their worker. A robot whose answer is not in
+  hand stops for up to that long; what it does meanwhile is its own code's (`connect(on_stale=)`). Unset, nothing
+  changes.
+  A call that raises - acts whose inputs do not stack among them - is run again act by
   act, so an act gets an error only when it fails on its own. An infer that takes `episode` beside it is handed
   `episode: list[seq.Episode]`, one for each observation in order, and a batch holds at most one act of an episode;
   when such a call raises, only the acts of episodes that had none before on that copy are run again alone, on an
@@ -1011,9 +1044,9 @@ adapter's `__init__` keywords and a benchmark's constructor keywords the same wa
   both acted, and a 15 Hz robot executing 8 steps a chunk ran dry.
 - **More workers, warm workers — limits count GPUs, never workers.** A deployment starts another worker whenever
   every slot is taken, until it reaches **`max_gpus=N`** (the most cards it may hold at once; a GPU deployment must
-  declare it, or deploy with `--max-gpus N`) or your account's GPU limit. A robot that arrives when every slot is taken
-  and no GPU is left waits in line *before* its control loop starts — `connect()` waits it out and prints `queued for
-  a GPU slot: position 2, …` — for up to two minutes. A loop that has started is never interrupted by a robot
+  declare it, and `seq policy set <name> max_gpus=N` changes it) or your account's GPU limit. A robot that arrives when every slot is taken
+  and no GPU is left waits in line *before* its control loop starts — its first `act()` waits it out and prints `queued
+  for a seat: position 2, …` — for up to two minutes. A loop that has started is never interrupted by a robot
   arriving, and closing the policy gives its slot to the next in line at once. `min_workers=1` keeps that many workers
   running with no robot connected (no cold start, billed while they run); `buffer_workers=1` keeps one spare while
   robots are connected; an idle worker stops after 10 minutes. `seq policy set <name> max_gpus=4
@@ -1023,17 +1056,19 @@ adapter's `__init__` keywords and a benchmark's constructor keywords the same wa
   and, under the figure it comes from, what the deployment's own measurements say is worth adding next (a `hint:`
   line), as the console says it in that figure's tip.
 - **Where its machines run — `region=`.** `region="auto"`, the default, starts each robot's worker in the platform's
-  region nearest the robot, and in the next nearest when that one has no card free. `region="us-west"` or
-  `region="us-east"` keeps every worker in that region: a robot waits while it has no card free, and the deployment's
-  status says which region it waits for. The regions are the platform's own, US West and US East. `seq deploy
-  --region us-east` sets it over the decorator's, and `--region auto` back to the default. Benchmarks and evals take
-  none.
+  region nearest the robot, and in the next nearest when that one has no card available. A named region keeps every
+  worker in that region: a robot waits while no card is available there, and the deployment's status says which region
+  it waits for. The regions are the platform's own geographic ones — US East, US Northwest, US Southwest, US Central,
+  US East Central, US Southeast, US Mountain — each a metro, never a provider's region; `seq gpus` lists the ones each card runs in.
+  `seq deploy --region us-east` sets it over the decorator's, and `--region auto` back to the default; a region a card
+  has no machine in is refused at deploy, naming the ones that do. Benchmarks and evals take none.
 
 ### GPUs, limits and what they cost
 
 `seq gpus` lists the cards `gpu=` can name — memory, price per hour and per second, whether a policy and a benchmark
-may use it — and what a CPU core and a GiB of memory cost (`sequence_ai.gpus()` from Python). Your account may hold 8
-GPUs at once, serving and evals together; `seq account` shows how many each holds now, how many are left and which
+may use it — and what a CPU core and a GiB of memory cost (`sequence_ai.gpus()` from Python). Your account may hold as
+many GPUs at once as its plan allows - 8 on Starter, 32 on Team, what is agreed on Custom - serving and evals together;
+`seq account` shows its limit, how many each holds now, how many are left and which
 evals are waiting for GPUs (a count the platform could not read says `unknown`, never full).
 
 **GPU, CPU and memory are billed apart, per second.** A card is billed per card, for at least 60 s each time a
@@ -1047,12 +1082,12 @@ so far), per hour or day in UTC: GPU card-hours, and dollars for the GPU, CPU an
 keeps one deployment's rows and adds what its robots did, `--since` / `--until` name another window, and `--csv`
 prints the rows alone.
 
-When there is no GPU for a request, the error says which of five things happened, in one sentence:
+When a request finds no GPU or no seat, the error says which of six things happened, in one sentence:
 your account's GPUs are in use (with what serving and evals hold), every GPU on the platform is busy, no card of the
-type you declared came free within the start's 10 minutes, the deployment holds its `max_gpus`, or a queued robot
-waited in line past two minutes.
+type you declared became available within the start's 10 minutes, the deployment holds its `max_gpus`, every seat on
+the deployment's workers is taken, or a queued robot waited in line past two minutes.
 `details["reason"]` carries the same as a code (`gpu_limit_reached`, `gpu_busy`, `gpu_low_stock`, `deployment_full`,
-`queue_timeout`).
+`in_line`, `queue_timeout`).
 
 ### One machine per worker
 
@@ -1061,9 +1096,10 @@ A worker runs on one machine, at most 8 cards. A deploy that asks for more is re
 
 ### Weights live on a volume, never in the image
 
-`weights=` is copied once, at deploy, into a volume the platform mounts at `/data` — never baked into an image
-layer (so a multi-GB checkpoint never bloats the build), and every cold start reads that copy. It names one of
-three things:
+`weights=` is copied once, at deploy, before its workers start — never baked into an image layer (so a multi-GB
+checkpoint never bloats the build), and every cold start reads that copy. Your class is handed its directory
+(`"{weights}"` in `init=`), whose place depends on the machine: read it from there, never write the path in. It names
+one of three things:
 
 - **An official template's weights** — `seq.Weights.template("pi05-droid", version=1)` (the string form is
   `"template://pi05-droid@v1"`): the unmodified checkpoint a template ships with, plus what it loads at runtime
@@ -1086,7 +1122,7 @@ three things:
   @seq.policy(weights=seq.Volume.from_name("pi05-ft"), ...)    # or weights="vol://pi05-ft@v2" to pin
   ```
   Every file's md5 is checked when the upload completes; only then does the version become active (and
-  billed as storage). A new `put` of the same name makes the next version.
+  billed as storage). A new `put` of changed files makes the next version; with none changed it makes none.
   `seq volume rm` is refused while a deployment's weights, or a registered benchmark's assets, use the volume.
 
 **Weights from your own storage bucket or an https URL are not supported.** Move the files into a volume once — download them,
@@ -1140,15 +1176,25 @@ KEY=VALUE ...` changes them at once, all of them or none, and says when each tak
 the code says. From Python, `seq.policy_settings(name)` and `seq.policy_set(name, {"min_workers": 1})`. The keys:
 
 - scaling: `max_gpus`, `min_workers`, `buffer_workers`, and warm hours - `schedule.hours="Mon-Fri 08:00-18:00"`,
-  `schedule.min_workers`, `schedule.tz` - taken at once;
+  `schedule.min_workers`, `schedule.tz` - taken at once; the warm hours' workers start before the hours, by the time
+  they take to come up, so they serve as the hours open, and are billed from that start; and `region` - `auto`, each
+  robot's worker in the region nearest it, or one of the platform's regions (`us-east`, `us-east-central`,
+  `us-southeast`, `us-central`, `us-northwest`, `us-southwest`, `us-mountain`), every worker there alone - for the
+  workers placed from then on;
 - `params.<name>=VALUE`: an inference parameter, what every robot runs with - each running worker takes it within a
   minute, for the episodes begun after it (an act carries none);
 - `timeouts.request`, `timeouts.episode_idle`, `plan.every_s` - each running worker takes it within a minute -, and
   `timeouts.startup` for the workers started from then on;
+- `action_chunk_valid_len` and `action_chunk_replan_at`, how its answers play: a robot takes them with its next connect
+  (one that connects then, one already on as its lease renews), each running worker seats and batches its robots by
+  them within a minute, and an eval of it plays by them - its report says whether each was set or is the code's. The
+  step asked at is never past the valid steps: `seq policy set` refuses one that would be;
+- `max_wait_for_batch`, in seconds: how long a robot waits for an answer so that its act can share a batch - a robot
+  takes it with its next connect and each running worker seats and batches its robots by it within a minute; an eval
+  plays as before, its world held still for every answer;
 - `capture=on|off` and `capture.retention_days` ([Field data](#field-data-capture-label-export));
-- `budget.monthly_usd`, and alerts - `alerts.webhook`, `alerts.error_rate`, `alerts.p95_ms`, `alerts.budget_pct`,
-  `alerts.deploy_failed`;
-- `models`, `io`, `family`;
+- `budget.monthly_usd`, and alerts - `alerts.webhook`, `alerts.error_rate`, `alerts.p95_ms`;
+- `models`;
 - the machine - `gpu`, `weights`, `cpu`, `cpu_limit`, `memory`, `memory_limit`, `replica_start`: one of these builds a
   new version from the same image and code, which takes over once its check passes.
 
@@ -1156,27 +1202,26 @@ A setting changed this way stays when you deploy again; `seq deploy` says where 
 
 ### Budget, schedule, alerts, and the price before you deploy
 
-- `seq deploy <folder> --dry-run [--hours-per-day 8] [--robots 1]` prices the policy's card from the platform's list
-  once the platform has checked it: its warm floor around the clock, or the hours a scale-to-zero deployment is in use
-  and each start (`--starts-per-day`), billed from its GPU (a CPU worker's from when it starts), its load included -
-  for `--robots` robots at once, the
-  workers they take, the robots each seats and the spares beside them. Nothing is built.
+- `seq deploy <folder> --dry-run` prices the policy's card from the platform's list once the platform has checked it:
+  a worker's price by the hour while robots use it, its warm floor around the clock, the robots a worker seats and what
+  more robots add. Nothing is built.
 - `seq policy set <name> budget.monthly_usd=100`: when the month's spend reaches it, the deployment stops — workers
   end, connects are refused and say why. To start it again, raise the budget (or clear it, `budget.monthly_usd=`), then
   `seq policy start <name>`; under a budget already reached, `seq policy start` is refused.
 - `seq policy set <name> schedule.hours="Mon-Fri 08:00-18:00" schedule.min_workers=2 schedule.tz=America/Los_Angeles`
   keeps two workers warm in those hours (billed whether or not a robot is connected); `schedule.hours=` removes it.
-- `seq policy set <name> alerts.webhook=https://… alerts.error_rate=0.05 alerts.p95_ms=500 alerts.budget_pct=80` posts
-  JSON to your https endpoint when a version fails to build, the hour's error rate or p95 crosses the threshold, or the
-  budget nears or is reached. Each body is signed: `X-Seq-Signature: sha256=HMAC(secret, body)` with the secret printed
+- `seq policy set <name> alerts.webhook=https://… alerts.error_rate=0.05 alerts.p95_ms=500` posts JSON to your https
+  endpoint when a version fails to build, the hour's error rate or p95 crosses the threshold, or the month's spend
+  reaches 80% and then 100% of `budget.monthly_usd`. Each body is signed: `X-Seq-Signature: sha256=HMAC(secret, body)` with the secret printed
   once.
 
 ### Robot keys, and production
 
 Each robot connects with its own key: `seq robot add --policy <name>` prints a new one, this once (`seq.robot_add(policy=
-name)` returns it, for a robot's provisioning to write); `seq robot list` lists the robots connected now, each by its
-key's id and last four, and `seq robot revoke <id or last four>` stops one. `seq prod promote <name>`, run with a production key, makes a dev policy a
-production one; a dev policy and a production one take the same settings.
+name)` returns it, for a robot's provisioning to write); `seq robot list` lists every robot key, offline ones too, each
+by its id and last four with its connections now, and `seq robot revoke <id or last four>` stops one. `seq prod
+promote <name>`, run with a production key, makes a dev policy a production one; a dev policy and a production one
+take the same settings.
 
 ### Field data: capture, label, export
 
@@ -1213,7 +1258,7 @@ data) - and the dry run prices it; without a key it is the checks here alone, an
 
 ```
 policy      my-pi05
-contract    valid for this SDK's deployment contract 0.5.36 (the platform checks it again when you deploy)
+contract    valid for this SDK's deployment contract 0.5.43 (the platform checks it again when you deploy)
 image       nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04@sha256:131e238d724ee145317f10d6c8eba0d301439c6c8764b02473510e7035756e81
   add               third_party/openpi/src → /opt/openpi/src
   add               third_party/openpi/packages/openpi-client → /opt/openpi/packages/openpi-client
@@ -1222,7 +1267,7 @@ image       nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04@sha256:131e238d724ee14
   env               OPENPI_DATA_HOME=/data/.cache/openpi
 weights     template://pi05-droid@v1
             → copied before its workers start; your class is handed the directory as weights_dir, such as /srv/ckpt/my_pi05: read it from there, never write the path in - where it is depends on the machine its worker runs on
-region      auto: each robot's machine in the region nearest it, else wherever a card is free
+region      auto: each robot's machine in the region nearest it, else wherever a card is available
 code        the folder ./my-pi05, whole: 85 file(s), 1.0 MB (0.31 MB compressed)
             the class it deploys is in policy.py
             .seqignore, CHANGELOG.md, LICENSE, NOTICE, README.md, client.py, frozen.toml, pins-policy.txt, policy.py, requirements-policy.lock, third_party/ (74), upstream.toml
@@ -1232,7 +1277,7 @@ code        the folder ./my-pi05, whole: 85 file(s), 1.0 MB (0.31 MB compressed)
 I/O         the policy's own — the platform hands its functions what its robot sends and returns what they return, unchecked
 episodes    batched (@seq.concurrent): a copy serves several robots' episodes together
 check       plays its sample episode, sample(), call by call
-seats       as many robots a copy as the largest of its batches of 1, 2, 4, 8 and 16 that answers within 0.467 s, the 7 steps a robot plays between asking for an answer and needing it at 15 Hz, as long as their batches fill at most 90% of the 0.533 s between a robot's asks (its 8 steps) - each warmed and timed on its sample episode before it serves
+seats       as many robots a copy as the largest of its batches of 1, 2, 4, 8 and 16 that answers within 0.467 s, the 7 steps a robot plays between asking for an answer and needing it at 15 Hz, as long as their batches fill at most 90% of the 0.533 s between a robot's asks (its 8 steps) - each timed on its sample episode by its build check
 name        'my-pi05' (not checked: the platform could not be asked)
 platform    not checked: the platform could not be asked (no key, or offline); it checks this when you deploy
 
@@ -1269,8 +1314,8 @@ made as - a full key made until 25 October 2026 is a dev key, a robot's made unt
 ## Secrets — bring your own keys (BYOK)
 
 Some policies need a credential you own: a Hugging Face token for private `hf://` weights, or the key of a
-model service of your own that a policy calls itself. A composite policy's planner needs none: by default it
-calls the platform's own models through `/v1/chat`, with a short-lived credential the platform hands the policy,
+model service of your own that a policy calls itself. A planner (`@seq.planner`) needs none: by default it
+calls the platform's own models through `/v1/chat`, with a short-lived credential the platform hands it,
 and each call is billed to your account like any chat call; point it at a service of your own instead and that
 service bills you. You store those keys once, by name, and refer to them from a policy by that name alone — **the key value never goes into your code, your logs, or any
 output.**
@@ -1280,7 +1325,7 @@ canonical bundles are expressible by name alone:
 
 ```bash
 seq secret set hf      --env HF_TOKEN            # private hf:// weights (and your policy's own use)
-seq secret set planner --env PLANNER_API_KEY     # a composite policy's planner on a model service of your own
+seq secret set planner --env PLANNER_API_KEY     # a planner (@seq.planner) on a model service of your own
 ```
 
 ### Values are read from stdin, never the command line
@@ -1323,7 +1368,7 @@ rather than removing it — the new value reaches every worker, and nothing stop
 ```python
 import seq
 
-@seq.policy(gpu="L4", max_gpus=1, secrets=[seq.Secret.from_name("planner")])
+@seq.policy(hz=15, gpu="L4", max_gpus=1, secrets=[seq.Secret.from_name("planner")])
 class MyPolicy(seq.Policy):
     ...
 ```
@@ -1331,8 +1376,9 @@ class MyPolicy(seq.Policy):
 `Secret.from_name` carries the name and nothing else — no value parameter exists, and it does no network I/O.
 `seq deploy` checks at deploy time that the name exists and is yours.
 
-`set`/`ls`/`rm` each require your key (`export SEQUENCES_API_KEY=seq_dev_...`) and are scoped to it: another
-key never sees your secrets. A missing or invalid key fails closed — nothing is stored,
+`set`/`ls`/`rm` each require your dev key (`export SEQUENCES_API_KEY=seq_dev_...`) and are scoped to your account, not
+to the key: every dev key of it lists the same names (never a value), another account's key none. A missing or
+invalid key fails closed — nothing is stored,
 listed, or deleted.
 
 ### One install, two halves
@@ -1349,7 +1395,7 @@ What the platform fixes; everything else is your code's. Each value is what the 
 |---|---|
 | One inference | `timeouts=seq.Timeouts(request=…)`, default 300 s. Past it the call is answered `504`; one still running a timeout later ends its copy, and a fresh copy starts on the same worker (`reason=hung`). |
 | Loading a worker | `timeouts.startup`, default 1800 s. A worker that has not loaded by then fails; the build check is held to the same. |
-| An `/act` request body | 4 GiB. A larger one is answered `413 payload_too_large`. |
+| Observations waiting for an act | An act carries no data: a robot's observations go to its worker ahead of it. A worker holds at most 1,024 observations and 64 MiB of an episode that its policy has not read yet, and 1 GiB across its episodes; past it an observation is answered `413 payload_too_large`. |
 | A management request | 16 MiB; a deploy or a benchmark's registration, which carries its code and its build context, 24 MiB. |
 | The code a deploy uploads | 8 MiB compressed: the folder, whole, and what `seq.Image.add_local_*` names outside it. A source tree over 64 MiB is refused before it is sent; the refusal names the largest paths and how to leave them out (`.seqignore`). Weights never travel with the code — they go in `weights=`. |
 | Robots one worker serves at once | Its seats: one robot per model copy, one copy a card group of `gpus_per_replica` cards (default: all of the worker's); `@seq.concurrent(sizes=[1, 2, 4, 8])` on infer seats more, sharing a copy — as many as the largest listed size whose batch answers within the time its robots can wait for an answer (the steps from `action_chunk_replan_at` to `action_chunk_valid_len`, at `hz`) and whose batches fill at most 90% of the time between a robot's asks (`action_chunk_replan_at` steps at `hz`). A request within a worker's seats is never answered `429`. |
@@ -1360,7 +1406,7 @@ What the platform fixes; everything else is your code's. Each value is what the 
 | Shutdown | Before a worker is removed, the acts in flight finish and every replica runs `@seq.shutdown` — within 30 s. After that the worker is stopped without further notice. |
 | Scale to zero | A worker stops after 10 minutes with no robot acting. `min_workers` (default 0) keeps some warm. |
 | Cards | The platform's price list names them (`GET /v1/pricing`): A100, A100-40GB, B200, H100, L4, RTX-PRO-6000 and T4 as of 2026-11. A benchmark's sims run on L4, RTX-PRO-6000, T4 or A100, or on CPU machines when it says `gpu="cpu"`. An A100 has no RT cores, so Isaac Sim does not run on it: name an L4 or an RTX-PRO-6000 for an Isaac Sim benchmark. |
-| Regions | A deployment's workers start in the region nearest each robot, or in the one its `region=` names (US West or US East). A benchmark's and an eval's machines run wherever a card is free. |
+| Regions | A deployment's workers start in the region nearest each robot, or in the one its `region=` names (one of the platform's own geographic regions; `seq gpus` lists the ones each card runs in). A benchmark's and an eval's machines run wherever a card is available. |
 | Billing | Per second of a worker's life: each card for at least 60 s each time the worker starts, plus its CPU cores and GiB of memory at the greater of the request and actual use (the minimum, 0.125 / 0.125, when undeclared). |
 
 ## Install footprint
@@ -1368,8 +1414,8 @@ What the platform fixes; everything else is your code's. Each value is what the 
 On a robot (Python 3.9), two dependencies: `httpx`, and Pillow, which fits and encodes each camera frame on the robot
 (`resize_image`, `encode`). On Python 3.10+, `seq` adds pydantic and `sequence-base`.
 
-Extras add what some commands need: `data` (pyarrow, for the LeRobot export) and
-`port`, what moving a CPU benchmark to the GPU runs on (`seq port export`, `check-model`, `scaffold`,
+Extras add what some uses need: `data` (pyarrow, for the LeRobot export), `observe` (what `sequence_ai.Video`,
+`Depth` and `Tactile` encode with) and `port`, what moving a CPU benchmark to the GPU runs on (`seq port export`, `check-model`, `scaffold`,
 `compare`): MuJoCo 3.15.0, MuJoCo Warp 3.15.0 and SAPIEN 3.0.3, the versions the full test suite passes on.
 `pip install "sequence-ai[port]"` (Python 3.10+; on Linux aarch64, MuJoCo Warp needs glibc 2.34 or later and SAPIEN,
 which has no wheel there, is left out). A benchmark that runs on another MuJoCo version installs that version instead,
@@ -1380,13 +1426,3 @@ Humble ships Python 3.10. Every transitive dependency is another chance for the 
 fail on the machine that actually matters. Pillow is the one the robot's own work needs: it has
 wheels for every platform a robot runs (Linux aarch64 included), and an environment pinned below
 Pillow 10 is upgraded by the install.
-
-## Running the tests
-
-```bash
-pip install -e ".[dev,port]"
-pytest
-```
-
-Nothing is skipped. Without `port`, the three port test files are skipped whole when they are collected (32 tests),
-and a run that looks complete is not; on Linux aarch64, where SAPIEN does not install, its file is the one skipped.

@@ -4,11 +4,17 @@
 import warnings
 
 import torch
+import torch.nn.functional as F
 from einops.layers.torch import Rearrange
 from torch import Tensor, nn
+from torch.utils.checkpoint import checkpoint
 
-from braindecode.models.base import EEGModuleMixin
-from braindecode.modules import FeedForwardBlock, MultiHeadAttention
+from braindecode.models.base import EEGModuleMixin, _too_short_input_error
+from braindecode.modules import (
+    FeedForwardBlock,
+    MultiHeadAttention,
+    PreNormTransformerBlock,
+)
 
 
 class EEGConformer(EEGModuleMixin, nn.Module):
@@ -176,6 +182,15 @@ class EEGConformer(EEGModuleMixin, nn.Module):
     activation_transfor: nn.Module
         Activation function as parameter, applied at the FeedForwardBlock module
         inside the transformer. Default is nn.GeLU
+    activation_checkpointing : bool, default=False
+        Recompute the transformer blocks during backward (non-reentrant, RNG
+        preserved) to save training memory at the cost of extra compute.
+        Outputs and gradients were bit-identical to ``False`` in eager tests on
+        PyTorch 2.14.1 CPU. Only eager, gradient-enabled training is
+        checkpointed; the BatchNorm stem is never recomputed. There, hooks
+        (module or global) and buffers inside the transformer raise an error,
+        since recomputation would run them twice. Scripting, tracing, export
+        and compilation require ``False``.
 
     References
     ----------
@@ -187,6 +202,9 @@ class EEGConformer(EEGModuleMixin, nn.Module):
        conformer: Convolutional transformer for EEG decoding and visualization.
        https://github.com/eeyhsong/EEG-Conformer
     """
+
+    # Old full-object checkpoints restore state without calling __init__.
+    activation_checkpointing = False
 
     def __init__(
         self,
@@ -208,6 +226,8 @@ class EEGConformer(EEGModuleMixin, nn.Module):
         chs_info=None,
         input_window_seconds=None,
         sfreq=None,
+        *,
+        activation_checkpointing=False,
     ):
         super().__init__(
             n_outputs=n_outputs,
@@ -232,6 +252,7 @@ class EEGConformer(EEGModuleMixin, nn.Module):
             )
 
         self.return_features = return_features
+        self.activation_checkpointing = activation_checkpointing
 
         self.patch_embedding = _PatchEmbedding(
             n_filters_time=n_filters_time,
@@ -249,12 +270,21 @@ class EEGConformer(EEGModuleMixin, nn.Module):
         else:
             self.final_fc_length = final_fc_length
 
-        self.transformer = _TransformerEncoder(
-            num_layers=num_layers,
-            emb_size=n_filters_time,
-            num_heads=num_heads,
-            att_drop=att_drop_prob,
-            activation=activation_transfor,
+        self.transformer = nn.Sequential(
+            *[
+                PreNormTransformerBlock(
+                    n_filters_time,
+                    MultiHeadAttention(n_filters_time, num_heads, att_drop_prob),
+                    FeedForwardBlock(
+                        n_filters_time,
+                        expansion=4,
+                        drop_p=att_drop_prob,
+                        activation=activation_transfor,
+                    ),
+                    att_drop_prob,
+                )
+                for _ in range(num_layers)
+            ]
         )
 
         self.fc = _FullyConnected(
@@ -263,10 +293,24 @@ class EEGConformer(EEGModuleMixin, nn.Module):
 
         self.final_layer = nn.Linear(self.fc.hidden_channels, self.n_outputs)
 
+    def compile(self, *args, **kwargs):
+        # Reject before installing a native compiled call (including estimator
+        # ownership). Explicit disable=True still selects ordinary eager math.
+        if self.activation_checkpointing and not kwargs.get("disable", False):
+            raise RuntimeError("activation_checkpointing requires eager execution")
+        return super().compile(*args, **kwargs)
+
     def forward(self, x: Tensor) -> Tensor:
+        if self.activation_checkpointing:
+            if torch.jit.is_scripting():
+                raise RuntimeError("activation_checkpointing requires eager execution")
+            self._activation_checkpointing_requires_eager_execution()
         x = torch.unsqueeze(x, dim=1)  # add one extra dimension
         x = self.patch_embedding(x)
-        feature = self.transformer(x)
+        if self.activation_checkpointing and self.training and torch.is_grad_enabled():
+            feature = self._checkpoint_transformer(x)
+        else:
+            feature = self.transformer(x)
 
         if self.return_features:
             return feature
@@ -275,8 +319,46 @@ class EEGConformer(EEGModuleMixin, nn.Module):
         x = self.final_layer(x)
         return x
 
+    @torch.jit.unused
+    def _activation_checkpointing_requires_eager_execution(self):
+        if torch.jit.is_tracing() or torch.compiler.is_compiling():
+            raise RuntimeError("activation_checkpointing requires eager execution")
+
+    # torch._dynamo.forbid_in_graph without importing Dynamo: torch.compile
+    # fails here instead of falling back to eager checkpointing.
+    _activation_checkpointing_requires_eager_execution._dynamo_forbidden = True  # type: ignore[attr-defined]
+
+    @torch.jit.unused
+    def _checkpoint_transformer(self, x: Tensor) -> Tensor:
+        from torch.nn.modules import module as global_hooks
+
+        hooks = (
+            "_forward_hooks",
+            "_forward_pre_hooks",
+            "_backward_hooks",
+            "_backward_pre_hooks",
+        )
+        if any(getattr(global_hooks, "_global" + name) for name in hooks):
+            raise RuntimeError(
+                "activation_checkpointing requires pure execution without global hooks"
+            )
+
+        # Recheck: users can attach hooks or replace children after construction.
+        for module in self.transformer.modules():
+            if module._buffers or any(getattr(module, name) for name in hooks):
+                raise RuntimeError(
+                    "activation_checkpointing requires pure transformer blocks "
+                    "without hooks or buffers"
+                )
+        for block in self.transformer:
+            x = checkpoint(block, x, use_reentrant=False, preserve_rng_state=True)
+        return x
+
     def get_fc_size(self):
-        out = self.patch_embedding(torch.ones((1, 1, self.n_chans, self.n_times)))
+        try:
+            out = self.patch_embedding(torch.ones((1, 1, self.n_chans, self.n_times)))
+        except RuntimeError as exc:
+            raise _too_short_input_error(exc, self.input_shape) or exc
         size_embedding_1 = out.cpu().data.numpy().shape[1]
         size_embedding_2 = out.cpu().data.numpy().shape[2]
 
@@ -343,89 +425,21 @@ class _PatchEmbedding(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.shallownet(x)
+        # Nothing runs between the temporal and the spatial convolution, so
+        # they run as one convolution with the composed weight and bias (as
+        # CombinedConv does), without the (batch, filters, chans, time)
+        # intermediate.
+        conv_time, conv_spat = self.shallownet[0], self.shallownet[1]
+        bias_time, bias_spat = conv_time.bias, conv_spat.bias
+        assert bias_time is not None and bias_spat is not None
+        weight = (conv_time.weight * conv_spat.weight.permute(1, 0, 2, 3)).sum(0)
+        bias = conv_spat.weight.sum((2, 3)) @ bias_time + bias_spat
+        x = F.conv1d(x.squeeze(1), weight, bias).unsqueeze(2)
+        for i, layer in enumerate(self.shallownet):
+            if i > 1:
+                x = layer(x)
         x = self.projection(x)
         return x
-
-
-class _ResidualAdd(nn.Module):
-    def __init__(self, fn):
-        super().__init__()
-        self.fn = fn
-
-    def forward(self, x):
-        res = x
-        x = self.fn(x)
-        x += res
-        return x
-
-
-class _TransformerEncoderBlock(nn.Sequential):
-    def __init__(
-        self,
-        emb_size,
-        num_heads,
-        att_drop,
-        forward_expansion=4,
-        activation: type[nn.Module] = nn.GELU,
-    ):
-        super().__init__(
-            _ResidualAdd(
-                nn.Sequential(
-                    nn.LayerNorm(emb_size),
-                    MultiHeadAttention(emb_size, num_heads, att_drop),
-                    nn.Dropout(att_drop),
-                )
-            ),
-            _ResidualAdd(
-                nn.Sequential(
-                    nn.LayerNorm(emb_size),
-                    FeedForwardBlock(
-                        emb_size,
-                        expansion=forward_expansion,
-                        drop_p=att_drop,
-                        activation=activation,
-                    ),
-                    nn.Dropout(att_drop),
-                )
-            ),
-        )
-
-
-class _TransformerEncoder(nn.Sequential):
-    r"""Transformer encoder module for the transformer encoder.
-
-    Similar to the layers used in ViT.
-
-    Parameters
-    ----------
-    num_layers : int
-        Number of transformer encoder blocks.
-    emb_size : int
-        Embedding size of the transformer encoder.
-    num_heads : int
-        Number of attention heads.
-    att_drop : float
-        Dropout probability for the attention layers.
-
-    """
-
-    def __init__(
-        self,
-        num_layers,
-        emb_size,
-        num_heads,
-        att_drop,
-        activation: type[nn.Module] = nn.GELU,
-    ):
-        super().__init__(
-            *[
-                _TransformerEncoderBlock(
-                    emb_size, num_heads, att_drop, activation=activation
-                )
-                for _ in range(num_layers)
-            ]
-        )
 
 
 class _FullyConnected(nn.Module):

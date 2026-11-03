@@ -46,12 +46,15 @@ from bitfab.simulation_plan import (
 )
 from bitfab.trace_completion import TraceCompletion
 from bitfab.trace_metadata import merge_caller_metadata_into_trace_payload
+from bitfab.trace_payload import raw_trace_of
 from bitfab.transport import (
     create_trace_transport,
     flush_trace_transports,
     shutdown_trace_transports,
 )
 from bitfab.transport_types import (
+    SPAN_OPERATION,
+    TRACE_OPERATION,
     CarrierMeta,
     CarrierRef,
     DeliveryError,
@@ -224,13 +227,13 @@ def _build_session() -> requests.Session:
     return session
 
 
-def _release_held_external_spans(timeout: float) -> bool:
+def _release_held_spans(timeout: float) -> bool:
     deadline = time.monotonic() + max(timeout, 0.0)
     with _live_http_clients_lock:
         clients = list(_live_http_clients)
     released = True
     for client in clients:
-        release = client.release_held_external_spans
+        release = client.release_held_spans
         if release is not None:
             result = release(max(0.0, deadline - time.monotonic()))
             released = result is not False and released
@@ -252,7 +255,7 @@ def _wait_for_pending_traces() -> None:
     This is registered as an atexit handler to ensure traces are delivered
     before the process exits.
     """
-    _release_held_external_spans(SIM_PLAN_READ_TIMEOUT_SECONDS)
+    _release_held_spans(SIM_PLAN_READ_TIMEOUT_SECONDS)
     _stop_simulation_plans()
     shutdown_trace_transports(_EXIT_FLUSH_SECONDS)
 
@@ -276,7 +279,7 @@ def flush_traces(timeout: float = 30.0) -> bool:
         or False when delivery failed or requests were still running.
     """
     deadline = time.monotonic() + max(timeout, 0)
-    released = _release_held_external_spans(plan_wait_slice(timeout))
+    released = _release_held_spans(plan_wait_slice(timeout))
     flushed = flush_trace_transports(max(0.0, deadline - time.monotonic()))
     return released and flushed
 
@@ -346,7 +349,7 @@ def _carrier_meta(
 
 
 def _carrier_name(operation: str, payload: dict[str, Any]) -> str:
-    if operation == "external_span":
+    if operation == SPAN_OPERATION:
         raw_span = payload.get("rawSpan")
         if isinstance(raw_span, dict):
             span_data = raw_span.get("span_data")
@@ -363,7 +366,7 @@ def _payload_timestamp_ns(payload: dict[str, Any], field: str) -> int | None:
     if isinstance(raw_span, dict):
         raw = raw_span.get(field)
     if raw is None:
-        raw_trace = payload.get("externalTrace") or payload.get("rawTrace")
+        raw_trace = raw_trace_of(payload)
         if isinstance(raw_trace, dict):
             raw = raw_trace.get(field)
     if isinstance(raw, str):
@@ -412,7 +415,7 @@ def _carrier_ref(payload: dict[str, Any]) -> CarrierRef | None:
     """
     trace_id = payload.get("sourceTraceId")
     if not isinstance(trace_id, str):
-        raw_trace = payload.get("externalTrace") or payload.get("rawTrace")
+        raw_trace = raw_trace_of(payload)
         trace_id = raw_trace.get("id") if isinstance(raw_trace, dict) else None
     if not isinstance(trace_id, str):
         return None
@@ -463,13 +466,13 @@ class HttpClient:
         self._session_lock = threading.Lock()
         self._session: requests.Session | None = None
         self._session_pid = os.getpid()
-        self.external_span_sender: (
+        self.span_sender: (
             Callable[[dict[str, Any], Callable[[dict[str, Any]], None]], None] | None
         ) = None
-        self.external_trace_sender: (
+        self.trace_sender: (
             Callable[[dict[str, Any], Callable[[dict[str, Any]], None]], None] | None
         ) = None
-        self.release_held_external_spans: Callable[[float], bool | None] | None = None
+        self.release_held_spans: Callable[[float], bool | None] | None = None
         self.stop_simulation_plan: Callable[[], None] | None = None
         with _live_http_clients_lock:
             _live_http_clients.add(self)
@@ -477,7 +480,7 @@ class HttpClient:
     def wait_for_pending_requests(self, timeout: float = 30.0) -> bool:
         """Wait for requests started by this client within one total deadline."""
         deadline = time.monotonic() + max(timeout, 0)
-        release = self.release_held_external_spans
+        release = self.release_held_spans
         released = (
             release(plan_wait_slice(timeout)) is not False
             if release is not None
@@ -493,7 +496,7 @@ class HttpClient:
     def close(self, timeout: float = 30.0) -> bool:
         """Flush and permanently close this client's tracing transports."""
         deadline = time.monotonic() + max(timeout, 0)
-        release = self.release_held_external_spans
+        release = self.release_held_spans
         released = True
         if release is not None and not self._closed:
             released = release(plan_wait_slice(timeout)) is not False
@@ -501,9 +504,9 @@ class HttpClient:
             stop = self.stop_simulation_plan
             if stop is not None:
                 stop()
-            self.external_span_sender = None
-            self.external_trace_sender = None
-            self.release_held_external_spans = None
+            self.span_sender = None
+            self.trace_sender = None
+            self.release_held_spans = None
             self.stop_simulation_plan = None
         if not self._trace_transport_lock.acquire(
             timeout=max(0.0, deadline - time.monotonic())
@@ -965,8 +968,8 @@ class HttpClient:
             _carrier_meta("internal_trace", safe_payload, None),
         )
 
-    def send_external_span(self, payload: dict[str, Any]) -> None:
-        """Send an external span (from span decorator or OpenAI tracing).
+    def send_span(self, payload: dict[str, Any]) -> None:
+        """Send a span (from the span decorator or a framework integration).
 
         Fire-and-forget through this client's bounded trace transport.
 
@@ -977,13 +980,13 @@ class HttpClient:
         ref = _carrier_ref(payload)
         if ref is not None and ref.span_id is not None:
             self.trace_completion.record(ref.trace_id, ref.span_id)
-        sender = self.external_span_sender
+        sender = self.span_sender
         if sender is not None:
-            sender(payload, self.submit_external_span)
+            sender(payload, self.submit_span)
             return
-        self.submit_external_span(payload)
+        self.submit_span(payload)
 
-    def submit_external_span(self, payload: dict[str, Any]) -> None:
+    def submit_span(self, payload: dict[str, Any]) -> None:
         wire = {**payload, "sdkVersion": __version__}
         wire.pop(ROOT_TRACE_FUNCTION_KEY_FIELD, None)
         wire.pop(DECLARED_IN_CODE_FIELD, None)
@@ -993,10 +996,10 @@ class HttpClient:
         )
         _warn_for_dropped_values(dropped)
         self._get_trace_transport().submit(
-            "external_span",
+            SPAN_OPERATION,
             safe_payload,
             body,
-            self._recorded_meta("external_span", payload, _carrier_ref(payload)),
+            self._recorded_meta(SPAN_OPERATION, payload, _carrier_ref(payload)),
         )
 
     def start_replay(
@@ -1101,7 +1104,7 @@ class HttpClient:
 
         Returns:
             Dict with experimentId, experimentUrl, and items array
-            (each item has traceId and externalSpanId)
+            (each item has traceId and spanId)
         """
         payload: dict[str, Any] = {
             "traceFunctionKey": trace_function_key,
@@ -1200,43 +1203,45 @@ class HttpClient:
             timeout=_REPLAY_DB_BRANCH_REQUEST_TIMEOUT_SECONDS,
         )
 
-    def get_external_span(
+    def get_span_raw(
         self, span_id: str, *, replay_view: bool = False
     ) -> dict[str, Any]:
-        """Fetch an external span by ID.
+        """Fetch one span as recorded, by its Bitfab span ID.
 
         Blocking call using GET request.
 
         Args:
-            span_id: The external span ID
+            span_id: The Bitfab span ID
             replay_view: Limit rawData to input/output serialization fields.
 
         Returns:
-            The external span data including rawData. ``replay_view=True``
-            limits rawData to the input/output serialization fields replay uses.
+            The span data including rawData. ``replay_view=True`` limits
+            rawData to the input/output serialization fields replay uses and
+            names the span's trace ``traceId`` (``externalTraceId`` on servers
+            that predate the rename).
         """
         query = "?view=replay" if replay_view else ""
         return self.get(
-            f"/api/sdk/externalSpans/{span_id}{query}",
+            f"/api/sdk/spans/{span_id}/raw{query}",
             timeout=30,
         )
 
     def get_span_tree(
         self,
-        external_span_id: str,
+        root_span_id: str,
         include_outputs: bool = True,
         include_root_output: bool = True,
     ) -> dict[str, Any]:
-        """Fetch the span tree rooted at an external span.
+        """Fetch the span tree rooted at a span.
 
         Blocking GET request. Used by replay when a mock strategy is active
         so child spans can be matched against their historical outputs.
 
         Args:
-            external_span_id: The external span ID at the root of the tree
+            root_span_id: The Bitfab span ID at the root of the tree
             include_outputs: When False, request a payload-free tree
                 (``?includeOutputs=false``): structure plus each node's
-                ``externalSpanId`` but no recorded ``output``/``outputMeta``, so
+                ``spanId`` but no recorded ``output``/``outputMeta``, so
                 replay pulls only the outputs it actually mocks, lazily, rather
                 than dragging down every span's recorded output. Defaults to
                 True (outputs inline).
@@ -1246,7 +1251,7 @@ class HttpClient:
 
         Returns:
             A dict shaped ``{"root": SpanTreeNode}`` where each node has
-            ``sourceSpanId``, ``externalSpanId``, ``traceFunctionKey``,
+            ``sourceSpanId``, ``spanId``, ``traceFunctionKey``,
             ``spanName``, ``type``, ``children``, and (when
             ``include_outputs``) ``output`` plus optional ``outputMeta``.
         """
@@ -1257,7 +1262,7 @@ class HttpClient:
             query_params.append("includeRootOutput=false")
         query = f"?{'&'.join(query_params)}" if query_params else ""
         return self.get(
-            f"/api/sdk/replay/spanTree/{external_span_id}{query}",
+            f"/api/sdk/replay/spanTree/{root_span_id}{query}",
             timeout=30,
         )
 
@@ -1374,8 +1379,8 @@ class HttpClient:
             timeout=_REPLAY_DB_BRANCH_REQUEST_TIMEOUT_SECONDS,
         )
 
-    def send_external_trace(self, payload: dict[str, Any]) -> None:
-        """Send an external trace (from OpenAI tracing).
+    def send_trace(self, payload: dict[str, Any]) -> None:
+        """Send a trace (from the span decorator or a framework integration).
 
         Fire-and-forget through the trace transport.
 
@@ -1388,7 +1393,7 @@ class HttpClient:
         if payload.get("completed") is True and ref is not None:
             self.trace_completion.close(
                 ref.trace_id,
-                lambda count: self._send_counted_external_trace(
+                lambda count: self._send_counted_trace(
                     {**payload, "expectedSpanCount": count}
                 ),
                 dropped=payload.get("dropped") is True,
@@ -1396,21 +1401,21 @@ class HttpClient:
             return
         if ref is not None:
             self.trace_completion.open(ref.trace_id)
-        self._send_counted_external_trace(payload)
+        self._send_counted_trace(payload)
 
-    def _send_counted_external_trace(self, payload: dict[str, Any]) -> None:
+    def _send_counted_trace(self, payload: dict[str, Any]) -> None:
         try:
-            sender = self.external_trace_sender
+            sender = self.trace_sender
             if sender is not None:
-                sender(payload, self.submit_external_trace)
+                sender(payload, self.submit_trace)
                 return
-            self.submit_external_trace(payload)
+            self.submit_trace(payload)
         except Exception:
             logger.warning(
                 "Bitfab: trace completion could not be queued", exc_info=True
             )
 
-    def submit_external_trace(self, payload: dict[str, Any]) -> None:
+    def submit_trace(self, payload: dict[str, Any]) -> None:
         safe_payload, body, dropped = _encode_payload(
             {
                 **payload,
@@ -1420,15 +1425,31 @@ class HttpClient:
         )
         _warn_for_dropped_values(dropped)
         self._get_trace_transport().submit(
-            "external_trace",
+            TRACE_OPERATION,
             safe_payload,
             body,
             self._recorded_meta(
-                "external_trace",
+                TRACE_OPERATION,
                 payload,
                 _carrier_ref(payload) if payload.get("completed") is True else None,
             ),
         )
+
+    def send_external_span(self, payload: dict[str, Any]) -> None:
+        """Deprecated alias for ``send_span``."""
+        warn_once(
+            "deprecated-send-external-span",
+            "HttpClient.send_external_span is deprecated; use send_span instead.",
+        )
+        self.send_span(payload)
+
+    def send_external_trace(self, payload: dict[str, Any]) -> None:
+        """Deprecated alias for ``send_trace``."""
+        warn_once(
+            "deprecated-send-external-trace",
+            "HttpClient.send_external_trace is deprecated; use send_trace instead.",
+        )
+        self.send_trace(payload)
 
     def patch_trace(
         self,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lizard
-Version: 1.24.3
+Version: 1.25.0
 Summary: A code analyzer without caring the C/C++ header files. It works with Java, C/C++, JavaScript, Python, Ruby, Swift, Objective C. Metrics includes cyclomatic complexity number etc.
 Home-page: http://www.lizard.ws
 Download-URL: https://pypi.python.org/lizard/
@@ -27,6 +27,9 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE.txt
 Requires-Dist: pygments
 Requires-Dist: pathspec
@@ -62,6 +65,8 @@ A list of supported languages:
 
 -  C# (C Sharp)
 -  C/C++ (works with C++14)
+-  COBOL
+-  Dart
 -  Erlang
 -  Fortran
 -  GDScript
@@ -108,12 +113,18 @@ often very hard to get all the included folders and files right when
 they are complicated. But we don't really need that kind of accuracy for
 cyclomatic complexity.
 
-It requires Python 3.8 or above. The test suite runs on Python 3.8 and 3.10,
-on Linux and Windows, in continuous integration; other versions are not
-verified.
+It requires Python 3.8 or above. The test suite runs on Python 3.8, 3.9, 3.10,
+3.11, 3.12, 3.13 and 3.14, on Linux and Windows, in continuous integration;
+other versions are not verified.
 
-JavaScript and TypeScript defaults
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+JavaScript and TypeScript parameters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Named and anonymous arrows report the same formal parameter counts and binding
+names. Empty object and array patterns each occupy a parameter slot without
+adding a name to the API's ``parameters`` list; ``({}, [], tail) => tail`` has
+``parameter_count`` 3 and ``parameters`` ``['tail']``. Trailing commas and
+TypeScript receiver declarations add no slots. Callback types add no functions.
 
 Each default parameter or destructuring initializer adds 1 to CCN, because
 the initializer runs only when the supplied value is ``undefined``. For example,
@@ -123,8 +134,9 @@ also count, including nested defaults and destructuring inside a function body.
 Explicit decisions within an initializer, such as a ternary expression or
 ``&&`` / ``||``, contribute separately.
 
-This also applies to JSX and TSX. Existing CCN scores can increase for functions
-that use defaults, which may cause them to exceed a configured CCN threshold.
+This also applies to JSX and TSX. Defaults may increase CCN above a configured
+threshold. See `arrow boundaries <docs/javascript-arrow-boundaries.md>`_ for
+ternary branches, type annotations and the existing curried-arrow convention.
 
 Installation
 ------------
@@ -260,7 +272,6 @@ Lizard may choose not to deal with some advanced or complicated language feature
   and processing less-than ``<`` or more-than ``>`` operators
   inside of template arguments.
 
-
 Literature Referring to Lizard
 ------------------------------
 
@@ -284,5 +295,4 @@ Contributions are welcome. Project-specific development rules are in
 ``AGENTS.md``. Adding a language reader uses
 ``.agents/skills/lizard-language-support/``.
 
-AI lifecycle guidance is installed under ``.agents/skills/`` and
-``.claude/skills/``.
+AI lifecycle guidance is installed under ``.agents/skills/`` and ``.claude/skills/``.

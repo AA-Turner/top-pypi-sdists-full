@@ -284,7 +284,7 @@ class ReplayItem(TypedDict):
     trace_id: str | None
     # Bitfab trace id of the original (historical) trace being replayed.
     original_trace_id: str | None
-    # External span id the recorded inputs were read from (the original root span).
+    # Bitfab span id the recorded inputs were read from (the original root span).
     original_span_id: str | None
     # Deprecated aliases for original_trace_id/original_span_id.
     source_trace_id: str | None
@@ -663,7 +663,7 @@ class AdaptContext(TypedDict):
         original_trace_id: Bitfab trace ID of the original (historical) trace
             being replayed. Lets a table-driven adapter look up adapted inputs
             per trace. ``source_trace_id`` is kept as a deprecated alias.
-        original_span_id: External span ID the recorded inputs were read from.
+        original_span_id: Bitfab span ID the recorded inputs were read from.
             ``source_span_id`` is kept as a deprecated alias.
         metadata: The original trace's stored metadata (what ``seed_trace`` or
             ``get_current_trace().set_metadata`` recorded on it), so an adapter
@@ -2013,7 +2013,7 @@ def _wait_for_replay_persistence(
     """
     if timeout is None:
         timeout = _REPLAY_PERSISTENCE_TIMEOUT_SECONDS
-    release = client.http_client.release_held_external_spans
+    release = client.http_client.release_held_spans
     if release is not None:
         release(plan_wait_slice(timeout))
 
@@ -2661,7 +2661,7 @@ async def _process_item_async(
 
         metrics = _extract_server_item_metrics(server_item)
         span = await asyncio.to_thread(
-            client.http_client.get_external_span,
+            client.http_client.get_span_raw,
             original_span_id,
             replay_view=True,
         )
@@ -2724,7 +2724,7 @@ async def _process_item_async(
             experiment_id,
             span["id"],
             metrics,
-            input_source_trace_id=span.get("externalTraceId"),
+            input_source_trace_id=span.get("traceId") or span.get("externalTraceId"),
             mock_strategy=mock,
             mock_tree=mock_tree,
             mock_tree_has_variants=mock_tree_has_variants,
@@ -2823,7 +2823,7 @@ def _extract_server_item_metrics(
 
 
 def _extract_span_data(span: dict[str, Any]) -> dict[str, Any]:
-    """Extract input/output data and span options from an external span's rawData."""
+    """Extract input/output data and span options from a span's rawData."""
     raw_data = span.get("rawData") or {}
     span_data = raw_data.get("span_data") or {}
 
@@ -2838,7 +2838,7 @@ def _extract_span_data(span: dict[str, Any]) -> dict[str, Any]:
 
 
 def _deserialize_span_output(span: dict[str, Any]) -> Any:
-    """Deserialize the recorded output from a fetched external span's rawData.
+    """Deserialize the recorded output from a fetched span's rawData.
 
     Mirrors the inline deserialization the base ``mock`` path applies to a mock
     tree entry: use the serialized ``{json, meta}`` form when present, otherwise
@@ -2863,19 +2863,19 @@ def _deserialize_span_output(span: dict[str, Any]) -> Any:
 
 
 def _make_span_output_fetcher(client: Bitfab) -> Callable[[str], Any]:
-    """Build a per-item memoized fetcher: ``external_span_id -> deserialized
+    """Build a per-item memoized fetcher: ``span_id -> deserialized
     output``. Blocking (Python replay already does blocking HTTP). Memoized so a
     span read twice (a marked mock plus an override's ``get_original_output``)
     fetches once.
     """
     cache: dict[str, Any] = {}
 
-    def fetch_span_output(external_span_id: str) -> Any:
-        if external_span_id in cache:
-            return cache[external_span_id]
-        span = client.http_client.get_external_span(external_span_id, replay_view=True)
+    def fetch_span_output(span_id: str) -> Any:
+        if span_id in cache:
+            return cache[span_id]
+        span = client.http_client.get_span_raw(span_id, replay_view=True)
         value = _deserialize_span_output(span)
-        cache[external_span_id] = value
+        cache[span_id] = value
         return value
 
     return fetch_span_output

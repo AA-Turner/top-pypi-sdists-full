@@ -31,6 +31,16 @@ _ANSIBALLZ_PYDEVD_CONFIG:
   vars:
   - {name: _ansible_ansiballz_pydevd_config}
   version_added: '2.20'
+_ANSIBALLZ_PWSH_COMPRESSION:
+  name: Enable or disable compression used for PowerShell AnsiballZ data
+  description:
+    - Enables or disables compression used for PowerShell AnsiballZ data.
+    - This is for internal use only and may be removed without warning.
+  env:
+  - name: _ANSIBLE_ANSIBALLZ_PWSH_COMPRESSION
+  type: boolean
+  default: true
+  version_added: '2.22'
 _ANSIBLE_CONNECTION_PATH:
   env:
   - name: _ANSIBLE_CONNECTION_PATH
@@ -60,6 +70,23 @@ _MODULE_METADATA:
   default: false
   env: [ { name: _ANSIBLE_MODULE_METADATA } ]
   version_added: '2.19'
+_SECRETS_INPUT_FILES:
+  name: Files used to pre-seed secrets for output masking
+  default: []
+  description:
+    - A list of files used to pre-seed the values that Ansible masks from its output.
+    - >-
+      Each file is either YAML or JSON and must be a mapping with a ``version`` key (currently only ``1`` is supported)
+      and a ``secrets`` key containing a list of strings. Every value in ``secrets`` is registered so that it is
+      redacted wherever it would otherwise appear in Ansible output.
+    - >-
+      A file with the executable bit set is run instead of read, and its stdout is parsed as the YAML or JSON
+      document.
+    # Used for runner/AAP, we can make it more public if there is a need.
+    - This is for internal use only and may change or be removed without notice.
+  env: [{name: _ANSIBLE_SECRETS_INPUT_FILES}]
+  type: pathlist
+  version_added: "2.22"
 ALLOW_BROKEN_CONDITIONALS:
   # This config option will be deprecated once it no longer has any effect (2.23).
   name: Allow broken conditionals
@@ -104,21 +131,6 @@ ANSIBLE_HOME:
     section: defaults
   type: path
   version_added: '2.14'
-ANSIBLE_CONNECTION_PATH:
-  name: Path of ansible-connection script
-  default: null
-  description:
-    - Specify where to look for the ansible-connection script. This location will be checked before searching $PATH.
-    - If null, ansible will start with the same directory as the ansible script.
-  type: path
-  env: [{name: ANSIBLE_CONNECTION_PATH}]
-  ini:
-  - {key: ansible_connection_path, section: persistent_connection}
-  yaml: {key: persistent_connection.ansible_connection_path}
-  version_added: "2.8"
-  deprecated:
-    why: This setting has no effect.
-    version: "2.22"
 ANSIBLE_COW_SELECTION:
   name: Cowsay filter selection
   default: default
@@ -242,6 +254,10 @@ AGNOSTIC_BECOME_PROMPT:
     - {key: agnostic_become_prompt, section: privilege_escalation}
   yaml: {key: privilege_escalation.agnostic_become_prompt}
   version_added: "2.5"
+  deprecated:
+    why: All external tools should have been migrated to the method agnostic version of the prompt by now.
+    alternatives: None, there should be no need for one.
+    version: '2.26'
 CACHE_PLUGIN:
   name: Persistent Fact Cache plugin
   default: memory
@@ -874,22 +890,6 @@ DEFAULT_KEEP_REMOTE_FILES:
   ini:
   - {key: keep_remote_files, section: defaults}
   type: boolean
-DEFAULT_LIBVIRT_LXC_NOSECLABEL:
-  name: No security label on Lxc
-  default: False
-  description:
-    - "This setting causes libvirt to connect to LXC containers by passing ``--noseclabel`` parameter to ``virsh`` command.
-      This is necessary when running on systems which do not have SELinux."
-  env:
-  - name: ANSIBLE_LIBVIRT_LXC_NOSECLABEL
-  ini:
-  - {key: libvirt_lxc_noseclabel, section: selinux}
-  type: boolean
-  version_added: "2.1"
-  deprecated:
-    why: This option was moved to the plugin itself
-    version: "2.22"
-    alternatives: Use the option from the plugin itself.
 DEFAULT_LOAD_CALLBACK_PLUGINS:
   name: Load callbacks for adhoc
   default: False
@@ -1694,7 +1694,7 @@ INTERPRETER_PYTHON:
   description:
   - Path to the Python interpreter to be used for module execution on remote targets, or an automatic discovery mode.
     Supported discovery modes are ``auto`` (the default), and ``auto_silent``.
-    All discovery modes match against an ordered list of well-known Python interpreter locations. 
+    All discovery modes match against an ordered list of well-known Python interpreter locations.
     The fallback behavior will issue a warning that the interpreter should be set explicitly (since interpreters
     installed later may change which one is used). This warning behavior can be disabled by setting ``auto_silent``.
     The ``auto_legacy*`` modes are removed.
@@ -1703,6 +1703,7 @@ INTERPRETER_PYTHON:
 INTERPRETER_PYTHON_FALLBACK:
   name: Ordered list of Python interpreters to check for in discovery
   default:
+  - python3.15
   - python3.14
   - python3.13
   - python3.12

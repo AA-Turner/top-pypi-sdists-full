@@ -16,12 +16,16 @@ import math
 from typing import Optional
 
 import torch
-import torch.nn.functional as F
 from einops import rearrange
 from einops.layers.torch import Rearrange
 from torch import Tensor, nn
 
-from braindecode.functional import _get_gaussian_kernel1d
+from braindecode.functional import _get_gaussian_kernel1d, scaled_dot_product_attention
+from braindecode.functional.attention import (  # noqa: F401  (re-exported)
+    _hpu_eager_fused_sdpa,
+    _hpu_lazy,
+    _sdpa_math_dropout,
+)
 
 
 class SqueezeAndExcitation(nn.Module):
@@ -834,6 +838,105 @@ class CATLite(nn.Module):
         return channel_score * x
 
 
+class TimmAttention(nn.Module):
+    """Multi-head self-attention with timm's parameter names (``qkv``, ``proj``),
+    as in ViT/MAE/BEiT checkpoints. EEGPT and EEGDINO use it, so their released
+    weights load with the same keys.
+
+    Parameters
+    ----------
+    dim : int
+        Token width.
+    num_heads : int, default=8
+        Number of heads; ``head_dim = dim // num_heads``.
+    qkv_bias : bool, default=False
+        Bias of the fused ``qkv`` projection.
+    qv_bias : bool, default=False
+        BEiT's separate ``q_bias`` and ``v_bias`` parameters (the key has none)
+        added after a bias-free ``qkv``.
+    attn_drop : float, default=0.0
+        Dropout on the attention weights.
+    proj_drop : float, default=0.0
+        Dropout after the output projection.
+    exact : bool, default=False
+        timm's op order, ``softmax((q * scale) @ k^T) @ v``, bit-identical to
+        the reference implementations (see
+        :func:`braindecode.functional.scaled_dot_product_attention`); otherwise
+        torch's kernels (Gaudi's fused kernel on HPU).
+
+    Examples
+    --------
+    >>> import torch
+    >>> from braindecode.modules import TimmAttention
+    >>> attn = TimmAttention(dim=16, num_heads=4)
+    >>> attn(torch.randn(2, 5, 16)).shape
+    torch.Size([2, 5, 16])
+    """
+
+    def __init__(
+        self,
+        dim: int,
+        num_heads: int = 8,
+        qkv_bias: bool = False,
+        qv_bias: bool = False,
+        attn_drop: float = 0.0,
+        proj_drop: float = 0.0,
+        exact: bool = False,
+    ):
+        super().__init__()
+        if not 1 <= num_heads <= dim:
+            raise ValueError(
+                f"num_heads ({num_heads}) must be in [1, dim={dim}] so head_dim >= 1."
+            )
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+        all_head_dim = self.head_dim * num_heads
+        self.scale = self.head_dim**-0.5
+        self.exact = exact
+        self.qkv = nn.Linear(dim, all_head_dim * 3, bias=qkv_bias)
+        self.q_bias: Optional[nn.Parameter]
+        self.v_bias: Optional[nn.Parameter]
+        if qv_bias:
+            self.q_bias = nn.Parameter(torch.zeros(all_head_dim))
+            self.v_bias = nn.Parameter(torch.zeros(all_head_dim))
+        else:
+            self.q_bias = None
+            self.v_bias = None
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.proj = nn.Linear(all_head_dim, dim)
+        self.proj_drop = nn.Dropout(proj_drop)
+
+    def _heads(self, x: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+        qkv = self.qkv(x)
+        if self.q_bias is not None and self.v_bias is not None:
+            bias = torch.cat((self.q_bias, torch.zeros_like(self.v_bias), self.v_bias))
+            qkv = qkv + bias.to(qkv.dtype)  # keep autocast dtype
+        qkv = qkv.reshape(qkv.shape[0], qkv.shape[1], 3, self.num_heads, -1)
+        # unbind, not qkv[0..2]: the backward of three selects writes three
+        # zero-filled copies of the whole qkv tensor and sums them.
+        q, k, v = qkv.permute(2, 0, 3, 1, 4).unbind(0)
+        return q, k, v
+
+    def forward(self, x: Tensor, need_weights: bool = False) -> Tensor:
+        """``(batch, seq, dim) -> (batch, seq, dim)``; with ``need_weights`` the
+        attention weights ``(batch, heads, seq, seq)`` instead."""
+        q, k, v = self._heads(x)
+        if need_weights:
+            return torch.softmax(
+                q @ k.transpose(-2, -1) / math.sqrt(q.size(-1)), dim=-1
+            )
+        dropout_p = self.attn_drop.p if self.training else 0.0
+        if self.exact:
+            y = scaled_dot_product_attention(
+                q * self.scale, k, v, dropout_p=dropout_p, scale=1.0, exact=True
+            )
+        else:
+            y = scaled_dot_product_attention(
+                q, k, v, dropout_p=dropout_p, fused_in_lazy=True
+            )
+        return self.proj_drop(self.proj(y.transpose(1, 2).flatten(2)))
+
+
 class MultiHeadAttention(nn.Module):
     """Multi-head self-attention block.
 
@@ -845,9 +948,19 @@ class MultiHeadAttention(nn.Module):
     emb_size : int
         The embedding dimension.
     num_heads : int
-        Number of attention heads. Must evenly divide ``emb_size``.
+        Number of attention heads. Must evenly divide ``emb_size`` when
+        ``head_dim`` is ``None``.
     dropout : float, optional
         Dropout probability applied to attention weights. Default: 0.0.
+    scale : float, optional
+        Multiplier applied to attention scores before softmax. When ``None``,
+        PyTorch's default ``head_dim ** -0.5`` is used.
+    head_dim : int, optional
+        Width of each head. When ``None``, ``emb_size // num_heads``; otherwise
+        the query/key/value projections are ``num_heads * head_dim`` wide.
+    qk_norm : bool, optional
+        Apply a :class:`~torch.nn.LayerNorm` over ``head_dim`` to the queries
+        and keys of each head (as in LaBraM and Du-IN). Default ``False``.
 
     Examples
     --------
@@ -860,20 +973,38 @@ class MultiHeadAttention(nn.Module):
     torch.Size([2, 10, 32])
     """
 
-    def __init__(self, emb_size, num_heads, dropout=0.0):
+    def __init__(
+        self,
+        emb_size,
+        num_heads,
+        dropout=0.0,
+        scale: float | None = None,
+        head_dim: int | None = None,
+        qk_norm: bool = False,
+    ):
         super().__init__()
-        if emb_size % num_heads != 0:
+        if num_heads < 1 or (head_dim is not None and head_dim < 1):
             raise ValueError(
-                f"emb_size ({emb_size}) must be divisible by num_heads ({num_heads})."
+                f"num_heads ({num_heads}) and head_dim ({head_dim}) must be positive."
             )
+        if head_dim is None:
+            if emb_size % num_heads != 0:
+                raise ValueError(
+                    f"emb_size ({emb_size}) must be divisible by num_heads ({num_heads})."
+                )
+            head_dim = emb_size // num_heads
+        inner_dim = num_heads * head_dim
         self.emb_size = emb_size
         self.num_heads = num_heads
-        self.head_dim = emb_size // num_heads
-        self.keys = nn.Linear(emb_size, emb_size)
-        self.queries = nn.Linear(emb_size, emb_size)
-        self.values = nn.Linear(emb_size, emb_size)
+        self.head_dim = head_dim
+        self.scale = scale
+        self.keys = nn.Linear(emb_size, inner_dim)
+        self.queries = nn.Linear(emb_size, inner_dim)
+        self.values = nn.Linear(emb_size, inner_dim)
+        self.q_norm = nn.LayerNorm(head_dim) if qk_norm else None
+        self.k_norm = nn.LayerNorm(head_dim) if qk_norm else None
         self.att_drop = dropout
-        self.projection = nn.Linear(emb_size, emb_size)
+        self.projection = nn.Linear(inner_dim, emb_size)
 
         self.rearrange_stack = Rearrange(
             "batch seq (heads head_dim) -> batch heads seq head_dim",
@@ -891,22 +1022,27 @@ class MultiHeadAttention(nn.Module):
         x : Tensor
             Input tensor of shape ``(batch, seq, emb_size)``.
         mask : Tensor, optional
-            Attention mask following PyTorch SDPA convention: for boolean
-            masks ``True`` means **ignore** that position; for float
-            masks the values are **added** to attention scores before
-            softmax.
+            Attention mask following the convention of
+            :func:`torch.nn.functional.scaled_dot_product_attention`: for
+            boolean masks ``True`` means the position **takes part** in
+            attention and ``False`` that it is ignored (the opposite of the
+            ``key_padding_mask`` of :class:`torch.nn.MultiheadAttention`);
+            for float masks the values are **added** to the attention scores
+            before softmax.
         """
         queries = self.rearrange_stack(self.queries(x))
         keys = self.rearrange_stack(self.keys(x))
         values = self.rearrange_stack(self.values(x))
+        if self.q_norm is not None:
+            queries = self.q_norm(queries)
+        if self.k_norm is not None:
+            keys = self.k_norm(keys)
 
         dp = self.att_drop if self.training else 0.0
-        out = F.scaled_dot_product_attention(
-            queries,
-            keys,
-            values,
-            attn_mask=mask,
-            dropout_p=dp,
+        if self.scale is not None:
+            queries = queries * (self.scale * self.head_dim**0.5)
+        out = scaled_dot_product_attention(
+            queries, keys, values, attn_mask=mask, dropout_p=dp
         )
 
         out = self.rearrange_unstack(out)
@@ -971,14 +1107,16 @@ class CrissCrossTransformerEncoderLayer(nn.Module):
             nhead // 2,
             dropout=dropout,
             bias=bias,
-            batch_first=batch_first,
+            # _sa_block always builds (batch, sequence, features) inputs
+            batch_first=True,
         )
         self.self_attn_t = nn.MultiheadAttention(
             d_model // 2,
             nhead // 2,
             dropout=dropout,
             bias=bias,
-            batch_first=batch_first,
+            # _sa_block always builds (batch, sequence, features) inputs
+            batch_first=True,
         )
 
         # Implementation of Feedforward model
@@ -986,6 +1124,9 @@ class CrissCrossTransformerEncoderLayer(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.linear2 = nn.Linear(dim_feedforward, d_model, bias=bias)
 
+        # kept for the signature of nn.TransformerEncoderLayer: the input is
+        # always (batch, channels, n_patches, patch_size)
+        self.batch_first = batch_first
         self.norm_first = norm_first
         self.norm1 = nn.LayerNorm(d_model, eps=layer_norm_eps)
         self.norm2 = nn.LayerNorm(d_model, eps=layer_norm_eps)
@@ -1001,10 +1142,17 @@ class CrissCrossTransformerEncoderLayer(nn.Module):
         is_causal: bool = False,
     ) -> Tensor:
         x = src
-        x = x + self._sa_block(
-            self.norm1(x), src_mask, src_key_padding_mask, is_causal=is_causal
-        )
-        x = x + self._ff_block(self.norm2(x))
+        if self.norm_first:
+            x = x + self._sa_block(
+                self.norm1(x), src_mask, src_key_padding_mask, is_causal=is_causal
+            )
+            x = x + self._ff_block(self.norm2(x))
+        else:
+            x = self.norm1(
+                x
+                + self._sa_block(x, src_mask, src_key_padding_mask, is_causal=is_causal)
+            )
+            x = self.norm2(x + self._ff_block(x))
         return x
 
     # self-attention block
@@ -1018,8 +1166,8 @@ class CrissCrossTransformerEncoderLayer(nn.Module):
         bz, ch_num, patch_num, patch_size = x.shape
         xs = x[:, :, :, : patch_size // 2]
         xt = x[:, :, :, patch_size // 2 :]
-        xs = rearrange(xs, "b c n p2 -> (b n) c p2")
-        xt = rearrange(xt, "b c n p2 -> (b c) n p2")
+        xs = xs.permute(0, 2, 1, 3).reshape(bz * patch_num, ch_num, -1)
+        xt = xt.reshape(bz * ch_num, patch_num, -1)
         xs = self.self_attn_s(
             xs,
             xs,
@@ -1028,7 +1176,7 @@ class CrissCrossTransformerEncoderLayer(nn.Module):
             key_padding_mask=key_padding_mask,
             need_weights=False,
         )[0]
-        xs = rearrange(xs, "(b n) c p2 -> b c n p2", b=bz, n=patch_num)
+        xs = xs.reshape(bz, patch_num, ch_num, -1).permute(0, 2, 1, 3)
         xt = self.self_attn_t(
             xt,
             xt,
@@ -1037,7 +1185,7 @@ class CrissCrossTransformerEncoderLayer(nn.Module):
             key_padding_mask=key_padding_mask,
             need_weights=False,
         )[0]
-        xt = rearrange(xt, "(b c) n p2 -> b c n p2", b=bz, c=ch_num)
+        xt = xt.reshape(bz, ch_num, patch_num, -1)
         x = torch.concat((xs, xt), dim=3)
         return self.dropout1(x)
 

@@ -57,7 +57,7 @@ class AllocateEipAddressRequest(DaraModel):
         self.bandwidth = bandwidth
         # The client token that is used to ensure the idempotence of the request.
         # 
-        # Generate a value from your client to ensure uniqueness across different requests. **ClientToken** supports only ASCII characters.
+        # Generate a parameter value from your client to ensure that the value is unique among different requests. **ClientToken** supports only ASCII characters.
         # 
         # > If you do not specify this parameter, the system uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may be different for each API request.
         self.client_token = client_token
@@ -68,7 +68,7 @@ class AllocateEipAddressRequest(DaraModel):
         self.description = description
         # The line type. Valid values:
         # - **BGP** (default): BGP (multi-ISP) line. All regions support BGP (multi-ISP) line EIPs.
-        # - **BGP_PRO**: BGP (multi-ISP) Pro line. Only the following regions support BGP (multi-ISP) Pro line EIPs: Hong Kong (China), Singapore, Japan (Tokyo), Malaysia (Kuala Lumpur), Philippines (Manila), Indonesia (Jakarta), and Thailand (Bangkok).
+        # - **BGP_PRO**: BGP (multi-ISP) Pro line. Only Hong Kong (China), Singapore, Japan (Tokyo), Malaysia (Kuala Lumpur), Philippines (Manila), Indonesia (Jakarta), and Thailand (Bangkok) regions support BGP (multi-ISP) Pro line EIPs.
         # 
         # For more information about BGP (multi-ISP) lines and BGP (multi-ISP) Pro lines, see [EIP line types](https://help.aliyun.com/document_detail/32321.html).
         # 
@@ -79,7 +79,7 @@ class AllocateEipAddressRequest(DaraModel):
         #     - **ChinaTelecom_L2**: China Telecom L2
         #     - **ChinaUnicom_L2**: China Unicom L2
         #     - **ChinaMobile_L2**: China Mobile L2
-        # - If you are a China (Hangzhou) Finance Cloud user, this field is required. Set the value to **BGP_FinanceCloud**.
+        # - If you are a China (Hangzhou) Finance Cloud user, this parameter is required and must be set to **BGP_FinanceCloud**.
         self.isp = isp
         # The billing method of the EIP. Valid values:
         #           
@@ -113,7 +113,7 @@ class AllocateEipAddressRequest(DaraModel):
         # 
         # > This parameter is not supported when you create a subscription EIP instance.
         self.name = name
-        # The network type. The value is set to **public** (default), which specifies the public network.
+        # The network type. The value is set to **public** (default), which indicates the public network.
         self.netmode = netmode
         self.owner_account = owner_account
         self.owner_id = owner_id
@@ -131,7 +131,7 @@ class AllocateEipAddressRequest(DaraModel):
         # 
         # This parameter is required if **InstanceChargeType** is set to **PrePaid**. This parameter is optional if **InstanceChargeType** is set to **PostPaid**.
         self.pricing_cycle = pricing_cycle
-        # The ID of the IP address pool.
+        # The IP address pool ID.
         # 
         # The EIP is allocated from the specified IP address pool.
         # 
@@ -151,7 +151,7 @@ class AllocateEipAddressRequest(DaraModel):
         # 
         # - If this parameter is left empty, the default value is Anti-DDoS Basic.
         # 
-        # - If this parameter is set to **AntiDDoS_Enhanced**, the value indicates Anti-DDoS (Enhanced).
+        # - If this parameter is set to **AntiDDoS_Enhanced**, Anti-DDoS (Enhanced) is used.
         # 
         # You can specify at most one security protection level.
         self.security_protection_types = security_protection_types

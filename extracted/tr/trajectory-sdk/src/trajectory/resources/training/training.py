@@ -152,7 +152,7 @@ class Training(APIResource):
   def list_options(
     self,
     *,
-    bench_id: str,
+    bench_id: str | None | Omit = omit,
     base_model_slug: Literal[
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",
@@ -189,6 +189,8 @@ class Training(APIResource):
     """Return supported training models and their authored option ranges.
 
     Args:
+      bench_id: Deprecated and ignored; run options are the same for every benchmark.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request

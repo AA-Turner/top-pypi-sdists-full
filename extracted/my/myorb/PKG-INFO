@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: myorb
-Version: 0.73.3
+Version: 0.77.0
 Summary: Personal AI-powered daily briefing dashboard that summarizes your email, calendar, tasks, finances and more.
 Project-URL: Homepage, https://github.com/eriktelepovsky/myorb
 Project-URL: Repository, https://github.com/eriktelepovsky/myorb
@@ -88,6 +88,8 @@ uv run myorb serve
 ```
 
 Open http://localhost:8000 and choose a password. Data (the SQLite database and the encryption key) is stored in `./data`.
+
+After that, a short tour walks through a made-up day, so you can see what each part does before you connect anything. It then leads to the steps to set myOrb up, and from then on myOrb shows your own data. Nothing done during the tour is saved. To take it again, use **Take the tour again** at the bottom of the Integrations page.
 
 Settings come from `MYORB_*` environment variables or a `.env` file in the project directory, e.g.:
 
@@ -223,6 +225,7 @@ Then, in myOrb:
 | `MYORB_PLUGINS` | none | Custom plugins to install at startup, as for pip: `myorb-wallet==1.2`, a wheel URL or a mounted directory. See [writing plugins](https://github.com/eriktelepovsky/myorb/blob/main/docs/PLUGINS.md). |
 | `MYORB_DEMO` | off | `1` shows a made-up day instead of your services (see [Try it with sample data](#try-it-with-sample-data)). Use a data directory of its own. |
 | `MYORB_PUBLIC_DEMO` | off | `1` opens the demo to anyone without signing in. Changes are turned off and the day starts over each morning. Never use it with your own data. |
+| `MYORB_DEMO_AZURE_SPEECH_KEY`, `MYORB_DEMO_AZURE_SPEECH_REGION` | unset | Azure Speech for the public demo's Read aloud. It reads only the demo's brief, once, and keeps it; anything else is read by the browser's voice. Use a resource of its own on the free tier (F0), so the demo can never cost anything. |
 | `MYORB_HOST`, `MYORB_PORT` | `127.0.0.1`, `8000` (`0.0.0.0` in Docker) | Interface and port to listen on. |
 
 ### Updates and backups

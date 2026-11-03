@@ -1,12 +1,22 @@
-"""Redact the secrets a URL may carry before a message prints it."""
+"""Tell a URL from a path, redact the secrets a URL may carry before a message prints it, and name a schema location.
+
+A reference or an input is a URL when it starts with one of the schemes the generator fetches (``is_url``); the
+command line accepts the same URLs for ``--url`` as the resolver fetches for references. A message names a schema
+location with its document URL redacted.
+"""
 
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+__all__ = ["LocationRow", "is_url", "named_location", "redact_path", "redact_reference", "redact_url"]
+
+LocationRow: TypeAlias = Literal["redacted", "legacy-unredacted-locations"]
+"""How ``named_location`` writes a location: redacted, or as written, as the warnings of 0.87.0 print it."""
 
 _URL = re.compile(
     r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)(?P<authority>[^/?#]*)(?P<path>[^?#]*)(?P<rest>.*)", re.DOTALL
@@ -43,3 +53,18 @@ def redact_reference(text: str) -> str:
 def redact_path(parts: Iterable[str]) -> str:
     """Join a schema path whose parts may start with a document URL, redacting each part."""
     return "/".join(redact_reference(part) for part in parts)
+
+
+def named_location(location: object, fallback: str, *, row: LocationRow = "redacted") -> str:
+    """Return how a message names a schema location: ``document#pointer``, or ``fallback`` when it is None.
+
+    Row ``redacted`` redacts the document URL of the text (``redact_reference``). Row ``legacy-unredacted-locations``
+    keeps the location as written, and the fallback as the caller gives it.
+    """
+    text = fallback if location is None else str(location)
+    return redact_reference(text) if row == "redacted" else text
+
+
+def is_url(ref: str) -> bool:
+    """Check if a reference string is a URL (HTTP, HTTPS, or file scheme)."""
+    return ref.startswith(("https://", "http://", "file://"))

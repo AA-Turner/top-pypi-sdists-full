@@ -6,6 +6,7 @@
 
 """Medformer: A Multi-Granularity Patching Transformer for Medical Time-Series Classification."""
 
+from functools import partial
 from math import sqrt
 from typing import List, Optional, Tuple
 
@@ -13,8 +14,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from braindecode.functional import sinusoidal_positional_encoding
+from braindecode.functional import init_weights_
 from braindecode.models.base import EEGModuleMixin
+from braindecode.modules import SinusoidalPositionalEncoding
 
 
 class MEDFormer(EEGModuleMixin, nn.Module, license="mit"):
@@ -235,17 +237,18 @@ class MEDFormer(EEGModuleMixin, nn.Module, license="mit"):
         self.patch_len_list = patch_len_list
         stride_list = patch_len_list  # Using the same values for strides.
         self.stride_list = stride_list
+        # patches run over time (one token per patch of samples)
         patch_num_list = [
-            int((self.n_chans - patch_len) / stride + 2)
+            int((self.n_times - patch_len) / stride + 2)
             for patch_len, stride in zip(patch_len_list, stride_list)
         ]
         self.patch_num_list = patch_num_list
 
         # Initialize the embedding layer.
         self.enc_embedding = _ListPatchEmbedding(
-            enc_in=self.n_times,
+            enc_in=self.n_chans,
             d_model=self.embed_dim,
-            seq_len=self.n_chans,
+            seq_len=self.n_times,
             patch_len_list=self.patch_len_list,
             stride_list=self.stride_list,
             dropout=self.drop_prob,
@@ -326,46 +329,42 @@ class MEDFormer(EEGModuleMixin, nn.Module, license="mit"):
         return output
 
 
-class _PositionalEmbedding(nn.Module):
-    def __init__(self, d_model: int, max_len: int = 5000):
-        super().__init__()
-        self.d_model = d_model  # store the original dimension
-        # Odd d_model is handled inside the shared primitive (computed on the
-        # next even width and truncated), so no manual padding is needed here.
-        pe = sinusoidal_positional_encoding(max_len, d_model).unsqueeze(0)
-        self.register_buffer("pe", pe)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x is assumed to have shape (B, L, d_model_target)
-        # We return the first self.d_model columns from the computed pe.
-        return self.pe[:, : x.size(1), : self.d_model]
-
-
 class _CrossChannelTokenEmbedding(nn.Module):
-    def __init__(
-        self, c_in: int, l_patch: int, d_model: int, stride: Optional[int] = None
-    ):
+    def __init__(self, c_in: int, l_patch: int, d_model: int):
         super().__init__()
-        if stride is None:
-            stride = l_patch
         self.token_conv = nn.Conv2d(
             in_channels=1,
             out_channels=d_model,
             kernel_size=(c_in, l_patch),
-            stride=(1, stride),
+            stride=(1, l_patch),
             padding=0,
             padding_mode="circular",
             bias=False,
         )
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(
-                    m.weight, mode="fan_in", nonlinearity="leaky_relu"
-                )
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Initialize this block's weights."""
+        kaiming = partial(
+            nn.init.kaiming_normal_, mode="fan_in", nonlinearity="leaky_relu"
+        )
+        self.apply(
+            partial(init_weights_, weights={nn.Conv2d: (kaiming, None)}, norms=())
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.token_conv(x)
-        return x
+        # The kernel spans all c_in rows and the patches do not overlap, so
+        # the conv is one GEMM of its weight with the patch-reshaped input
+        # (Gaudi2 rejects conv kernels taller than 256 rows).
+        l_patch = self.token_conv.kernel_size[1]
+        n_patches = x.shape[-1] // l_patch
+        x = x[:, 0, :, : n_patches * l_patch].reshape(
+            x.shape[0], x.shape[2], n_patches, l_patch
+        )
+        x = torch.matmul(
+            x.transpose(1, 2).flatten(2), self.token_conv.weight.flatten(1).t()
+        )
+        return x.transpose(1, 2).unsqueeze(2)
 
 
 class _ListPatchEmbedding(nn.Module):
@@ -404,8 +403,15 @@ class _ListPatchEmbedding(nn.Module):
             for patch_len in patch_len_list
         ]
         self.value_embeddings = nn.ModuleList(linear_layers)
-        self.position_embedding = _PositionalEmbedding(d_model=d_model)
-        self.channel_embedding = _PositionalEmbedding(d_model=seq_len)
+        # persistent: released checkpoints carry the tables
+        self.position_embedding = SinusoidalPositionalEncoding(
+            5000, d_model, persistent=True
+        )
+        # One sinusoidal code along time per channel, which tags each channel
+        # (the rows past enc_in that the original max_len=5000 adds are unused)
+        self.channel_embedding = SinusoidalPositionalEncoding(
+            enc_in, seq_len, persistent=True
+        )
         self.dropout = nn.Dropout(dropout)
 
         self.learnable_embeddings = nn.ParameterList(
@@ -414,28 +420,21 @@ class _ListPatchEmbedding(nn.Module):
 
     def forward(
         self, x: torch.Tensor
-    ) -> List[torch.Tensor]:  # (batch_size, seq_len, enc_in)
-        x = x.permute(0, 2, 1)  # (batch_size, enc_in, seq_len)
+    ) -> List[torch.Tensor]:  # (batch_size, enc_in, seq_len) = (B, n_chans, n_times)
+        # The original code takes (batch_size, seq_len, enc_in) and permutes it
+        # to this layout; braindecode inputs already have it.
         if self.single_channel:
-            # After permute: x.shape = (batch_size, n_times, n_chans)
-            # We want to process each channel independently
+            # Treat each channel independently: (batch_size * n_chans, 1, n_times)
             batch_size = x.shape[0]
-            # Permute to get channels in the middle: (batch_size, n_chans, n_times)
-            x = x.permute(0, 2, 1)
-            # Reshape to treat each channel independently: (batch_size * n_chans, 1, n_times)
             x = torch.reshape(x, (batch_size * self.n_chans, 1, self.n_times))
+
+        # add positional embedding to tag each channel (only when not single_channel)
+        if not self.single_channel:
+            x = self.channel_embedding(x)
 
         x_list = []
         for padding, value_embedding in zip(self.paddings, self.value_embeddings):
-            x_copy = x.clone()
-            # add positional embedding to tag each channel (only when not single_channel)
-            if not self.single_channel:
-                x_new = x_copy + self.channel_embedding(x_copy)
-            else:
-                x_new = x_copy
-            x_new = padding(x_new).unsqueeze(
-                1
-            )  # (batch_size, 1, enc_in, seq_len+stride)
+            x_new = padding(x).unsqueeze(1)  # (batch_size, 1, enc_in, seq_len+stride)
             x_new = value_embedding(x_new)  # (batch_size, d_model, 1, patch_num)
             x_new = x_new.squeeze(2).transpose(1, 2)  # (batch_size, patch_num, d_model)
             x_list.append(x_new)
@@ -448,7 +447,7 @@ class _ListPatchEmbedding(nn.Module):
         # Iterate over learnable_embeddings with enumerate (supported by TorchScript)
         for idx, cxt in enumerate(self.learnable_embeddings):
             xi = x_list[idx]
-            xi = xi + cxt + self.position_embedding(xi)
+            xi = self.position_embedding(xi + cxt)
             out_list.append(xi)
 
         return out_list
@@ -488,11 +487,32 @@ class _AttentionLayer(nn.Module):
         _, key_len, _ = keys.shape
         num_heads = self.num_heads
 
-        queries = self.query_projection(queries).view(
-            batch_size, query_len, num_heads, -1
-        )  # multi-head
-        keys = self.key_projection(keys).view(batch_size, key_len, num_heads, -1)
-        values = self.value_projection(values).view(batch_size, key_len, num_heads, -1)
+        if queries is keys and keys is values:
+            # Self-attention: one GEMM for the three projections.
+            weight = torch.cat(
+                [
+                    self.query_projection.weight,
+                    self.key_projection.weight,
+                    self.value_projection.weight,
+                ]
+            )
+            bias = torch.cat(
+                [
+                    self.query_projection.bias,
+                    self.key_projection.bias,
+                    self.value_projection.bias,
+                ]
+            )
+            queries, keys, values = nn.functional.linear(queries, weight, bias).chunk(
+                3, dim=-1
+            )
+        else:
+            queries = self.query_projection(queries)
+            keys = self.key_projection(keys)
+            values = self.value_projection(values)
+        queries = queries.view(batch_size, query_len, num_heads, -1)  # multi-head
+        keys = keys.view(batch_size, key_len, num_heads, -1)
+        values = values.view(batch_size, key_len, num_heads, -1)
 
         out, attn = self.inner_attention(
             queries, keys, values, attn_mask, tau=tau, delta=delta
@@ -500,24 +520,6 @@ class _AttentionLayer(nn.Module):
         out = out.view(batch_size, query_len, -1)
 
         return self.out_projection(out), attn
-
-
-class _TriangularCausalMask:
-    def __init__(
-        self, batch_size: int, seq_len: int, device: Optional[torch.device] = None
-    ):
-        # Normalize device to a torch.device for .to(device)
-        if device is None:
-            device = torch.device("cpu")
-        mask_shape = [batch_size, 1, seq_len, seq_len]
-        with torch.no_grad():
-            self._mask = torch.triu(
-                torch.ones(mask_shape, dtype=torch.bool), diagonal=1
-            ).to(device)
-
-    @property
-    def mask(self) -> torch.Tensor:
-        return self._mask
 
 
 class _FullAttention(nn.Module):
@@ -556,7 +558,13 @@ class _FullAttention(nn.Module):
         else:
             scale = self.scale
 
-        scores = torch.einsum("blhe,bshe->bhls", queries, keys)
+        # (batch, heads, len, dim) operands: both products are batched GEMMs.
+        queries, keys, values = (
+            queries.transpose(1, 2),
+            keys.transpose(1, 2),
+            values.transpose(1, 2),
+        )
+        scores = torch.matmul(queries, keys.transpose(-2, -1))
 
         if self.mask_flag:
             if attn_mask is None:
@@ -572,7 +580,7 @@ class _FullAttention(nn.Module):
         attention_weights = self.dropout(
             torch.softmax(scale * scores, dim=-1)
         )  # Scaled Dot-Product Attention
-        output_values = torch.einsum("bhls,bshd->blhd", attention_weights, values)
+        output_values = torch.matmul(attention_weights, values).transpose(1, 2)
 
         if self.output_attention:
             return output_values.contiguous(), attention_weights
@@ -693,16 +701,19 @@ class _EncoderLayer(nn.Module):
         delta: Optional[torch.Tensor] = None,
     ) -> Tuple[List[torch.Tensor], List[Optional[torch.Tensor]]]:
         new_x, attn = self.attention(x, attn_mask=attn_mask, tau=tau, delta=delta)
-        x = [x_orig + self.dropout(x_new) for x_orig, x_new in zip(x, new_x)]
-
-        y = x = [self.norm1(x_val) for x_val in x]
-        y = [
-            self.dropout(self.activation(self.conv1(y_val.transpose(-1, 1))))
-            for y_val in y
-        ]
+        lengths = [x_val.shape[1] for x_val in x]
+        # Norms and kernel-1 convs act per token: run them once on all
+        # granularities. Dropout stays per granularity (same RNG stream).
+        x_all = self.norm1(
+            torch.cat(
+                [x_orig + self.dropout(x_new) for x_orig, x_new in zip(x, new_x)], dim=1
+            )
+        )
+        y = self.activation(self.conv1(x_all.transpose(-1, 1))).split(lengths, dim=-1)
+        y = [self.dropout(y_val) for y_val in y]
         y = [self.dropout(self.conv2(y_val).transpose(-1, 1)) for y_val in y]
 
-        return [self.norm2(x_val + y_val) for x_val, y_val in zip(x, y)], attn
+        return list(self.norm2(x_all + torch.cat(y, dim=1)).split(lengths, dim=1)), attn
 
 
 class _Encoder(nn.Module):

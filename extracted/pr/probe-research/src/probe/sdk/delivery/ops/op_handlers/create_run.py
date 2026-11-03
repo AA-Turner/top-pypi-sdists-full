@@ -153,6 +153,14 @@ def _home_path(client: Client, create: dict, key: str) -> str:
                 )
             else:
                 exp = client.resolve_or_raise("experiment", experiment, project_id=project_id)
+            if project_id and exp.get("project_id") not in (None, project_id):
+                # As online (`_resolve_run_experiment`): never filed in another project unsaid.
+                raise errors.ValidationError(
+                    f"offline run {local_ref(key)} was recorded for experiment {experiment!r} in project "
+                    f"{project!r}, but that experiment is in another project. File it: "
+                    "`probe sync --project <slug>` (and `--experiment <slug>`).",
+                    status=422,
+                )
             # The experiment API's run create: under the project it is filed
             # in (an experiment row always names it).
             return f"/v1/projects/{exp['project_id']}/experiments/{exp['id']}/runs"

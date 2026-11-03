@@ -103,6 +103,10 @@ def in_decision_contract(body):
 ROUTER_CONFIG_SK = "CONFIG#router"
 ROUTER_LOCK_SK = "LOCK#router"
 MONITOR_STORIES_LOCK_PREFIX = "LOCK#monitor-stories#"   # one lock per publication for a monitor-stories run that names one
+CYCLOTRON_STATUS_LOCK_SK = "LOCK#cyclotron-status"   # its own lock: reading status never waits for, or holds up, a routing sweep
+CYCLOTRON_STATUS_ROW_PREFIX = "CYCLOTRONSTATUS#"
+AUTO_ACCEPT_LOCK_PREFIX = "LOCK#auto-accept#"            # the same for an auto-accept run that names one
+FAN_OUT_TASKS = {"monitor-stories": MONITOR_STORIES_LOCK_PREFIX, "auto-accept": AUTO_ACCEPT_LOCK_PREFIX}   # tasks that run once per publication, each in its own invocation
 LEASE_SECONDS = 660                    # longer than the 600 s Lambda timeout
 RECEIPT_TTL_SECONDS = 30 * 86400
 STALE_FINAL_REASON = "job pending longer than the allowed time; reconcile manually"   # an old limit's finals, reopened by hand
@@ -378,8 +382,13 @@ def validate_router_publications(raw: dict) -> list[dict]:
         since = entry.get("criteriaSince")
         if since is not None and (not isinstance(since, (str, int)) or not str(since).strip()):
             raise ValueError(f"router publication {publication_id} has an invalid criteriaSince")
+        tenant = entry.get("tenantId")
+        if tenant is not None:
+            from .tenancy import validate_tenant_id
+            tenant = validate_tenant_id(str(tenant))   # raises on an invalid id: a mistyped tenant must not run unscoped
         publications.append({
             **({"criteriaSince": str(since).strip()} if since is not None else {}),
+            **({"tenantId": tenant} if tenant else {}),
             "publicationId": publication_id, "site": site, "appsyncEndpoint": entry["appsyncEndpoint"],
             **({"userPoolId": pool_id} if pool_id else {}),
             "corpusId": corpus_id, "corpusKey": corpus_id.removeprefix("knowledge-corpus-"),
@@ -603,6 +612,8 @@ def validate_request(body: dict) -> None:
             raise ValueError("feedback payload shape")
         if not all(isinstance(payload[key], str) and payload[key] for key in ("caller", "reviewer")):
             raise ValueError("feedback caller and reviewer")
+        if "comment" in payload and (not isinstance(payload["comment"], str) or not payload["comment"].strip()):
+            raise ValueError("feedback comment must be non-blank text when present")   # the editor's explanation; an absent explanation is left out, never sent empty
 
 
 # --- Cyclotron machine API ------------------------------------------------------------------------
@@ -1082,11 +1093,12 @@ def short(error: Exception) -> str:
 
 # --- AppSync access and delivery --------------------------------------------------------------------
 
-def make_appsync_client(endpoint: str):
+def make_appsync_client(endpoint: str, tenant_id: str | None = None):
     os.environ.setdefault("PAPYRUS_GRAPHQL_AUTH", "iam")
     from .graphql_authoring import PapyrusGraphQLAuthoringClient
     from .graphql_http import iam_signed_graphql_headers
-    return PapyrusGraphQLAuthoringClient(endpoint=endpoint, header_factory=lambda body: iam_signed_graphql_headers(endpoint, body))
+    return PapyrusGraphQLAuthoringClient(endpoint=endpoint, tenant_id=tenant_id,
+                                         header_factory=lambda body: iam_signed_graphql_headers(endpoint, body))
 
 
 def editorial_context_receipt(client, publication: dict) -> dict:
@@ -1300,7 +1312,10 @@ class Router:
     def client(self, publication: dict):
         endpoint = publication["appsyncEndpoint"]
         if endpoint not in self._clients:
-            self._clients[endpoint] = self.appsync_factory(endpoint)
+            # A backend whose editorial records (sections, doctrine, stories) are stamped with a tenant is written and read as that tenant: the editorial check
+            # refuses a record whose tenant differs from the client's. Only publications that name one pass it; the other factories take the endpoint alone.
+            tenant = publication.get("tenantId")
+            self._clients[endpoint] = self.appsync_factory(endpoint, tenant) if tenant else self.appsync_factory(endpoint)
         return self._clients[endpoint]
 
     def context_for(self, publication: dict) -> dict:
@@ -2356,42 +2371,62 @@ class Router:
 
     # feedback ---------------------------------------------------------------------------------------
 
+    def human_votes(self, publication: dict) -> list[dict]:
+        """The publication's current References an editor has accepted or rejected. A person's vote is the only thing feedback sends,
+        so the pass starts from the votes (a few dozen to a few hundred a publication) and never walks the deliveries (thousands)."""
+        client = self.client(publication)
+        rows = [row for status in ("accepted", "rejected")
+                for row in client.list_by_index("referencesByCurationStatusKey", f"{publication['corpusId']}#{status}")]
+        return [row for row in rows if row and row.get("versionState", "current") == "current" and human_actor(str(row.get("curationStatusUpdatedBy") or ""))]
+
     def feedback(self) -> dict:
-        result = {"status": "complete", "sent": 0, "pending": 0, "skipped": 0, "failed": 0, "stoppedBy": None}
+        """Send every editor's vote on a Reference this monitor delivered to the Cyclotron, with the editor's explanation. A vote that changed
+        (another status, a new time or a new explanation) is a new request, so a changed mind reaches the Cyclotron as a correction; a vote
+        already sent, or finally refused, is recognised by its receipt and costs one read. Bounded only by the run's remaining time."""
+        result = {"status": "complete", "sent": 0, "pending": 0, "skipped": 0, "failed": 0, "unchanged": 0, "stoppedBy": None}
         if self.config["mode"] != "live" or not self.config["feedback"]:
             return {**result, "status": "off"}
         if self.lab_paused():
             return {**result, "status": "stopped", "stoppedBy": "lab_backoff"}
-        for row in self.store.query_partition(feedback_partition(self.monitor_id)):
+        for publication in self.publications.values():
             if self.time_left() < MIN_REMAINING_SECONDS:
                 result.update(status="stopped", stoppedBy="time_budget")
                 break
-            publication = self.publications.get(row.get("publicationId"))
-            if publication is None:
-                result["skipped"] += 1
-                self.rotate(row, "publication not configured")
-                continue
             try:
-                outcome = self.feedback_one(publication, row)
-            except StopSweep as stop:
-                result.update(status="stopped", stoppedBy=stop.code)
-                break
-            except Exception as error:
+                votes = self.human_votes(publication)
+            except Exception as error:  # noqa: BLE001 - one publication's unreadable votes must not stop the others
                 result["failed"] += 1
-                self.rotate(row, short(error))
+                print(json.dumps({"feedback": "votes_unreadable", "publicationId": publication["publicationId"], "reason": short(error)}))
                 continue
-            result[outcome] += 1
+            for reference in votes:
+                if self.time_left() < MIN_REMAINING_SECONDS:
+                    result.update(status="stopped", stoppedBy="time_budget")
+                    return result
+                row = self.store.get_any(self.monitor_id, f"DELIV#{publication['publicationId']}#{reference['id']}")
+                if row is None:
+                    continue   # another monitor delivered it; that monitor's router sends the vote
+                try:
+                    outcome = self.feedback_one(publication, row, reference)
+                except StopSweep as stop:
+                    result.update(status="stopped", stoppedBy=stop.code)
+                    return result
+                except Exception as error:  # noqa: BLE001
+                    result["failed"] += 1
+                    print(json.dumps({"feedback": "failed", "publicationId": publication["publicationId"], "referenceId": row["referenceId"], "reason": short(error)}))
+                    continue
+                result[outcome] += 1
         return result
 
-    def auto_accept(self) -> dict:
+    def auto_accept(self, publication_id: str | None = None) -> dict:
         """Per publication: accept confident pending References nobody voted on (src/papyrus_content/auto_accept.py). On unless the
-        publication's `autoAccept` says `enabled: false`; live mode only. One JSON log line per publication."""
+        publication's `autoAccept` says `enabled: false`; live mode only. One JSON log line per publication. It runs as its own task, one
+        invocation per publication with the whole time budget, so no earlier stage of a routing run can use the time up."""
         results: dict = {}
         if self.config["mode"] != "live" or self.config["decisions"] != "cyclotron":
             return results   # a rule monitor has no confidence; its deliveries are accepted on delivery (accept_by_rule)
         for publication in self.publications.values():
             policy = publication.get("autoAccept")
-            if not policy or not policy["enabled"]:
+            if not policy or not policy["enabled"] or publication_id not in (None, publication["publicationId"]):
                 continue
             if self.time_left() < MIN_REMAINING_SECONDS:
                 result = {"publicationId": publication["publicationId"], "status": "skipped", "reason": "time budget"}
@@ -2473,11 +2508,21 @@ class Router:
                 # leaves passes on to the next, and a publication the time stopped comes round again in the next pass.
                 share = (self.time_left() - MIN_REMAINING_SECONDS) / (len(queue) - index)
                 stop_at = max(self.time_left() - share, MIN_REMAINING_SECONDS)
+                # The vector pass (index, suggestions) comes first but is held to the first half of this share, so a big backlog of vectors cannot starve the drafting;
+                # what it does not finish is saved and continues next run, or after the drafting if time is left.
+                # A publication's share, in three parts: the vector pass the first quarter, reading the signals the next sixth, and the rest (more than half) for
+                # drafting, which is what the run is for. What the vector pass does not finish continues after the drafting if time is left.
+                span = self.time_left() - stop_at
+                vector_stop_at = stop_at + span * 0.75
+                signal_stop_at = stop_at + span * (0.75 - 1 / 6)
                 try:
                     result = self.story_drafter(self.client(publication), publication, transport=self.story_transport,
                                                 now=datetime.fromtimestamp(self.now + passes, timezone.utc),   # a pass's run id (and so its review request) is its own
                                                 out_of_time=lambda stop_at=stop_at: self.time_left() < stop_at,
+                                                vector_out_of_time=lambda vector_stop_at=vector_stop_at: self.time_left() < vector_stop_at,
+                                                signal_out_of_time=lambda signal_stop_at=signal_stop_at: self.time_left() < signal_stop_at,
                                                 handled_references=self.automation_handled_references(publication), embedding_key=self.embedding_key,
+                                                retry_memory=self.retry_memory(pid),
                                                 read_watermark=lambda pid=pid: (self.store.get_any(self.monitor_id, watermark_sort_key(pid)) or {}).get("watermark"),
                                                 write_watermark=lambda value, pid=pid: self.store.put_any(
                                                     self.monitor_id, {"pk": pk(self.monitor_id), "sk": watermark_sort_key(pid), "watermark": value, "updatedAt": _iso(self.now)}))
@@ -2501,38 +2546,52 @@ class Router:
             print(json.dumps({"monitorStories": result["status"], "monitorId": self.monitor_id, **result}))
         return results
 
+    def retry_memory(self, publication_id: str):
+        """The monitor-stories task's memory of rejected drafts (ideas/retry_memory.py), one row per Reference or pack in the router's own table."""
+        from .ideas import retry_memory as retry_rules
+
+        def recall(subject: str):
+            return self.store.get_any(self.monitor_id, retry_rules.sort_key(publication_id, subject))
+
+        def remember(subject: str, record) -> None:
+            self.store.put_any(self.monitor_id, {"pk": pk(self.monitor_id), "sk": retry_rules.sort_key(publication_id, subject), **record})
+
+        return retry_rules.CallbackMemory(recall, remember)
+
     def rotate(self, row: dict, note: str):
         """Move a checked row to the back of the queue so one stuck row cannot starve the rest."""
         row = {**row, "lastCheckedAt": _iso(self.now), "lastNote": note[:300],
                "gsi1sk": f"{_iso(self.now)}#{row['publicationId']}#{row['referenceId']}"}
         self.store.put_any(self.monitor_id, row)
 
-    def feedback_one(self, publication: dict, row: dict) -> str:
-        # Feedback goes out under the publication's CURRENT binding revision, not the one stored when the item was
-        # decided: the lab refuses a stale revision (409 "publication binding changed") after a cutover. The
-        # requestId does not include the revision, so retries stay idempotent.
-        if self.publications.get(publication["publicationId"]) is not publication:
-            self.rotate(row, "publication not in the current config")
-            return "skipped"
-        reference = self.client(publication).get_record("Reference", row["referenceId"])
-        status = (reference or {}).get("curationStatus")
-        if status not in ("accepted", "rejected"):
-            self.rotate(row, f"curation {status or 'missing'}")
-            return "pending"
+    def feedback_one(self, publication: dict, row: dict, reference: dict) -> str:
+        """Send one editor's vote on one delivered Reference. Returns the pass's outcome word: sent, unchanged (this vote already has a final
+        receipt), skipped (it cannot be sent), failed or pending (try again next run: the request id stays the same).
+
+        Feedback goes out under the publication's CURRENT binding revision, not the one stored when the item was decided: the lab refuses a
+        stale revision (409 "publication binding changed") after a cutover. The request id is a hash of the Reference, the vote's status and
+        time and the editor's explanation (when there is one), never the revision: a retry is the same request, a changed vote is a new one,
+        and a vote without an explanation keeps the id it has always had."""
+        status = reference.get("curationStatus")
         actor = str(reference.get("curationStatusUpdatedBy") or "")
-        if not human_actor(actor):
-            self.rotate(row, "curation actor is missing or not a human user")
+        if status not in ("accepted", "rejected") or not human_actor(actor):
             return "skipped"
         updated_at = str(reference.get("curationStatusUpdatedAt") or reference.get("updatedAt") or "")
+        explanation = str(reference.get("curationStatusReason") or "").strip()
         label = publication["positiveLabel"] if status == "accepted" else publication["negativeLabel"]
+        identity = [row["referenceId"], status, updated_at] + ([explanation] if explanation else [])
         body = {"contractVersion": CONTRACT_VERSION, "operation": "feedback",
-                "requestId": sha256("\n".join([row["referenceId"], status, updated_at]).encode()).hexdigest(),
+                "requestId": sha256("\n".join(identity).encode()).hexdigest(),
                 "payload": {"bindingRevision": self.config["cyclotron"]["bindingRevision"], "itemId": row["itemId"],
                             "itemRevision": (row.get("source") or {}).get("revision"), "output": row["output"],
                             "label": label, "caller": publication["site"],
-                            "reviewer": editor_subject(publication["publicationId"], actor)}}
+                            "reviewer": editor_subject(publication["publicationId"], actor),
+                            **({"comment": explanation} if explanation else {})}}
+        done = self.store.get_any(self.monitor_id, f"FB#{body['requestId']}")
+        if done and done.get("outcome") in ("sent", "stale", "refused", "invalid"):
+            return "unchanged"   # this exact vote has its final receipt
         if body["payload"]["itemRevision"] is None:
-            self.rotate(row, "decision receipt has no item revision")
+            print(json.dumps({"feedback": "no_item_revision", "publicationId": publication["publicationId"], "referenceId": row["referenceId"]}))
             return "skipped"
         validate_request(body)
         current = str(self.config["cyclotron"]["bindingRevision"])
@@ -2549,37 +2608,42 @@ class Router:
                 "publicationId": publication["publicationId"], "referenceId": row["referenceId"],
                 "outcome": "stale", "code": "criteria changed since this vote", "votedUnder": str(row.get("bindingRevision")),
                 **basis, "sentAt": _iso(self.now), "runId": self.run_id})
-            self.store.put_any(self.monitor_id, {k: v for k, v in row.items() if k not in ("gsi1pk", "gsi1sk")} | {"feedback": "stale"})
+            self.store.put_any(self.monitor_id, self.settled(row, "stale"))
             return "skipped"
         receipt = {"pk": pk(self.monitor_id), "sk": f"FB#{body['requestId']}", "requestId": body["requestId"],
                    "publicationId": publication["publicationId"], "referenceId": row["referenceId"],
                    "curationStatus": status, "label": label, "output": row["output"], "itemId": row["itemId"],
-                   "sentAt": _iso(self.now), "runId": self.run_id}
+                   "explained": bool(explanation), "sentAt": _iso(self.now), "runId": self.run_id}
         try:
             response = self.cyclotron.feedback(publication["publicationId"], body)
         except ItemRefused as error:
             self.store.put_any(self.monitor_id, {**receipt, "outcome": "refused", "code": str(error)})
-            self.store.put_any(self.monitor_id, {k: v for k, v in row.items() if k not in ("gsi1pk", "gsi1sk")} | {"feedback": "refused"})
+            self.store.put_any(self.monitor_id, self.settled(row, "refused"))
             return "failed"
         except ItemInvalid as error:
             self.store.put_any(self.monitor_id, {**receipt, "outcome": "invalid", "code": str(error)})
-            self.store.put_any(self.monitor_id, {k: v for k, v in row.items() if k not in ("gsi1pk", "gsi1sk")} | {"feedback": "invalid"})
+            self.store.put_any(self.monitor_id, self.settled(row, "invalid"))
             return "failed"
         except ItemUncertain as error:   # safe to retry later: same requestId
-            self.rotate(row, f"uncertain: {error}")
-            return "failed"
+            print(json.dumps({"feedback": "uncertain", "publicationId": publication["publicationId"], "referenceId": row["referenceId"], "reason": short(error)}))
+            return "pending"
         except StopSweep as stop:
             if stop.code != "binding_changed":
                 raise
-            # the body was logged by classify; the row stays queued and the next run asks again under the then-current revision
-            self.rotate(row, f"binding_changed ({stop.detail}) under revision {body['payload']['bindingRevision']}; retry next run")
+            # the body was logged by classify; the next run asks again under the then-current revision
+            print(json.dumps({"feedback": "binding_changed", "detail": str(stop.detail), "publicationId": publication["publicationId"],
+                              "referenceId": row["referenceId"], "revision": body["payload"]["bindingRevision"]}))
             return "failed"
         self.store.put_any(self.monitor_id, {**receipt, "outcome": "sent",
                                              "response": {k: response[k] for k in ("status", "feedbackId", "accepted") if k in response
                                                           and isinstance(response[k], (str, bool, int))}})
-        self.store.put_any(self.monitor_id, {k: v for k, v in row.items() if k not in ("gsi1pk", "gsi1sk")}
-                           | {"feedback": "sent", "feedbackRequestId": body["requestId"], "feedbackAt": _iso(self.now)})
+        self.store.put_any(self.monitor_id, self.settled(row, "sent") | {"feedbackRequestId": body["requestId"], "feedbackAt": _iso(self.now)})
         return "sent"
+
+    @staticmethod
+    def settled(row: dict, state: str) -> dict:
+        """The delivery row as the last vote left it. It leaves the old FEEDBACK queue index, which nothing reads any more."""
+        return {k: v for k, v in row.items() if k not in ("gsi1pk", "gsi1sk")} | {"feedback": state}
 
 
 def oldest_posted_at(route: dict) -> int:
@@ -2608,6 +2672,56 @@ def reopen_stale_finals(store, monitor_id: str) -> int:
     return reopened
 
 
+# --- status snapshots for the newsroom ---------------------------------------------------------------
+
+def status_row_sk(publication_id: str) -> str:
+    """The monitor-partition row that holds a publication's latest Cyclotron status. The Monitoring view (src/papyrus_content/monitoring_view.py,
+    list `cyclotronStatus`) reads it for the signed-in site's own publication only."""
+    return CYCLOTRON_STATUS_ROW_PREFIX + publication_id
+
+
+def run_cyclotron_status(store, config: dict, cyclotron: CyclotronClient, *, monitor_id: str, now: float,
+                         time_left: Callable[[], float] = lambda: 1e9) -> dict:
+    """The `cyclotron-status` task: read the Cyclotron's `status` snapshot for each configured publication and keep it, one row per
+    publication (its output is in the row), in the monitor's own partition, where the newsroom home page reads it through the Monitoring view.
+    Read-only toward the Cyclotron and toward every site's backend: nothing is written outside the monitoring table.
+
+    It never goes through the deciding path and never stops a sweep: it calls the lab directly (not `classify`), so a 503 ("no verified
+    publication status snapshot yet") is that publication's "no snapshot yet" and sets no lab-wide pause, and it takes its own lock.
+    It does respect a pause the lab already asked for. A snapshot is only as fresh as the binding's last completed decision, so the row keeps the
+    snapshot's own `asOf` and the time this task last checked. One publication's failure never stops the others."""
+    results: dict = {}
+    if config["mode"] != "live" or config["decisions"] != "cyclotron":
+        return {"status": "skipped", "reason": "not a live Cyclotron monitor", "publications": results}
+    if int((store.get_any(monitor_id, LAB_BACKOFF_SK) or {}).get("until", 0)) > now:
+        return {"status": "skipped", "reason": "lab_backoff", "publications": results}
+    for publication in config["publications"]:
+        pid = publication["publicationId"]
+        if time_left() < MIN_REMAINING_SECONDS:
+            results[pid] = {"status": "skipped", "reason": "time budget"}
+            continue
+        try:
+            code, payload = cyclotron._call("POST", f"/machine/bindings/{quote(pid)}/operations",
+                                            {"contractVersion": CONTRACT_VERSION, "operation": "status", "payload": {}})
+        except (OSError, TimeoutError) as error:
+            results[pid] = {"status": "unreachable", "reason": type(error).__name__}
+            continue
+        if code == 503:
+            results[pid] = {"status": "no_snapshot"}   # no completed decision for this binding yet: not an error, and never a lab pause
+            continue
+        if code != 200 or payload.get("schema") != "cyclotron-status/v1":
+            results[pid] = {"status": "unavailable", "reason": body_excerpt(code, payload) if code != 200 else "not a status snapshot"}
+            continue
+        try:
+            store.put_any(monitor_id, {"pk": pk(monitor_id), "sk": status_row_sk(pid), "publicationId": pid, "output": publication["output"],
+                                       "asOf": payload.get("asOf"), "checkedAt": _iso(now), "status": payload})
+            results[pid] = {"status": "written", "asOf": payload.get("asOf")}
+        except Exception as error:  # noqa: BLE001 - one publication's unwritable row must not stop the others
+            results[pid] = {"status": "failed", "reason": short(error)}
+    print(json.dumps({"cyclotronStatus": {pid: r["status"] for pid, r in results.items()}, "monitorId": monitor_id}))
+    return {"status": "complete", "publications": results}
+
+
 def run_router(store, monitor_id: str = "hn", *, now: float | None = None, owner: str | None = None,
                run_id: str | None = None, task: str | None = None, cyclotron: CyclotronClient | None = None,
                appsync: Callable[[str], Any] = make_appsync_client, deliver=deliver_reference,
@@ -2626,23 +2740,27 @@ def run_router(store, monitor_id: str = "hn", *, now: float | None = None, owner
     config = validate_router_config(raw)
     if not config["enabled"]:
         return {"monitorId": monitor_id, "runId": run_id, "status": "disabled"}
-    if task == "monitor-stories" and publication_id is None and fan_out is not None:
-        # No publication named: this run only starts one run per publication that has monitor stories on, each in its own invocation
-        # (the whole time budget and its own lock). It takes no lock and drafts nothing itself.
-        started = [p["publicationId"] for p in config["publications"] if (p.get("monitorStories") or {}).get("enabled", True)]
+    if task in FAN_OUT_TASKS and publication_id is None and fan_out is not None:
+        # No publication named: this run only starts one run per publication that has the task on, each in its own invocation
+        # (the whole time budget and its own lock). It takes no lock and does nothing itself.
+        if task == "monitor-stories":
+            started = [p["publicationId"] for p in config["publications"] if (p.get("monitorStories") or {}).get("enabled", True)]
+        else:
+            started = [p["publicationId"] for p in config["publications"] if (p.get("autoAccept") or {}).get("enabled", True)]
         for pid in started:
             fan_out(pid)
-        print(json.dumps({"monitorStories": "fanned-out", "monitorId": monitor_id, "publications": started}))
+        print(json.dumps({"monitorStories" if task == "monitor-stories" else "autoAccept": "fanned-out", "monitorId": monitor_id, "publications": started}))
         return {"monitorId": monitor_id, "runId": run_id, "status": "fanned-out", "publications": started}
-    lock_sk = ROUTER_LOCK_SK
+    lock_sk = CYCLOTRON_STATUS_LOCK_SK if task == "cyclotron-status" else ROUTER_LOCK_SK
     if publication_id is not None:
-        # One publication of the daily monitor-stories task: validated against the monitor's config, and locked per publication so the runs
-        # of one monitor's publications (each up to the Lambda's 10 minutes) neither wait for each other nor hold up the monitor's route pass.
-        if task != "monitor-stories":
-            return {"monitorId": monitor_id, "runId": run_id, "status": "error", "reason": "publicationId is only for the monitor-stories task"}
+        # One publication of a per-publication task (the daily monitor-stories, the hourly auto-accept): validated against the monitor's config, and
+        # locked per publication so the runs of one monitor's publications (each up to the Lambda's 10 minutes) neither wait for each other nor hold up
+        # the monitor's route pass.
+        if task not in FAN_OUT_TASKS:
+            return {"monitorId": monitor_id, "runId": run_id, "status": "error", "reason": "publicationId is only for the monitor-stories and auto-accept tasks"}
         if publication_id not in {p["publicationId"] for p in config["publications"]}:
             return {"monitorId": monitor_id, "runId": run_id, "status": "error", "reason": f"unknown publicationId {publication_id!r} for monitor {monitor_id}"}
-        lock_sk = f"{MONITOR_STORIES_LOCK_PREFIX}{publication_id}"
+        lock_sk = f"{FAN_OUT_TASKS[task]}{publication_id}"
     if not store.acquire_router_lock(monitor_id, owner, now, sk=lock_sk):
         return {"monitorId": monitor_id, "runId": run_id, "status": "locked"}
     try:
@@ -2650,6 +2768,11 @@ def run_router(store, monitor_id: str = "hn", *, now: float | None = None, owner
             return {"monitorId": monitor_id, "runId": run_id, "status": "complete", "reopened": reopen_stale_finals(store, monitor_id)}
         if cyclotron is None and config["mode"] == "live" and config["decisions"] == "cyclotron":
             cyclotron = (cyclotron_factory or (lambda c: CyclotronClient(c, sign=sigv4_signer(c, assume_invoker(c)))))(config)
+        if task == "cyclotron-status":
+            # Its own task: no Router, no sweep, no feedback, no receipt, no lab-wide pause; the newsroom home page reads what it writes.
+            done = (run_cyclotron_status(store, config, cyclotron, monitor_id=monitor_id, now=now, time_left=time_left) if cyclotron
+                    else {"status": "skipped", "reason": "not a live Cyclotron monitor", "publications": {}})
+            return {"monitorId": monitor_id, "runId": run_id, **done}
         router = Router(store, config, monitor_id=monitor_id, now=now, run_id=run_id, cyclotron=cyclotron,
                         appsync=appsync, deliver=deliver, context_receipt=context_receipt, time_left=time_left,
                         start_procedure=start_procedure, cognito=cognito, rung_job_ids=rung_job_ids, enricher=enricher,
@@ -2658,7 +2781,7 @@ def run_router(store, monitor_id: str = "hn", *, now: float | None = None, owner
         outcome = (router.selected_references(source_ids) if task == "email-references" else
                    {"status": "skipped"} if task in ("feedback", "auto-accept", "monitor-stories") else router.collect() if task == "collect" else router.sweep())
         feedback = {"status": "skipped"} if task in ("route", "collect", "email-references", "auto-accept", "monitor-stories") else router.feedback()
-        auto_accepted = {} if task in ("route", "collect", "email-references", "feedback", "monitor-stories") else router.auto_accept()
+        auto_accepted = router.auto_accept(publication_id) if task == "auto-accept" else {}   # its own task: the hourly schedule fans it out, one invocation per publication
         monitor_stories = router.monitor_stories(publication_id) if task == "monitor-stories" else {}
         paused_until = router.settle_lab_backoff()
         result = {"monitorId": monitor_id, "runId": run_id, "mode": config["mode"], "startedAt": _iso(now),
@@ -2737,8 +2860,9 @@ def invoke_self(context, payload: dict) -> None:
 
 
 def handler(event, context):
-    """EventBridge Scheduler entry point. `{"task": "route"|"collect"|"feedback"|"monitor-stories"}` limits the pass (operator debugging).
-    `{"task": "monitor-stories", "monitorId": "hn", "publicationId": "anth-us"}` runs only that publication, with the whole time budget and its own lock."""
+    """EventBridge Scheduler entry point. `{"task": "route"|"collect"|"feedback"|"monitor-stories"|"auto-accept"|"cyclotron-status"}` limits the pass (operator debugging).
+    `{"task": "monitor-stories"|"auto-accept", "monitorId": "hn", "publicationId": "anth-us"}` runs only that publication, with the whole time budget and its own lock;
+    without a publicationId the task only fans out one such invocation per publication."""
     import boto3  # provided by the Lambda runtime
 
     event = event if isinstance(event, dict) else {}

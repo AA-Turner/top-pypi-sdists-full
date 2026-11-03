@@ -10,9 +10,54 @@ Sampler classes.
 # License: BSD (3-clause)
 
 import numpy as np
+import pandas as pd
 from sklearn.utils import check_random_state
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import Sampler
+
+
+def _group_windows_by_recording(metadata, required_keys=None):
+    """Return one row per recording, with the positions (``index``) and start
+    samples (``i_start_in_trial``) of its windows, sorted by subject, session
+    and run.
+
+    A recording is a dataset of the BaseConcatDataset, marked by the
+    ``i_dataset`` column of ``get_metadata()``; an integer index starting
+    again also starts one, for metadata concatenated from several
+    ``get_metadata()`` calls. Without ``i_dataset``, the windows sharing
+    subject, session and run form a recording. With ``required_keys``, rows
+    are indexed by recording position and those keys.
+    """
+    keys = [k for k in ["subject", "session", "run"] if k in metadata.columns]
+    windows = pd.DataFrame({k: metadata[k].to_numpy() for k in keys})
+    if "i_dataset" in metadata.columns:
+        new = metadata["i_dataset"].diff().ne(0).to_numpy()
+        if pd.api.types.is_integer_dtype(metadata.index):
+            new = new | (metadata.index.to_series().diff() <= 0).to_numpy()
+        windows["recording"] = new.cumsum()
+        keys.append("recording")
+    elif not keys:
+        raise ValueError(
+            "metadata must contain the i_dataset column of "
+            "BaseConcatDataset.get_metadata() or at least one of the "
+            "columns subject, session or run."
+        )
+    windows["index"] = np.arange(len(metadata))
+    # every window is kept, so that positions and start samples stay aligned
+    windows["i_start_in_trial"] = metadata["i_start_in_trial"].to_numpy()
+    if required_keys is not None:
+        missing_keys = [k for k in required_keys if k not in metadata.columns]
+        if len(missing_keys) > 0:
+            raise ValueError(f"Columns {missing_keys} were not found in metadata.")
+        # recordings by position: label lookups fail on a missing session or run
+        windows["i_recording"] = windows.groupby(keys, dropna=False).ngroup()
+        for k in required_keys:
+            windows[k] = metadata[k].to_numpy()
+        keys = ["i_recording", *required_keys]
+    info = windows.groupby(keys, dropna=False)[["index", "i_start_in_trial"]].agg(list)
+    for col in info:
+        info[col] = info[col].map(np.array)
+    return info
 
 
 class RecordingSampler(Sampler):
@@ -23,7 +68,9 @@ class RecordingSampler(Sampler):
     metadata : pd.DataFrame
         DataFrame with at least one of {subject, session, run} columns for each
         window in the BaseConcatDataset to sample examples from. Normally
-        obtained with `BaseConcatDataset.get_metadata()`. For instance,
+        obtained with `BaseConcatDataset.get_metadata()`, whose ``i_dataset``
+        column makes each dataset one recording; without it, the windows
+        sharing subject, session and run form one recording. For instance,
         `metadata.head()` might look like this:
         +-------------------+-----------------+-----------------+--------+----------+-----------+-------+
         | i_window_in_trial | i_start_in_trial| i_stop_in_trial | target | subject  | session   | run   |
@@ -45,9 +92,9 @@ class RecordingSampler(Sampler):
     Attributes
     ----------
     info : pd.DataFrame
-        Series with MultiIndex index which contains the subject, session, run
-        and window indices information in an easily accessible structure for
-        quick sampling of windows.
+        Series with MultiIndex index which contains the subject, session, run,
+        recording and window indices information in an easily accessible
+        structure for quick sampling of windows.
     n_recordings : int
         Number of recordings available.
     """
@@ -70,28 +117,7 @@ class RecordingSampler(Sampler):
         -------
             See class attributes.
         """
-        keys = [k for k in ["subject", "session", "run"] if k in self.metadata.columns]
-        if not keys:
-            raise ValueError(
-                "metadata must contain at least one of the following columns: "
-                "subject, session or run."
-            )
-
-        if required_keys is not None:
-            missing_keys = [k for k in required_keys if k not in self.metadata.columns]
-            if len(missing_keys) > 0:
-                raise ValueError(f"Columns {missing_keys} were not found in metadata.")
-            keys += required_keys
-
-        metadata = metadata.reset_index().rename(columns={"index": "window_index"})
-        info = (
-            metadata.reset_index()
-            .groupby(keys)[["index", "i_start_in_trial"]]
-            .agg(["unique"])
-        )
-        info.columns = info.columns.get_level_values(0)
-
-        return info
+        return _group_windows_by_recording(metadata, required_keys)
 
     def sample_recording(self):
         """Return a random recording index."""
@@ -120,9 +146,7 @@ class DistributedRecordingSampler(DistributedSampler):
     Parameters
     ----------
     metadata : pd.DataFrame
-        DataFrame with at least one of {subject, session, run} columns for each
-        window in the BaseConcatDataset to sample examples from. Normally
-        obtained with `BaseConcatDataset.get_metadata()`. For instance,
+        See RecordingSampler. For instance,
         `metadata.head()` might look like this::
 
             i_window_in_trial  i_start_in_trial  i_stop_in_trial  target  subject    session    run
@@ -133,14 +157,15 @@ class DistributedRecordingSampler(DistributedSampler):
             4                  4              2000             2500      -1        4  session_T  run_0
 
     random_state : np.RandomState | int | None
-        Random state.
+        Random state. An int is also used as the ``seed`` with which
+        :class:`torch.utils.data.distributed.DistributedSampler` shuffles the
+        recordings among processes; otherwise that seed is 0 (torch's default),
+        so that every process splits the recordings the same way.
 
     Attributes
     ----------
     info : pd.DataFrame
-        Series with MultiIndex index which contains the subject, session, run
-        and window indices information in an easily accessible structure for
-        quick sampling of windows.
+        See RecordingSampler.
     n_recordings : int
         Number of recordings available.
     kwargs : dict
@@ -157,8 +182,16 @@ class DistributedRecordingSampler(DistributedSampler):
         self.metadata = metadata
         self.info = self._init_info(metadata)
         self.rng = check_random_state(random_state)
+        # DistributedSampler needs an int seed (it shuffles with seed + epoch),
+        # and the same one on every process: None or a RandomState would give
+        # each process its own draw, so fall back to torch's default seed
+        seed = kwargs.pop("seed", None)
+        if seed is None:
+            seed = (
+                int(random_state) if isinstance(random_state, (int, np.integer)) else 0
+            )
         # send information to DistributedSampler parent to handle data splitting among workers
-        super().__init__(self.info, seed=random_state, **kwargs)
+        super().__init__(self.info, seed=seed, **kwargs)
 
     def _init_info(self, metadata, required_keys=None):
         """Initialize ``info`` DataFrame.
@@ -173,28 +206,7 @@ class DistributedRecordingSampler(DistributedSampler):
         -------
             See class attributes.
         """
-        keys = [k for k in ["subject", "session", "run"] if k in self.metadata.columns]
-        if not keys:
-            raise ValueError(
-                "metadata must contain at least one of the following columns: "
-                "subject, session or run."
-            )
-
-        if required_keys is not None:
-            missing_keys = [k for k in required_keys if k not in self.metadata.columns]
-            if len(missing_keys) > 0:
-                raise ValueError(f"Columns {missing_keys} were not found in metadata.")
-            keys += required_keys
-
-        metadata = metadata.reset_index().rename(columns={"index": "window_index"})
-        info = (
-            metadata.reset_index()
-            .groupby(keys)[["index", "i_start_in_trial"]]
-            .agg(["unique"])
-        )
-        info.columns = info.columns.get_level_values(0)
-
-        return info
+        return _group_windows_by_recording(metadata, required_keys)
 
     def sample_recording(self):
         """Return a random recording index.
@@ -267,30 +279,37 @@ class SequenceSampler(RecordingSampler):
             Array of shape (n_sequences,) containing the unique file number of
             each sequence. Useful e.g. to do self-ensembling.
         """
-        end_offset = 1 - self.n_windows if self.n_windows > 1 else None
-        start_inds = (
-            self.info["index"]
-            .apply(lambda x: x[: end_offset : self.n_windows_stride])
-            .values
-        )
+        # the windows of a recording need not be contiguous in the metadata
+        # (no i_dataset column): sequences are read from each recording's
+        # windows, by recording and position of their first window
+        self._rec_inds = list(self.info["index"])
+        starts = [
+            np.arange(0, len(inds) - self.n_windows + 1, self.n_windows_stride)
+            for inds in self._rec_inds
+        ]
         # a typed array keeps the ids integer when a recording yields no sequence
         file_ids = [
-            np.full(len(inds), i, dtype=np.int64) for i, inds in enumerate(start_inds)
+            np.full(len(pos), i, dtype=np.int64) for i, pos in enumerate(starts)
         ]
-        return np.concatenate(start_inds), np.concatenate(file_ids)
+        self._seq_starts = np.concatenate(starts).astype(np.int64)
+        file_ids = np.concatenate(file_ids)
+        start_inds = np.array(
+            [self._rec_inds[i][p] for i, p in zip(file_ids, self._seq_starts)],
+            dtype=np.int64,
+        )
+        return start_inds, file_ids
 
     def __len__(self):
         return len(self.start_inds)
 
     def __iter__(self):
+        order = np.arange(len(self.start_inds))
         if self.randomize:
-            start_inds = self.start_inds.copy()
-            self.rng.shuffle(start_inds)
-            for start_ind in start_inds:
-                yield tuple(range(start_ind, start_ind + self.n_windows))
-        else:
-            for start_ind in self.start_inds:
-                yield tuple(range(start_ind, start_ind + self.n_windows))
+            self.rng.shuffle(order)
+        for i in order:
+            start = self._seq_starts[i]
+            inds = self._rec_inds[self.file_ids[i]]
+            yield tuple(inds[start : start + self.n_windows].tolist())
 
 
 class BalancedSequenceSampler(RecordingSampler):
@@ -353,7 +372,9 @@ class BalancedSequenceSampler(RecordingSampler):
                 f"No recording holds enough windows to build a sequence of "
                 f"{self.n_windows} windows. The longest recording has "
                 f"{n_windows_per_rec.max()} windows. Reduce n_windows to at "
-                f"most that value."
+                f"most that value, or, if each dataset holds one trial of a "
+                f"recording, pass the metadata without its i_dataset column to "
+                f"group the trials by subject, session and run."
             )
         return long_enough
 
@@ -379,7 +400,7 @@ class BalancedSequenceSampler(RecordingSampler):
         """
         if rec_ind is None:
             rec_ind = self.sample_recording()
-        available_classes = self.info_class.loc[self.info.iloc[rec_ind].name].index
+        available_classes = self.info_class.loc[rec_ind].index
         return self.rng.choice(available_classes), rec_ind
 
     def _sample_seq_start_ind(self, rec_ind=None, class_ind=None):
@@ -413,11 +434,7 @@ class BalancedSequenceSampler(RecordingSampler):
         rec_inds = self.info.iloc[rec_ind]["index"]
         len_rec_inds = len(rec_inds)
 
-        row = self.info.iloc[rec_ind].name
-        if not isinstance(row, tuple):
-            # Theres's only one category, e.g. "subject"
-            row = tuple([row])
-        available_indices = self.info_class.loc[row + tuple([class_ind]), "index"]
+        available_indices = self.info_class.loc[(rec_ind, class_ind), "index"]
         win_ind = self.rng.choice(available_indices)
         win_ind_in_rec = np.where(rec_inds == win_ind)[0][0]
 
@@ -433,5 +450,8 @@ class BalancedSequenceSampler(RecordingSampler):
 
     def __iter__(self):
         for _ in range(self.n_sequences):
-            start_ind, _, _ = self._sample_seq_start_ind()
-            yield tuple(range(start_ind, start_ind + self.n_windows))
+            start_ind, rec_ind, _ = self._sample_seq_start_ind()
+            # the windows of a recording need not be contiguous in the metadata
+            rec_inds = self.info.iloc[rec_ind]["index"]
+            start = rec_inds.searchsorted(start_ind)
+            yield tuple(rec_inds[start : start + self.n_windows].tolist())

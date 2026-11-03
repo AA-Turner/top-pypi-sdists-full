@@ -17,6 +17,7 @@ import torchaudio as ta
 from torch import nn
 from torch.nn import functional as F
 
+from braindecode.functional.attention import _hpu_lazy
 from braindecode.models.base import EEGModuleMixin
 from braindecode.models.util import has_valid_locations, positions_from_chs_info
 from braindecode.modules import ChannelMerger
@@ -698,11 +699,12 @@ class _ConvSequence(nn.Module):
 
             self.sequence.append(nn.Sequential(*layers))
 
-            # Add skip projection if channels don't match (for growth != 1.0)
+            # Add skip projection if channels don't match (for growth != 1.0).
+            # Identity, not None: TorchScript drops None entries of a ModuleList.
             if chin != chout:
                 self.skip_projections.append(nn.Conv1d(chin, chout, 1))
             else:
-                self.skip_projections.append(None)
+                self.skip_projections.append(nn.Identity())
 
             # GLU gating every N layers
             if glu > 0 and (k + 1) % glu == 0:
@@ -711,25 +713,30 @@ class _ConvSequence(nn.Module):
                         nn.Conv1d(
                             chout, 2 * chout, 1 + 2 * glu_context, padding=glu_context
                         ),
-                        nn.GLU(dim=1),
+                        _GLU(dim=1),
                     )
                 )
             else:
-                self.glus.append(None)
+                self.glus.append(nn.Identity())
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         for module, glu, skip_proj in zip(
             self.sequence, self.glus, self.skip_projections
         ):
-            # Apply residual connection
-            # If channels match, add directly; otherwise use projection
-            if skip_proj is not None:
-                x = skip_proj(x) + module(x)
-            else:
-                x = x + module(x)
-            if glu is not None:
-                x = glu(x)
+            x = skip_proj(x) + module(x)
+            x = glu(x)
         return x
+
+
+class _GLU(nn.GLU):
+    """``nn.GLU`` that Intel Gaudi's lazy mode can compile."""
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if not torch.jit.is_scripting() and x.device.type == "hpu" and _hpu_lazy():
+            # Its graph compiler fails on ``aten.glu`` after a convolution.
+            a, b = x.chunk(2, dim=self.dim)
+            return a * torch.sigmoid(b)
+        return F.glu(x, self.dim)
 
 
 def _pad_multiple(x: torch.Tensor, base: int) -> torch.Tensor:

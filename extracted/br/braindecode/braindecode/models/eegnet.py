@@ -171,7 +171,8 @@ class EEGNet(EEGModuleMixin, nn.Sequential):
         if not final_layer_with_constraint:
             warn(
                 "Parameter 'final_layer_with_constraint=False' is deprecated and will be "
-                "removed in a future release. Please use `final_layer_linear=True`.",
+                "removed in a future release. Please pass "
+                "`final_layer_with_constraint=True`.",
                 DeprecationWarning,
             )
 
@@ -347,4 +348,8 @@ class EEGNet(EEGModuleMixin, nn.Sequential):
             )
         self.add_module("final_layer", module)
 
+        self._init_parameters()
+
+    def _init_parameters(self) -> None:
+        """Model-specific initialization (see ``reset_parameters``)."""
         glorot_weight_zero_bias(self)

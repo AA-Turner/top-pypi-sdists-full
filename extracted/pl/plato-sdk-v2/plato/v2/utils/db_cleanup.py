@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import shlex
 import socket
 from typing import Any
 from urllib.parse import quote_plus
@@ -14,8 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from plato._generated.api.v1.simulator import get_db_config
-from plato._generated.api.v2 import jobs
-from plato._generated.models import DbConfigResponse, ExecuteCommandRequest
+from plato._generated.models import DbConfigResponse
 from plato.v2.sync.sandbox import Tunnel
 from plato.v2.utils.models import (
     ApiCleanupResult,
@@ -39,10 +37,8 @@ def _make_db_url(config: DbConfigResponse, port: int) -> str:
         return f"postgresql+asyncpg://{user}:{password}@127.0.0.1:{port}/{database}"
     elif db == "mysql":
         return f"mysql+aiomysql://{user}:{password}@127.0.0.1:{port}/{database}"
-    # NOTE: SQLite is intentionally not handled here. It is a file-based DB with
-    # no network service, so it cannot be reached over the localhost tunnel used
-    # for Postgres/MySQL. SQLite cleanup runs in-container via exec — see
-    # DatabaseCleaner._cleanup_sqlite_via_exec.
+    elif db == "sqlite":
+        return f"sqlite+aiosqlite:///{config.db_database}"
     raise ValueError(f"Unsupported database type: {db}")
 
 
@@ -104,9 +100,7 @@ class DatabaseCleaner:
                 async def cleanup_db(config: DbConfigResponse) -> tuple[str, DatabaseCleanupResult]:
                     db_name = config.db_database
                     try:
-                        result = await self._cleanup_single_database(
-                            env.job_id, config, http_client, api_key, mesh_ip=env.mesh_ip
-                        )
+                        result = await self._cleanup_single_database(env.job_id, config)
                         logger.debug(f"[cleanup] {env.alias}/{db_name}: truncated {result.tables_truncated}")
                         return db_name, result
                     except Exception as e:
@@ -140,24 +134,13 @@ class DatabaseCleaner:
         self,
         job_id: str,
         config: DbConfigResponse,
-        http_client: httpx.AsyncClient,
-        api_key: str,
-        mesh_ip: str | None = None,
     ) -> DatabaseCleanupResult:
-        """Truncate audit_log for a single database.
-
-        Network databases (Postgres/MySQL) are reached over a localhost tunnel
-        and truncated via SQLAlchemy. SQLite is file-based with no network
-        service, so it is truncated in-container via the job exec API.
-        """
-        if config.db_type.lower() == "sqlite":
-            return await self._cleanup_sqlite_via_exec(config, job_id, http_client, api_key)
-
+        """Connect to DB via sandbox Tunnel and truncate audit_log."""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("127.0.0.1", 0))
             local_port = s.getsockname()[1]
 
-        tunnel = Tunnel(job_id=job_id, remote_port=config.db_port, local_port=local_port, mesh_ip=mesh_ip)
+        tunnel = Tunnel(job_id=job_id, remote_port=config.db_port, local_port=local_port)
         try:
             tunnel.start()
             await asyncio.sleep(0.5)  # Let tunnel accept loop settle
@@ -175,58 +158,6 @@ class DatabaseCleaner:
                 await engine.dispose()
         finally:
             tunnel.stop()
-
-    async def _cleanup_sqlite_via_exec(
-        self,
-        config: DbConfigResponse,
-        job_id: str,
-        http_client: httpx.AsyncClient,
-        api_key: str,
-    ) -> DatabaseCleanupResult:
-        """Truncate audit_log in a file-based SQLite DB via in-container exec.
-
-        SQLite has no network service, so the tunnel + SQLAlchemy path used for
-        Postgres/MySQL can't reach it (it would try to open the sim's file path
-        on the local filesystem → "unable to open database file"). The .db file
-        lives inside the sim, so we run the ``sqlite3`` CLI there instead.
-        """
-        db_path = config.db_database
-        cmd = f"sqlite3 {shlex.quote(db_path)} 'DELETE FROM audit_log;'"
-        result = await jobs.execute.asyncio(
-            client=http_client,
-            job_id=job_id,
-            body=ExecuteCommandRequest(command=cmd, timeout=30),
-            x_api_key=api_key,
-        )
-
-        if result is None:
-            return DatabaseCleanupResult(success=False, error="exec API returned no result for SQLite cleanup")
-
-        # ExecuteCommandResult exposes success/stdout/stderr/exit_code.
-        stdout = getattr(result, "stdout", "") or ""
-        stderr = getattr(result, "stderr", "") or ""
-        exit_code = getattr(result, "exit_code", 0) or 0
-        succeeded = getattr(result, "success", exit_code == 0)
-        combined = f"{stdout}\n{stderr}".lower()
-
-        # A sim without the auditor never created audit_log — clean no-op.
-        if "no such table" in combined:
-            logger.debug(f"[cleanup] SQLite {db_path}: no audit_log table, skipping")
-            return DatabaseCleanupResult(success=True, tables_truncated=[])
-
-        if succeeded and exit_code == 0:
-            return DatabaseCleanupResult(success=True, tables_truncated=["audit_log"])
-
-        if "not found" in combined or exit_code == 127:
-            return DatabaseCleanupResult(
-                success=False,
-                error=f"sqlite3 CLI not available in sim container: {stderr.strip() or stdout.strip()}",
-            )
-
-        return DatabaseCleanupResult(
-            success=False,
-            error=stderr.strip() or stdout.strip() or f"sqlite3 DELETE failed (exit {exit_code})",
-        )
 
     async def _find_and_truncate_audit_logs(
         self,
@@ -262,8 +193,11 @@ class DatabaseCleaner:
                 truncated.append(table)
             await conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
 
-        # NOTE: SQLite is handled separately via in-container exec
-        # (_cleanup_sqlite_via_exec) and never reaches this SQLAlchemy path.
+        elif db_type == "sqlite":
+            result = await conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='audit_log'"))
+            if result.fetchone():
+                await conn.execute(text("DELETE FROM audit_log"))
+                truncated.append("audit_log")
 
         if not truncated:
             logger.warning(f"[cleanup] No audit_log tables found ({db_type})")

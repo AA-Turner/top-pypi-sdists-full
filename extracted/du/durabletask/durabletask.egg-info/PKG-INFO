@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: durabletask
-Version: 1.12.0
+Version: 1.13.0
 Summary: A Durable Task Client SDK for Python
 License:     MIT License
         
@@ -29,19 +29,17 @@ Project-URL: changelog, https://github.com/microsoft/durabletask-python/blob/mai
 Keywords: durable,task,workflow
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: grpcio
 Requires-Dist: protobuf
-Requires-Dist: asyncio
 Requires-Dist: packaging
 Provides-Extra: opentelemetry
 Requires-Dist: opentelemetry-api>=1.0.0; extra == "opentelemetry"
@@ -70,6 +68,11 @@ and [Azure Durable Functions](https://learn.microsoft.com/azure/azure-functions/
 - [`azure-functions-durable`](./azure-functions-durable/) is a preview Azure
   Durable Functions provider built on `durabletask`.
 
+## Python Requirements
+
+The core SDK and Azure Managed provider require Python 3.11 or later.
+The Azure Functions Durable provider requires Python 3.13 or later.
+
 ## References
 
 - [Supported Patterns](./docs/supported-patterns.md)
@@ -80,6 +83,47 @@ and [Azure Durable Functions](https://learn.microsoft.com/azure/azure-functions/
 - [Contributing Guide](./CONTRIBUTING.md)
 
 ## Optional Features
+
+### Task Hub Query Filters
+
+Set `OrchestrationQuery.task_hub_names` to filter orchestration queries by one or
+more task hubs. The filter is available through synchronous and asynchronous
+core and Azure Managed clients; filtering support depends on the backend.
+
+```python
+from durabletask.client import OrchestrationQuery
+
+query = OrchestrationQuery(task_hub_names=["orders", "billing"])
+```
+
+### Set Serialization
+
+The default `JsonDataConverter` serializes sets and frozensets as JSON arrays
+ordered by their canonical JSON representation, not numeric order. For example,
+`{2, 10}` serializes as `[10, 2]`. To reconstruct annotated sets and frozensets
+instead of receiving lists, configure the same converter on clients and workers:
+
+```python
+from durabletask.serialization import JsonDataConverter
+
+converter = JsonDataConverter(enable_generic_sets=True)
+```
+
+Pass it using the `data_converter` parameter on core or Azure Managed clients
+and workers. `enable_set_coercion=True` is an alias for the same option.
+Azure Functions uses its own shared codec rather than this converter.
+
+> [!WARNING]
+> Set reconstruction is disabled by default to preserve the order and duplicates
+> of recorded JSON arrays. Enabling it for existing orchestrations can change
+> replay behavior. Iteration over reconstructed sets is not replay-safe; sort
+> values explicitly before using their order to schedule durable work.
+
+### Entity IDs
+
+`EntityInstanceId` values are immutable, hashable, and usable as dictionary keys
+or set elements. Construct a new ID to change an entity name or key; attribute
+assignment and deletion raise `AttributeError`.
 
 ### Large Payload Externalization
 

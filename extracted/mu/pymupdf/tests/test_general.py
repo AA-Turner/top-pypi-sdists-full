@@ -10,6 +10,7 @@ import json
 import os
 import pathlib
 import pickle
+import pipcl
 import platform
 import pymupdf
 import re
@@ -359,6 +360,32 @@ def test_2506():
             for span in line["spans"]:
                 print(span["size"])
                 assert round(span["size"]) == fontsize
+
+
+def test_5220():
+    """Character bbox heights follow vertical text scaling."""
+    if not pymupdf.g_use_extra:
+        print('Not running test_5220() because use_extra=0 known to fail')
+        return
+    doc = pymupdf.open()
+    page = doc.new_page()
+    origin = pymupdf.Point(50, 50)
+    scales = ((1, 1), (0.5, 1), (2, 1), (1, 0.5), (1, 2))
+    for scale_x, scale_y in scales:
+        matrix = pymupdf.Matrix(scale_x, 0, 0, scale_y, 0, 0)
+        page.insert_text(origin, "H", fontsize=20, morph=(origin, matrix))
+        origin.y += 60
+
+    heights = [
+        pymupdf.Rect(char[3]).height
+        for span in page.get_texttrace()
+        for char in span["chars"]
+    ]
+    expected = [20, 20, 20, 10, 40]
+    assert len(heights) == len(expected)
+    assert all(
+        abs(actual - target) < 1e-4 for actual, target in zip(heights, expected)
+    )
 
 
 def test_2108():
@@ -2027,7 +2054,9 @@ def test_4392():
     e1 = subprocess.run(command, shell=1, check=0).returncode
     print(f'{e1=}')
     
-    command = f'pytest -Werror {path}'
+    # We need `-o asyncio_default_fixture_loop_scope=function` to avoid
+    # unrelated errors from pytest-asyncio with pytest-9.2.0.
+    command = f'pytest -Werror -o asyncio_default_fixture_loop_scope=function {path}'
     print(f'Running: {command}', flush=1)
     e2 = subprocess.run(command, shell=1, check=0).returncode
     print(f'{e2=}')
@@ -2346,12 +2375,24 @@ def test_4846():
     # Currently doesn't test the generated file, just leaves to to be looked at
     # manually.
     path = os.path.normpath(f'{__file__}/../../tests/resources/test_4846.pdf')
-    path_out = os.path.normpath(f'{__file__}/../../tests/test_out.svg')
+    path_expected = os.path.normpath(f'{__file__}/../../tests/resources/test_4846_expected.svg')
+    path_out = os.path.normpath(f'{__file__}/../../tests/test_4846_out.svg')
     with pymupdf.open(path) as document:
         page = document[0]
         svg_content = page.get_svg_image()
         with open(path_out, 'w', encoding="utf8") as f:
             f.write(svg_content)
+    with open(path_expected) as f_expected:
+        expected = f_expected.read()
+    print(f'test_4846(): {pymupdf.mupdf_version=} {(svg_content==expected)=}')
+    
+    rms = gentle_compare.pixmaps_rms(path_expected, path_out)
+    print(f'{rms=}')
+    
+    if pymupdf.mupdf_version_tuple >= (1, 29):
+        assert rms < 0.5
+    else:
+        assert rms > 50        
 
 
 def test_4896():
@@ -2378,3 +2419,27 @@ def test_4896():
                 print(f'{diff=} for {path=}.')
                 assert diff == 0
     
+
+def test_5182():
+    print()
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_5182(): not running on Pyodide - cannot run child processes.')
+        return
+    print(f'test_5182(): {platform.system()=}')
+    print(f'test_5182(): {pymupdf._build.swig_version_tuple=}')
+    print(f'test_5182(): {pipcl.python_version_tuple()=}')
+    e = pipcl.run(f'{sys.executable} -W error -c "import pymupdf"', check=0)
+    print(f'{e=}')
+    expect_error = False
+    if (1
+            and platform.system() == 'Darwin'
+            and pymupdf._build.swig_version_tuple < (4, 4)
+            ):
+        expect_error = True
+    if sysconfig.get_config_var('Py_GIL_DISABLED'):
+        # Warning `The global interpreter lock (GIL) has been enabled` is treated as an error.
+        expect_error = True
+    if expect_error:
+        assert e, f'Did not receive expected error.'
+    else:
+        assert not e, f'Received unexpected error.'

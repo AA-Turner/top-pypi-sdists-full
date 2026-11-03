@@ -32,6 +32,7 @@ from chalk.utils.pydanticutil.sdk import USE_PYDANTIC_V2
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
+    from chalkcompute import RetryPolicy  # pyright: ignore[reportMissingImports]
     from pydantic import BaseModel, Extra, Field, validator
 
     from chalk._reporting.models import BatchOpKind, BatchOpStatus
@@ -2556,6 +2557,10 @@ class DeployedModelVersion(ModelVersionResponse):
     def deployment(self) -> "ModelDeployment":
         """The deployment this version resolved to, which ``remote()`` and ``defer()`` call."""
         return self._deployment
+
+    def with_options(self, *, retries: Optional[Union[int, RetryPolicy]] = None) -> "DeployedModelVersion":
+        """Return a scoped model handle with the selected invocation retry policy."""
+        return dataclasses.replace(self, _deployment=self._deployment.with_options(retries=retries))
 
     def remote(self, *args: Any, **kwargs: Any) -> Any:
         """Invoke the model with one row of feature values, blocking until it responds.

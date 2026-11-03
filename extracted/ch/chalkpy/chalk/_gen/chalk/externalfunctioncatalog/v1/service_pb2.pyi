@@ -102,17 +102,19 @@ EXTERNAL_FUNCTION_SCHEDULED_RUN_STATUS_NOT_READY: ExternalFunctionScheduledRunSt
 EXTERNAL_FUNCTION_SCHEDULED_RUN_STATUS_WAITING: ExternalFunctionScheduledRunStatus
 
 class RetryPolicy(_message.Message):
-    __slots__ = ("max_retries", "initial_backoff_ms", "backoff_multiplier", "max_backoff_ms", "key")
+    __slots__ = ("max_retries", "initial_backoff_ms", "backoff_multiplier", "max_backoff_ms", "key", "jitter")
     MAX_RETRIES_FIELD_NUMBER: _ClassVar[int]
     INITIAL_BACKOFF_MS_FIELD_NUMBER: _ClassVar[int]
     BACKOFF_MULTIPLIER_FIELD_NUMBER: _ClassVar[int]
     MAX_BACKOFF_MS_FIELD_NUMBER: _ClassVar[int]
     KEY_FIELD_NUMBER: _ClassVar[int]
+    JITTER_FIELD_NUMBER: _ClassVar[int]
     max_retries: int
     initial_backoff_ms: int
     backoff_multiplier: float
     max_backoff_ms: int
     key: str
+    jitter: bool
     def __init__(
         self,
         max_retries: _Optional[int] = ...,
@@ -120,6 +122,7 @@ class RetryPolicy(_message.Message):
         backoff_multiplier: _Optional[float] = ...,
         max_backoff_ms: _Optional[int] = ...,
         key: _Optional[str] = ...,
+        jitter: bool = ...,
     ) -> None: ...
 
 class RateLimitPolicy(_message.Message):
@@ -906,18 +909,29 @@ class ListExternalFunctionsRequest(_message.Message):
     ) -> None: ...
 
 class ListExternalFunctionsFilters(_message.Message):
-    __slots__ = ("visibility", "statuses", "created_by")
+    __slots__ = ("visibility", "statuses", "created_by", "tags")
+    class TagsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     VISIBILITY_FIELD_NUMBER: _ClassVar[int]
     STATUSES_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
     visibility: _containers.RepeatedScalarFieldContainer[ExternalFunctionVisibility]
     statuses: _containers.RepeatedScalarFieldContainer[str]
     created_by: _containers.RepeatedScalarFieldContainer[str]
+    tags: _containers.ScalarMap[str, str]
     def __init__(
         self,
         visibility: _Optional[_Iterable[_Union[ExternalFunctionVisibility, str]]] = ...,
         statuses: _Optional[_Iterable[str]] = ...,
         created_by: _Optional[_Iterable[str]] = ...,
+        tags: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class ListExternalFunctionsResponse(_message.Message):

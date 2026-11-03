@@ -23,8 +23,10 @@ from trajectory.types.benchmarks.benchmark_list_item import BenchmarkListItem
 from trajectory.types.benchmarks.benchmark_readiness import BenchmarkReadiness
 from trajectory.types.benchmarks.benchmark_spec import BenchmarkSpec
 from trajectory.types.benchmarks.benchmark_spec_params import BenchmarkSpecParams
-from trajectory.types.benchmarks.benchmark_upload_file_param import BenchmarkUploadFileParam
-from trajectory.types.benchmarks.benchmarks_create_upload_params import BenchmarksCreateUploadParams
+from trajectory.types.benchmarks.benchmarks_create_upload_params import (
+  BenchmarksCreateUploadParams,
+  BenchmarkUploadFileParam,
+)
 from trajectory.types.benchmarks.benchmarks_update_params import BenchmarksUpdateParams
 from trajectory.types.create_benchmark_upload_response import CreateBenchmarkUploadResponse
 from trajectory.types.delete_benchmark_response import DeleteBenchmarkResponse

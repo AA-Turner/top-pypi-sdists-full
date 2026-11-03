@@ -1,9 +1,7 @@
-import binascii
 import ipaddress
 import os
 from dataclasses import dataclass
 from enum import Enum, IntEnum
-from typing import Optional
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -16,10 +14,10 @@ PACKET_SPIN_BIT = 0x20
 
 CONNECTION_ID_MAX_SIZE = 20
 PACKET_NUMBER_MAX_SIZE = 4
-RETRY_AEAD_KEY_VERSION_1 = binascii.unhexlify("be0c690b9f66575a1d766b54e368c84e")
-RETRY_AEAD_KEY_VERSION_2 = binascii.unhexlify("8fb4b01b56ac48e260fbcbcead7ccc92")
-RETRY_AEAD_NONCE_VERSION_1 = binascii.unhexlify("461599d35d632bf2239825bb")
-RETRY_AEAD_NONCE_VERSION_2 = binascii.unhexlify("d86969bc2d7c6d9990efb04a")
+RETRY_AEAD_KEY_VERSION_1 = bytes.fromhex("be0c690b9f66575a1d766b54e368c84e")
+RETRY_AEAD_KEY_VERSION_2 = bytes.fromhex("8fb4b01b56ac48e260fbcbcead7ccc92")
+RETRY_AEAD_NONCE_VERSION_1 = bytes.fromhex("461599d35d632bf2239825bb")
+RETRY_AEAD_NONCE_VERSION_2 = bytes.fromhex("d86969bc2d7c6d9990efb04a")
 RETRY_INTEGRITY_TAG_SIZE = 16
 STATELESS_RESET_TOKEN_SIZE = 16
 
@@ -91,7 +89,7 @@ class QuicProtocolVersion(IntEnum):
 
 @dataclass
 class QuicHeader:
-    version: Optional[int]
+    version: int | None
     "The protocol version. Only present in long header packets."
 
     packet_type: QuicPacketType
@@ -179,7 +177,7 @@ def pretty_protocol_version(version: int) -> str:
     return f"0x{version:08x} ({version_name})"
 
 
-def pull_quic_header(buf: Buffer, host_cid_length: Optional[int] = None) -> QuicHeader:
+def pull_quic_header(buf: Buffer, host_cid_length: int | None = None) -> QuicHeader:
     packet_start = buf.tell()
 
     version = None
@@ -196,13 +194,13 @@ def pull_quic_header(buf: Buffer, host_cid_length: Optional[int] = None) -> Quic
         destination_cid_length = buf.pull_uint8()
         if destination_cid_length > CONNECTION_ID_MAX_SIZE:
             raise ValueError(
-                "Destination CID is too long (%d bytes)" % destination_cid_length
+                f"Destination CID is too long ({destination_cid_length} bytes)"
             )
         destination_cid = buf.pull_bytes(destination_cid_length)
 
         source_cid_length = buf.pull_uint8()
         if source_cid_length > CONNECTION_ID_MAX_SIZE:
-            raise ValueError("Source CID is too long (%d bytes)" % source_cid_length)
+            raise ValueError(f"Source CID is too long ({source_cid_length} bytes)")
         source_cid = buf.pull_bytes(source_cid_length)
 
         if version == QuicProtocolVersion.NEGOTIATION:
@@ -340,8 +338,8 @@ def encode_quic_version_negotiation(
 
 @dataclass
 class QuicPreferredAddress:
-    ipv4_address: Optional[tuple[str, int]]
-    ipv6_address: Optional[tuple[str, int]]
+    ipv4_address: tuple[str, int] | None
+    ipv6_address: tuple[str, int] | None
     connection_id: bytes
     stateless_reset_token: bytes
 
@@ -354,26 +352,26 @@ class QuicVersionInformation:
 
 @dataclass
 class QuicTransportParameters:
-    original_destination_connection_id: Optional[bytes] = None
-    max_idle_timeout: Optional[int] = None
-    stateless_reset_token: Optional[bytes] = None
-    max_udp_payload_size: Optional[int] = None
-    initial_max_data: Optional[int] = None
-    initial_max_stream_data_bidi_local: Optional[int] = None
-    initial_max_stream_data_bidi_remote: Optional[int] = None
-    initial_max_stream_data_uni: Optional[int] = None
-    initial_max_streams_bidi: Optional[int] = None
-    initial_max_streams_uni: Optional[int] = None
-    ack_delay_exponent: Optional[int] = None
-    max_ack_delay: Optional[int] = None
-    disable_active_migration: Optional[bool] = False
-    preferred_address: Optional[QuicPreferredAddress] = None
-    active_connection_id_limit: Optional[int] = None
-    initial_source_connection_id: Optional[bytes] = None
-    retry_source_connection_id: Optional[bytes] = None
-    version_information: Optional[QuicVersionInformation] = None
-    max_datagram_frame_size: Optional[int] = None
-    quantum_readiness: Optional[bytes] = None
+    original_destination_connection_id: bytes | None = None
+    max_idle_timeout: int | None = None
+    stateless_reset_token: bytes | None = None
+    max_udp_payload_size: int | None = None
+    initial_max_data: int | None = None
+    initial_max_stream_data_bidi_local: int | None = None
+    initial_max_stream_data_bidi_remote: int | None = None
+    initial_max_stream_data_uni: int | None = None
+    initial_max_streams_bidi: int | None = None
+    initial_max_streams_uni: int | None = None
+    ack_delay_exponent: int | None = None
+    max_ack_delay: int | None = None
+    disable_active_migration: bool | None = False
+    preferred_address: QuicPreferredAddress | None = None
+    active_connection_id_limit: int | None = None
+    initial_source_connection_id: bytes | None = None
+    retry_source_connection_id: bytes | None = None
+    version_information: QuicVersionInformation | None = None
+    max_datagram_frame_size: int | None = None
+    quantum_readiness: bytes | None = None
 
 
 PARAMS = {

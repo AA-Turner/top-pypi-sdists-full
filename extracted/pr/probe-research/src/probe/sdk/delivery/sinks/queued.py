@@ -13,6 +13,7 @@ from ....foundation.safe_warn import safe_warn as _diagnostics
 from ...secret_gate import check_upload
 from .. import sink as _sink
 from ..journal.journal import Journal
+from ..status_fields import StatusField
 from ..ops.classify import classify as _journal_classify
 from ..sender import SendPolicy, is_queue_only
 from ..sink import HeldClient, SinkKind
@@ -316,7 +317,7 @@ class QueuedSink:
             # deep queue means delivery is behind anyway: no direct send, no seconds-long
             # first scan (review of #2054).
             status = Journal.read_status(journal.dir, include_receipts=False) or {}
-            if int(status.get("pending") or 0) > client.DIRECT_SEND_MAX_QUEUED:
+            if int(status.get(StatusField.PENDING) or 0) > client.DIRECT_SEND_MAX_QUEUED:
                 return False
             with client._direct_lock:
                 lane = client._lanes.get(run_ref)

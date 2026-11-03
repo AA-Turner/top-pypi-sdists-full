@@ -28,10 +28,7 @@ _T = TypeVar("_T", bound=type)
 
 
 _ALLOWED_KWARGS = frozenset({
-    "gpu", "image", "weights", "secrets", "deps",
-
-
-    "freeze",
+    "gpu", "image", "weights", "secrets",
 
 
 
@@ -45,7 +42,15 @@ _ALLOWED_KWARGS = frozenset({
 
 
 
+
     "hz", "action_chunk_valid_len", "action_chunk_replan_at",
+
+
+
+
+
+
+    "max_wait_for_batch",
 
 
 
@@ -54,15 +59,10 @@ _ALLOWED_KWARGS = frozenset({
     "timeouts",
 
 
-
-
-    "name", "io",
+    "name",
 
 
     "models",
-
-
-    "family",
 
 
 
@@ -80,6 +80,16 @@ _ALLOWED_KWARGS = frozenset({
 
 _NOT_A_KWARG = {
     "concurrency": "@seq.concurrent(sizes=[1, 2, 4, 8]) on the @seq.infer method",
+}
+
+
+
+_GONE = {
+    "deps": "write the packages into its image: image=seq.Image.debian_slim().uv_pip_install(...)",
+    "io": "what infer() takes and returns is its own code's - say it in its docstring",
+    "family": "the console draws its icon from the template it came from",
+    "cuda_graphs": "its check tries CUDA graphs every time, on only when its answers stay the same, bit for bit, and its "
+                   "acts get at least 10% faster",
 }
 
 
@@ -106,6 +116,8 @@ def _reject_bad_kwarg_names(kwargs: dict[str, Any]) -> None:
             raise PolicyDefinitionError(
                 f"{name!r} is not a @seq.policy argument; use {_NOT_A_KWARG[name]}"
             )
+        if name in _GONE:
+            raise PolicyDefinitionError(f"@seq.policy({name}=) is gone: {_GONE[name]}")
 
 
         if name not in _ALLOWED_KWARGS:
@@ -138,13 +150,23 @@ def policy_sizes(sizes: Any) -> list[int]:
     return listed
 
 
-def concurrent(fn: Any = None, *, sizes: Any = None) -> Callable[[Any], Any]:
+def concurrent(fn: Any = None, *, sizes: Any = None, collate: Any = True) -> Callable[[Any], Any]:
     """`@seq.concurrent(sizes=[1, 2, 4, 8])` on the `@seq.infer` method (above or below it) - how one worker serves
-    robots. Without it a worker serves one robot a copy, infer taking one observation, as ever. With it infer takes a
-    list - the acts that run together, in the sizes it lists alone (each 1 to 256, ascending, 1 first: what its own
-    code is built for, which only its author knows; a JAX policy compiles each) - and returns a list of chunks in the
-    same order. Its worker warms each listed size before it serves, timing it and the GPU memory it holds, on the class's
-    sample episode (@seq.sample), which it needs. A copy seats as many robots as the largest listed size whose batch
+    robots. Without it a worker serves one robot a copy, infer taking one observation, as ever. With it infer takes
+    the acts that run together as one batch, in the sizes it lists alone (each 1 to 256, ascending, 1 first: what its
+    own code is built for, which only its author knows; a JAX policy compiles each): their inputs stacked by the
+    platform - each array along a new first axis, numbers too, text a list, a first axis that differs padded with
+    `<key>_mask` beside it - each inference parameter one value (acts that set others go in calls of their own, each
+    padded to a listed size with its last act's inputs and seed, rows no act gets back), `seed` a list of the batch's
+    rows and `episode` of its acts' own episodes; it returns one batch, its arrays a row an act, or a list of answers in
+    the same order, and the platform splits it back. `collate=False` hands infer the acts as a list - each argument
+    a list, one entry an act - for a policy that batches them in its own code. Its version's build check times each
+    listed size, and the GPU memory it holds, on the class's sample episode (@seq.sample), which it needs; a worker on
+    that card seats by those timings, and one on another card serves a robot a copy while it times them beside it.
+
+
+
+    A copy seats as many robots as the largest listed size whose batch
     answers within the time its robots can wait for an answer - the steps from action_chunk_replan_at to
     action_chunk_valid_len, at hz (@seq.policy) - and holds an early act within that time, so they fall into one batch;
     acts that fill no listed size go as the sizes that fit them (3 of [1, 2, 4] as 2, then 1); a policy that asks at
@@ -170,7 +192,14 @@ def concurrent(fn: Any = None, *, sizes: Any = None) -> Callable[[Any], Any]:
 
 
 
-    declared = {"sizes": list(sizes)}
+    if not isinstance(collate, bool):
+        raise PolicyDefinitionError(f"@seq.concurrent(collate=...) is True - infer handed one batch, the platform "
+                                    f"stacking it - or False, the acts as a list for its own code to batch; got "
+                                    f"{collate!r}")
+
+
+
+    declared = {"sizes": list(sizes), "collate": collate}
 
     def decorator(target: Any) -> Any:
 
@@ -235,12 +264,8 @@ def policy(*args: Any, **kwargs: Any) -> Callable[[_T], _T]:
 
         if bad is not None:
             return refused(cls, _REG_ATTR, bad)
-        from seq.freeze import declare
 
 
-
-        return build_registration(declare(cls, kwargs, PolicyDefinitionError), {k: v for k, v in kwargs.items()
-                                                                                if k != "freeze"},
-                                  applied=applied_by(sys._getframe(1)))
+        return build_registration(cls, kwargs, applied=applied_by(sys._getframe(1)))
 
     return decorator

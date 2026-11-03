@@ -265,7 +265,8 @@ LINT_TOOLS   = conflict ruff ruff-format mdformat clang-format \
                why-param header-file-blocks doc-claims public-symbols \
                curl-fail \
                warnings-exempt stock-images uv-pin uv-lock tlm-name-join \
-               ring-internals named-args acq-pfa-split
+               ring-internals named-args acq-pfa-split \
+               finding-citations
 FORMAT_TOOLS = ruff-format ruff mdformat named-args clang-format
 
 # ruff reads its own excludes from pyproject's [tool.ruff] extend-exclude
@@ -470,6 +471,17 @@ LINT_lgamma-reentrant = $(UV) run python scripts/check_lgamma_sites.py
 # the sizer or the non-coherent ascend fired the engine at about twice its
 # pfa and passed every test (doppler#2218).
 LINT_acq-pfa-split = $(UV) run python scripts/check_acq_pfa_split.py
+
+# A validation finding is cited by its key or its claim, never by its number
+# (#2059). A report numbers findings by position and resolves `R.ref(key)` at
+# render, refusing a typed number there; a C test, header, page or example has
+# no render step, so a number in it re-points silently when a finding before
+# it is dropped -- #2056 left five such citations. Both directions: no typed
+# number anywhere tracked, and every `finding \`key\`` names a key some
+# validate.py records, so a renamed finding cannot leave a citation behind.
+# Registration-free (git ls-files). Plain python3: stdlib only, the patterns
+# loaded by path from the one declaration Report also imports.
+LINT_finding-citations = python3 scripts/check_finding_citations.py
 
 # Path.read_text() without an encoding decodes with the locale codec, which
 # is cp1252 on Windows: the first Windows run of the suite lost three test
@@ -1118,6 +1130,7 @@ $(UV) run python scripts/check_docstring_coverage.py --check
 $(UV) run python scripts/check_nav_index.py
 $(UV) run python scripts/check_wfmgen_flag_docs.py
 $(UV) run python scripts/gen_related_pages.py --check
+$(UV) run python scripts/check_user_docs.py --no-ratchet $(GALLERY_SCRIPTS)
 $(UV) run python scripts/gen_readme.py --check
 $(UV) run python scripts/gen_install_scripts.py --check
 $(UV) run python scripts/gen_wfm_defaults.py --check
@@ -1137,7 +1150,7 @@ $(UV) run python scripts/check_out_param_guard.py
 $(UV) run python scripts/check_c_api_link_refs.py
 $(UV) run python docs/design/spectrogram-measurements/u1u4.py --check
 $(UV) run python docs/design/spectrogram-measurements/b2094.py --check
-$(UV) run python docs/design/async-dsss-parallel-measurements/record.py --check
+$(UV) run python docs/design/async-dsss-receiver-measurements/record.py --check
 $(UV) run python docs/design/acq-surface-measurements/record.py --check
 $(UV) run python docs/design/corr2d-hypotheses-measurements/prototype.py --check
 $(UV) run python docs/design/corr2d-hypotheses-measurements/record.py --check
@@ -1810,7 +1823,7 @@ endef
 # Named here so they land in `.PHONY` and in generated `help`, and so the same
 # gates cover them: criterion 2 is "help lists EVERY target", not "every
 # standard target" — a local target help omits is exactly as invisible.
-LOCAL_TARGETS = specan record-demo parallel-record-write acq-surface-record \
+LOCAL_TARGETS = specan record-demo pool-record-write acq-surface-record \
                 corr2d-hypotheses-record \
                 gallery blazing \
                 gen-c-api just-build docs-invariants \
@@ -1864,7 +1877,7 @@ LOCAL_TARGETS = specan record-demo parallel-record-write acq-surface-record \
                 ccsds-isolation-check instrumented-sweep-check mem-guard-check \
                 container-mount-check \
                 cargo-lock-check design-pages-check wfmgen-flag-matrix \
-                gallery-scripts-check bench-commits-check \
+                gallery-scripts-check user-docs-check bench-commits-check \
                 nats-vendor-fresh-check \
                 ci-run ci-gates ccache-stats \
                 wheel-check wheel-smoke release-smoke release-smoke-pypi \
@@ -1975,8 +1988,8 @@ lint: tests-ssot characterization-check validation-report-check changelog-check 
       doc-symbols-check state-versions-check \
       ccsds-isolation-check container-mount-check cargo-lock-check \
       instrumented-sweep-check mem-guard-check \
-      design-pages-check gallery-scripts-check bench-commits-check \
-      validate-spellings-check \
+      design-pages-check gallery-scripts-check user-docs-check \
+      bench-commits-check validate-spellings-check \
       drift-check doxygen-check
 
 # The base the assertion ratchet compares against, same shape as COV_BASE:
@@ -2334,8 +2347,8 @@ record-demo: ## Re-record the specan demo frames (docs/specan/frames.json)
 	    --frames 120 --rbw 4000 \
 	    -o docs/specan/frames.json
 
-parallel-record-write: ## Re-render the parallel record's blocks from its data
-	$(UV) run python docs/design/async-dsss-parallel-measurements/record.py \
+pool-record-write: ## Re-render the async DSSS pool's record blocks from its data
+	$(UV) run python docs/design/async-dsss-receiver-measurements/record.py \
 	    --write
 
 # docs/design/acq-surface.md §8 is one run of validate_acq_surface. The run
@@ -2459,6 +2472,17 @@ plot-rx-dynamics: build ## Render docs/assets/rx-dynamics.png from the C harness
 # one script must name no plot but that script's, while the default run still
 # renders every characterization. One script stands for all of them, because
 # the recipe treats them alike; the first is derived rather than named.
+# Phase 9 of adding-algorithms.md, gated: every public class has an API
+# entry, a guide mention and an example, and every example is a gallery
+# script or says in src/doppler/examples/.no-figure why it is not. Today's
+# gaps sit in docs/.user-docs-exempt, which only shrinks (compared with
+# USER_DOCS_BASE). On `lint`; docs-check's invariants run it with
+# --no-ratchet, because the Docs job checks out no base ref.
+USER_DOCS_BASE ?= origin/main
+user-docs-check: ## Verify every class has API, guide and example, and every example a gallery decision
+	@$(UV) run python scripts/check_user_docs.py --base $(USER_DOCS_BASE) \
+	     $(GALLERY_SCRIPTS)
+
 gallery-scripts-check: ## Verify every committed gallery plot has a script `make gallery` runs
 	@$(UV) run python scripts/check_gallery_scripts.py $(GALLERY_SCRIPTS)
 	@$(UV) run python scripts/check_gallery_scripts.py \

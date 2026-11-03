@@ -6,19 +6,14 @@ and world state persistence (save/load/resume).
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
-from plato.otel import force_flush_tracing, init_tracing, shutdown_tracing
+from plato.otel import init_tracing, shutdown_tracing
 from plato.vm_metrics import shutdown_metrics
 from plato.worlds.config import WorkspaceSourceSpec
 from plato.worlds.models import StateHistoryEntry, WorkspaceSnapshot
-
-if TYPE_CHECKING:
-    from plato.chronos.models import SessionPreviewUrlsResponse
 
 logger = logging.getLogger(__name__)
 
@@ -96,23 +91,6 @@ class ChronosSessionMixin:
             api_key=self._get_chronos_api_key(),
         )
 
-    async def publish_preview_url(
-        self,
-        url: str,
-        *,
-        label: str = "Preview",
-    ) -> SessionPreviewUrlsResponse:
-        """Publish a labeled external link in this world's trajectory header."""
-        if not self.chronos.session_id:
-            raise RuntimeError("Cannot publish a preview URL without a Chronos session ID")
-
-        async with self._chronos_client() as client:
-            return await client.publish_preview_url(
-                self.chronos.session_id,
-                url,
-                label=label,
-            )
-
     # -- OTel / session setup ----------------------------------------------
 
     def _setup_session(self) -> None:
@@ -122,10 +100,6 @@ class ChronosSessionMixin:
 
         self._session_id = self.chronos.session_id
         os.environ["SESSION_ID"] = self.chronos.session_id
-        # Default sandboxes started inside this world (world process or its
-        # agents) to attach to the Chronos session so their envs are tracked
-        # and managed with it. setdefault keeps an explicit 0 override intact.
-        os.environ.setdefault("PLATO_SANDBOX_ATTACH_SESSION", "1")
 
         if self.chronos.otel_url:
             agent_otel_url = self.chronos.otel_url
@@ -178,10 +152,6 @@ class ChronosSessionMixin:
                 type(run_error).__name__ if run_error else "None",
             )
         else:
-            # /complete closes the Plato session, which destroys THIS VM: send the
-            # buffered log spans first, or the run's last seconds of logs (the
-            # batch exporter's 5 s window) are lost with it.
-            await asyncio.to_thread(force_flush_tracing, 5000)
             if run_error:
                 error_msg = f"{type(run_error).__name__}: {run_error}"
                 await self._complete_chronos_session(
@@ -206,13 +176,8 @@ class ChronosSessionMixin:
     # -- State persistence -------------------------------------------------
 
     async def save_state(self) -> None:
-        """Persist world state to Chronos DB.
-
-        A no-op unless ``config.state.persist`` is set: uploading the whole
-        ``WorldState`` dump on every checkpoint is legacy behaviour that
-        Chronos no longer accepts (``PUT /sessions/{id}/state`` -> 410).
-        """
-        if not self.config.state.enabled or not self.config.state.persist or self._state is None:
+        """Persist world state to Chronos DB."""
+        if not self.config.state.enabled or self._state is None:
             return
 
         ws_snapshots: dict[str, WorkspaceSnapshot] = {}
@@ -233,12 +198,7 @@ class ChronosSessionMixin:
         await self._upload_state(self._state.model_dump())
 
     async def load_state(self, session_id: str | None = None) -> bool:
-        """Restore tracked workspaces from the refs in ``config.state.workspaces``.
-
-        The ``WorldState`` blob is no longer read back from Chronos (the
-        ``/sessions/{id}/state`` endpoint is gone), so resume is driven purely
-        by explicit workspace refs.
-        """
+        """Load world state from Chronos DB and restore tracked workspaces."""
         if not self.config.state.enabled:
             return False
 
@@ -247,8 +207,7 @@ class ChronosSessionMixin:
         for field_name in self._workspaces:
             repo_to_field[self.workspace_repo_name(field_name)] = field_name
 
-        # field -> (source repo override, "session:step" ref, download token)
-        workspace_specs: dict[str, tuple[str | None, str, str | None]] = {}
+        workspace_specs: dict[str, tuple[str | None, str]] = {}
         for key, val in raw_workspace_specs.items():
             if isinstance(val, (dict, WorkspaceSourceSpec)):
                 spec = val if isinstance(val, WorkspaceSourceSpec) else WorkspaceSourceSpec(**val)
@@ -258,7 +217,7 @@ class ChronosSessionMixin:
                         key,
                     )
                     continue
-                workspace_specs[key] = (spec.repo, spec.ref, spec.token or None)
+                workspace_specs[key] = (spec.repo, spec.ref)
             elif isinstance(val, str):
                 field = repo_to_field.get(key) or (key if key in self._workspaces else None)
                 if field is None:
@@ -268,51 +227,82 @@ class ChronosSessionMixin:
                         list(repo_to_field.keys()) + list(self._workspaces.keys()),
                     )
                     continue
-                workspace_specs[field] = (None, val, None)
-        if not workspace_specs:
-            if session_id:
-                self.logger.warning(
-                    "resume_from=%s has no state.workspaces refs; nothing to restore "
-                    "(the saved WorldState blob is no longer available from Chronos)",
-                    session_id,
-                )
+                workspace_specs[field] = (None, val)
+        use_workspace_specs_mode = bool(workspace_specs)
+        sid = session_id or self.chronos.session_id
+        if not sid and not use_workspace_specs_mode:
             return False
 
+        state_applied = False
+        if sid:
+            data = await self._download_state(sid)
+            if data is None:
+                if not use_workspace_specs_mode:
+                    return False
+            elif not data:
+                self.logger.debug("State payload for session %s is empty; starting fresh", sid)
+                if not use_workspace_specs_mode:
+                    return False
+            else:
+                if not self._apply_state(data):
+                    return False
+                state_applied = True
+
         resume_repos = self.config.state.resume_workspaces
+        saved_snapshots = self._state.workspaces if self._state else {}
         restored_any = False
         for name, workspace in self._workspaces.items():
             if workspace.tracked:
-                ws_entry = workspace_specs.get(name)
-                if ws_entry is None:
-                    self.logger.debug(
-                        "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
-                        name,
-                    )
-                    continue
-                override_repo_from_spec, ref_spec, seed_token = ws_entry
-                ref_spec = ref_spec.strip()
-                if not ref_spec:
-                    self.logger.debug(
-                        "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
-                        name,
-                    )
-                    continue
-                if ":" in ref_spec:
-                    source_session_id, exact_step = ref_spec.split(":", 1)
-                    source_session_id = source_session_id.strip()
-                    exact_step = exact_step.strip()
+                snap = saved_snapshots.get(name)
+                if use_workspace_specs_mode:
+                    ws_entry = workspace_specs.get(name)
+                    if ws_entry is None:
+                        self.logger.debug(
+                            "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
+                            name,
+                        )
+                        continue
+                    override_repo_from_spec, ref_spec = ws_entry
+                    ref_spec = ref_spec.strip()
+                    if not ref_spec:
+                        self.logger.debug(
+                            "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
+                            name,
+                        )
+                        continue
+                    if ":" in ref_spec:
+                        source_session_id, exact_step = ref_spec.split(":", 1)
+                        source_session_id = source_session_id.strip()
+                        exact_step = exact_step.strip()
+                    else:
+                        source_session_id = (session_id or self.config.state.resume_from or "").strip()
+                        exact_step = ref_spec
+                    if not source_session_id:
+                        raise RuntimeError(
+                            f"Workspace resume spec for '{name}' must include session_id:step (got '{ref_spec}')"
+                        )
+                    if not exact_step:
+                        raise RuntimeError(
+                            f"Workspace resume spec for '{name}' is missing step name (got '{ref_spec}')"
+                        )
+                    should_record_resume_input = source_session_id != (self.chronos.session_id or "")
                 else:
-                    source_session_id = (session_id or self.config.state.resume_from or "").strip()
-                    exact_step = ref_spec
-                if not source_session_id:
-                    raise RuntimeError(
-                        f"Workspace resume spec for '{name}' must include session_id:step (got '{ref_spec}')"
-                    )
-                if not exact_step:
-                    raise RuntimeError(f"Workspace resume spec for '{name}' is missing step name (got '{ref_spec}')")
-                if seed_token and not override_repo_from_spec:
-                    raise RuntimeError(f"Workspace seed spec for '{name}' carries a download token but no source repo")
-                should_record_resume_input = source_session_id != (self.chronos.session_id or "")
+                    override_repo_from_spec = None
+                    if not snap:
+                        self.logger.debug(
+                            "State has no snapshot for tracked workspace '%s'; treating as empty workspace",
+                            name,
+                        )
+                        continue
+                    if not snap.steps:
+                        self.logger.debug(
+                            "State snapshot for tracked workspace '%s' has no saved step; treating as empty workspace",
+                            name,
+                        )
+                        continue
+                    exact_step = snap.steps[-1]
+                    source_session_id = (session_id or "").strip()
+                    should_record_resume_input = bool(session_id)
 
                 original = {
                     "session_id": workspace.session_id,
@@ -320,7 +310,6 @@ class ChronosSessionMixin:
                     "repo_id": workspace.repo_id,
                     "s3_bucket": workspace.s3_bucket,
                     "s3_prefix": workspace.s3_prefix,
-                    "api_key": workspace.api_key,
                 }
                 source_session_public_id: str | None = None
                 source_repo_name: str | None = None
@@ -329,18 +318,18 @@ class ChronosSessionMixin:
                     if source_session_id:
                         workspace.session_id = source_session_id
 
-                    override_repo = override_repo_from_spec or resume_repos.get(name)
-                    if seed_token and override_repo:
-                        # The source is readable only through the token (e.g. it
-                        # lives in another org): resolve it from what the token
-                        # authorizes, never through /resolve.
-                        await workspace.adopt_download_source(
-                            token=seed_token,
-                            session_id=source_session_id,
-                            repo_name=override_repo,
-                            step_name=exact_step,
-                        )
-                    elif override_repo and source_session_id:
+                    override_repo = (override_repo_from_spec if use_workspace_specs_mode else None) or resume_repos.get(
+                        name
+                    )
+                    if (
+                        not override_repo
+                        and not use_workspace_specs_mode
+                        and source_session_id
+                        and snap
+                        and snap.repo_name
+                    ):
+                        override_repo = snap.repo_name
+                    if override_repo and source_session_id:
                         resolved = await self._resolve_workspace_repo_by_name(override_repo)
                         workspace.repo_name = override_repo
                         workspace.repo_id = resolved.repo_id
@@ -363,41 +352,15 @@ class ChronosSessionMixin:
                     from plato.transports.git import GitTransport
 
                     if isinstance(workspace.transport, GitTransport):
-                        # The active bare lives off FUSE on local disk; only the
-                        # packed mirror rode back in on the restore. Rebuild the
-                        # local bare from it before checking out repo/.
-                        await workspace.transport.ensure_local_bare()
                         bare = workspace.transport.bare_repo_path
                         repo = workspace.transport.repo_path
                         from plato.git_ops.repo import checkout_main_from_bare, trust_git_directory
 
                         trust_git_directory(bare)
                         trust_git_directory(repo)
-                        # checkout_main_from_bare (and webclone's monkeypatched
-                        # variant, which repacks the local bare and `git clone`s
-                        # it into the FUSE worktree) is heavy, synchronous git
-                        # I/O. Run it in a worker thread so it does NOT block the
-                        # event loop — otherwise the world heartbeat coroutine is
-                        # starved for the duration and the VM is killed on the
-                        # heartbeat TTL mid-checkout.
-                        await asyncio.to_thread(checkout_main_from_bare, bare_repo_path=bare, worktree_path=repo)
+                        checkout_main_from_bare(bare_repo_path=bare, worktree_path=repo)
                         self.logger.debug(f"Re-checked out repo/ from restored bare repo for workspace '{name}'")
-                    if seed_token and workspace._lazy_mounts:
-                        # A lazy restore leaves the blobs under the SOURCE prefix and
-                        # smart_commit uploads only overlay files — so once the
-                        # token expires nothing could read them. Pull the whole
-                        # tree into the overlay now: the first checkpoint then
-                        # copies every blob into this world's own repo (a fork),
-                        # and every later read is served from the overlay.
-                        await workspace.materialize_current_tree_into_overlay()
-                        self.logger.info(
-                            "Materialized workspace '%s' seeded through a download token "
-                            "(source repo=%s, step=%s); first checkpoint copies it into %s",
-                            name,
-                            workspace.repo_name,
-                            exact_step,
-                            original["repo_name"],
-                        )
+                    self.logger.debug(f"Restored workspace '{name}' from step '{exact_step}'")
                     restored_any = True
                     if self._state and name in self._state.workspaces:
                         self._state.workspaces[name].steps = [exact_step]
@@ -422,27 +385,10 @@ class ChronosSessionMixin:
                     workspace.repo_id = original["repo_id"]
                     workspace.s3_bucket = original["s3_bucket"]
                     workspace.s3_prefix = original["s3_prefix"]
-                    workspace.api_key = original["api_key"]
                     workspace._sts_credentials = {}
                     workspace._sts_expires_at = 0
 
-                if seed_token:
-                    # Lineage across tenants: Chronos resolves the source ref in
-                    # the caller's org, so the token rides along as proof that
-                    # this session was allowed to read it.
-                    if not source_ref_public_id:
-                        raise RuntimeError(
-                            f"Failed to record seed lineage for workspace '{name}' "
-                            f"(repo={workspace.repo_name}, step={exact_step}): the source ref has no public id"
-                        )
-                    await workspace._record_workspace_ref(
-                        exact_step,
-                        "input",
-                        getattr(workspace, "_last_restored_dvc_files", None) or {},
-                        source_ref_public_id=source_ref_public_id,
-                        source_download_token=seed_token,
-                    )
-                elif should_record_resume_input:
+                if should_record_resume_input:
                     restored_dvc_files = getattr(workspace, "_last_restored_dvc_files", None) or {}
                     if source_ref_public_id:
                         await workspace._record_workspace_ref(
@@ -466,7 +412,14 @@ class ChronosSessionMixin:
                             f"(repo={workspace.repo_name}, step={exact_step}): missing source metadata"
                         )
 
-        return restored_any
+        return restored_any or state_applied
+
+    def _apply_state(self, data: dict) -> bool:
+        """Apply a state dict to the world's in-memory state."""
+        if not self._state_class:
+            return False
+        self._state = self._state_class.model_validate(data)
+        return True
 
     async def _try_resume(self) -> bool:
         """Try to resume from saved state. Returns True if resumed."""
@@ -496,3 +449,21 @@ class ChronosSessionMixin:
         except Exception as e:
             self.logger.warning(f"Failed to upload state: {e}")
             return False
+
+    async def _download_state(self, session_id: str) -> dict | None:
+        """Download world state dict from Chronos DB. Returns None if not found."""
+        if not self._get_chronos_base_url():
+            self.logger.warning("Cannot download state: no chronos_url")
+            return None
+
+        try:
+            async with self._chronos_client() as client:
+                data = await client.get_state(session_id)
+            if data is None:
+                self.logger.debug(f"No state found for session {session_id}")
+            else:
+                self.logger.debug(f"Downloaded state from session {session_id}")
+            return data
+        except Exception as e:
+            self.logger.warning(f"Failed to download state: {e}")
+            return None

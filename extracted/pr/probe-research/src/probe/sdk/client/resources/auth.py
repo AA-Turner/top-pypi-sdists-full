@@ -165,6 +165,9 @@ class AuthMixin:
         auto_update: str,
         tracking: str,
         capture: str,
+        transcript_state: str | None = None,
+        transcript_off_by: str | None = None,
+        transcript_off_at: str | None = None,
     ) -> dict:
         """Replace the complete allowlisted snapshot for this token's install.
 
@@ -175,17 +178,22 @@ class AuthMixin:
         v2 replaced v1's `mcp`/`skills` pair with a single `tracking` -- they
         were always written from one boolean -- and added `capture`, which v1
         could not report at all. The server still accepts v1 from clients in the
-        field and reads their capture as `unknown`.
+        field and reads their capture as `unknown`. v3 adds why transcripts are
+        not uploading (control/080); its fields go only with `schema_version=3`.
         """
-        return self.transport.put(
-            "/v1/client-installations/current/capabilities",
-            {
-                "schema_version": schema_version,
-                "auto_update": auto_update,
-                "tracking": tracking,
-                "capture": capture,
-            },
-        )
+        body = {
+            "schema_version": schema_version,
+            "auto_update": auto_update,
+            "tracking": tracking,
+            "capture": capture,
+        }
+        if schema_version >= 3:
+            body.update(
+                transcript_state=transcript_state,
+                transcript_off_by=transcript_off_by,
+                transcript_off_at=transcript_off_at,
+            )
+        return self.transport.put("/v1/client-installations/current/capabilities", body)
 
     def name_client_installation(self, *, hostname: str) -> dict:
         """Name this token's installation after the machine it runs on.

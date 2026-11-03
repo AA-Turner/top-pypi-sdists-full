@@ -38,7 +38,6 @@ import logging
 import os
 import signal
 import threading
-import time
 import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -302,17 +301,11 @@ def init_tracing(
         logger.error(f"Failed to initialize tracing: {e}")
 
 
-def shutdown_tracing(timeout_millis: int = 30000) -> bool:
+def shutdown_tracing(timeout_millis: int = 30000) -> None:
     """Shutdown the tracer provider and flush spans.
 
     Args:
         timeout_millis: Timeout in milliseconds to wait for flush (default 30s)
-
-    Returns:
-        True when the final flush (and shutdown) completed cleanly — False
-        means queued spans may have been dropped. Callers that must guarantee
-        export (e.g. offline transcript replay) should treat False as a
-        failure rather than a warning.
     """
     global _tracer_provider, _initialized, _log_handler
 
@@ -324,38 +317,18 @@ def shutdown_tracing(timeout_millis: int = 30000) -> bool:
             pass
         _log_handler = None
 
-    flushed = True
     if _tracer_provider:
         try:
             flush_success = _tracer_provider.force_flush(timeout_millis=timeout_millis)
             if not flush_success:
                 logger.warning("Span flush timed out")
-                flushed = False
             _tracer_provider.shutdown()
             logger.debug("Tracing shutdown complete")
         except Exception as e:
             logger.warning(f"Error shutting down tracer: {e}")
-            flushed = False
 
     _tracer_provider = None
     _initialized = False
-    return flushed
-
-
-def force_flush_tracing(timeout_millis: int = 30000) -> bool:
-    """Drain the BatchSpanProcessor queue without shutting the provider down.
-
-    Returns True when the flush completed (or tracing is uninitialized).
-    Offline transcript replay calls this between transcript files so the
-    BSP queue (max 10k spans) can never overflow and silently drop spans.
-    """
-    if _tracer_provider is None:
-        return True
-    try:
-        return bool(_tracer_provider.force_flush(timeout_millis=timeout_millis))
-    except Exception:
-        logger.warning("force_flush_tracing failed", exc_info=True)
-        return False
 
 
 def get_tracer(name: str = "plato") -> Tracer:
@@ -490,7 +463,6 @@ def _set_step_attributes(
     duration_ms: float | None = None,
     screenshot: str | None = None,
     screenshot_format: str | None = None,
-    usage_source: str | None = None,
 ) -> None:
     """Populate an ATIF step span with the standard attributes."""
     span.set_attribute("atif.step.id", step_id)
@@ -517,8 +489,6 @@ def _set_step_attributes(
         span.set_attribute("atif.step.reasoning_tokens", reasoning_tokens)
     if cost_usd is not None:
         span.set_attribute("atif.step.cost_usd", cost_usd)
-    if usage_source is not None:
-        span.set_attribute("atif.step.usage_source", usage_source)
     if duration_ms is not None:
         span.set_attribute("atif.step.duration_ms", duration_ms)
     if screenshot is not None:
@@ -546,9 +516,6 @@ def start_step_span(
     duration_ms: float | None = None,
     screenshot: str | None = None,
     screenshot_format: str | None = None,
-    usage_source: str | None = None,
-    start_time_ns: int | None = None,
-    end_time_ns: int | None = None,
 ) -> Iterator[Span]:
     """Create one live ATIF step span and yield it to the caller.
 
@@ -566,153 +533,28 @@ def start_step_span(
         cost_usd: Cost in USD
         screenshot: Base64-encoded screenshot image data
         screenshot_format: Image MIME type (e.g., "image/png")
-        start_time_ns: Optional historical span start (unix nanoseconds). Used by
-            offline transcript replay so backfilled steps sit at their true
-            wall-clock position instead of the upload time.
-        end_time_ns: Optional historical span end (unix nanoseconds). Only
-            honored together with ``start_time_ns``.
     """
-    if start_time_ns is None:
-        # Live path: identical behavior to before the replay support existed.
-        with tracer.start_as_current_span(f"atif.step.{step_id}") as span:
-            _set_step_attributes(
-                span,
-                step_id=step_id,
-                source=source,
-                message=message,
-                model_name=model_name,
-                reasoning=reasoning,
-                tool_calls=tool_calls,
-                observation=observation,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                cache_read_tokens=cache_read_tokens,
-                cache_write_tokens=cache_write_tokens,
-                reasoning_tokens=reasoning_tokens,
-                cost_usd=cost_usd,
-                duration_ms=duration_ms,
-                screenshot=screenshot,
-                screenshot_format=screenshot_format,
-                usage_source=usage_source,
-            )
-            yield span
-        return
-
-    # Replay path: stamp the span at its historical position. ``end_on_exit``
-    # must be False so the explicit ``end_time`` is honored.
-    span = tracer.start_span(f"atif.step.{step_id}", start_time=start_time_ns)
-    try:
-        with trace.use_span(span, end_on_exit=False):
-            _set_step_attributes(
-                span,
-                step_id=step_id,
-                source=source,
-                message=message,
-                model_name=model_name,
-                reasoning=reasoning,
-                tool_calls=tool_calls,
-                observation=observation,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                cache_read_tokens=cache_read_tokens,
-                cache_write_tokens=cache_write_tokens,
-                reasoning_tokens=reasoning_tokens,
-                cost_usd=cost_usd,
-                duration_ms=duration_ms,
-                screenshot=screenshot,
-                screenshot_format=screenshot_format,
-                usage_source=usage_source,
-            )
-            yield span
-    finally:
-        span.end(end_time=end_time_ns if end_time_ns is not None else start_time_ns)
-
-
-class DeferredStepSpan:
-    """One ATIF step span held un-exported while late-resolving usage lands.
-
-    Used for turns whose stream envelopes carry no usage (e.g. OpenRouter,
-    where true per-generation stats only become available from the provider's
-    generation API a few seconds after the turn): the span is created at turn
-    time with true timestamps, held open briefly, then finished exactly once —
-    with resolved tokens/cost merged in on the happy path, or bare on
-    resolution timeout/teardown.
-
-    Deferring EXPORT does not perturb rendering: consumers sort spans by
-    their own timestamps, not export order, and the span is stamped as
-    instantaneous at its creation time (matching immediate emission). Child
-    spans reference the parent span id at creation, so they may export first.
-    The crash-window of a briefly held span matches the standard
-    BatchSpanProcessor loss profile; teardown flushes cover normal exits.
-    """
-
-    def __init__(self, span: Span, created_time_ns: int):
-        self.span = span
-        self.created_time_ns = created_time_ns
-        self._finished = False
-
-    @property
-    def finished(self) -> bool:
-        return self._finished
-
-    def finish(
-        self,
-        *,
-        prompt_tokens: int | None = None,
-        completion_tokens: int | None = None,
-        cache_read_tokens: int | None = None,
-        cache_write_tokens: int | None = None,
-        cost_usd: float | None = None,
-        usage_source: str | None = None,
-    ) -> None:
-        """Merge any resolved usage into the span and export it (idempotent)."""
-        if self._finished:
-            return
-        self._finished = True
-        if prompt_tokens is not None:
-            self.span.set_attribute("atif.step.prompt_tokens", prompt_tokens)
-        if completion_tokens is not None:
-            self.span.set_attribute("atif.step.completion_tokens", completion_tokens)
-        if cache_read_tokens is not None:
-            self.span.set_attribute("atif.step.cache_read_tokens", cache_read_tokens)
-        if cache_write_tokens is not None:
-            self.span.set_attribute("atif.step.cache_write_tokens", cache_write_tokens)
-        if cost_usd is not None:
-            self.span.set_attribute("atif.step.cost_usd", cost_usd)
-        if usage_source is not None:
-            self.span.set_attribute("atif.step.usage_source", usage_source)
-        # Instantaneous at creation time — identical shape to a span emitted
-        # immediately, regardless of how long it was held.
-        self.span.end(end_time=self.created_time_ns)
-
-
-def start_deferred_step_span(
-    tracer: Tracer,
-    step_id: int,
-    source: Literal["system", "user", "agent"],
-    message: str,
-    *,
-    model_name: str | None = None,
-    reasoning: str | None = None,
-    tool_calls: list[dict] | None = None,
-) -> DeferredStepSpan:
-    """Create one ATIF step span now but leave its export to ``finish()``.
-
-    Same attribute shape as :func:`emit_step`; parented to the ambient
-    current span, stamped at creation time. See :class:`DeferredStepSpan`.
-    """
-    created_time_ns = time.time_ns()
-    span = tracer.start_span(f"atif.step.{step_id}", start_time=created_time_ns)
-    _set_step_attributes(
-        span,
-        step_id=step_id,
-        source=source,
-        message=message,
-        model_name=model_name,
-        reasoning=reasoning,
-        tool_calls=tool_calls,
-    )
-    return DeferredStepSpan(span, created_time_ns)
+    with tracer.start_as_current_span(f"atif.step.{step_id}") as span:
+        _set_step_attributes(
+            span,
+            step_id=step_id,
+            source=source,
+            message=message,
+            model_name=model_name,
+            reasoning=reasoning,
+            tool_calls=tool_calls,
+            observation=observation,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cache_read_tokens=cache_read_tokens,
+            cache_write_tokens=cache_write_tokens,
+            reasoning_tokens=reasoning_tokens,
+            cost_usd=cost_usd,
+            duration_ms=duration_ms,
+            screenshot=screenshot,
+            screenshot_format=screenshot_format,
+        )
+        yield span
 
 
 def emit_step(
@@ -734,9 +576,6 @@ def emit_step(
     duration_ms: float | None = None,
     screenshot: str | None = None,
     screenshot_format: str | None = None,
-    usage_source: str | None = None,
-    start_time_ns: int | None = None,
-    end_time_ns: int | None = None,
 ) -> None:
     """Emit one ATIF step as an OTel span."""
     with start_step_span(
@@ -757,81 +596,8 @@ def emit_step(
         duration_ms=duration_ms,
         screenshot=screenshot,
         screenshot_format=screenshot_format,
-        usage_source=usage_source,
-        start_time_ns=start_time_ns,
-        end_time_ns=end_time_ns,
     ):
         pass
-
-
-COMPUTER_USE_COORDINATES_SPAN = "plato.computer-use.coordinates"
-
-
-def emit_computer_use_coordinates(
-    tracer: Tracer | None,
-    *,
-    action: str,
-    x: float,
-    y: float,
-    screen_width: int,
-    screen_height: int,
-    end_x: float | None = None,
-    end_y: float | None = None,
-    path: list[tuple[float, float]] | None = None,
-    button: str | None = None,
-) -> None:
-    """Emit a ``plato.computer-use.coordinates`` span for one mouse action.
-
-    The explicit, provider-agnostic contract for UIs that overlay pointer
-    targets on session screenshots (Chronos cinema mode). Coordinates are
-    ALWAYS normalized to ``[0, 1]`` relative to the full screen — ``(0, 0)``
-    top-left, ``(1, 1)`` bottom-right — regardless of the provider's native
-    coordinate convention (pixel, 0-1000 normalized, ...). Callers pass raw
-    screen pixels plus the screen dimensions in effect for the action; this
-    helper does the normalization so every agent emits the same shape.
-
-    Attributes:
-        ``plato.computer_use.action``: ``click`` / ``double_click`` /
-            ``triple_click`` / ``mouse_move`` / ``drag`` / ``scroll``
-        ``plato.computer_use.x`` / ``.y``: normalized primary point (for a
-            drag: the start point)
-        ``plato.computer_use.end_x`` / ``.end_y``: normalized drag end point
-        ``plato.computer_use.path``: JSON ``[[x, y], ...]`` normalized
-            waypoints for multi-point drags
-        ``plato.computer_use.button``: mouse button when applicable
-        ``plato.computer_use.screen_width`` / ``.screen_height``: pixel
-            dimensions the normalization used (provenance/debugging)
-
-    No-op when screen dimensions are unknown or invalid. Safe to call without
-    a configured tracer provider (falls back to the global tracer, which
-    yields non-recording spans).
-    """
-    if screen_width <= 0 or screen_height <= 0:
-        return
-
-    def _norm(value: float, dim: int) -> float:
-        return min(1.0, max(0.0, float(value) / float(dim)))
-
-    tr = tracer or trace.get_tracer("plato.computer_use")
-    span = tr.start_span(COMPUTER_USE_COORDINATES_SPAN)
-    try:
-        span.set_attribute("plato.computer_use.action", action)
-        span.set_attribute("plato.computer_use.x", _norm(x, screen_width))
-        span.set_attribute("plato.computer_use.y", _norm(y, screen_height))
-        if end_x is not None and end_y is not None:
-            span.set_attribute("plato.computer_use.end_x", _norm(end_x, screen_width))
-            span.set_attribute("plato.computer_use.end_y", _norm(end_y, screen_height))
-        if path:
-            span.set_attribute(
-                "plato.computer_use.path",
-                json.dumps([[_norm(px, screen_width), _norm(py, screen_height)] for px, py in path]),
-            )
-        if button:
-            span.set_attribute("plato.computer_use.button", button)
-        span.set_attribute("plato.computer_use.screen_width", int(screen_width))
-        span.set_attribute("plato.computer_use.screen_height", int(screen_height))
-    finally:
-        span.end()
 
 
 @dataclass
@@ -941,75 +707,6 @@ def aggregate_step_costs(
 
 
 @contextmanager
-def world_agent_execution(
-    tracer: Tracer,
-    name: str,
-    version: str | None = None,
-    model: str | None = None,
-    phase: str = "journey_gen",
-) -> Iterator[Span]:
-    """Wrap a world-side LLM job (e.g. one-shot journey generation) as a single
-    named agent-execution span so Chronos's session analysis renders it as its
-    own row instead of an orphaned, unnamed execution.
-
-    Unlike :func:`aggregate_step_costs` (which emits per-model ``atif.cost.*``
-    *child* spans), this installs a **fresh** cost accumulator that diverts
-    ``record_step_cost`` away from any enclosing (e.g. ``webclone``) accumulator,
-    then rolls the per-model totals **directly onto the wrapper span** as
-    ``atif.agent.{cost_usd,prompt_tokens,completion_tokens,reasoning_tokens,
-    cache_read_tokens,cache_write_tokens}``. Emitting no cost-child spans is what
-    makes this dup-proof under ``analysis.py`` (Strategy 2 + ``_build_execution``
-    read cost off the root span itself) — see the A0 test in
-    ``tests/unit/chronos/test_chronos_analysis.py``.
-
-    The child ``atif.step.*`` spans emitted by the wrapped LLM client parent
-    under this span and their ``record_step_cost`` calls flow into the diverted
-    accumulator, so no change is needed at the call site's LLM plumbing.
-    """
-    accumulator = _CostAccumulator()
-    with tracer.start_as_current_span(name) as span:
-        span.set_attribute("atif.kind", "agent")
-        span.set_attribute("atif.agent.name", name)
-        span.set_attribute("plato.phase", phase)
-        if version is not None:
-            span.set_attribute("atif.agent.version", version)
-        if model is not None:
-            span.set_attribute("atif.agent.model_name", model)
-        token = _current_cost_accumulator.set(accumulator)
-        try:
-            yield span
-        finally:
-            _current_cost_accumulator.reset(token)
-            # Sum across models (journey-gen is single-model) and stamp totals
-            # directly onto this span — no child cost spans.
-            cost_usd = 0.0
-            prompt_tokens = 0
-            completion_tokens = 0
-            reasoning_tokens = 0
-            cache_read_tokens = 0
-            cache_write_tokens = 0
-            for bucket in accumulator.by_model.values():
-                cost_usd += bucket.cost_usd
-                prompt_tokens += bucket.prompt_tokens
-                completion_tokens += bucket.completion_tokens
-                reasoning_tokens += bucket.reasoning_tokens
-                cache_read_tokens += bucket.cache_read_tokens
-                cache_write_tokens += bucket.cache_write_tokens
-            if cost_usd > 0:
-                span.set_attribute("atif.agent.cost_usd", cost_usd)
-            if prompt_tokens > 0:
-                span.set_attribute("atif.agent.prompt_tokens", prompt_tokens)
-            if completion_tokens > 0:
-                span.set_attribute("atif.agent.completion_tokens", completion_tokens)
-            if reasoning_tokens > 0:
-                span.set_attribute("atif.agent.reasoning_tokens", reasoning_tokens)
-            if cache_read_tokens > 0:
-                span.set_attribute("atif.agent.cache_read_tokens", cache_read_tokens)
-            if cache_write_tokens > 0:
-                span.set_attribute("atif.agent.cache_write_tokens", cache_write_tokens)
-
-
-@contextmanager
 def session_span(
     tracer: Tracer,
     agent_name: str,
@@ -1017,8 +714,6 @@ def session_span(
     model_name: str | None = None,
     system_prompt: str | None = None,
     mcp_config: str | None = None,
-    start_time_ns: int | None = None,
-    end_time_ns: int | None = None,
 ) -> Iterator[Span]:
     """Create root session span with atif.agent.* attributes.
 
@@ -1033,27 +728,9 @@ def session_span(
         model_name: Default model used by the agent
         system_prompt: Full system prompt sent to the agent (traced as step 1)
         mcp_config: MCP config content string (traced alongside system prompt)
-        start_time_ns: Optional historical span start (unix nanoseconds) for
-            offline transcript replay.
-        end_time_ns: Optional historical span end; only honored with
-            ``start_time_ns``.
     """
     display_name = os.environ.get("PLATO_AGENT_DISPLAY_NAME") or agent_name
-
-    @contextmanager
-    def _open_root() -> Iterator[Span]:
-        if start_time_ns is None:
-            with tracer.start_as_current_span("session") as span:
-                yield span
-            return
-        span = tracer.start_span("session", start_time=start_time_ns)
-        try:
-            with trace.use_span(span, end_on_exit=False):
-                yield span
-        finally:
-            span.end(end_time=end_time_ns if end_time_ns is not None else None)
-
-    with _open_root() as span:
+    with tracer.start_as_current_span("session") as span:
         span.set_attribute("plato.phase", "agent")
         span.set_attribute("atif.version", "0.1.0")
         span.set_attribute("atif.agent.name", display_name)
@@ -1071,13 +748,7 @@ def session_span(
         ]
         system_message = "\n\n".join(p for p in system_parts if p)
         if system_message:
-            emit_step(
-                tracer,
-                step_id=1,
-                source="system",
-                message=system_message,
-                start_time_ns=start_time_ns,
-            )
+            emit_step(tracer, step_id=1, source="system", message=system_message)
 
         with aggregate_step_costs(span, tracer, name=display_name, version=agent_version):
             yield span

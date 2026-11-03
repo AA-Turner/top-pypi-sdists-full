@@ -27,22 +27,61 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********************************************************************/
 #include <aarch64_multibinary.h>
+#include "erasure_code.h"
+#include "gf_vect_mul.h"
+
+#ifdef __linux__
+#include <sys/auxv.h>
+#ifndef HWCAP2_SVE2
+#define HWCAP2_SVE2 (1 << 1)
+#endif
+#endif
+
+extern void
+gf_vect_dot_prod_sve(int, int, unsigned char *, unsigned char **, unsigned char *);
+extern void
+gf_vect_dot_prod_sve2(int, int, unsigned char *, unsigned char **, unsigned char *);
+extern void
+gf_vect_dot_prod_neon(int, int, unsigned char *, unsigned char **, unsigned char *);
+
+extern void
+gf_vect_mad_sve(int, int, int, unsigned char *, unsigned char *, unsigned char *);
+extern void
+gf_vect_mad_neon(int, int, int, unsigned char *, unsigned char *, unsigned char *);
+
+extern void
+ec_encode_data_sve(int, int, int, unsigned char *, unsigned char **, unsigned char **);
+extern void
+ec_encode_data_sve2(int, int, int, unsigned char *, unsigned char **, unsigned char **);
+extern void
+ec_encode_data_neon(int, int, int, unsigned char *, unsigned char **, unsigned char **);
+
+extern void
+ec_encode_data_update_sve(int, int, int, int, unsigned char *, unsigned char *, unsigned char **);
+extern void
+ec_encode_data_update_neon(int, int, int, int, unsigned char *, unsigned char *, unsigned char **);
+
+extern int
+gf_vect_mul_sve(int, unsigned char *, unsigned char *, unsigned char *);
+extern int
+gf_vect_mul_neon(int, unsigned char *, unsigned char *, unsigned char *);
 
 DEFINE_INTERFACE_DISPATCHER(gf_vect_dot_prod)
 {
 #if defined(__linux__)
         unsigned long auxval = getauxval(AT_HWCAP);
+        unsigned long auxval2 = getauxval(AT_HWCAP2);
 
+        if ((auxval & HWCAP_SVE) && (auxval2 & HWCAP2_SVE2))
+                return gf_vect_dot_prod_sve2;
         if (auxval & HWCAP_SVE)
-                return PROVIDER_INFO(gf_vect_dot_prod_sve);
+                return gf_vect_dot_prod_sve;
         if (auxval & HWCAP_ASIMD)
-                return PROVIDER_INFO(gf_vect_dot_prod_neon);
+                return gf_vect_dot_prod_neon;
 #elif defined(__APPLE__)
-        if (sysctlEnabled(SYSCTL_SVE_KEY))
-                return PROVIDER_INFO(gf_vect_dot_prod_sve);
-        return PROVIDER_INFO(gf_vect_dot_prod_neon);
+        return gf_vect_dot_prod_neon;
 #endif
-        return PROVIDER_BASIC(gf_vect_dot_prod);
+        return gf_vect_dot_prod_base;
 }
 
 DEFINE_INTERFACE_DISPATCHER(gf_vect_mad)
@@ -51,32 +90,36 @@ DEFINE_INTERFACE_DISPATCHER(gf_vect_mad)
         unsigned long auxval = getauxval(AT_HWCAP);
 
         if (auxval & HWCAP_SVE)
-                return PROVIDER_INFO(gf_vect_mad_sve);
+                return gf_vect_mad_sve;
         if (auxval & HWCAP_ASIMD)
-                return PROVIDER_INFO(gf_vect_mad_neon);
+                return gf_vect_mad_neon;
 #elif defined(__APPLE__)
-        if (sysctlEnabled(SYSCTL_SVE_KEY))
-                return PROVIDER_INFO(gf_vect_mad_sve);
-        return PROVIDER_INFO(gf_vect_mad_neon);
+        return gf_vect_mad_neon;
 #endif
-        return PROVIDER_BASIC(gf_vect_mad);
+        return gf_vect_mad_base;
 }
 
 DEFINE_INTERFACE_DISPATCHER(ec_encode_data)
 {
 #if defined(__linux__)
         unsigned long auxval = getauxval(AT_HWCAP);
+        unsigned long auxval2 = getauxval(AT_HWCAP2);
 
-        if (auxval & HWCAP_SVE)
-                return PROVIDER_INFO(ec_encode_data_sve);
+        if ((auxval & HWCAP_SVE) && (auxval2 & HWCAP2_SVE2))
+                return ec_encode_data_sve2;
+        if (auxval & HWCAP_SVE) {
+                return ec_encode_data_sve;
+        }
         if (auxval & HWCAP_ASIMD)
-                return PROVIDER_INFO(ec_encode_data_neon);
+                return ec_encode_data_neon;
 #elif defined(__APPLE__)
-        if (sysctlEnabled(SYSCTL_SVE_KEY))
-                return PROVIDER_INFO(ec_encode_data_sve);
-        return PROVIDER_INFO(ec_encode_data_neon);
+        if (sysctlEnabled(SYSCTL_SME2_KEY))
+                return ec_encode_data_sve2;
+        if (sysctlEnabled(SYSCTL_SME_KEY))
+                return ec_encode_data_sve;
+        return ec_encode_data_neon;
 #endif
-        return PROVIDER_BASIC(ec_encode_data);
+        return ec_encode_data_base;
 }
 
 DEFINE_INTERFACE_DISPATCHER(ec_encode_data_update)
@@ -85,15 +128,15 @@ DEFINE_INTERFACE_DISPATCHER(ec_encode_data_update)
         unsigned long auxval = getauxval(AT_HWCAP);
 
         if (auxval & HWCAP_SVE)
-                return PROVIDER_INFO(ec_encode_data_update_sve);
+                return ec_encode_data_update_sve;
         if (auxval & HWCAP_ASIMD)
-                return PROVIDER_INFO(ec_encode_data_update_neon);
+                return ec_encode_data_update_neon;
 #elif defined(__APPLE__)
-        if (sysctlEnabled(SYSCTL_SVE_KEY))
-                return PROVIDER_INFO(ec_encode_data_update_sve);
-        return PROVIDER_INFO(ec_encode_data_update_neon);
+        if (sysctlEnabled(SYSCTL_SME_KEY))
+                return ec_encode_data_update_sve;
+        return ec_encode_data_update_neon;
 #endif
-        return PROVIDER_BASIC(ec_encode_data_update);
+        return ec_encode_data_update_base;
 }
 
 DEFINE_INTERFACE_DISPATCHER(gf_vect_mul)
@@ -102,15 +145,14 @@ DEFINE_INTERFACE_DISPATCHER(gf_vect_mul)
         unsigned long auxval = getauxval(AT_HWCAP);
 
         if (auxval & HWCAP_SVE)
-                return PROVIDER_INFO(gf_vect_mul_sve);
+                return gf_vect_mul_sve;
         if (auxval & HWCAP_ASIMD)
-                return PROVIDER_INFO(gf_vect_mul_neon);
+                return gf_vect_mul_neon;
 #elif defined(__APPLE__)
-        if (sysctlEnabled(SYSCTL_SVE_KEY))
-                return PROVIDER_INFO(gf_vect_mul_sve);
-        return PROVIDER_INFO(gf_vect_mul_neon);
+        return gf_vect_mul_neon;
 #endif
-        return PROVIDER_BASIC(gf_vect_mul);
+        return gf_vect_mul_base;
 }
 
-DEFINE_INTERFACE_DISPATCHER(ec_init_tables) { return PROVIDER_BASIC(ec_init_tables); }
+DEFINE_INTERFACE_DISPATCHER(ec_init_tables) { return ec_init_tables_base; }
+DEFINE_INTERFACE_DISPATCHER(gf_vect_mul_init) { return gf_vect_mul_init_base; }

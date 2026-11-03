@@ -1,21 +1,19 @@
 from __future__ import annotations
 
 import asyncio
-from csv import DictReader
 from datetime import datetime
 from functools import cached_property, partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Self
 
-import aiofiles
 from camel_converter import to_snake
 from httpx2 import AsyncClient
 
 from meilisearch_python_sdk._http_requests import AsyncHttpRequests
 from meilisearch_python_sdk._task import async_wait_for_task
-from meilisearch_python_sdk.errors import InvalidDocumentError
 from meilisearch_python_sdk.index._common import (
     BaseIndex,
+    _load_documents_from_file,
     batch,
     build_encoded_url,
     embedder_json_to_embedders_model,
@@ -25,7 +23,6 @@ from meilisearch_python_sdk.index._common import (
     prepare_raw_file_upload,
     process_search_parameters,
     raise_on_no_documents,
-    validate_file_type,
     validate_ranking_score_threshold,
 )
 from meilisearch_python_sdk.index._common import combine_documents as combine_documents_
@@ -62,7 +59,9 @@ from meilisearch_python_sdk.plugins import (
 from meilisearch_python_sdk.types import JsonDict
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Coroutine, Sequence
+
+    from httpx2 import Response
 
     from meilisearch_python_sdk.types import Filter, JsonMapping
 
@@ -350,6 +349,9 @@ class AsyncIndex(BaseIndex):
     async def update(self, primary_key: str) -> Self:
         """Update the index primary key.
 
+        The primary key can only be changed when the index contains no documents. If the index
+        already has documents the update task fails and a MeilisearchTaskFailedError is raised.
+
         Args:
             primary_key: The primary key of the documents.
 
@@ -359,12 +361,14 @@ class AsyncIndex(BaseIndex):
         Raises:
             MeilisearchCommunicationError: If there was an error communicating with the server.
             MeilisearchApiError: If the Meilisearch API returned an error.
+            MeilisearchTaskFailedError: If the update task fails, for example because the index
+                already contains documents.
 
         Examples:
             >>> from meilisearch_python_sdk import AsyncClient
             >>> async with AsyncClient("http://localhost.com", "masterKey") as client:
             >>>     index = client.index("movies")
-            >>>     updated_index = await index.update()
+            >>>     updated_index = await index.update(primary_key="id")
         """
         payload = {"primaryKey": primary_key}
         response = await self._http_requests.patch(self._base_url_with_uid, payload)
@@ -373,6 +377,7 @@ class AsyncIndex(BaseIndex):
             self._http_requests.parse_json(response)["taskUid"],
             timeout_in_ms=100000,
             json_handler=self._json_handler,
+            raise_for_status=True,
         )
         index_response = await self._http_requests.get(f"{self._base_url_with_uid}")
         self.primary_key = self._http_requests.parse_json(index_response)["primaryKey"]
@@ -525,7 +530,7 @@ class AsyncIndex(BaseIndex):
         """Get stats of the index.
 
         Args:
-            show_internal_database_sizes: Include internal database size inforamation in results.
+            show_internal_database_sizes: Include internal database size information in results.
                 Default = False.
             size_format: When present and set to human, then all database sizes in responses of the
                 stat routes will be returned as a string containing an appropriate unit (MiB, GiB,
@@ -648,7 +653,7 @@ class AsyncIndex(BaseIndex):
                 updated causing breaking changes in this library without a major version bump so use
                 with caution.
             locales: Specifies the languages for the search. This parameter can only be used with
-                Milisearch >= v1.10.0. Defaults to None letting the Meilisearch pick.
+                Meilisearch >= v1.10.0. Defaults to None letting the Meilisearch pick.
             retrieve_vectors: Return document vector data with search result.
             media: The content of media is used as if it were a document to generate request
                 fragments from the searchFragments parameter. Defaults to None. This parameter can
@@ -710,83 +715,40 @@ class AsyncIndex(BaseIndex):
         )
         search_url = f"{self._base_url_with_uid}/search"
 
+        plugin_kwargs = dict(
+            query=query,
+            offset=offset,
+            limit=limit,
+            filter=filter,
+            facets=facets,
+            attributes_to_retrieve=attributes_to_retrieve,
+            attributes_to_crop=attributes_to_crop,
+            crop_length=crop_length,
+            attributes_to_highlight=attributes_to_highlight,
+            sort=sort,
+            show_matches_position=show_matches_position,
+            highlight_pre_tag=highlight_pre_tag,
+            highlight_post_tag=highlight_post_tag,
+            crop_marker=crop_marker,
+            matching_strategy=matching_strategy,
+            hits_per_page=hits_per_page,
+            page=page,
+            attributes_to_search_on=attributes_to_search_on,
+            distinct=distinct,
+            show_ranking_score=show_ranking_score,
+            show_ranking_score_details=show_ranking_score_details,
+            vector=vector,
+            hybrid=hybrid,
+            personalize=personalize,
+        )
         if self._pre_search_plugins:
-            await _run_plugins(
-                self._pre_search_plugins,
-                AsyncEvent.PRE,
-                query=query,
-                offset=offset,
-                limit=limit,
-                filter=filter,
-                facets=facets,
-                attributes_to_retrieve=attributes_to_retrieve,
-                attributes_to_crop=attributes_to_crop,
-                crop_length=crop_length,
-                attributes_to_highlight=attributes_to_highlight,
-                sort=sort,
-                show_matches_position=show_matches_position,
-                highlight_pre_tag=highlight_pre_tag,
-                highlight_post_tag=highlight_post_tag,
-                crop_marker=crop_marker,
-                matching_strategy=matching_strategy,
-                hits_per_page=hits_per_page,
-                page=page,
-                attributes_to_search_on=attributes_to_search_on,
-                distinct=distinct,
-                show_ranking_score=show_ranking_score,
-                show_ranking_score_details=show_ranking_score_details,
-                vector=vector,
-                hybrid=hybrid,
-                personalize=personalize,
-            )
+            await _run_plugins(self._pre_search_plugins, AsyncEvent.PRE, **plugin_kwargs)
 
-        if self._concurrent_search_plugins:
-            async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
-                for plugin in self._concurrent_search_plugins:
-                    if plugin_has_method(plugin, "run_plugin"):
-                        tg.create_task(
-                            plugin.run_plugin(  # type: ignore[union-attr]
-                                event=AsyncEvent.CONCURRENT,
-                                query=query,
-                                offset=offset,
-                                limit=limit,
-                                filter=filter,
-                                facets=facets,
-                                attributes_to_retrieve=attributes_to_retrieve,
-                                attributes_to_crop=attributes_to_crop,
-                                crop_length=crop_length,
-                                attributes_to_highlight=attributes_to_highlight,
-                                sort=sort,
-                                show_matches_position=show_matches_position,
-                                highlight_pre_tag=highlight_pre_tag,
-                                highlight_post_tag=highlight_post_tag,
-                                crop_marker=crop_marker,
-                                matching_strategy=matching_strategy,
-                                hits_per_page=hits_per_page,
-                                page=page,
-                                attributes_to_search_on=attributes_to_search_on,
-                                distinct=distinct,
-                                show_ranking_score=show_ranking_score,
-                                show_ranking_score_details=show_ranking_score_details,
-                                vector=vector,
-                                personalize=personalize,
-                            )
-                        )
-
-                response_coroutine = tg.create_task(self._http_requests.post(search_url, body=body))
-
-            response = await response_coroutine
-            result = SearchResults[self.hits_type](**self._http_requests.parse_json(response))  # type: ignore[name-defined]
-            if self._post_search_plugins:
-                post = await _run_plugins(
-                    self._post_search_plugins, AsyncEvent.POST, search_results=result
-                )
-                if post.get("search_result"):
-                    result = post["search_result"]
-
-            return result
-
-        response = await self._http_requests.post(search_url, body=body)
+        response = await _send_with_concurrent_plugins(
+            self._http_requests.post(search_url, body=body),
+            self._concurrent_search_plugins,
+            **plugin_kwargs,
+        )
         result = SearchResults[self.hits_type](**self._http_requests.parse_json(response))  # type: ignore[name-defined]
 
         if self._post_search_plugins:
@@ -880,11 +842,11 @@ class AsyncIndex(BaseIndex):
                 updated causing breaking changes in this library without a major version bump so use
                 with caution.
             locales: Specifies the languages for the search. This parameter can only be used with
-                Milisearch >= v1.10.0. Defaults to None letting the Meilisearch pick.
+                Meilisearch >= v1.10.0. Defaults to None letting the Meilisearch pick.
             retrieve_vectors: Return document vector data with search result.
             personalize: Personalize the search results.
             exhaustive_facet_count: forcing the facet search to compute the facet counts the same
-                way as the paginated search. This parameter can only be used with Milisearch >=
+                way as the paginated search. This parameter can only be used with Meilisearch >=
                 v1.14.0. Defaults to None.
 
         Returns:
@@ -939,84 +901,40 @@ class AsyncIndex(BaseIndex):
         )
         search_url = f"{self._base_url_with_uid}/facet-search"
 
+        plugin_kwargs = dict(
+            query=query,
+            offset=offset,
+            limit=limit,
+            filter=filter,
+            facets=facets,
+            attributes_to_retrieve=attributes_to_retrieve,
+            attributes_to_crop=attributes_to_crop,
+            crop_length=crop_length,
+            attributes_to_highlight=attributes_to_highlight,
+            sort=sort,
+            show_matches_position=show_matches_position,
+            highlight_pre_tag=highlight_pre_tag,
+            highlight_post_tag=highlight_post_tag,
+            crop_marker=crop_marker,
+            matching_strategy=matching_strategy,
+            hits_per_page=hits_per_page,
+            page=page,
+            attributes_to_search_on=attributes_to_search_on,
+            show_ranking_score=show_ranking_score,
+            show_ranking_score_details=show_ranking_score_details,
+            ranking_score_threshold=ranking_score_threshold,
+            vector=vector,
+            exhaustive_facet_count=exhaustive_facet_count,
+            personalize=personalize,
+        )
         if self._pre_facet_search_plugins:
-            await _run_plugins(
-                self._pre_facet_search_plugins,
-                AsyncEvent.PRE,
-                query=query,
-                offset=offset,
-                limit=limit,
-                filter=filter,
-                facets=facets,
-                attributes_to_retrieve=attributes_to_retrieve,
-                attributes_to_crop=attributes_to_crop,
-                crop_length=crop_length,
-                attributes_to_highlight=attributes_to_highlight,
-                sort=sort,
-                show_matches_position=show_matches_position,
-                highlight_pre_tag=highlight_pre_tag,
-                highlight_post_tag=highlight_post_tag,
-                crop_marker=crop_marker,
-                matching_strategy=matching_strategy,
-                hits_per_page=hits_per_page,
-                page=page,
-                attributes_to_search_on=attributes_to_search_on,
-                show_ranking_score=show_ranking_score,
-                show_ranking_score_details=show_ranking_score_details,
-                ranking_score_threshold=ranking_score_threshold,
-                vector=vector,
-                exhaustive_facet_count=exhaustive_facet_count,
-                personalize=personalize,
-            )
+            await _run_plugins(self._pre_facet_search_plugins, AsyncEvent.PRE, **plugin_kwargs)
 
-        if self._concurrent_facet_search_plugins:
-            async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
-                for plugin in self._concurrent_facet_search_plugins:
-                    if plugin_has_method(plugin, "run_plugin"):
-                        tg.create_task(
-                            plugin.run_plugin(  # type: ignore[union-attr]
-                                event=AsyncEvent.CONCURRENT,
-                                query=query,
-                                offset=offset,
-                                limit=limit,
-                                filter=filter,
-                                facets=facets,
-                                attributes_to_retrieve=attributes_to_retrieve,
-                                attributes_to_crop=attributes_to_crop,
-                                crop_length=crop_length,
-                                attributes_to_highlight=attributes_to_highlight,
-                                sort=sort,
-                                show_matches_position=show_matches_position,
-                                highlight_pre_tag=highlight_pre_tag,
-                                highlight_post_tag=highlight_post_tag,
-                                crop_marker=crop_marker,
-                                matching_strategy=matching_strategy,
-                                hits_per_page=hits_per_page,
-                                page=page,
-                                attributes_to_search_on=attributes_to_search_on,
-                                show_ranking_score=show_ranking_score,
-                                show_ranking_score_details=show_ranking_score_details,
-                                ranking_score_threshold=ranking_score_threshold,
-                                vector=vector,
-                                exhaustive_facet_count=exhaustive_facet_count,
-                                personalize=personalize,
-                            )
-                        )
-
-                response_coroutine = tg.create_task(self._http_requests.post(search_url, body=body))
-
-            response = await response_coroutine
-            result = FacetSearchResults(**self._http_requests.parse_json(response))
-            if self._post_facet_search_plugins:
-                post = await _run_plugins(
-                    self._post_facet_search_plugins, AsyncEvent.POST, result=result
-                )
-                if isinstance(post["generic_result"], FacetSearchResults):
-                    result = post["generic_result"]
-
-            return result
-
-        response = await self._http_requests.post(search_url, body=body)
+        response = await _send_with_concurrent_plugins(
+            self._http_requests.post(search_url, body=body),
+            self._concurrent_facet_search_plugins,
+            **plugin_kwargs,
+        )
         result = FacetSearchResults(**self._http_requests.parse_json(response))
         if self._post_facet_search_plugins:
             post = await _run_plugins(
@@ -1265,49 +1183,15 @@ class AsyncIndex(BaseIndex):
                 documents=documents,
                 primary_key=primary_key,
             )
-            if pre.get("document_result"):
+            if pre.get("document_result") is not None:
                 documents = pre["document_result"]
 
-        if self._concurrent_add_documents_plugins:
-            async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
-                for plugin in self._concurrent_add_documents_plugins:
-                    if plugin_has_method(plugin, "run_plugin"):
-                        tg.create_task(
-                            plugin.run_plugin(  # type: ignore[union-attr]
-                                event=AsyncEvent.CONCURRENT,
-                                documents=documents,
-                                primary_key=primary_key,
-                            )
-                        )
-                    if plugin_has_method(plugin, "run_document_plugin"):
-                        tg.create_task(
-                            plugin.run_document_plugin(  # type: ignore[union-attr]
-                                event=AsyncEvent.CONCURRENT,
-                                documents=documents,
-                                primary_key=primary_key,
-                            )
-                        )
-
-                response_coroutine = tg.create_task(
-                    self._http_requests.post(url, documents, compress=compress)
-                )
-
-            response = await response_coroutine
-            result = TaskInfo(**self._http_requests.parse_json(response))
-            if self._post_add_documents_plugins:
-                post = await _run_plugins(
-                    self._post_add_documents_plugins,
-                    AsyncEvent.POST,
-                    result=result,
-                    documents=documents,
-                    primary_key=primary_key,
-                )
-                if isinstance(post["generic_result"], TaskInfo):
-                    result = post["generic_result"]
-
-            return result
-
-        response = await self._http_requests.post(url, documents, compress=compress)
+        response = await _send_with_concurrent_plugins(
+            self._http_requests.post(url, documents, compress=compress),
+            self._concurrent_add_documents_plugins,
+            documents=documents,
+            primary_key=primary_key,
+        )
 
         result = TaskInfo(**self._http_requests.parse_json(response))
         if self._post_add_documents_plugins:
@@ -1373,14 +1257,14 @@ class AsyncIndex(BaseIndex):
                         batch_data, primary_key, custom_metadata=custom_metadata, compress=compress
                     )
 
-            async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
+            async with asyncio.TaskGroup() as tg:
                 tasks = [
                     tg.create_task(add_batch_with_limit(x)) for x in batch(documents, batch_size)
                 ]
 
             return [x.result() for x in tasks]
 
-        async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
+        async with asyncio.TaskGroup() as tg:
             tasks = [
                 tg.create_task(
                     self.add_documents(
@@ -1413,7 +1297,7 @@ class AsyncIndex(BaseIndex):
             custom_metadata: An arbitrary string accessible via the task. Defaults to None.
             document_type: The type of document being added. Accepted types are json, csv, and
                 ndjson. For csv files the first row of the document should be a header row
-                containing the field names, and ever for should have a title.
+                containing the field names, and every column should have a title.
             csv_delimiter: A single ASCII character to specify the delimiter for csv files. This
                 can only be used if the file is a csv file. Defaults to comma.
             combine_documents: If set to True this will combine the documents from all the files
@@ -1427,7 +1311,7 @@ class AsyncIndex(BaseIndex):
             The details of the task status.
 
         Raises:
-            InvalidDocumentError: If the docucment is not a valid format for Meilisearch.
+            InvalidDocumentError: If the document is not a valid format for Meilisearch.
             MeilisearchError: If the file path is not valid
             MeilisearchCommunicationError: If there was an error communicating with the server.
             MeilisearchApiError: If the Meilisearch API returned an error.
@@ -1474,49 +1358,52 @@ class AsyncIndex(BaseIndex):
                         compress=compress,
                     )
 
-            async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
+            paths = [p for p in directory.iterdir() if p.suffix == f".{document_type}"]
+            async with asyncio.TaskGroup() as tg:
                 tasks = []
                 all_results = []
-                for i, path in enumerate(directory.iterdir()):
-                    if path.suffix == f".{document_type}":
-                        documents = await _async_load_documents_from_file(
-                            path, csv_delimiter, json_handler=self._json_handler
-                        )
-                        if i == 0:
-                            all_results = [await add_docs_with_limit(documents)]
-                        else:
-                            tasks.append(tg.create_task(add_docs_with_limit(documents)))
-
-            return [*all_results, *[x.result() for x in tasks]]
-
-        async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
-            tasks = []
-            all_results = []
-            for i, path in enumerate(directory.iterdir()):
-                if path.suffix == f".{document_type}":
+                for i, path in enumerate(paths):
                     documents = await _async_load_documents_from_file(
                         path, csv_delimiter, json_handler=self._json_handler
                     )
                     if i == 0:
-                        all_results = [
-                            await self.add_documents(
+                        all_results = [await add_docs_with_limit(documents)]
+                    else:
+                        tasks.append(tg.create_task(add_docs_with_limit(documents)))
+
+            all_results = [*all_results, *[x.result() for x in tasks]]
+            raise_on_no_documents(all_results, document_type, directory_path)
+            return all_results
+
+        async with asyncio.TaskGroup() as tg:
+            tasks = []
+            all_results = []
+            for i, path in enumerate(
+                [p for p in directory.iterdir() if p.suffix == f".{document_type}"]
+            ):
+                documents = await _async_load_documents_from_file(
+                    path, csv_delimiter, json_handler=self._json_handler
+                )
+                if i == 0:
+                    all_results = [
+                        await self.add_documents(
+                            documents,
+                            primary_key=primary_key,
+                            custom_metadata=custom_metadata,
+                            compress=compress,
+                        )
+                    ]
+                else:
+                    tasks.append(
+                        tg.create_task(
+                            self.add_documents(
                                 documents,
-                                primary_key=primary_key,
+                                primary_key,
                                 custom_metadata=custom_metadata,
                                 compress=compress,
                             )
-                        ]
-                    else:
-                        tasks.append(
-                            tg.create_task(
-                                self.add_documents(
-                                    documents,
-                                    primary_key,
-                                    custom_metadata=custom_metadata,
-                                    compress=compress,
-                                )
-                            )
                         )
+                    )
 
         results = [x.result() for x in tasks]
         all_results = [*all_results, *results]
@@ -1547,7 +1434,7 @@ class AsyncIndex(BaseIndex):
             custom_metadata: An arbitrary string accessible via the task. Defaults to None.
             document_type: The type of document being added. Accepted types are json, csv, and
                 ndjson. For csv files the first row of the document should be a header row containing
-                the field names, and ever for should have a title.
+                the field names, and every column should have a title.
             csv_delimiter: A single ASCII character to specify the delimiter for csv files. This
                 can only be used if the file is a csv file. Defaults to comma.
             combine_documents: If set to True this will combine the documents from all the files
@@ -1561,7 +1448,7 @@ class AsyncIndex(BaseIndex):
             List of update ids to track the action.
 
         Raises:
-            InvalidDocumentError: If the docucment is not a valid format for Meilisearch.
+            InvalidDocumentError: If the document is not a valid format for Meilisearch.
             MeilisearchError: If the file path is not valid
             MeilisearchCommunicationError: If there was an error communicating with the server.
             MeilisearchApiError: If the Meilisearch API returned an error.
@@ -1652,7 +1539,7 @@ class AsyncIndex(BaseIndex):
             The details of the task status.
 
         Raises:
-            InvalidDocumentError: If the docucment is not a valid format for Meilisearch.
+            InvalidDocumentError: If the document is not a valid format for Meilisearch.
             MeilisearchError: If the file path is not valid
             MeilisearchCommunicationError: If there was an error communicating with the server.
             MeilisearchApiError: If the Meilisearch API returned an error.
@@ -1684,7 +1571,7 @@ class AsyncIndex(BaseIndex):
         compress: bool = False,
         concurrency_limit: int | None = None,
     ) -> list[TaskInfo]:
-        """Adds documents form a json file in batches to reduce RAM usage with indexing.
+        """Adds documents from a json file in batches to reduce RAM usage with indexing.
 
         Args:
             file_path: Path to the json file.
@@ -1704,7 +1591,7 @@ class AsyncIndex(BaseIndex):
             List of update ids to track the action.
 
         Raises:
-            InvalidDocumentError: If the docucment is not a valid format for Meilisearch.
+            InvalidDocumentError: If the document is not a valid format for Meilisearch.
             MeilisearchError: If the file path is not valid
             MeilisearchCommunicationError: If there was an error communicating with the server.
             MeilisearchApiError: If the Meilisearch API returned an error.
@@ -1787,8 +1674,7 @@ class AsyncIndex(BaseIndex):
         else:
             url = self._documents_url
 
-        async with aiofiles.open(upload_path) as f:
-            data = await f.read()
+        data = await asyncio.to_thread(upload_path.read_text, encoding="utf-8")
 
         response = await self._http_requests.post(
             url, body=data, content_type=content_type, compress=compress
@@ -1904,50 +1790,15 @@ class AsyncIndex(BaseIndex):
                 documents=documents,
                 primary_key=primary_key,
             )
-            if pre.get("document_result"):
+            if pre.get("document_result") is not None:
                 documents = pre["document_result"]
 
-        if self._concurrent_update_documents_plugins:
-            async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
-                for plugin in self._concurrent_update_documents_plugins:
-                    if plugin_has_method(plugin, "run_plugin"):
-                        tg.create_task(
-                            plugin.run_plugin(  # type: ignore[union-attr]
-                                event=AsyncEvent.CONCURRENT,
-                                documents=documents,
-                                primary_key=primary_key,
-                            )
-                        )
-                    if plugin_has_method(plugin, "run_document_plugin"):
-                        tg.create_task(
-                            plugin.run_document_plugin(  # type: ignore[union-attr]
-                                event=AsyncEvent.CONCURRENT,
-                                documents=documents,
-                                primary_key=primary_key,
-                            )
-                        )
-
-                response_coroutine = tg.create_task(
-                    self._http_requests.put(url, documents, compress=compress)
-                )
-
-            response = await response_coroutine
-            result = TaskInfo(**self._http_requests.parse_json(response))
-            if self._post_update_documents_plugins:
-                post = await _run_plugins(
-                    self._post_update_documents_plugins,
-                    AsyncEvent.POST,
-                    result=result,
-                    documents=documents,
-                    primary_key=primary_key,
-                )
-
-                if isinstance(post["generic_result"], TaskInfo):
-                    result = post["generic_result"]
-
-            return result
-
-        response = await self._http_requests.put(url, documents, compress=compress)
+        response = await _send_with_concurrent_plugins(
+            self._http_requests.put(url, documents, compress=compress),
+            self._concurrent_update_documents_plugins,
+            documents=documents,
+            primary_key=primary_key,
+        )
         result = TaskInfo(**self._http_requests.parse_json(response))
         if self._post_update_documents_plugins:
             post = await _run_plugins(
@@ -2021,13 +1872,13 @@ class AsyncIndex(BaseIndex):
                         compress=compress,
                     )
 
-            async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
+            async with asyncio.TaskGroup() as tg:
                 tasks = [
                     tg.create_task(update_batch_with_limit(x)) for x in batch(documents, batch_size)
                 ]
             return [x.result() for x in tasks]
 
-        async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
+        async with asyncio.TaskGroup() as tg:
             tasks = [
                 tg.create_task(
                     self.update_documents(
@@ -2063,7 +1914,7 @@ class AsyncIndex(BaseIndex):
             custom_metadata: An arbitrary string accessible via the task. Defaults to None.
             document_type: The type of document being added. Accepted types are json, csv, and
                 ndjson. For csv files the first row of the document should be a header row containing
-                the field names, and ever for should have a title.
+                the field names, and every column should have a title.
             csv_delimiter: A single ASCII character to specify the delimiter for csv files. This
                 can only be used if the file is a csv file. Defaults to comma.
             combine_documents: If set to True this will combine the documents from all the files
@@ -2076,7 +1927,7 @@ class AsyncIndex(BaseIndex):
             The details of the task status.
 
         Raises:
-            InvalidDocumentError: If the docucment is not a valid format for Meilisearch.
+            InvalidDocumentError: If the document is not a valid format for Meilisearch.
             MeilisearchError: If the file path is not valid
             MeilisearchCommunicationError: If there was an error communicating with the server.
             MeilisearchApiError: If the Meilisearch API returned an error.
@@ -2114,36 +1965,37 @@ class AsyncIndex(BaseIndex):
             )
             return [response]
 
-        async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
+        async with asyncio.TaskGroup() as tg:
             tasks = []
             results = []
-            for i, path in enumerate(directory.iterdir()):
-                if path.suffix == f".{document_type}":
-                    documents = await _async_load_documents_from_file(
-                        path, csv_delimiter, json_handler=self._json_handler
-                    )
-                    if i == 0:
-                        results = [
-                            await self.update_documents(
+            for i, path in enumerate(
+                [p for p in directory.iterdir() if p.suffix == f".{document_type}"]
+            ):
+                documents = await _async_load_documents_from_file(
+                    path, csv_delimiter, json_handler=self._json_handler
+                )
+                if i == 0:
+                    results = [
+                        await self.update_documents(
+                            documents,
+                            primary_key,
+                            custom_metadata=custom_metadata,
+                            skip_creation=skip_creation,
+                            compress=compress,
+                        )
+                    ]
+                else:
+                    tasks.append(
+                        tg.create_task(
+                            self.update_documents(
                                 documents,
                                 primary_key,
                                 custom_metadata=custom_metadata,
                                 skip_creation=skip_creation,
                                 compress=compress,
                             )
-                        ]
-                    else:
-                        tasks.append(
-                            tg.create_task(
-                                self.update_documents(
-                                    documents,
-                                    primary_key,
-                                    custom_metadata=custom_metadata,
-                                    skip_creation=skip_creation,
-                                    compress=compress,
-                                )
-                            )
                         )
+                    )
 
         results = [*results, *[x.result() for x in tasks]]
         raise_on_no_documents(results, document_type, directory_path)
@@ -2174,7 +2026,7 @@ class AsyncIndex(BaseIndex):
             custom_metadata: An arbitrary string accessible via the task. Defaults to None.
             document_type: The type of document being added. Accepted types are json, csv, and
                 ndjson. For csv files the first row of the document should be a header row containing
-                the field names, and ever for should have a title.
+                the field names, and every column should have a title.
             csv_delimiter: A single ASCII character to specify the delimiter for csv files. This
                 can only be used if the file is a csv file. Defaults to comma.
             combine_documents: If set to True this will combine the documents from all the files
@@ -2190,7 +2042,7 @@ class AsyncIndex(BaseIndex):
             List of update ids to track the action.
 
         Raises:
-            InvalidDocumentError: If the docucment is not a valid format for Meilisearch.
+            InvalidDocumentError: If the document is not a valid format for Meilisearch.
             MeilisearchError: If the file path is not valid
             MeilisearchCommunicationError: If there was an error communicating with the server.
             MeilisearchApiError: If the Meilisearch API returned an error.
@@ -2229,38 +2081,39 @@ class AsyncIndex(BaseIndex):
                 concurrency_limit=concurrency_limit,
             )
 
-        async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
+        async with asyncio.TaskGroup() as tg:
             results = []
             tasks = []
-            for i, path in enumerate(directory.iterdir()):
-                if path.suffix == f".{document_type}":
-                    documents = await _async_load_documents_from_file(
-                        path, csv_delimiter, json_handler=self._json_handler
+            for i, path in enumerate(
+                [p for p in directory.iterdir() if p.suffix == f".{document_type}"]
+            ):
+                documents = await _async_load_documents_from_file(
+                    path, csv_delimiter, json_handler=self._json_handler
+                )
+                if i == 0:
+                    results = await self.update_documents_in_batches(
+                        documents,
+                        batch_size=batch_size,
+                        primary_key=primary_key,
+                        custom_metadata=custom_metadata,
+                        compress=compress,
+                        skip_creation=skip_creation,
+                        concurrency_limit=concurrency_limit,
                     )
-                    if i == 0:
-                        results = await self.update_documents_in_batches(
-                            documents,
-                            batch_size=batch_size,
-                            primary_key=primary_key,
-                            custom_metadata=custom_metadata,
-                            compress=compress,
-                            skip_creation=skip_creation,
-                            concurrency_limit=concurrency_limit,
-                        )
-                    else:
-                        tasks.append(
-                            tg.create_task(
-                                self.update_documents_in_batches(
-                                    documents,
-                                    batch_size=batch_size,
-                                    primary_key=primary_key,
-                                    custom_metadata=custom_metadata,
-                                    compress=compress,
-                                    skip_creation=skip_creation,
-                                    concurrency_limit=concurrency_limit,
-                                )
+                else:
+                    tasks.append(
+                        tg.create_task(
+                            self.update_documents_in_batches(
+                                documents,
+                                batch_size=batch_size,
+                                primary_key=primary_key,
+                                custom_metadata=custom_metadata,
+                                compress=compress,
+                                skip_creation=skip_creation,
+                                concurrency_limit=concurrency_limit,
                             )
                         )
+                    )
 
         results = [*results, *[x for y in tasks for x in y.result()]]
         raise_on_no_documents(results, document_type, directory_path)
@@ -2327,7 +2180,7 @@ class AsyncIndex(BaseIndex):
         skip_creation: bool = False,
         concurrency_limit: int | None = None,
     ) -> list[TaskInfo]:
-        """Updates documents form a json file in batches to reduce RAM usage with indexing.
+        """Updates documents from a json file in batches to reduce RAM usage with indexing.
 
         Args:
             file_path: Path to the json file.
@@ -2434,8 +2287,7 @@ class AsyncIndex(BaseIndex):
         else:
             url = self._documents_url
 
-        async with aiofiles.open(upload_path) as f:
-            data = await f.read()
+        data = await asyncio.to_thread(upload_path.read_text, encoding="utf-8")
 
         response = await self._http_requests.put(
             url, body=data, content_type=content_type, compress=compress
@@ -2475,26 +2327,11 @@ class AsyncIndex(BaseIndex):
                 self._pre_delete_document_plugins, AsyncEvent.PRE, document_id=document_id
             )
 
-        if self._concurrent_delete_document_plugins:
-            async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
-                for plugin in self._concurrent_delete_document_plugins:
-                    tg.create_task(
-                        plugin.run_plugin(event=AsyncEvent.CONCURRENT, document_id=document_id)
-                    )
-
-                response_coroutine = tg.create_task(self._http_requests.delete(url))
-
-            response = await response_coroutine
-            result = TaskInfo(**self._http_requests.parse_json(response))
-            if self._post_delete_document_plugins:
-                post = await _run_plugins(
-                    self._post_delete_document_plugins, event=AsyncEvent.POST, result=result
-                )
-                if isinstance(post["generic_result"], TaskInfo):
-                    result = post["generic_result"]
-            return result
-
-        response = await self._http_requests.delete(url)
+        response = await _send_with_concurrent_plugins(
+            self._http_requests.delete(url),
+            self._concurrent_delete_document_plugins,
+            document_id=document_id,
+        )
         result = TaskInfo(**self._http_requests.parse_json(response))
         if self._post_delete_document_plugins:
             post = await _run_plugins(
@@ -2535,24 +2372,9 @@ class AsyncIndex(BaseIndex):
         if self._pre_delete_documents_plugins:
             await _run_plugins(self._pre_delete_documents_plugins, AsyncEvent.PRE, ids=ids)
 
-        if self._concurrent_delete_documents_plugins:
-            async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
-                for plugin in self._concurrent_delete_documents_plugins:
-                    tg.create_task(plugin.run_plugin(event=AsyncEvent.CONCURRENT, ids=ids))
-
-                response_coroutine = tg.create_task(self._http_requests.post(url, ids))
-
-            response = await response_coroutine
-            result = TaskInfo(**self._http_requests.parse_json(response))
-            if self._post_delete_documents_plugins:
-                post = await _run_plugins(
-                    self._post_delete_documents_plugins, AsyncEvent.POST, result=result
-                )
-                if isinstance(post["generic_result"], TaskInfo):
-                    result = post["generic_result"]
-            return result
-
-        response = await self._http_requests.post(url, ids)
+        response = await _send_with_concurrent_plugins(
+            self._http_requests.post(url, ids), self._concurrent_delete_documents_plugins, ids=ids
+        )
         result = TaskInfo(**self._http_requests.parse_json(response))
         if self._post_delete_documents_plugins:
             post = await _run_plugins(
@@ -2595,27 +2417,11 @@ class AsyncIndex(BaseIndex):
                 self._pre_delete_documents_by_filter_plugins, AsyncEvent.PRE, filter=filter
             )
 
-        if self._concurrent_delete_documents_by_filter_plugins:
-            async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
-                for plugin in self._concurrent_delete_documents_by_filter_plugins:
-                    tg.create_task(plugin.run_plugin(event=AsyncEvent.CONCURRENT, filter=filter))
-
-                response_coroutine = tg.create_task(
-                    self._http_requests.post(url, body={"filter": filter})
-                )
-
-            response = await response_coroutine
-            result = TaskInfo(**self._http_requests.parse_json(response))
-            if self._post_delete_documents_by_filter_plugins:
-                post = await _run_plugins(
-                    self._post_delete_documents_by_filter_plugins, AsyncEvent.POST, result=result
-                )
-                if isinstance(post["generic_result"], TaskInfo):
-                    result = post["generic_result"]
-
-            return result
-
-        response = await self._http_requests.post(url, body={"filter": filter})
+        response = await _send_with_concurrent_plugins(
+            self._http_requests.post(url, body={"filter": filter}),
+            self._concurrent_delete_documents_by_filter_plugins,
+            filter=filter,
+        )
         result = TaskInfo(**self._http_requests.parse_json(response))
         if self._post_delete_documents_by_filter_plugins:
             post = await _run_plugins(
@@ -2670,12 +2476,12 @@ class AsyncIndex(BaseIndex):
                         filter_value, custom_metadata=custom_metadata
                     )
 
-            async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
+            async with asyncio.TaskGroup() as tg:
                 tg_tasks = [tg.create_task(delete_with_limit(filter)) for filter in filters]
 
             return [x.result() for x in tg_tasks]
 
-        async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
+        async with asyncio.TaskGroup() as tg:
             tg_tasks = [
                 tg.create_task(
                     self.delete_documents_by_filter(filter, custom_metadata=custom_metadata)
@@ -2702,7 +2508,7 @@ class AsyncIndex(BaseIndex):
             >>> from meilisearch_python_sdk import AsyncClient
             >>> async with AsyncClient("http://localhost.com", "masterKey") as client:
             >>>     index = client.index("movies")
-            >>>     await index.delete_all_document()
+            >>>     await index.delete_all_documents()
         """
         if custom_metadata:
             url = build_encoded_url(self._documents_url, {"customMetadata": custom_metadata})
@@ -2712,24 +2518,9 @@ class AsyncIndex(BaseIndex):
         if self._pre_delete_all_documents_plugins:
             await _run_plugins(self._pre_delete_all_documents_plugins, AsyncEvent.PRE)
 
-        if self._concurrent_delete_all_documents_plugins:
-            async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
-                for plugin in self._concurrent_delete_all_documents_plugins:
-                    tg.create_task(plugin.run_plugin(event=AsyncEvent.CONCURRENT))
-
-                response_coroutine = tg.create_task(self._http_requests.delete(url))
-
-            response = await response_coroutine
-            result = TaskInfo(**self._http_requests.parse_json(response))
-            if self._post_delete_all_documents_plugins:
-                post = await _run_plugins(
-                    self._post_delete_all_documents_plugins, AsyncEvent.POST, result=result
-                )
-                if isinstance(post.get("generic_result"), TaskInfo):
-                    result = post["generic_result"]
-            return result
-
-        response = await self._http_requests.delete(url)
+        response = await _send_with_concurrent_plugins(
+            self._http_requests.delete(url), self._concurrent_delete_all_documents_plugins
+        )
         result = TaskInfo(**self._http_requests.parse_json(response))
         if self._post_delete_all_documents_plugins:
             post = await _run_plugins(
@@ -2760,7 +2551,7 @@ class AsyncIndex(BaseIndex):
         settings = MeilisearchSettings(**response_json)
 
         if response_json.get("embedders"):
-            # Not coverted because it times out. It isn't an issue with the code here.
+            # Not covered because it times out. It isn't an issue with the code here.
             # https://github.com/meilisearch/meilisearch/issues/4585
             settings.embedders = embedder_json_to_settings_model(  # pragma: no cover
                 response_json["embedders"]
@@ -4403,7 +4194,7 @@ async def _run_plugins(
         "document_result": None,
         "search_result": None,
     }
-    async with asyncio.TaskGroup() as tg:  # type: ignore[attr-defined]
+    async with asyncio.TaskGroup() as tg:
         generic_tasks = []
         document_tasks = []
         search_tasks = []
@@ -4440,44 +4231,31 @@ async def _run_plugins(
     return results
 
 
+async def _send_with_concurrent_plugins(
+    request: Coroutine[Any, Any, Response],
+    plugins: Sequence[AsyncPlugin | AsyncDocumentPlugin | AsyncPostSearchPlugin] | None,
+    **kwargs: Any,  # noqa: ANN401
+) -> Response:
+    if not plugins:
+        return await request
+
+    async with asyncio.TaskGroup() as tg:
+        for plugin in plugins:
+            if plugin_has_method(plugin, "run_plugin"):
+                tg.create_task(plugin.run_plugin(event=AsyncEvent.CONCURRENT, **kwargs))  # type: ignore[union-attr]
+            if plugin_has_method(plugin, "run_document_plugin"):
+                tg.create_task(plugin.run_document_plugin(event=AsyncEvent.CONCURRENT, **kwargs))  # type: ignore[union-attr]
+        response = tg.create_task(request)
+
+    return response.result()
+
+
 async def _async_load_documents_from_file(
     file_path: Path | str,
     csv_delimiter: str | None = None,
     *,
     json_handler: BuiltinHandler | OrjsonHandler,
 ) -> list[dict[Any, Any]]:
-    if isinstance(file_path, str):
-        file_path = Path(file_path)
-
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, partial(validate_file_type, file_path))
-
-    if file_path.suffix == ".csv":
-        if (
-            csv_delimiter
-            and len(csv_delimiter) != 1
-            or csv_delimiter
-            and not csv_delimiter.isascii()
-        ):
-            raise ValueError("csv_delimiter must be a single ascii character")
-        with open(file_path) as f:  # noqa: ASYNC230
-            if csv_delimiter:
-                documents = await loop.run_in_executor(
-                    None, partial(DictReader, f, delimiter=csv_delimiter)
-                )
-            else:
-                documents = await loop.run_in_executor(None, partial(DictReader, f))
-            return list(documents)
-
-    if file_path.suffix == ".ndjson":
-        with open(file_path) as f:  # noqa: ASYNC230
-            return [await loop.run_in_executor(None, partial(json_handler.loads, x)) for x in f]
-
-    async with aiofiles.open(file_path) as f:  # type: ignore
-        data = await f.read()  # type: ignore
-        documents = await loop.run_in_executor(None, partial(json_handler.loads, data))
-
-        if not isinstance(documents, list):
-            raise InvalidDocumentError("Meilisearch requires documents to be in a list")
-
-        return documents
+    return await asyncio.to_thread(
+        _load_documents_from_file, file_path, csv_delimiter, json_handler=json_handler
+    )

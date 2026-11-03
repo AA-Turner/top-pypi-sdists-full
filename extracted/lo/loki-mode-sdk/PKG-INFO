@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: loki-mode-sdk
-Version: 11.120.0
+Version: 11.125.0
 Summary: Python SDK for Loki Mode - autonomous multi-agent development platform
 Author-email: Lokesh Mure <lokesh@autonomi.dev>
 License-Expression: BUSL-1.1
@@ -8,7 +8,7 @@ Project-URL: Homepage, https://github.com/asklokesh/loki-mode
 Project-URL: Repository, https://github.com/asklokesh/loki-mode
 Project-URL: Documentation, https://github.com/asklokesh/loki-mode/wiki
 Project-URL: Bug Tracker, https://github.com/asklokesh/loki-mode/issues
-Keywords: agent-orchestration,ai,ai-agents,anthropic,automation,autonomous,claude,claude-code,cli,code-generation,codex,coding-assistant,consensus,developer-tools,devtools,distributed-systems,embeddings,enterprise,gemini,gemini-cli,gpt,hive-mind,large-language-model,llm,loki-mode,machine-learning,mcp,mistral,model-context-protocol,multi-agent,ollama,openai,openclaw,opencode,orchestration,prd,sdk,self-learning,swarm,swarm-intelligence,workflow
+Keywords: agent-orchestration,ai,ai-agents,anthropic,automation,autonomous,claude,claude-code,cli,code-generation,coding-assistant,consensus,developer-tools,devtools,distributed-systems,embeddings,enterprise,gpt,hive-mind,large-language-model,llm,loki-mode,machine-learning,mcp,mistral,model-context-protocol,multi-agent,ollama,openai,openclaw,opencode,orchestration,prd,sdk,self-learning,swarm,swarm-intelligence,workflow
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3

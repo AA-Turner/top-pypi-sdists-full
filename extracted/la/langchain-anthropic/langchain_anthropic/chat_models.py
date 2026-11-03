@@ -958,7 +958,7 @@ def _format_messages(
                                 },
                             ),
                         )
-                    elif block["type"] == "advisor_tool_result":
+                    elif block["type"] in ("advisor_tool_result", "compaction"):
                         content.append({k: v for k, v in block.items() if k != "index"})
                     else:
                         content.append(block)
@@ -2234,8 +2234,8 @@ class ChatAnthropic(BaseChatModel):
                         else None,
                     )
                     is_first_chunk = False
-                    if run_manager and isinstance(msg.content, str):
-                        run_manager.on_llm_new_token(msg.content, chunk=chunk)
+                    if run_manager:
+                        run_manager.on_llm_new_token(chunk.text, chunk=chunk)
                     yield chunk
         except anthropic.BadRequestError as e:
             _handle_anthropic_bad_request(e)
@@ -2284,8 +2284,8 @@ class ChatAnthropic(BaseChatModel):
                         else None,
                     )
                     is_first_chunk = False
-                    if run_manager and isinstance(msg.content, str):
-                        await run_manager.on_llm_new_token(msg.content, chunk=chunk)
+                    if run_manager:
+                        await run_manager.on_llm_new_token(chunk.text, chunk=chunk)
                     yield chunk
         except anthropic.BadRequestError as e:
             _handle_anthropic_bad_request(e)
@@ -3336,7 +3336,7 @@ def _create_usage_metadata(anthropic_usage: BaseModel) -> UsageMetadata:
         if isinstance(cache_creation, BaseModel):
             cache_creation = cache_creation.model_dump()
         for k in cache_creation_keys:
-            specific_cache_creation_tokens += cache_creation.get(k, 0)
+            specific_cache_creation_tokens += cache_creation.get(k) or 0
             input_token_details[k] = cache_creation.get(k)
         if not isinstance(specific_cache_creation_tokens, int):
             specific_cache_creation_tokens = 0

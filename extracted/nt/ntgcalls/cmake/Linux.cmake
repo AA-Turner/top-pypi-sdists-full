@@ -1,8 +1,6 @@
 target_compile_definitions(${target_name} PUBLIC
     WEBRTC_POSIX
     WEBRTC_LINUX
-    _LIBCPP_ABI_NAMESPACE=Cr
-    _LIBCPP_ABI_VERSION=2
     _LIBCPP_DISABLE_AVAILABILITY
     BOOST_NO_CXX98_FUNCTION_BASE
     NDEBUG
@@ -12,6 +10,15 @@ target_compile_definitions(${target_name} PUBLIC
 )
 
 if (import_libraries)
+    execute_process(
+        COMMAND ${CMAKE_CXX_COMPILER} --rtlib=compiler-rt -print-libgcc-file-name
+        OUTPUT_VARIABLE CLANG_BUILTINS
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if (NOT EXISTS "${CLANG_BUILTINS}")
+        message(FATAL_ERROR "compiler-rt builtins not found: ${CLANG_BUILTINS}")
+    endif ()
+
     target_link_libraries(${target_name} PUBLIC
         gnome::gio-2.0
         gnome::glib-2.0
@@ -33,6 +40,7 @@ if (import_libraries)
         m
         z
         resolv
+        ${CLANG_BUILTINS}
         Threads::Threads
     )
 endif ()

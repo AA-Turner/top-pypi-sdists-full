@@ -8,12 +8,13 @@ import sys
 import time
 from probe.foundation.compat.compat import StrEnum
 
-from ...._shared import oscompat
+from ....foundation.os_backend import os_backend as oscompat
 from ....foundation.durable import durable
 from probe.sdk.delivery.outbox.drainers.detached import _own_credential_queue, maybe_spawn
 from probe.sdk.delivery.outbox.lease import _asked_to_stop, _drop_caps, _lease_path, _stop_path, _write_caps
 from probe.sdk.delivery.outbox.linger import LingerEnd, _linger, _work_arrived
 from probe.sdk.delivery.outbox.rescuer import rescue
+from probe.sdk.delivery.status_fields import StatusField
 
 
 class OutboxOutcome(StrEnum):
@@ -115,10 +116,10 @@ def _wake_stamp(journal) -> float:
         return 0.0
 
 
-def _sleep_until_new_work(journal, seen: set, lanes, seconds: float) -> None:
-    """Sleep up to ``seconds``, waking early when an op of a run NOT backing off is queued
-    (not in ``seen``, the names before the last pass) or when a sign-in asks
-    (`_wake_stamp`: held writes may go now)."""
+def _sleep_until_new_work(journal, seen: set, lanes, seconds: float, also_skip: frozenset = frozenset()) -> None:
+    """Sleep up to ``seconds``, waking early when an op of a run NOT backing off (nor in
+    ``also_skip``, lanes held after a stall) is queued (not in ``seen``, the names before the
+    last pass) or when a sign-in asks (`_wake_stamp`: held writes may go now)."""
     import json
 
     from ..ops.ops import _lane_of
@@ -134,7 +135,7 @@ def _sleep_until_new_work(journal, seen: set, lanes, seconds: float) -> None:
             return
         if _wake_stamp(journal) != woken_at:
             return
-        skip = lanes.skip()
+        skip = lanes.skip() | also_skip
         for queue in journal.own_namespaces():
             try:
                 names = os.listdir(queue.ops_dir)
@@ -199,6 +200,15 @@ def _run_leased(journal) -> int:
     # it). Off in multi-tenant processes (redaction.py); this drains one OS user's outbox.
     redaction.enable_scrub_cache()
     episode = _WorkerEpisode(journal)
+    try:
+        return _run_episode(journal, episode, drain)
+    finally:
+        # The last word: a waiter tells this clean exit from a worker that died.
+        episode.tracker.publish(exiting=True)
+
+
+def _run_episode(journal, episode: "_WorkerEpisode", drain) -> int:
+    """The worker's passes until one of them ends the episode."""
     while True:
         ended = episode.end_before_pass()
         if ended is not None:
@@ -207,8 +217,17 @@ def _run_leased(journal) -> int:
         # finishes, then this pass sees what remains.
         before = _queued_names(journal)
         episode.restart_lanes_after_sign_in()
-        report = drain(journal, skip_runs=episode.lanes.skip(), credential_queues=False, window=episode.window)
+        episode.let_out_due_held()
+        report = drain(
+            journal,
+            skip_runs=episode.lanes.skip(),
+            credential_queues=False,
+            window=episode.window,
+            priority_runs=episode.waited_runs(),
+            set_best_effort_aside=True,
+        )
         episode.count(report)
+        episode.handle_stalls(report)
         ended = episode.handle_report(report, before)
         if ended is not None:
             return ended
@@ -257,10 +276,16 @@ class _WorkerEpisode:
         self.dead_lettered_no_such_run = 0
         self.remaining = 0
         self.stalled_reported = False
+        from .progress import ProgressTracker
+
+        # The per-run progress record a waiting `finish()` reads (R1), and the stall clock (R12).
+        self.tracker = ProgressTracker(journal)
+        self.priority: list[str] = []
 
     def send_report(self, outcome: str) -> None:
         """Tell the fleet how this episode ended. Never raises or blocks the exit path:
         telemetry is a bystander to delivery."""
+        self.tracker.publish(force=True)
         try:
             from probe import analytics as telemetry
 
@@ -294,7 +319,8 @@ class _WorkerEpisode:
                 # Exiting before any drain pass: the tally is still 0 and a `remaining`
                 # breakdown would show every paused queue as EMPTY, inverting the state a
                 # human acts on. Read the depth already on disk, not a zero never measured.
-                self.remaining = (Journal.read_status(str(journal.dir), credential_queues=False) or {}).get("pending") or 0
+                fresh = Journal.read_status(str(journal.dir), credential_queues=False) or {}
+                self.remaining = fresh.get(StatusField.PENDING) or 0
             self.send_report(OutboxOutcome.PAUSED)
             return 4
         return None
@@ -308,8 +334,40 @@ class _WorkerEpisode:
             self.woken_at = _wake_stamp(self.journal)
             self.lanes = LaneBackoff(ceiling=_BACKOFF_CAP_SECONDS)
 
+    def waited_runs(self) -> list[str]:
+        """The runs a `finish()` waits on (R2): their writes go first this pass."""
+        from .waiter import waited_runs
+
+        try:
+            self.priority = waited_runs(self.journal.outbox_root)
+        except Exception:  # noqa: BLE001 -- an unreadable marker only loses the priority
+            self.priority = []
+        return self.priority
+
+    def let_out_due_held(self) -> None:
+        """Held writes whose hour is up go back in line (R9). A listing when none is held."""
+        from .held import release_held
+
+        try:
+            release_held(self.journal.dir)
+        except OSError:
+            pass
+
+    def handle_stalls(self, report) -> None:
+        """After a pass: set aside what stalled (R12) and tell the server what it must hear (D5).
+        Never raises: the next pass delivers either way."""
+        from .stall import report_new_stalls, set_aside_stalled
+
+        try:
+            report_new_stalls(self.tracker, report)
+            set_aside_stalled(self.journal, self.tracker, self.lanes)
+        except Exception:  # noqa: BLE001 -- bookkeeping never stops delivery
+            pass
+        self.tracker.publish()
+
     def count(self, report) -> None:
         """Add one pass's report to the episode's tally."""
+        self.tracker.record(report, priority=self.priority)
         self.lanes.record(report)
         self.passes += 1
         self.delivered += report.delivered
@@ -354,6 +412,9 @@ class _WorkerEpisode:
             return 0
         if report.held_back and not (report.delivered or report.dead_lettered):
             return self.wait_for_held_back()
+        if self.is_waiting_for_held_lanes(report):
+            self.wait_for_held(before)
+            return None
         if report.delivered or report.dead_lettered or report.in_progress:
             # Progress, a slice of a multipart upload's parts included (plan (g)): the worker
             # must not sleep to another lane's backoff or a 64-part upload crawls. Straight to
@@ -386,7 +447,7 @@ class _WorkerEpisode:
         fresh = Journal.read_status(str(journal.dir), credential_queues=False) or {}
         if _work_arrived(journal, fresh):
             return None
-        if fresh.get("waiting") and self.waiting_passes < _WAITING_PASSES:
+        if fresh.get(StatusField.WAITING) and self.waiting_passes < _WAITING_PASSES:
             # An upload mid-enqueue (item locked while it copies) or one not promotable
             # this pass. Look again shortly; never spin, never outlive a stuck item: the
             # next kick, barrier or CLI command promotes it.
@@ -397,6 +458,14 @@ class _WorkerEpisode:
         # the writer dies there is no next command to re-kick (prod smoke 2026-08-06); a
         # live writer queues its next op in a second or two, which this worker takes
         # instead of exiting for the next kick to start another.
+        from .held import has_held
+
+        if has_held(journal.dir):
+            # Held writes are let out by a worker at their hour (R9): stay for them, never exit
+            # leaving them to a producer that may never come back.
+            self.wait_for_held(_queued_names(journal))
+            return None
+        self.tracker.publish(force=True)  # nothing left: a waiter reads it now, not after the linger
         ended = _linger(journal, waiting=self.waiting_passes < _WAITING_PASSES)
         if ended is None:
             self.send_report(OutboxOutcome.DRAINED)
@@ -406,6 +475,35 @@ class _WorkerEpisode:
             # promote-only child that will not deliver it.
             self.waiting_passes += 1
         return None
+
+    def is_waiting_for_held_lanes(self, report) -> bool:
+        """Everything that could go went; the rest is in lanes held after a stall."""
+        return bool(
+            report.lane_held
+            and not (
+                report.delivered
+                or report.dead_lettered
+                or report.in_progress
+                or report.stopped_transient
+                or report.deferred
+            )
+            and self.lanes.next_wake() is None
+        )
+
+    def wait_for_held(self, before: set) -> None:
+        """Sleep until the soonest held write or lane is let out, waking for new work of a run
+        that is not held (a stall window, if one runs, cuts it short too)."""
+        from .held import held_lanes, next_release_in
+
+        self.tracker.publish(force=True)  # a waiter sees where things stand while this sleeps
+        left = next_release_in(self.journal.dir)
+        if left is None:
+            return
+        stall = self.tracker.seconds_to_next_stall()
+        seconds = max(0.05, min(left, stall) if stall is not None else left)
+        _sleep_until_new_work(
+            self.journal, before, self.lanes, seconds, also_skip=frozenset(held_lanes(self.journal.dir))
+        )
 
     @staticmethod
     def is_waiting_for_windows(report) -> bool:
@@ -423,7 +521,12 @@ class _WorkerEpisode:
         go now (another writer's at window 0, a close, an upload, a full POST), never for each
         `log()`: a pass per write is the cost the window removes."""
         journal = self.journal
-        soonest = min(w for w in (report.send_in, self.lanes.next_wake()) if w is not None)
+        self.tracker.publish(force=True)  # a waiter sees where things stand while this sleeps
+        soonest = min(
+            w
+            for w in (report.send_in, self.lanes.next_wake(), self.tracker.seconds_to_next_stall())
+            if w is not None
+        )
         woke_from = self.woken_at
         self.window.wait(
             journal,
@@ -465,7 +568,8 @@ class _WorkerEpisode:
     def wait_for_backed_off_runs(self, report, before: set, wake: float) -> None:
         """Nothing moved, and what is left belongs to runs backing off:
         sleep until the soonest of them may be tried again."""
-        backoff = min(wake, _BACKOFF_CAP_SECONDS)
+        self.tracker.publish(force=True)  # a waiter sees where things stand while this sleeps
+        backoff = min(wake, _BACKOFF_CAP_SECONDS, self.tracker.seconds_to_next_stall() or wake)
         why = report.errors[-1] if report.errors else next(
             (stall.error for stall in report.stalled_runs.values()), "?"
         )
@@ -484,6 +588,7 @@ class _WorkerEpisode:
     def wait_out_transient(self, report) -> None:
         """At least as long as the server asked (`Retry-After` on a 503 or
         429), never past the cap."""
+        self.tracker.publish(force=True)  # a waiter sees where things stand while this sleeps
         backoff = durable.honor_retry_after(
             next(self.delays), report.retry_after, ceiling=_BACKOFF_CAP_SECONDS
         )

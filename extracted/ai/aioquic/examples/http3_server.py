@@ -4,8 +4,9 @@ import importlib
 import logging
 import time
 from collections import deque
+from collections.abc import Callable
 from email.utils import formatdate
-from typing import Callable, Deque, Optional, Union, cast
+from typing import Any, cast
 
 import aioquic
 import wsproto
@@ -22,7 +23,7 @@ from aioquic.h3.events import (
 )
 from aioquic.h3.exceptions import NoAvailablePushIDError
 from aioquic.quic.configuration import QuicConfiguration
-from aioquic.quic.events import DatagramFrameReceived, ProtocolNegotiated, QuicEvent
+from aioquic.quic.events import ProtocolNegotiated, QuicEvent
 from aioquic.quic.logger import QuicFileLogger
 from aioquic.tls import SessionTicket
 
@@ -32,7 +33,7 @@ except ImportError:
     uvloop = None
 
 AsgiApplication = Callable
-HttpConnection = Union[H0Connection, H3Connection]
+HttpConnection = H0Connection | H3Connection
 
 SERVER_NAME = "aioquic/" + aioquic.__version__
 
@@ -135,12 +136,12 @@ class WebSocketHandler:
     ) -> None:
         self.closed = False
         self.connection = connection
-        self.http_event_queue: Deque[DataReceived] = deque()
+        self.http_event_queue: deque[DataReceived] = deque()
         self.queue: asyncio.Queue[dict] = asyncio.Queue()
         self.scope = scope
         self.stream_id = stream_id
         self.transmit = transmit
-        self.websocket: Optional[wsproto.Connection] = None
+        self.websocket: wsproto.Connection | None = None
 
     def http_event_received(self, event: H3Event) -> None:
         if isinstance(event, DataReceived) and not self.closed:
@@ -236,7 +237,7 @@ class WebTransportHandler:
         self.accepted = False
         self.closed = False
         self.connection = connection
-        self.http_event_queue: Deque[H3Event] = deque()
+        self.http_event_queue: deque[H3Event] = deque()
         self.queue: asyncio.Queue[dict] = asyncio.Queue()
         self.scope = scope
         self.stream_id = stream_id
@@ -319,14 +320,14 @@ class WebTransportHandler:
         self.transmit()
 
 
-Handler = Union[HttpRequestHandler, WebSocketHandler, WebTransportHandler]
+Handler = HttpRequestHandler | WebSocketHandler | WebTransportHandler
 
 
 class HttpServerProtocol(QuicConnectionProtocol):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._handlers: dict[int, Handler] = {}
-        self._http: Optional[HttpConnection] = None
+        self._http: HttpConnection | None = None
 
     def http_event_received(self, event: H3Event) -> None:
         if isinstance(event, HeadersReceived) and event.stream_id not in self._handlers:
@@ -435,7 +436,7 @@ class HttpServerProtocol(QuicConnectionProtocol):
                     transmit=self.transmit,
                 )
             self._handlers[event.stream_id] = handler
-            asyncio.ensure_future(handler.run_asgi(application))
+            asyncio.create_task(handler.run_asgi(application))
         elif (
             isinstance(event, (DataReceived, HeadersReceived))
             and event.stream_id in self._handlers
@@ -455,9 +456,6 @@ class HttpServerProtocol(QuicConnectionProtocol):
                 self._http = H3Connection(self._quic, enable_webtransport=True)
             elif event.alpn_protocol in H0_ALPN:
                 self._http = H0Connection(self._quic)
-        elif isinstance(event, DatagramFrameReceived):
-            if event.data == b"quack":
-                self._quic.send_datagram_frame(b"quack-ack")
 
         #  pass event to the HTTP layer
         if self._http is not None:
@@ -476,7 +474,7 @@ class SessionTicketStore:
     def add(self, ticket: SessionTicket) -> None:
         self.tickets[ticket.ticket] = ticket
 
-    def pop(self, label: bytes) -> Optional[SessionTicket]:
+    def pop(self, label: bytes) -> SessionTicket | None:
         return self.tickets.pop(label, None)
 
 
@@ -592,7 +590,7 @@ if __name__ == "__main__":
         secrets_log_file = None
 
     configuration = QuicConfiguration(
-        alpn_protocols=H3_ALPN + H0_ALPN + ["siduck"],
+        alpn_protocols=H3_ALPN + H0_ALPN,
         congestion_control_algorithm=args.congestion_control_algorithm,
         is_client=False,
         max_datagram_frame_size=65536,

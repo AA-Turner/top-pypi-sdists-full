@@ -4,6 +4,7 @@ from typing import (
     Any,
     Awaitable,
     Dict,
+    Iterable,
     List,
     Literal,
     Mapping,
@@ -22,6 +23,12 @@ from upstash_redis.search import (
     ScoreFunc,
 )
 from upstash_redis.typing import FloatMinMaxT, JSONValueT, ValueT
+from upstash_redis.vector import (
+    VectorMetric,
+    VectorQueryProfile,
+    VectorT,
+    serialize_vector,
+)
 from upstash_redis.utils import (
     build_score_func,
     handle_georadius_write_exceptions,
@@ -5500,6 +5507,347 @@ class Commands:
 
         return self.execute(command)
 
+    # Array commands
+    # See https://upstash.com/docs/redis/commands/array/overview
+
+    def arset(self, key: str, index: int, *values: ValueT) -> ResponseT:
+        """
+        Writes one or more values into an array starting at `index`: the first value goes
+        to `index`, the next to `index + 1`, and so on. Does not move the append cursor.
+
+        Returns the number of slots that were newly occupied.
+
+        Example:
+        ```python
+        assert redis.arset("readings", 0, "21.5", "21.7") == 2
+        ```
+
+        See https://upstash.com/docs/redis/commands/array/arset
+        """
+        if len(values) == 0:
+            raise Exception("At least one value must be given.")
+
+        command: List = ["ARSET", key, index, *values]
+        return self.execute(command)
+
+    def armset(
+        self,
+        key: str,
+        values: Union[Mapping[int, ValueT], Iterable[Tuple[int, ValueT]]],
+    ) -> ResponseT:
+        """
+        Writes several index-value pairs in one atomic call, given as a mapping
+        (`{0: "a", 10: "b"}`) or a list of `(index, value)` tuples.
+
+        Returns the number of slots that were newly occupied.
+
+        See https://upstash.com/docs/redis/commands/array/armset
+        """
+        pairs = values.items() if isinstance(values, Mapping) else values
+
+        command: List = ["ARMSET", key]
+        for index, value in pairs:
+            command.extend((index, value))
+
+        if len(command) == 2:
+            raise Exception("At least one index-value pair must be given.")
+
+        return self.execute(command)
+
+    def arget(self, key: str, index: int) -> ResponseT:
+        """
+        Returns the value at `index`, or None if the slot is empty or the key does not exist.
+
+        See https://upstash.com/docs/redis/commands/array/arget
+        """
+        command: List = ["ARGET", key, index]
+        return self.execute(command)
+
+    def armget(self, key: str, *indexes: int) -> ResponseT:
+        """
+        Returns the values at several indexes, in the order given, with None for empty slots.
+
+        See https://upstash.com/docs/redis/commands/array/armget
+        """
+        if len(indexes) == 0:
+            raise Exception("At least one index must be given.")
+
+        command: List = ["ARMGET", key, *indexes]
+        return self.execute(command)
+
+    def argetrange(self, key: str, start: int, end: int) -> ResponseT:
+        """
+        Returns every slot in the inclusive range `[start, end]`, with None for empty slots.
+        When `start` is greater than `end` the values come back from the higher index down.
+
+        See https://upstash.com/docs/redis/commands/array/argetrange
+        """
+        command: List = ["ARGETRANGE", key, start, end]
+        return self.execute(command)
+
+    def arscan(
+        self, key: str, start: int, end: int, limit: Optional[int] = None
+    ) -> ResponseT:
+        """
+        Returns the occupied slots in `[start, end]` as `(index, value)` tuples in ascending
+        index order. Empty slots are skipped.
+
+        See https://upstash.com/docs/redis/commands/array/arscan
+        """
+        command: List = ["ARSCAN", key, start, end]
+
+        if limit is not None:
+            command.extend(("LIMIT", limit))
+
+        return self.execute(command)
+
+    def argrep(
+        self,
+        key: str,
+        start: Union[int, Literal["-"]],
+        end: Union[int, Literal["+"]],
+        *,
+        exact: Optional[Union[str, List[str]]] = None,
+        match: Optional[Union[str, List[str]]] = None,
+        glob: Optional[Union[str, List[str]]] = None,
+        regex: Optional[Union[str, List[str]]] = None,
+        combine: Optional[Literal["AND", "OR"]] = None,
+        nocase: bool = False,
+        withvalues: bool = False,
+        limit: Optional[int] = None,
+    ) -> ResponseT:
+        """
+        Returns the indexes in `[start, end]` whose value matches the given predicates, or
+        `(index, value)` tuples with `withvalues`. `start` and `end` accept "-" and "+"
+        for the lowest and highest possible index.
+
+        Predicates (each accepts one pattern or a list):
+        - `exact`: the whole value equals the pattern
+        - `match`: the value contains the pattern
+        - `glob`: the value matches a glob pattern (`*` and `?`)
+        - `regex`: the value matches a regular expression
+
+        By default a slot matches when any predicate matches; `combine="AND"` requires all.
+
+        Example:
+        ```python
+        redis.argrep("logs", "-", "+", match="error", nocase=True, withvalues=True)
+        ```
+
+        See https://upstash.com/docs/redis/commands/array/argrep
+        """
+        command: List = ["ARGREP", key, start, end]
+
+        for keyword, patterns in (
+            ("EXACT", exact),
+            ("MATCH", match),
+            ("GLOB", glob),
+            ("RE", regex),
+        ):
+            if patterns is None:
+                continue
+            if isinstance(patterns, str):
+                patterns = [patterns]
+            for pattern in patterns:
+                command.extend((keyword, pattern))
+
+        if len(command) == 4:
+            raise Exception(
+                'At least one of "exact", "match", "glob" or "regex" must be given.'
+            )
+
+        if combine:
+            command.append(combine.upper())
+
+        if nocase:
+            command.append("NOCASE")
+
+        if withvalues:
+            command.append("WITHVALUES")
+
+        if limit is not None:
+            command.extend(("LIMIT", limit))
+
+        return self.execute(command)
+
+    def ardel(self, key: str, *indexes: int) -> ResponseT:
+        """
+        Empties one or more slots without shifting later values.
+
+        Returns the number of slots that held a value.
+
+        See https://upstash.com/docs/redis/commands/array/ardel
+        """
+        if len(indexes) == 0:
+            raise Exception("At least one index must be given.")
+
+        command: List = ["ARDEL", key, *indexes]
+        return self.execute(command)
+
+    def ardelrange(self, key: str, *ranges: Tuple[int, int]) -> ResponseT:
+        """
+        Empties every occupied slot inside one or more inclusive `(start, end)` ranges.
+
+        Returns the total number of values removed.
+
+        Example:
+        ```python
+        redis.ardelrange("readings", (0, 99), (500, 599))
+        ```
+
+        See https://upstash.com/docs/redis/commands/array/ardelrange
+        """
+        if len(ranges) == 0:
+            raise Exception("At least one range must be given.")
+
+        command: List = ["ARDELRANGE", key]
+        for start, end in ranges:
+            command.extend((start, end))
+
+        return self.execute(command)
+
+    def arcount(self, key: str) -> ResponseT:
+        """
+        Returns the number of occupied slots. A missing key counts as 0.
+
+        See https://upstash.com/docs/redis/commands/array/arcount
+        """
+        command: List = ["ARCOUNT", key]
+        return self.execute(command)
+
+    def arlen(self, key: str) -> ResponseT:
+        """
+        Returns the length of the array: the highest occupied index plus one.
+        Because arrays are sparse this can be larger than `arcount`.
+
+        See https://upstash.com/docs/redis/commands/array/arlen
+        """
+        command: List = ["ARLEN", key]
+        return self.execute(command)
+
+    def arinsert(self, key: str, *values: ValueT) -> ResponseT:
+        """
+        Appends values after the array's append cursor.
+
+        Returns the index the last value was written to.
+
+        See https://upstash.com/docs/redis/commands/array/arinsert
+        """
+        if len(values) == 0:
+            raise Exception("At least one value must be given.")
+
+        command: List = ["ARINSERT", key, *values]
+        return self.execute(command)
+
+    def arring(self, key: str, size: int, *values: ValueT) -> ResponseT:
+        """
+        Appends values to a fixed-size ring of `size` slots, overwriting the oldest values
+        once full. Calling it with a different `size` reshapes the ring.
+
+        Returns the index the last value was written to.
+
+        See https://upstash.com/docs/redis/commands/array/arring
+        """
+        if len(values) == 0:
+            raise Exception("At least one value must be given.")
+
+        command: List = ["ARRING", key, size, *values]
+        return self.execute(command)
+
+    def arlastitems(self, key: str, count: int, rev: bool = False) -> ResponseT:
+        """
+        Returns up to `count` of the most recently appended values, oldest first
+        (newest first with `rev`).
+
+        See https://upstash.com/docs/redis/commands/array/arlastitems
+        """
+        command: List = ["ARLASTITEMS", key, count]
+
+        if rev:
+            command.append("REV")
+
+        return self.execute(command)
+
+    def arnext(self, key: str) -> ResponseT:
+        """
+        Returns the index the next `arinsert` would write to, or None when the cursor is
+        already at the highest supported index.
+
+        See https://upstash.com/docs/redis/commands/array/arnext
+        """
+        command: List = ["ARNEXT", key]
+        return self.execute(command)
+
+    def arseek(self, key: str, index: int) -> ResponseT:
+        """
+        Moves the append cursor so that the next `arinsert` writes to `index`.
+
+        Returns True if the cursor was moved, False if the key does not exist.
+
+        See https://upstash.com/docs/redis/commands/array/arseek
+        """
+        command: List = ["ARSEEK", key, index]
+        return self.execute(command)
+
+    def arop(
+        self,
+        key: str,
+        start: int,
+        end: int,
+        operation: Literal[
+            "SUM",
+            "MIN",
+            "MAX",
+            "AND",
+            "OR",
+            "XOR",
+            "USED",
+            "MATCH",
+        ],
+        value: Optional[ValueT] = None,
+    ) -> ResponseT:
+        """
+        Reduces the values in `[start, end]` to a single number on the server.
+
+        SUM, MIN, MAX, AND, OR and XOR skip non-numeric values and return None when there is
+        nothing to aggregate. USED counts occupied slots and MATCH counts the slots equal
+        to `value`.
+
+        Example:
+        ```python
+        redis.arop("readings", 0, 99, "SUM")
+        redis.arop("statuses", 0, 99, "MATCH", "error")
+        ```
+
+        See https://upstash.com/docs/redis/commands/array/arop
+        """
+        operation_upper = operation.upper()
+        command: List = ["AROP", key, start, end, operation_upper]
+
+        if operation_upper == "MATCH":
+            if value is None:
+                raise Exception('"value" must be given for the MATCH operation.')
+            command.append(value)
+        elif value is not None:
+            raise Exception('"value" can only be used with the MATCH operation.')
+
+        return self.execute(command)
+
+    def arinfo(self, key: str, full: bool = False) -> ResponseT:
+        """
+        Describes how the array is laid out in memory, as a dict with snake_case keys
+        (`len`, `count`, `slice_size`, `next_insert_index`, ...). `full` adds per-slice
+        statistics. Raises if the key does not exist.
+
+        See https://upstash.com/docs/redis/commands/array/arinfo
+        """
+        command: List = ["ARINFO", key]
+
+        if full:
+            command.append("FULL")
+
+        return self.execute(command)
+
 
 class JsonCommands:
     def __init__(self, client: Commands):
@@ -5821,25 +6169,57 @@ class SearchCommands:
         name: str,
         schema: Schema,
         data_type: Union[DataType, str],
-        prefixes: Union[str, List[str]],
+        prefixes: Optional[Union[str, List[str]]] = None,
+        stream: Optional[str] = None,
         language: Optional[Union[Language, str]] = None,
         skip_initial_scan: bool = False,
         exists_ok: bool = False,
     ) -> ResponseT:
-        """Create a new search index."""
+        """
+        Create a new search index.
 
-        if isinstance(prefixes, str):
-            prefixes = [prefixes]
+        JSON, hash and string indexes track the keys matching `prefixes`. A stream index
+        (`data_type="STREAM"`) is bound to the single stream key given as `stream`: every
+        entry becomes a document whose key is the entry ID.
 
-        command: List = [
-            "SEARCH.CREATE",
-            name,
-            "ON",
-            data_type,
-            "PREFIX",
-            len(prefixes),
-            *prefixes,
-        ]
+        Example:
+        ```python
+        index = redis.search.create_index(
+            name="event-search",
+            data_type="STREAM",
+            stream="events",
+            schema={"message": "TEXT", "severity": {"type": "U64", "fast": True}},
+        )
+        ```
+
+        See https://upstash.com/docs/redis/search/streams
+        """
+
+        if data_type.upper() == DataType.STREAM:
+            if stream is None:
+                raise Exception('"stream" must be given for stream indexes.')
+            if prefixes is not None:
+                raise Exception('"prefixes" cannot be used with stream indexes.')
+
+            command: List = ["SEARCH.CREATE", name, "ON", "STREAM", stream]
+        else:
+            if prefixes is None:
+                raise Exception('"prefixes" must be given.')
+            if stream is not None:
+                raise Exception('"stream" can only be used with stream indexes.')
+
+            if isinstance(prefixes, str):
+                prefixes = [prefixes]
+
+            command = [
+                "SEARCH.CREATE",
+                name,
+                "ON",
+                data_type,
+                "PREFIX",
+                len(prefixes),
+                *prefixes,
+            ]
 
         if language:
             command.extend(("LANGUAGE", language))
@@ -5860,7 +6240,7 @@ class SearchCommands:
                 command.extend((path, field_type))
 
                 if "alias" in value:
-                    command.extend(("AS", value["alias"]))
+                    command.extend(("FROM", value["alias"]))
 
                 if "fast" in value and value["fast"]:
                     command.append("FAST")
@@ -6069,6 +6449,167 @@ class SearchIndexCommands:
 
 
 # It doesn't inherit from "Redis" mainly because of the methods signatures.
+class VectorCommands:
+    """
+    Vector index commands namespace.
+
+    Vector indexes store embeddings under IDs and answer approximate nearest-neighbour
+    queries. They live at an ordinary Redis key.
+
+    See https://upstash.com/docs/redis/commands/vector/overview
+    """
+
+    def __init__(self, client: Commands):
+        self.client = client
+
+    def create_index(
+        self,
+        *,
+        name: str,
+        dimension: int,
+        metric: Union[VectorMetric, str],
+        exists_ok: bool = False,
+    ) -> ResponseT:
+        """
+        Creates a vector index and returns a handle to it.
+
+        `dimension` (1 to 32768) and `metric` are fixed for the life of the index.
+        With `exists_ok`, creating an index that already exists with the same
+        configuration succeeds instead of raising.
+
+        Example:
+        ```python
+        index = redis.vector.create_index(name="docs", dimension=3, metric="COSINE")
+        index.add("doc-1", [0.1, 0.2, 0.3])
+        ```
+
+        See https://upstash.com/docs/redis/commands/vector/vector-create
+        """
+        command: List = [
+            "VECTOR.CREATE",
+            name,
+            "DIM",
+            dimension,
+            "METRIC",
+            metric.upper(),
+        ]
+
+        if exists_ok:
+            command.append("EXISTSOK")
+
+        return self.client.execute(command)
+
+    def index(self, name: str) -> "VectorIndexCommands":
+        """
+        Returns a handle to an existing vector index without sending any command.
+        """
+        return VectorIndexCommands(self.client, name)
+
+
+class VectorIndexCommands:
+    """
+    Commands for interacting with a specific vector index.
+    """
+
+    def __init__(self, client: Commands, name: str):
+        self.client = client
+        self.name = name
+
+    def add(self, id: str, vector: VectorT) -> ResponseT:
+        """
+        Adds a vector under `id`, or replaces the vector already stored there.
+
+        The vector can be a sequence of numbers, a bytes-like little-endian FP32 blob,
+        or a base64-encoded FP32 blob as `str`. Its length must match the index dimension.
+
+        Returns 1 if the ID was added, 0 if an existing vector was replaced.
+
+        See https://upstash.com/docs/redis/commands/vector/vector-add
+        """
+        command: List = ["VECTOR.ADD", self.name, id, *serialize_vector(vector)]
+        return self.client.execute(command)
+
+    def get(self, id: str) -> ResponseT:
+        """
+        Returns the vector stored under `id`, or None if the ID is not in the index.
+
+        Values are stored as 32-bit floats, so they come back with float32 precision.
+
+        See https://upstash.com/docs/redis/commands/vector/vector-get
+        """
+        command: List = ["VECTOR.GET", self.name, id]
+        return self.client.execute(command)
+
+    def query(
+        self,
+        *,
+        vector: VectorT,
+        top_k: int,
+        profile: Optional[Union[VectorQueryProfile, str]] = None,
+    ) -> ResponseT:
+        """
+        Returns up to `top_k` (1 to 1000) nearest neighbours of `vector`, best match first.
+
+        Scores are normalized to 0..1 for every metric; higher means closer.
+        `profile` trades recall against latency: FAST, BALANCED (default) or PRECISE.
+
+        Example:
+        ```python
+        for match in index.query(vector=[0.1, 0.2, 0.3], top_k=5):
+            print(match.id, match.score)
+        ```
+
+        See https://upstash.com/docs/redis/commands/vector/vector-query
+        """
+        command: List = ["VECTOR.QUERY", self.name, "TOPK", top_k]
+        command.extend(serialize_vector(vector))
+
+        if profile:
+            command.extend(("PROFILE", profile.upper()))
+
+        return self.client.execute(command)
+
+    def delete(self, id: str) -> ResponseT:
+        """
+        Removes the vector stored under `id`.
+
+        Returns 1 if the ID was removed, 0 if it was not in the index.
+
+        See https://upstash.com/docs/redis/commands/vector/vector-del
+        """
+        command: List = ["VECTOR.DEL", self.name, id]
+        return self.client.execute(command)
+
+    def count(self) -> ResponseT:
+        """
+        Returns the number of vectors in the index. A missing index counts as 0.
+
+        See https://upstash.com/docs/redis/commands/vector/vector-count
+        """
+        command: List = ["VECTOR.COUNT", self.name]
+        return self.client.execute(command)
+
+    def info(self) -> ResponseT:
+        """
+        Returns the dimension and metric of the index, or None if it does not exist.
+
+        See https://upstash.com/docs/redis/commands/vector/vector-info
+        """
+        command: List = ["VECTOR.INFO", self.name]
+        return self.client.execute(command)
+
+    def drop(self) -> ResponseT:
+        """
+        Deletes the index and every vector in it.
+
+        Returns 1 if the index was dropped, 0 if it did not exist.
+
+        See https://upstash.com/docs/redis/commands/vector/vector-drop
+        """
+        command: List = ["VECTOR.DROP", self.name]
+        return self.client.execute(command)
+
+
 class BitFieldCommands:
     def __init__(self, client: Commands, key: str):
         self.client = client
@@ -6161,7 +6702,11 @@ AsyncJsonCommands = JsonCommands
 AsyncSearchCommands = SearchCommands
 AsyncSearchIndexCommands = SearchIndexCommands
 AsyncSearchAliasCommands = SearchAliasCommands
+AsyncVectorCommands = VectorCommands
+AsyncVectorIndexCommands = VectorIndexCommands
 AsyncBitFieldCommands = BitFieldCommands
 AsyncBitFieldROCommands = BitFieldROCommands
 PipelineCommands = Commands
 PipelineJsonCommands = JsonCommands
+PipelineVectorCommands = VectorCommands
+PipelineVectorIndexCommands = VectorIndexCommands

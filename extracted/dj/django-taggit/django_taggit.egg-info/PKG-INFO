@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-taggit
-Version: 6.1.0
+Version: 7.0.0
 Summary: django-taggit is a reusable Django application for simple tagging.
 Home-page: https://github.com/jazzband/django-taggit
 Author: Alex Gaynor
@@ -12,24 +12,25 @@ Project-URL: Tracker, https://github.com/jazzband/django-taggit/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.1
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: Django>=4.1
+Requires-Dist: Django>=5.2
+Dynamic: license-file
 
 django-taggit
 =============
@@ -50,8 +51,8 @@ django-taggit
    :target: https://github.com/jazzband/django-taggit/actions
    :alt: GitHub Actions
 
-.. image:: https://codecov.io/gh/jazzband/django-taggit/coverage.svg?branch=master
-    :target: https://codecov.io/gh/jazzband/django-taggit?branch=master
+.. image:: https://codecov.io/gh/jazzband/django-taggit/branch/master/graph/badge.svg?token=eaixNiyRk2
+    :target: https://app.codecov.io/gh/jazzband/django-taggit/tree/master
 
 This is a `Jazzband <https://jazzband.co>`_ project. By contributing you agree
 to abide by the `Contributor Code of Conduct
@@ -90,7 +91,7 @@ Then you can use the API like so:
 
 Tags will show up for you automatically in forms and the admin.
 
-``django-taggit`` requires Django 3.2 or greater.
+``django-taggit`` requires Django 5.2 or greater.
 
 For more info check out the `documentation
 <https://django-taggit.readthedocs.io/>`_. And for questions about usage or

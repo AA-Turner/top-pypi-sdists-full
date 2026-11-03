@@ -30,7 +30,10 @@ from torch_einops_utils.torch_einops_utils import (
 
 from torch_einops_utils.torch_einops_utils import (
     safe_stack,
-    safe_cat
+    safe_cat,
+    dict_combine,
+    dict_add,
+    dict_mul
 )
 
 from torch_einops_utils.torch_einops_utils import (
@@ -100,8 +103,16 @@ from torch_einops_utils.python_utils import (
     maybe_return
 )
 
+from torch_einops_utils.table import (
+    format_table,
+    log_table
+)
+
 from torch_einops_utils.math import (
-    slerp
+    slerp,
+    parallel_component,
+    orthogonal_component,
+    components
 )
 
 from torch_einops_utils.grad import (
@@ -113,7 +124,11 @@ from torch_einops_utils.grad import (
     GradContext,
     PerSampleGrad,
     per_sample_grad,
-    sum_per_sample_grads
+    sum_per_sample_grads,
+    named_grads,
+    named_grads_from_loss,
+    set_named_grads,
+    grad_scope
 )
 
 from torch_einops_utils.stable_softmax import (

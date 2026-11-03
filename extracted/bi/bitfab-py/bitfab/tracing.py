@@ -13,6 +13,7 @@ from bitfab.http import HttpClient
 from bitfab.processor_payload import finalize_span_payload, finalize_trace_payload
 from bitfab.serialize import to_json_safe
 from bitfab.span_origin import make_span_origin
+from bitfab.trace_payload import RAW_TRACE_KEY
 
 if TYPE_CHECKING:
     from agents import Span, Trace, TracingProcessor
@@ -99,7 +100,7 @@ class BitfabOpenAITracingProcessor(TracingProcessor):
         """Called when a trace starts.
 
         If there's an active withSpan context, the trace ID is remapped to the
-        outer trace and sent to pre-create the external_traces row on the server.
+        outer trace and sent to pre-create the trace on the server.
 
         Args:
             trace: The trace that started
@@ -126,7 +127,7 @@ class BitfabOpenAITracingProcessor(TracingProcessor):
                 f"openai:{trace.trace_id}",
             )
 
-            self._send_external_trace(
+            self._send_trace(
                 trace,
                 canonical_trace_id=canonical_trace_id,
                 source_trace_id_override=(
@@ -148,7 +149,7 @@ class BitfabOpenAITracingProcessor(TracingProcessor):
         try:
             mapping = self._active_span_mappings.get(trace.trace_id)
 
-            self._send_external_trace(
+            self._send_trace(
                 trace,
                 completed=mapping is None,
                 canonical_trace_id=(
@@ -213,7 +214,7 @@ class BitfabOpenAITracingProcessor(TracingProcessor):
             mapping = self._active_span_mappings.get(span.trace_id)
             trace_id = mapping["trace_id"] if mapping else span.trace_id
             try:
-                self._send_external_span(span)
+                self._send_span(span)
             finally:
                 self._http_client.trace_completion.end(trace_id, span.span_id)
                 self._active_spans.pop(span.span_id, None)
@@ -221,14 +222,14 @@ class BitfabOpenAITracingProcessor(TracingProcessor):
         except Exception:
             pass
 
-    def _send_external_trace(
+    def _send_trace(
         self,
         trace: Trace,
         completed: bool = False,
         canonical_trace_id: str | None = None,
         source_trace_id_override: str | None = None,
     ) -> None:
-        """Send external trace to Bitfab API (fire-and-forget).
+        """Send a trace to Bitfab API (fire-and-forget).
 
         When trace_id_override is provided, the trace ID is remapped to link
         the OpenAI trace into an outer withSpan trace.
@@ -237,19 +238,19 @@ class BitfabOpenAITracingProcessor(TracingProcessor):
             trace: The trace to send
             completed: If True, marks the trace as completed
             canonical_trace_id: Internal trace ID requested from Bitfab
-            source_trace_id_override: If set, overrides the external trace ID
+            source_trace_id_override: If set, overrides the trace ID
         """
         if not self._should_record():
             return
         try:
-            external_trace = trace.export()
+            raw_trace = trace.export()
             if source_trace_id_override is not None:
-                external_trace["id"] = source_trace_id_override
+                raw_trace["id"] = source_trace_id_override
 
             trace_data: dict[str, Any] = {
                 "type": "openai",
                 "source": "python-sdk-openai-tracing",
-                "externalTrace": external_trace,
+                RAW_TRACE_KEY: raw_trace,
                 "completed": completed,
             }
             if canonical_trace_id is not None:
@@ -262,9 +263,9 @@ class BitfabOpenAITracingProcessor(TracingProcessor):
             # as the final net. Mirrors the TypeScript processor (no pre-gate).
             trace_data = finalize_trace_payload(trace_data, logger)
 
-            self._http_client.send_external_trace(trace_data)
+            self._http_client.send_trace(trace_data)
         except Exception as e:
-            logger.error(f"Failed to send external trace to Bitfab: {e}", exc_info=True)
+            logger.error(f"Failed to send trace to Bitfab: {e}", exc_info=True)
 
     def _serialize_value(self, value: Any) -> Any:
         """Serialize a value to a JSON-serializable format.
@@ -362,8 +363,8 @@ class BitfabOpenAITracingProcessor(TracingProcessor):
 
         return finalize_span_payload(span_data)
 
-    def _send_external_span(self, span: Span) -> None:
-        """Send external span to Bitfab API (fire-and-forget).
+    def _send_span(self, span: Span) -> None:
+        """Send a span to Bitfab API (fire-and-forget).
 
         If the span belongs to a trace mapped to a withSpan trace, the trace_id
         and parent_id are rewritten to link the span into the withSpan tree.
@@ -382,9 +383,9 @@ class BitfabOpenAITracingProcessor(TracingProcessor):
         span_payload["traceId"] = self._get_canonical_trace_id(span.trace_id)
 
         try:
-            self._http_client.send_external_span(span_payload)
+            self._http_client.send_span(span_payload)
         except Exception as e:
-            logger.error(f"Failed to send external span to Bitfab: {e}", exc_info=True)
+            logger.error(f"Failed to send span to Bitfab: {e}", exc_info=True)
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
         """Force flush any buffered traces/spans.

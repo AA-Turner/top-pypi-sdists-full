@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-rss-plugin
-Version: 1.19.0
+Version: 1.20.0
 Summary: MkDocs plugin to generate RSS and JSON feeds using Mkdocs site configuration, git log and Mkdocs pages'meta.
 Author-email: Julien Moura <dev@ingeoveritas.com>
 Maintainer-email: Julien Moura <dev@ingeoveritas.com>
@@ -17,44 +17,42 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Text Processing :: Markup :: Markdown
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: CacheControl[filecache]<1,>=0.14.3
-Requires-Dist: GitPython<3.2,>=3.1.45
-Requires-Dist: mkdocs==1.6.1
-Requires-Dist: properdocs<2,>=1.6.5
+Requires-Dist: GitPython<3.3,>=3.2.1
 Requires-Dist: requests<3,>=2.32.5
-Requires-Dist: tzdata<2026,>=2024; sys_platform == "win32"
+Requires-Dist: tzdata<2027,>=2024; sys_platform == "win32"
 Provides-Extra: dev
-Requires-Dist: black>=25.9; extra == "dev"
-Requires-Dist: flake8>=7.1; extra == "dev"
-Requires-Dist: flake8-bugbear>=24.10; extra == "dev"
-Requires-Dist: flake8-builtins>=2.5; extra == "dev"
-Requires-Dist: flake8-eradicate>=1.5; extra == "dev"
-Requires-Dist: flake8-isort>=6.1.1; extra == "dev"
-Requires-Dist: Flake8-pyproject>=1.2.3; extra == "dev"
-Requires-Dist: pre-commit<5,>=4; extra == "dev"
+Requires-Dist: ruff>=0.17.2; extra == "dev"
+Requires-Dist: pre-commit<5,>=4.6; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: mkdocs-git-committers-plugin-2<2.6,>=2.4.1; extra == "docs"
-Requires-Dist: mkdocs-git-revision-date-localized-plugin<1.6,>=1.3; extra == "docs"
-Requires-Dist: mkdocs-material[imaging]<9.8,>=9.7; extra == "docs"
+Requires-Dist: mkdocs-materialx[imaging]<11,>=10.2.2; extra == "docs"
 Requires-Dist: mkdocs-minify-plugin<0.9,>=0.8; extra == "docs"
 Requires-Dist: mkdocstrings-python<2.1,>=1.16.2; extra == "docs"
 Requires-Dist: termynal<0.15,>=0.12.2; extra == "docs"
+Provides-Extra: mkdocs
+Requires-Dist: mkdocs<2,>=1.6.1; extra == "mkdocs"
+Provides-Extra: properdocs
+Requires-Dist: properdocs<2,>=1.6.7; extra == "properdocs"
 Provides-Extra: test
 Requires-Dist: feedparser<6.1,>=6.0.12; extra == "test"
 Requires-Dist: jsonfeed-util<2,>=1.2; extra == "test"
 Requires-Dist: mkdocs-material[imaging]<9.8,>=9.7; extra == "test"
 Requires-Dist: mkdocs-materialx[imaging]<11,>=10.1.3; extra == "test"
+Requires-Dist: properdocs<2,>=1.6.7; extra == "test"
+Requires-Dist: properdocs-theme-mkdocs<2,>=1.6.5; extra == "test"
+Requires-Dist: properdocs-theme-readthedocs<2,>=1.6.5; extra == "test"
 Requires-Dist: pytest-cov<8,>=6.9.1; extra == "test"
 Requires-Dist: validator-collection<1.6,>=1.5; extra == "test"
 Dynamic: license-file
@@ -67,9 +65,7 @@ Dynamic: license-file
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Guts_mkdocs-rss-plugin&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Guts_mkdocs-rss-plugin)
 [![codecov](https://codecov.io/gh/Guts/mkdocs-rss-plugin/branch/main/graph/badge.svg?token=A0XPLKiwiW)](https://codecov.io/gh/Guts/mkdocs-rss-plugin)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![flake8](https://img.shields.io/badge/linter-flake8-green)](https://flake8.pycqa.org/)
-[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Guts/mkdocs-rss-plugin/master.svg)](https://results.pre-commit.ci/latest/github/Guts/mkdocs-rss-plugin/master)
 [![📚 Documentation](https://github.com/Guts/mkdocs-rss-plugin/actions/workflows/documentation.yml/badge.svg)](https://github.com/Guts/mkdocs-rss-plugin/actions/workflows/documentation.yml)
@@ -78,9 +74,18 @@ A plugin for [MkDocs](https://www.mkdocs.org), the static site generator, which 
 
 ## Installation
 
+Since its version 1.20.0, the plugin does not force a documentation generator on you: pick the one you use through an extra.
+
 ```sh
-pip install mkdocs-rss-plugin
+# with MkDocs
+pip install "mkdocs-rss-plugin[mkdocs]"
+
+# with ProperDocs
+pip install "mkdocs-rss-plugin[properdocs]"
 ```
+
+> [!NOTE]
+> If MkDocs or ProperDocs is already installed in your environment, `pip install mkdocs-rss-plugin` is enough.
 
 ## Usage
 
@@ -157,11 +162,11 @@ python -m pip install -e .[dev]
 # including documentation dependencies
 python -m pip install -e .[docs]
 
-# including testing dependencies
-python -m pip install -e .[test]
+# including testing dependencies, with one documentation generator (mkdocs or properdocs)
+python -m pip install -e .[test,mkdocs]
 
 # all inclusive
-python -m pip install -e .[dev,docs,test]
+python -m pip install -e .[dev,docs,test,mkdocs]
 
 # install git hooks
 pre-commit install
@@ -183,10 +188,10 @@ pytest
 
 ```sh
 # install dependencies for documentation
-python -m pip install -e .[docs]
+python -m pip install -e .[docs,properdocs]
 
 # build the documentation
-mkdocs build
+properdocs build
 ```
 
 ### Release workflow

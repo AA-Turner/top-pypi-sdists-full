@@ -7,15 +7,23 @@ name = "install-playwright"
 description = "Execute `playwright install` from Python"
 readme = "README.md"
 keywords = [
+  "automation",
   "browser",
+  "chromium",
+  "firefox",
   "install",
   "playwright",
+  "playwright-python",
+  "webkit",
 ]
 license = "MIT"
 authors = [ { name = "eggplants", email = "w10776e8w@yahoo.co.jp" } ]
 requires-python = ">=3.10,<4"
 classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
@@ -23,17 +31,23 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Software Development :: Testing",
+  "Topic :: Utilities",
   "Typing :: Typed",
 ]
 dynamic = [ "version" ]
 dependencies = [ "playwright>=1.49.1,<2" ]
+urls.Documentation = "https://egpl.dev/install-playwright-python/"
+urls.Issues = "https://github.com/eggplants/install-playwright-python/issues"
 urls.Repository = "https://github.com/eggplants/install-playwright-python"
 
 [dependency-groups]
 dev = [
   "pymarkdownlnt>=0.9.33",
-  "pyproject-fmt>=2.11.1",
+  "pyproject-fmt-py>=0",
   "pytest>=9.0.2",
   "pytest-asyncio>=1.3",
   "pytest-cov>=7",
@@ -54,6 +68,8 @@ default-groups = [
   "docs",
 ]
 exclude-newer = "P7D"
+# Own package: no cooldown needed.
+exclude-newer-package = { pyproject-fmt-py = "P0D" }
 preview = true
 
 [tool.ruff]
@@ -61,7 +77,10 @@ line-length = 120
 format.indent-style = "space"
 format.quote-style = "double"
 lint.select = [ "ALL" ]
-lint.ignore = [ "COM812" ]
+lint.ignore = [
+  "COM812",
+  "CPY001", # Missing copyright notice (this project does not use file headers)
+]
 lint.per-file-ignores."main.py" = [
   "T201", # `print` found
 ]

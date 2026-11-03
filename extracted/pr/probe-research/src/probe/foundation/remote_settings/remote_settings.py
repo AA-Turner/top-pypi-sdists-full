@@ -38,7 +38,7 @@ class Mark:
             if not (raw.isascii() and raw.isdigit() and len(raw) <= _MAX_DIGITS):
                 return
             self._last_write = now
-            from probe.shared.updates import version_policy
+            from probe.foundation.version_policy import version_policy
 
             version_policy.atomic_write_json(
                 version_policy.state_dir() / self.filename,
@@ -50,7 +50,7 @@ class Mark:
     def fresh(self, now: float | None = None) -> bool:
         """A mark seen within `FRESH_S`. False when there is none. Never raises."""
         try:
-            from probe.shared.updates import version_policy
+            from probe.foundation.version_policy import version_policy
 
             data = json.loads((version_policy.state_dir() / self.filename).read_text())
             seen = float(data["seen_at"])
@@ -62,7 +62,7 @@ class Mark:
     def clear(self) -> None:
         """The request was answered (or there is none): forget the mark. Never raises."""
         try:
-            from probe.shared.updates import version_policy
+            from probe.foundation.version_policy import version_policy
 
             (version_policy.state_dir() / self.filename).unlink(missing_ok=True)
         except Exception:  # noqa: BLE001

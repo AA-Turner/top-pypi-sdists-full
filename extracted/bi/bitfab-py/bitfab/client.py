@@ -118,6 +118,7 @@ from bitfab.trace_metadata import (
     record_caller_trace_metadata,
     retire_trace_metadata,
 )
+from bitfab.trace_payload import RAW_TRACE_KEY
 from bitfab.traces import TracesClient
 from bitfab.verdicts import VerdictsClient
 from bitfab.warn_once import warn_once
@@ -1250,12 +1251,12 @@ class Bitfab:
         self._simulation_plan = SimulationPlan(
             self.http_client,
             simulation_plan,
-            self._discard_external_span,
+            self._discard_span_payload,
             self._can_read_simulation_plan,
         )
-        self.http_client.external_span_sender = self._send_external_span
-        self.http_client.external_trace_sender = self._send_external_trace
-        self.http_client.release_held_external_spans = self._simulation_plan.release
+        self.http_client.span_sender = self._send_span_payload
+        self.http_client.trace_sender = self._send_trace_payload
+        self.http_client.release_held_spans = self._simulation_plan.release
         self.http_client.stop_simulation_plan = self._simulation_plan.stop
         self.datasets = DatasetsClient(self.http_client)
         self.categories = CategoriesClient(self.http_client)
@@ -1282,7 +1283,7 @@ class Bitfab:
         start_commit_ref_resolution()
         self._simulation_plan.refresh()
 
-    def _send_external_span(
+    def _send_span_payload(
         self, payload: dict[str, Any], submit: Callable[[dict[str, Any]], None]
     ) -> None:
         try:
@@ -1291,11 +1292,11 @@ class Bitfab:
             )
         except Exception as error:
             warn_once(
-                "external-span-dropped",
+                "span-dropped",
                 f"a span was dropped because the send step failed: {error}",
             )
 
-    def _discard_external_span(self, payload: dict[str, Any]) -> bool:
+    def _discard_span_payload(self, payload: dict[str, Any]) -> bool:
         trace_id = payload.get("sourceTraceId")
         raw_span = payload.get("rawSpan")
         span_id = raw_span.get("id") if isinstance(raw_span, dict) else None
@@ -1303,14 +1304,14 @@ class Bitfab:
             return False
         return self.http_client.trace_completion.abort(trace_id, span_id)
 
-    def _send_external_trace(
+    def _send_trace_payload(
         self, payload: dict[str, Any], submit: Callable[[dict[str, Any]], None]
     ) -> None:
         try:
             self._simulation_plan.send_trace(payload, submit)
         except Exception as error:
             warn_once(
-                "external-trace-dropped",
+                "trace-dropped",
                 f"a trace was dropped because the send step failed: {error}",
             )
 
@@ -2788,7 +2789,7 @@ class Bitfab:
                 Prefer an inline output when the (eager) tree carried one
                 (``mock="all"``, or an older server that returns outputs
                 regardless of ``includeOutputs``); only when the payload-free
-                tree omitted it does this fetch lazily by ``externalSpanId``
+                tree omitted it does this fetch lazily by ``spanId``
                 through the memoized ``fetch_span_output``. Absence of the
                 ``output``/``outputMeta`` keys (not a ``None`` value) is what
                 distinguishes "no inline output" from "recorded output is None".
@@ -2800,9 +2801,9 @@ class Bitfab:
                 if (
                     not has_inline
                     and fetch_span_output is not None
-                    and mock_entry.get("externalSpanId")
+                    and mock_entry.get("spanId")
                 ):
-                    return fetch_span_output(mock_entry["externalSpanId"])
+                    return fetch_span_output(mock_entry["spanId"])
                 output = mock_entry.get("output")
                 output_meta = mock_entry.get("outputMeta")
                 if output_meta is not None:
@@ -5166,7 +5167,7 @@ class Bitfab:
             "type": "sdk-function",
             "source": "python-sdk-function",
             "traceFunctionKey": trace_function_key,
-            "externalTrace": raw_trace,
+            RAW_TRACE_KEY: raw_trace,
             "completed": True,
         }
 
@@ -5178,7 +5179,7 @@ class Bitfab:
         if dropped:
             payload["dropped"] = True
 
-        self.http_client.send_external_trace(payload)
+        self.http_client.send_trace(payload)
 
     def _sends_span_on_completion(self, context: SpanContext) -> bool:
         if (
@@ -5371,7 +5372,7 @@ class Bitfab:
         if variant is not None:
             span_data["variant"] = variant
 
-        external_span: dict[str, Any] = {
+        raw_span: dict[str, Any] = {
             "id": span_id,
             "trace_id": trace_id,
             "started_at": started_at,
@@ -5380,16 +5381,14 @@ class Bitfab:
             "span_origin": make_span_origin(instrumentation),
         }
         if parent_span_id is not None:
-            external_span["parent_id"] = parent_span_id
+            raw_span["parent_id"] = parent_span_id
         if (
             nearest_captured_ancestor_span_id is not None
             and nearest_captured_ancestor_span_id != parent_span_id
         ):
-            external_span["nearest_captured_ancestor_id"] = (
-                nearest_captured_ancestor_span_id
-            )
+            raw_span["nearest_captured_ancestor_id"] = nearest_captured_ancestor_span_id
         if input_source_span_id is not None:
-            external_span["input_source_span_id"] = input_source_span_id
+            raw_span["input_source_span_id"] = input_source_span_id
 
         payload: dict[str, Any] = {
             "id": span_id,
@@ -5398,7 +5397,7 @@ class Bitfab:
             "source": "python-sdk-function",
             "sourceTraceId": trace_id,
             "traceFunctionKey": trace_function_key,
-            "rawSpan": external_span,
+            "rawSpan": raw_span,
         }
 
         if root_trace_function_key is not None:
@@ -5430,7 +5429,7 @@ class Bitfab:
         trace_dropped = bool(drop_state and drop_state.get("dropped"))
 
         if not trace_dropped:
-            self.http_client.send_external_span(payload)
+            self.http_client.send_span(payload)
 
         if is_root_span:
             replay_ctx = _replay_context.get()

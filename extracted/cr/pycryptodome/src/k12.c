@@ -12,6 +12,9 @@
  *  - if K12_AVX2 is defined, the code hashes 4 leaves at a time
  *    with AVX2 instructions.
  *
+ * On 64-bit ARM, the code always hashes 4 leaves at a time,
+ * with scalar and NEON instructions (keccak_x4_neon.c).
+ *
  * See KECCAK_K12.txt for which file includes which, and the resulting modules.
  */
 
@@ -29,9 +32,33 @@ FAKE_INIT(K12_MODULE)
 #define K12_CV_SIZE     32
 #define K12_RATE        (KECCAK_F1600_STATE - 32)
 
-#ifdef K12_AVX2
+/*
+ * NEON is always available on AArch64: gcc and clang define __ARM_NEON,
+ * MSVC only _M_ARM64
+ *
+ * The choice is made at compile time, but the 4-way code is not faster
+ * on every AArch64 core: it is slower on simple in-order cores
+ * (see keccak_x4_neon.c). A future improvement could build both versions
+ * and select one at runtime, from the CPU type.
+ */
+#if !defined(K12_AVX2) && ((defined(__aarch64__) && defined(__ARM_NEON)) || defined(_M_ARM64))
+#define K12_NEON
+#endif
 
+#if defined(K12_AVX2) || defined(K12_NEON)
+
+/*
+ * The 4 states, with the functions of keccak_x4_avx2.c or keccak_x4_neon.c:
+ * keccak_function_x4(), keccak_absorb_x4(), keccak_extract_x4()
+ * and keccak_xor_lane_x4().
+ */
+#ifdef K12_AVX2
 #include "keccak_x4_avx2.c"
+typedef __m256i k12_states_x4[25];
+#else
+#include "keccak_x4_neon.c"
+typedef uint64_t k12_states_x4[100];
+#endif
 
 /* The tail of a leaf must be a whole number of 64-bit words (see below) */
 typedef char k12_tail_is_whole_words[(K12_LEAF_SIZE % K12_RATE) % 8 == 0 ? 1 : -1];
@@ -42,14 +69,12 @@ typedef char k12_tail_is_whole_words[(K12_LEAF_SIZE % K12_RATE) % 8 == 0 ? 1 : -
  */
 static void k12_4_leaves(const uint8_t *in, uint8_t *cvs)
 {
-    __m256i A[25];
+    k12_states_x4 A;
     const uint8_t *block[4];
     uint8_t *cv[4];
     unsigned i, offset, tail_words;
 
-    for (i=0; i<25; i++) {
-        A[i] = _mm256_setzero_si256();
-    }
+    memset(A, 0, sizeof A);
 
     /* The same block of each leaf goes into its own state */
     for (offset=0; offset + K12_RATE <= K12_LEAF_SIZE; offset += K12_RATE) {
@@ -67,9 +92,8 @@ static void k12_4_leaves(const uint8_t *in, uint8_t *cvs)
     }
     tail_words = (K12_LEAF_SIZE - offset) / 8;
     keccak_absorb_x4(A, block, tail_words);
-    A[tail_words] = _mm256_xor_si256(A[tail_words], _mm256_set1_epi64x(0x0B));
-    A[K12_RATE/8 - 1] = _mm256_xor_si256(A[K12_RATE/8 - 1],
-                                         _mm256_set1_epi64x((long long)0x8000000000000000ULL));
+    keccak_xor_lane_x4(A, tail_words, 0x0B);
+    keccak_xor_lane_x4(A, K12_RATE/8 - 1, 0x8000000000000000ULL);
     keccak_function_x4(A, 12);
 
     for (i=0; i<4; i++) {
@@ -78,7 +102,7 @@ static void k12_4_leaves(const uint8_t *in, uint8_t *cvs)
     keccak_extract_x4(A, cv, K12_CV_SIZE/8);
 }
 
-#endif /* K12_AVX2 */
+#endif /* K12_AVX2 || K12_NEON */
 
 /*
  * Hash n_leaves complete 8192-byte leaves with TurboSHAKE128
@@ -101,7 +125,7 @@ EXPORT_SYM int k12_leaves(const uint8_t *in, size_t n_leaves, uint8_t *cvs)
     ks.rate = KECCAK_F1600_STATE - ks.capacity;
     ks.rounds = 12;
 
-#ifdef K12_AVX2
+#if defined(K12_AVX2) || defined(K12_NEON)
     for (; n_leaves >= 4; n_leaves -= 4) {
         k12_4_leaves(in, cvs);
         in += 4*K12_LEAF_SIZE;

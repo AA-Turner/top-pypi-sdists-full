@@ -42,14 +42,12 @@ def rm(name: str, *, dry_run: bool = False, force: bool = False, base_url: str |
             echo("  stop its build in flight")
         for e in out.get("evals_running") or []:
             echo(f"  refuse while eval {e} runs or waits on it — or cancel it, with --force")
-        _copies(out, echo)
         return out
     echo(f"deleted benchmark {out['deleted']} for good: its name is free, and nothing can bring it back")
     for e in out.get("evals_canceled") or []:
         echo(f"  canceled eval {e}")
     if out.get("build_canceled"):
         echo("  its build in flight was stopped")
-    _copies(out, echo)
     return out
 
 
@@ -67,12 +65,3 @@ def _rm_version(name: str, version: int, *, dry_run: bool, base_url: str | None,
     else:
         echo(f"deleted {name}@v{version} for good")
     return out
-
-
-def _copies(out: dict, echo: Callable[[str], None]) -> None:
-    """What the delete takes of its versions' own copies."""
-    from seq import deps_cost
-
-    gone = deps_cost.delete_line(out.get("dependencies"))
-    if gone:
-        echo(f"  {gone}")

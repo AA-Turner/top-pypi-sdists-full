@@ -54,6 +54,11 @@ def extend_variant_chain(
     return (*variant_chain, (span_name, variant))
 
 
+def span_id_of_tree_node(node: dict[str, Any]) -> str | None:
+    span_id = node.get("spanId") or node.get("externalSpanId")
+    return span_id if isinstance(span_id, str) and span_id else None
+
+
 def _recorded_variant(node: dict[str, Any]) -> str | None:
     variant = node.get("variant")
     return variant if isinstance(variant, str) and variant else None
@@ -79,7 +84,7 @@ class PositionalMatcher:
         repeated same-name calls (including recursion) still order by
         occurrence.
 
-        ``externalSpanId`` is copied so the lazy path can pull a payload-free
+        ``spanId`` is copied so the lazy path can pull a payload-free
         span's recorded output on demand. ``output``/``outputMeta`` are copied
         ONLY when the node carried them inline (eager ``mock="all"`` tree, or
         an older server that ignores ``includeOutputs`` and returns outputs
@@ -102,7 +107,7 @@ class PositionalMatcher:
                 counters[node_key] = index + 1
                 entry: dict[str, Any] = {
                     "sourceSpanId": node.get("sourceSpanId"),
-                    "externalSpanId": node.get("externalSpanId"),
+                    "spanId": span_id_of_tree_node(node),
                 }
                 if "output" in node:
                     entry["output"] = node["output"]

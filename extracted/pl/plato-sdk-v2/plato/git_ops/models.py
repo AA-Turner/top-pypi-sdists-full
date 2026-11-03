@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, field_validator
@@ -153,12 +152,6 @@ class GitOpRequest(BaseModel):
         )
 
 
-class GitOpErrorKind(StrEnum):
-    """Failure kinds that a caller acts on by type."""
-
-    WORLD_GIT_SSH_TIMEOUT = "world_git_ssh_timeout"
-
-
 class GitOpResult(BaseModel):
     """Serializable git operation result."""
 
@@ -174,7 +167,6 @@ class GitOpResult(BaseModel):
     git_status: str | None = None
     ahead_behind: str | None = None
     files: list[str] | None = None
-    error_kind: GitOpErrorKind | None = None
 
     @field_validator("stdout", "stderr", "git_status", mode="before")
     @classmethod

@@ -19,7 +19,7 @@ class TagAdmin(admin.ModelAdmin):
     ordering = ["name", "slug"]
     search_fields = ["name"]
     prepopulated_fields = {"slug": ["name"]}
-    actions = ["render_tag_form"]
+    actions = ["render_tag_form", "remove_orphaned_tags_action"]
 
     def get_urls(self):
         urls = super().get_urls()
@@ -39,12 +39,11 @@ class TagAdmin(admin.ModelAdmin):
             self.message_user(request, "Please select at least one tag.")
             return redirect(request.get_full_path())
 
+        # set the selected tags into the session, to be used later
         selected_tag_ids = ",".join(selected)
-        redirect_url = f"{request.get_full_path()}merge-tags/"
-
         request.session["selected_tag_ids"] = selected_tag_ids
 
-        return redirect(redirect_url)
+        return redirect("admin:taggit_tag_merge_tags")
 
     def merge_tags_view(self, request):
         selected_tag_ids = request.session.get("selected_tag_ids", "").split(",")
@@ -84,3 +83,14 @@ class TagAdmin(admin.ModelAdmin):
             "selected_tag_ids": selected_tag_ids,
         }
         return render(request, "admin/taggit/merge_tags_form.html", context)
+
+    @admin.action(description="Remove orphaned tags")
+    def remove_orphaned_tags_action(self, request, queryset):
+        try:
+            orphaned_tags = queryset.objects.orphaned()
+            count, _ = orphaned_tags.delete()
+            self.message_user(
+                request, f"Successfully removed {count} orphaned tags.", level="success"
+            )
+        except Exception as e:
+            self.message_user(request, f"An error occurred: {e}", level="error")

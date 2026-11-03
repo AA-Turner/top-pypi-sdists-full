@@ -17,9 +17,10 @@ import re
 
 from botocore import crt, awsrequest
 from botocore.credentials import Credentials
+from botocore.exceptions import ProfileNotFound
 from typing import Dict
 import urllib
-from urllib.parse import quote, urljoin
+from urllib.parse import quote_from_bytes, unquote_to_bytes, urljoin
 from urllib3.util.ssl_ import create_urllib3_context
 
 import configparser
@@ -34,6 +35,55 @@ from .utils import sha256_hash, sha256_hash_for_binary_data, sign
 __author__ = 'iokulist'
 
 IS_VERBOSE = False
+
+# Credential material that must never reach verbose output
+# (AGENTS.md: never log or expose AWS credentials)
+SENSITIVE_KEYS = frozenset(['access_key', 'secret_key', 'session_token', 'security_token'])
+SENSITIVE_HEADERS = frozenset(['authorization', 'x-amz-security-token'])
+REDACTED_VALUE = '***'
+
+
+def redact_header(raw: str) -> str:
+    """Mask the value of a 'Name: value' fragment when the name is credential material.
+
+    Used for CLI ``-H`` values, which arrive as unparsed strings and would otherwise
+    be echoed verbatim by ``--verbose``.
+    """
+    name, sep, _ = raw.partition(":")
+    if sep and name.strip().lower() in SENSITIVE_HEADERS:
+        return '{0}: {1}'.format(name.strip(), REDACTED_VALUE)
+    return raw
+
+
+def redact_secrets(record: Mapping[str, Any]) -> Dict[str, Any]:
+    """Return a copy of ``record`` with credential values fully masked.
+
+    Values are replaced wholesale with '***' -- never truncated to a partial secret.
+    List values (such as the raw ``-H`` fragments) are redacted element by element.
+    """
+    sensitive = SENSITIVE_KEYS | SENSITIVE_HEADERS
+    redacted: Dict[str, Any] = {}
+    for key, value in record.items():
+        if key.lower() in sensitive:
+            redacted[key] = REDACTED_VALUE
+        elif isinstance(value, (list, tuple)):
+            redacted[key] = [redact_header(item) if isinstance(item, str) else item
+                             for item in value]
+        else:
+            redacted[key] = value
+    return redacted
+
+
+def redact_canonical_request(canonical_request: str, security_token: Optional[str]) -> str:
+    """Mask the session token inside the verbose canonical-request dump.
+
+    The canonical request that is actually signed is returned unchanged by
+    ``task_1_create_a_canonical_request``; only the logged copy is masked.
+    """
+    if not security_token:
+        return canonical_request
+    return canonical_request.replace('x-amz-security-token:' + security_token + '\n',
+                                     'x-amz-security-token:' + REDACTED_VALUE + '\n')
 
 
 TLS_VERSIONS = {
@@ -232,7 +282,12 @@ def task_1_create_a_canonical_request(
     # Step 4: Create payload hash (hash of the request body content). For GET
     # requests, the payload is an empty string ("").
     # Only use binary hash if data is present AND data_binary flag is set.
-    payload_hash = sha256_hash_for_binary_data(data) if (data_binary and data) else sha256_hash(data or '')
+    # --data-binary hashes raw bytes: str payloads (-d "text") are signed as
+    # their utf-8 encoding instead of raising TypeError inside hashlib
+    payload_hash = (
+        sha256_hash_for_binary_data(data.encode('utf-8') if isinstance(data, str) else data)
+        if (data_binary and data)
+        else sha256_hash(data or ''))
 
     # Step 5: Create the canonical headers and signed headers. Header names
     # and value must be trimmed and lowercase, and sorted in ASCII order.
@@ -273,7 +328,7 @@ def task_1_create_a_canonical_request(
                          signed_headers + '\n' +
                          payload_hash)
 
-    __log('\nCANONICAL REQUEST = ' + canonical_request)
+    __log('\nCANONICAL REQUEST = ' + redact_canonical_request(canonical_request, security_token))
     return canonical_request, payload_hash, signed_headers
 
 
@@ -383,7 +438,7 @@ def get_sigv4a_headers(service, region, method, url, access_key, secret_key, sec
 
 
 def __normalize_query_string(query):
-    parameter_pairs = (list(map(str.strip, s.split("=")))
+    parameter_pairs = (list(map(str.strip, s.split("=", 1)))
                        for s in query.split('&')
                        if len(s) > 0)
 
@@ -400,13 +455,14 @@ def aws_url_encode(text: str) -> str:
     - Percent-encode all other characters with %XY, where X and Y are hexadecimal characters (0-9 and uppercase A-F).
       For example, the space character must be encoded as %20 (not using '+', as some encoding schemes do) and
       extended UTF-8 characters must be in the form %XY%ZA%BC.
-    - Double-encode any equals (=) characters in parameter values.
+    - Percent-encode all other characters including equals (=).
     """
-    return quote(text, safe='~=').replace('=', '==')
+    return quote_from_bytes(unquote_to_bytes(text), safe='~')
 
 
 def __now():
-    return datetime.datetime.utcnow()
+    # timezone-aware: datetime.utcnow() is deprecated (3.12+) and scheduled for removal
+    return datetime.datetime.now(datetime.timezone.utc)
 
 
 class _TLSAdapter(HTTPAdapter):
@@ -437,7 +493,7 @@ class _TLSAdapter(HTTPAdapter):
 
 def __send_request(uri, data, headers, method, verify, allow_redirects, tls_min, tls_max):
     __log('\nHEADERS++++++++++++++++++++++++++++++++++++')
-    __log(headers)
+    __log(redact_secrets(headers))
 
     __log('\nBEGIN REQUEST++++++++++++++++++++++++++++++++++++')
     __log('Request URL = ' + uri)
@@ -551,7 +607,16 @@ def load_aws_config(access_key, secret_key, security_token, credentials_path, pr
         if botocore:
             import botocore.session
             session = botocore.session.get_session()
-            cred = session.get_credentials()
+            # 'default' is left to botocore so env/instance credentials still work without a config file (#122)
+            if profile and profile != 'default':
+                session.set_config_variable('profile', profile)
+            try:
+                cred = session.get_credentials()
+            except ProfileNotFound as exception:
+                raise ValueError("The profile '{0}' could not be found.".format(profile)) from exception
+            if cred is None:
+                raise ValueError('No credentials found in environment, shared credential files, '
+                                 'or the instance metadata service.')
             access_key, secret_key, security_token = cred.access_key, cred.secret_key, cred.token
 
     return access_key, secret_key, security_token
@@ -578,6 +643,9 @@ def parse_data(data: Optional[str], binary: bool) -> Optional[Union[str, bytes]]
 
     # if data is the stdin `@-` identifier, read from stdin
     if data == "@-":
+        # binary mode reads raw bytes so binary payloads survive the pipe
+        if binary:
+            return sys.stdin.buffer.read()
         return sys.stdin.read()
 
     # otherwise read from the file
@@ -587,14 +655,20 @@ def parse_data(data: Optional[str], binary: bool) -> Optional[Union[str, bytes]]
         return post_data_file.read()
 
 
+def parse_header(raw: str) -> Tuple[str, str]:
+    """
+    Parse a 'Name: value' fragment on the first colon (curl accepts 'Name:value' too).
+    """
+    name, sep, value = raw.partition(":")
+    if not sep or not name.strip():
+        raise ValueError('invalid header %r: expected \'Name: value\'' % raw)
+    return name.strip(), value.strip()
+
+
 def inner_main(argv: List[str]) -> int:
     """
     Awscurl CLI main entry point
     """
-    # note EC2 ignores Accept header and responds in xml
-    default_headers = ['Accept: application/xml',
-                       'Content-Type: application/json']
-
     parser = configargparse.ArgumentParser(
         description='Curl AWS request signing',
         formatter_class=configargparse.ArgumentDefaultsHelpFormatter
@@ -642,7 +716,22 @@ def inner_main(argv: List[str]) -> int:
     IS_VERBOSE = args.verbose
 
     if args.verbose:
-        __log(vars(args))
+        __log(redact_secrets(vars(args)))
+
+    try:
+        return _run_request(args, parser)
+    except ValueError as exception:
+        # expected failure modes (missing credentials, unknown profile, malformed
+        # input) exit with a one-line message instead of a traceback
+        print('awscurl: error: {0}'.format(exception), file=sys.stderr)
+        return 1
+
+
+def _run_request(args, parser) -> int:
+    """Build, sign, and send the request described by ``args``; return the CLI exit code."""
+    # note EC2 ignores Accept header and responds in xml
+    default_headers = ['Accept: application/xml',
+                       'Content-Type: application/json']
 
     data = parse_data(args.data, args.data_binary)
     if data is None:
@@ -655,8 +744,10 @@ def inner_main(argv: List[str]) -> int:
         args.session_token = args.security_token
         del args.security_token
 
-    # pylint: disable=deprecated-lambda
-    headers = CaseInsensitiveDict({k: v for (k, v) in map(lambda s: s.split(": "), args.header)})
+    try:
+        headers = CaseInsensitiveDict(parse_header(h) for h in args.header)
+    except ValueError as e:
+        parser.error(str(e))  # argparse error path: one-line message, exit 2, no traceback
 
     credentials_path = os.path.expanduser("~") + "/.aws/credentials"
     args.access_key, args.secret_key, args.session_token = load_aws_config(args.access_key,

@@ -2,7 +2,7 @@
 
 A service token is team-scoped, userless, and read-only. This client exposes exactly the
 backend's allowlisted read endpoints (metrics, enumeration, metadata, artifact bytes) as
-one method each. See ``docs/service-token-sdk.md`` for the full method -> endpoint map.
+one method each. See ``agent/src/probe/sdk/reads/service-token-sdk.md`` for the full method -> endpoint map.
 
     from probe import Reader
 

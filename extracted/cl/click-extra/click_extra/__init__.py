@@ -34,6 +34,12 @@ Delete `_DEPRECATED_CLICK_EXPORTS`, the loop dropping its bindings and its
 branch in `__getattr__` once the Click floor reaches `9.0`, which removes the
 five names it forwards.
 ```
+
+```{todo}
+Delete `click_extra/blocks.py`, the deprecated alias of
+`click_extra.markdown.blocks`, and its tests in `tests/test_blocks.py` in
+`11.0.0`: its warnings announce that release.
+```
 """
 
 from __future__ import annotations
@@ -223,6 +229,7 @@ from .decorators import (  # type: ignore[no-redef]
     version_option,
     zero_exit_option,
 )
+from .envvar import env_copy, machine_envvars_apply
 from .execution import (
     INDENT,
     TimerOption,
@@ -260,7 +267,13 @@ from .logging import (
     new_logger,
 )
 from .multicall import MulticallGroup
-from .output import STDOUT_SENTINEL, force_unicode_output, is_stdout, prep_path
+from .output import (
+    STDOUT_SENTINEL,
+    MissingExtraError,
+    force_unicode_output,
+    is_stdout,
+    prep_path,
+)
 from .param_tools import (
     ParamStructure,
     get_param_spec,
@@ -420,6 +433,7 @@ __all__ = [
     "LazySubcommand",
     "LogLevel",
     "ManOption",
+    "MissingExtraError",
     "MissingParameter",
     "MultiChoice",
     "MulticallGroup",
@@ -504,6 +518,7 @@ __all__ = [
     "echo",
     "echo_via_pager",
     "edit",
+    "env_copy",
     "env_summary",
     "export_config_option",
     "field_docstrings",
@@ -542,6 +557,7 @@ __all__ = [
     "launch",
     "lazy_group",
     "load_test_suite",
+    "machine_envvars_apply",
     "make_pass_decorator",
     "make_schema_callable",
     "man_option",
@@ -674,13 +690,13 @@ _scrub_foreign_modules()
 del _scrub_foreign_modules
 
 
-__version__ = "10.0.0"
+__version__ = "10.1.1"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "b8bbcc6dfe47132ff4e2a05a2b92360b984a5022"
+__git_tag_sha__ = "ae5f21b7e153fcf720a992095679bb04b23fb0e8"
 
 
 _LAZY_TEST_TOOLING = {

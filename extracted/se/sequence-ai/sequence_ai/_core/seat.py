@@ -114,7 +114,7 @@ def _guard_signals() -> None:
 
 def _on_end_signal(signum: int, frame: Any) -> None:
     """SIGTERM / SIGHUP: report each open Policy's run under way, as it stands, and send its reports (_ENDING), and give
-    back what every open Policy holds - its seat, the worker its ready() poll started, its place in line - then end as
+    back what every open Policy holds - its seat, the worker its connect started, its place in line - then end as
     the signal would have, its default action raised again. Both run on threads of their own, waited for
     _GIVE_BACK_WAIT_S at most, so a lock the interrupted code held can never keep the process from ending; a seat it did
     not reach runs out on its own (seat_ttl_s, 60 s)."""
@@ -324,7 +324,7 @@ A robot in line had no seat: it is told it is no longer in line. `why` is the pl
 
 
         A lost keepalive is named only when one was: the platform's last word within seat_ttl_s (_may_hold) means
-        nothing ran out. In wait_until_ready() only a stop is said, as its next poll places the robot again. Before,
+        nothing ran out. In wait_until_ready() only a stop is said, as its next connect places the robot again. Before,
         both said no keepalive had reached the platform for 60 s.
 
  
@@ -348,10 +348,10 @@ A robot in line had no seat: it is told it is no longer in line. `why` is the pl
         print(f"[sequences] {place}: {cause}", file=sys.stderr, flush=True)
 
     def _seat_alive(self, body: dict, *, ready: bool = False) -> None:
-        """After a connect, or a ready poll that placed this robot (`ready`): keep its place alive as the platform
-        asked (`keepalive.every_s`), starting the keepalive's thread on the first such answer. A connect always asks
-        (this client asks it to); a ready answer that asks nothing (building, waiting for a card) leaves the keepalives
-        as they were."""
+        """After a connect, or a ready poll that says what this robot holds (`ready`): keep its place alive as the
+        platform asked (`keepalive.every_s`), starting the keepalive's thread on the first such answer. A connect
+        always asks (this client asks it to); a ready answer that asks nothing (building, cold: nothing held) leaves
+        the keepalives as they were."""
         asked = body.get("keepalive") if ready else body["keepalive"]
         if not isinstance(asked, dict):
             return

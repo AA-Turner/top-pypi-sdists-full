@@ -144,8 +144,12 @@ def storage(name: str | None, prices: dict, *, base_url: str | None = None, echo
             gpu: str | None = None) -> dict | None:
     """What keeping the deployment costs a month in storage, beside its worker time: its weights copy at the platform's
     price per GB-month (GET /v1/pricing storage), billed daily whether or not a worker runs - their
-    sizes once it has been deployed, else the price and what 10 GB comes to, for weights it copies (weights_kept: an
-    official template's weights the platform shares, and an uploaded volume's, are not copied). `weights` is the
+    sizes once it has been deployed, else the price and what 10 GB comes to, for weights it copies
+
+
+
+.
+    `weights` is the
     policy's weights origin (its URI; None with has_weights: an origin not said, read as copied). None when the
     platform cannot read its storage price.
 """
@@ -225,7 +229,7 @@ def compute_per_hour(prices: dict, cpu_cores: float | None, memory_gib: float | 
 QUEUE_WAIT_S = QUEUE_TIMEOUT_S
 
 
-def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float = 8.0, cards: int = 1,
+def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | None = None, cards: int = 1,
              base_url: str | None = None, echo=print, prices: dict | None = None,
              measured_per_hour: float | None = None, deployment: str | None = None,
              has_weights: bool = True, cpu_cores: float | None = None, memory_gib: float | None = None,
@@ -233,9 +237,11 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float = 8.
              weights_others: tuple | list = (), buffer_workers: int = 0, max_gpus: int | None = None,
              seats: int | None = None, seats_by: str | None = None, batches: bool = False,
              copies: int = 1, start_s: float | None = None, robots: int = 1, hz: float | None = None,
-             chunk_steps: int | None = None) -> dict:
+             chunk_steps: int | None = None, wait_s: float | None = None) -> dict:
     """What a deployment on `gpu` costs per day and per month: its warm floor around the clock, plus the hours robots
-    use it (beyond the floor). From the platform's public prices; nothing is built. A worker's hour is its card(s) and
+    use it (beyond the floor) - priced by the hour where `hours_per_day` is None, the use of it not known: `seq deploy
+    --dry-run` takes no guess at it.
+ From the platform's public prices; nothing is built. A worker's hour is its card(s) and
     its `cpu_cores` and `memory_gib` (what it requests; None the minimum) at their own prices (compute_per_hour) - a
     CPU worker's (`gpu` None or "cpu") is those alone. `measured_per_hour`, when given, is one worker's measured price
     (its card, and the CPU and memory it was measured using) in place of the list's.
@@ -287,10 +293,10 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float = 8.
 
     waiting = max(0, n - in_use * k) if most is not None and need > most else 0
     warm = floor * 24 * per_hour
-    use = max(0.0, hours_per_day) * beside * per_hour
+    use = max(0.0, hours_per_day or 0.0) * beside * per_hour
 
 
-    uses = max(0, int(starts_per_day)) if beside and hours_per_day > 0 else 0
+    uses = max(0, int(starts_per_day)) if beside and hours_per_day is not None and hours_per_day > 0 else 0
     starts = uses if idle_s else 0
     idle = starts * beside * float(idle_s or 0) / 3600.0 * per_hour
 
@@ -309,7 +315,8 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float = 8.
 
 
 
-    play = (f" within the {chunk_steps / hz:.2g} s its robots can wait for an answer ({chunk_steps} steps at {hz:g} Hz)"
+    play = (f" within the {wait_s:g} s each robot waits for an answer (max_wait_for_batch)" if batches and wait_s else
+            f" within the {chunk_steps / hz:.2g} s its robots can wait for an answer ({chunk_steps} steps at {hz:g} Hz)"
             if batches and hz and chunk_steps else "")
     whose = ((f", as {seats_by}'s check measured" if seats_by else ", as its check measured") if seats
              else f" until a deploy's check measures how many its batches seat{play}" if batches else "")
@@ -324,6 +331,12 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float = 8.
     else:
         echo(f"  {n} robots at once: {need} worker{'s' if need != 1 else ''} at {k} robot{'s' if k != 1 else ''} a "
              f"worker{whose}; {more}")
+    if batches and seats:
+
+
+
+        echo(f"  each robot waits up to {wait_s:g} s for an answer so that its act shares a batch (max_wait_for_batch)"
+             if wait_s else "  max_wait_for_batch not set: each robot waits only while the answer it plays lasts")
     if waiting:
         echo(f"  max_gpus={max_gpus} holds it to {in_use} worker{'s' if in_use != 1 else ''} - {in_use * k} "
              f"robot{'s' if in_use * k != 1 else ''} at once: the other {waiting} wait in line, up to "
@@ -338,17 +351,27 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float = 8.
         if beside:
             what = (f"{beside} spare{'s' if beside != 1 else ''}" if need <= floor
                     else f"{beside} worker{'s' if beside != 1 else ''} more for its robots and their spares")
-            echo(f"  plus ~{hours_per_day:g} h/day in use: {what} beside the warm "
-                 f"{'one' if floor == 1 else 'ones'} while robots are connected -> {money(use)}/day")
+            if hours_per_day is None:
+                echo(f"  plus {what} beside the warm {'one' if floor == 1 else 'ones'} while robots are connected, at "
+                     f"{hourly(per_hour)} a worker")
+            else:
+                echo(f"  plus ~{hours_per_day:g} h/day in use: {what} beside the warm "
+                     f"{'one' if floor == 1 else 'ones'} while robots are connected -> {money(use)}/day")
     else:
         robots_on = min(need, in_use)
         spares_on = in_use - robots_on
         whom = ("its robot's" if n == 1 else
                 f"{robots_on} for its {n - waiting} robot{'s' if n - waiting != 1 else ''} at once")
-        echo(f"  scale to zero: ~{hours_per_day:g} h/day in use"
-             + (f", {in_use} workers ({whom} and {spares_on} spare{'s' if spares_on != 1 else ''})" if spares_on else
-                f", {in_use} workers ({whom})" if in_use > 1 else "")
-             + f" -> {money(use)}/day")
+        if hours_per_day is None:
+            workers = (f"{in_use} workers ({whom} and {spares_on} spare{'s' if spares_on != 1 else ''})" if spares_on
+                       else f"{in_use} workers ({whom})" if in_use > 1 else "")
+            echo(f"  scale to zero: billed only while robots use it, {hourly(per_hour)} a worker"
+                 + (f" - {workers}" if workers else "") + "; nothing while none is connected")
+        else:
+            echo(f"  scale to zero: ~{hours_per_day:g} h/day in use"
+                 + (f", {in_use} workers ({whom} and {spares_on} spare{'s' if spares_on != 1 else ''})" if spares_on else
+                    f", {in_use} workers ({whom})" if in_use > 1 else "")
+                 + f" -> {money(use)}/day")
     if starts:
         tail = (f"its worker runs {float(idle_s) / 60:g} min after its robots are done, before it stops (its idle "
                 "timeout), billed" if beside == 1 else
@@ -364,7 +387,20 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float = 8.
              + f" - up to {float(start_s):.0f} s, the load its check measured")
     elif uses:
         echo(f"  plus each start's own time, {billed}: not priced until a deploy's check measures its load")
-    echo(f"  ~{money(day)}/day, ~{money(day * 30)}/month in worker time")
+    if hours_per_day is None:
+
+        if beside and idle_s:
+            echo(f"  and each time robots stop using it, its worker runs {float(idle_s) / 60:g} min more before it stops "
+                 "(its idle timeout), billed")
+        if beside and start_s:
+            echo(f"  and each start is {billed}" + (", its start included" if name.lower() != "cpu" else "")
+                 + f" - up to {float(start_s):.0f} s, the load its check measured")
+        elif beside:
+            echo(f"  and each start's own time, {billed}: not priced until a deploy's check measures its load")
+        if floor:
+            echo(f"  ~{money(day)}/day, ~{money(day * 30)}/month kept warm, before the hours robots use it")
+    else:
+        echo(f"  ~{money(day)}/day, ~{money(day * 30)}/month in worker time")
 
 
     if idle_s:
@@ -384,7 +420,9 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float = 8.
 
 
 
-    up = in_use if hours_per_day >= 23 else floor
+
+
+    up = in_use if hours_per_day is not None and hours_per_day >= 23 else floor
     if up:
         extra = up * 0.75 * per_hour
         out["replace_usd_per_day"] = round(extra, 2)
@@ -416,10 +454,13 @@ def evals(name: str, *, limit: int | None = None, cursor: str | None = None, bas
         if not out.get("total"):
             echo(f"no evals of {out['deployment']} yet: run one with `seq eval run {out['deployment']} --benchmark <name>`")
         return out
-    width = max([len("BENCHMARK")] + [len(p.get("benchmark") or "") for p in history])
+
+
+    benches = [(p.get("benchmark") or "") + (" (deleted)" if p.get("benchmark_deleted") else "") for p in history]
+    width = max([len("BENCHMARK")] + [len(b) for b in benches])
     echo(f"{'EVAL':<8}  {'VER':<4}  {'BENCHMARK':<{width}}  {_metric_head(history)}")
-    for p in history:
-        echo(f"{p['eval_id'][:8]}  {'v' + str(p.get('model_version') or '?'):<4}  {p.get('benchmark') or '':<{width}}  "
+    for p, bench in zip(history, benches):
+        echo(f"{p['eval_id'][:8]}  {'v' + str(p.get('model_version') or '?'):<4}  {bench:<{width}}  "
              f"{_metric(p)}" + ("  (incomplete)" if p.get("incomplete") else ""))
     _footer(out, len(history), echo)
     return out

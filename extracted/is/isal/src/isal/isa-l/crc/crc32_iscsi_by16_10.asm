@@ -46,12 +46,19 @@
 ;
 
 %include "reg_sizes.asm"
+%include "crc.inc"
 
 %ifndef FUNCTION_NAME
 %define FUNCTION_NAME crc32_iscsi_by16_10
 %endif
 
-%if (AS_FEATURE_LEVEL) >= 10
+%ifndef fetch_dist
+%define	fetch_dist	1536
+%endif
+
+%ifndef PREFETCH
+%define PREFETCH        prefetcht0
+%endif
 
 [bits 64]
 default rel
@@ -73,10 +80,22 @@ section .text
 	%xdefine	arg1_low32 edx
 %endif
 
-align 16
+%ifdef NO_VPTERNLOGQ
+%macro vpternlogq 4
+%if %4 == 0x96
+	vpxorq		%1, %1, %2
+	vpxorq		%1, %1, %3
+%else
+	vpternlogq	%1, %2, %3, %4	; fallback
+%endif
+%endmacro
+%endif
+
+align 64
 mk_global FUNCTION_NAME, function
 FUNCTION_NAME:
 	endbranch
+	lea		r10, [rel crc32_iscsi_const]
 %ifidn __OUTPUT_FORMAT__, win64
 	sub		rsp, (16*10 + 8)
 
@@ -93,6 +112,13 @@ FUNCTION_NAME:
 	vmovdqa		[rsp + 16*9], xmm15
 %endif
 
+	;; fastpath for short data
+	mov		eax, arg1_low32
+	cmp		arg3, 8
+	jb		.less_than_8
+	cmp		arg3, 16
+	jbe		.no_more_than_16
+
 	; check if smaller than 256B
 	cmp		arg3, 256
 	jl		.less_than_256
@@ -104,7 +130,7 @@ FUNCTION_NAME:
 	vmovdqu8	zmm0, [arg2+16*0]
 	vmovdqu8	zmm4, [arg2+16*4]
 	vpxorq		zmm0, zmm10
-	vbroadcasti32x4	zmm10, [rk3]	;xmm10 has rk3 and rk4
+	vbroadcasti32x4	zmm10, [r10 + crc_fold_const_fold_8x128b]	;xmm10 has rk3 and rk4
 					;imm value of pclmulqdq instruction will determine which constant to use
 
 	sub		arg3, 256
@@ -113,8 +139,43 @@ FUNCTION_NAME:
 
 	vmovdqu8	zmm7, [arg2+16*8]
 	vmovdqu8	zmm8, [arg2+16*12]
-	vbroadcasti32x4 zmm16, [rk_1]	;zmm16 has rk-1 and rk-2
+	vbroadcasti32x4 zmm16, [r10 + crc_fold_const_fold_16x128b]	;zmm16 has rk-1 and rk-2
 	sub		arg3, 256
+
+%if fetch_dist != 0
+	; check if there is at least 1.5KB (fetch distance) + 256B in the buffer
+        cmp             arg3, (fetch_dist + 256)
+        jb              .fold_256_B_loop
+
+align 16
+.fold_and_prefetch_256_B_loop:
+	add		arg2, 256
+	PREFETCH	[arg2+fetch_dist+0]
+	vpclmulqdq	zmm1, zmm0, zmm16, 0x10
+	vpclmulqdq	zmm0, zmm0, zmm16, 0x01
+	vpternlogq	zmm0, zmm1, [arg2+16*0], 0x96
+
+	PREFETCH	[arg2+fetch_dist+64]
+	vpclmulqdq	zmm2, zmm4, zmm16, 0x10
+	vpclmulqdq	zmm4, zmm4, zmm16, 0x01
+	vpternlogq	zmm4, zmm2, [arg2+16*4], 0x96
+
+	PREFETCH	[arg2+fetch_dist+64*2]
+	vpclmulqdq	zmm3, zmm7, zmm16, 0x10
+	vpclmulqdq	zmm7, zmm7, zmm16, 0x01
+	vpternlogq	zmm7, zmm3, [arg2+16*8], 0x96
+
+	PREFETCH	[arg2+fetch_dist+64*3]
+	vpclmulqdq	zmm5, zmm8, zmm16, 0x10
+	vpclmulqdq	zmm8, zmm8, zmm16, 0x01
+	vpternlogq	zmm8, zmm5, [arg2+16*12], 0x96
+
+	sub		arg3, 256
+
+	; check if there is another 1.5KB (fetch distance) + 256B in the buffer
+        cmp             arg3, (fetch_dist + 256)
+	jge     	.fold_and_prefetch_256_B_loop
+%endif ; fetch_dist != 0
 
 align 16
 .fold_256_B_loop:
@@ -184,7 +245,7 @@ align 16
         cmp             arg3, -64
         jl              .fold_128_B_register
 
-        vbroadcasti32x4 zmm10, [rk15]
+        vbroadcasti32x4 zmm10, [r10 + crc_fold_const_fold_4x128b]
         ;; If there are still 64 bytes left, folds from 128 bytes to 64 bytes
         ;; and handles the next 64 bytes
         vpclmulqdq      zmm2, zmm0, zmm10, 0x10
@@ -197,15 +258,15 @@ align 16
 align 16
 .fold_128_B_register:
 	; fold the 8 128b parts into 1 xmm register with different constants
-	vmovdqu8	zmm16, [rk9]		; multiply by rk9-rk16
-	vmovdqu8	zmm11, [rk17]		; multiply by rk17-rk20, rk1,rk2, 0,0
+	vmovdqu8	zmm16, [r10 + crc_fold_const_fold_7x128b]		; multiply by rk9-rk16
+	vmovdqu8	zmm11, [r10 + crc_fold_const_fold_3x128b]		; multiply by rk17-rk20, rk1,rk2, 0,0
 	vpclmulqdq	zmm1, zmm0, zmm16, 0x01
 	vpclmulqdq	zmm2, zmm0, zmm16, 0x10
 	vextracti64x2	xmm7, zmm4, 3		; save last that has no multiplicand
 
 	vpclmulqdq	zmm5, zmm4, zmm11, 0x01
 	vpclmulqdq	zmm6, zmm4, zmm11, 0x10
-	vmovdqa		xmm10, [rk1]		; Needed later in reduction loop
+	vmovdqa		xmm10, [r10 + crc_fold_const_fold_1x128b]		; Needed later in reduction loop
 	vpternlogq	zmm1, zmm2, zmm5, 0x96	; xor ABC
 	vpternlogq	zmm1, zmm6, zmm7, 0x96	; xor ABC
 
@@ -256,12 +317,12 @@ align 16
 
 	; get rid of the extra data that was loaded before
 	; load the shift constant
-	lea		rax, [rel pshufb_shf_table]
+	lea		rax, [rel shf_table_refl]
 	add		rax, arg3
 	vmovdqu		xmm0, [rax]
 
 	vpshufb		xmm7, xmm0
-	vpxor		xmm0, [mask3]
+	vpxor		xmm0, [rel shf_xor_mask]
 	vpshufb		xmm2, xmm0
 
 	vpblendvb	xmm2, xmm2, xmm1, xmm0
@@ -273,11 +334,11 @@ align 16
 align 16
 .128_done:
 	; compute crc of a 128-bit value
-        xor             rax, rax
-        vmovq           r11, xmm7
-        crc32           rax, r11
-        vpextrq         r11, xmm7, 1
-        crc32           rax, r11
+	xor		rax, rax
+	vmovq		r11, xmm7
+	vpextrq		r10, xmm7, 1
+	crc32		rax, r11
+	crc32		rax, r10
 
 align 16
 .cleanup:
@@ -325,7 +386,7 @@ align 16
         cmp             arg3, 64
         jb              .reduce_64B
 
-        vbroadcasti32x4 zmm10, [rk15]
+        vbroadcasti32x4 zmm10, [r10 + crc_fold_const_fold_4x128b]
 
 align 16
 .fold_64B_loop:
@@ -343,13 +404,13 @@ align 16
 align 16
 .reduce_64B:
         ; Reduce from 64 bytes to 16 bytes
-	vmovdqu8	zmm11, [rk17]
+	vmovdqu8	zmm11, [r10 + crc_fold_const_fold_3x128b]
 	vpclmulqdq	zmm1, zmm0, zmm11, 0x01
 	vpclmulqdq	zmm2, zmm0, zmm11, 0x10
 	vextracti64x2	xmm7, zmm0, 3		; save last that has no multiplicand
         vpternlogq      zmm1, zmm2, zmm7, 0x96
 
-	vmovdqa		xmm10, [rk_1b] ; Needed later in reduction loop
+	vmovdqa		xmm10, [r10 + crc_fold_const_fold_1x128b_b] ; Needed later in reduction loop
 
 	vshufi64x2      zmm8, zmm1, zmm1, 0x4e ; Swap 1,0,3,2 - 01 00 11 10
 	vpxorq          ymm8, ymm8, ymm1
@@ -363,7 +424,7 @@ align 16
 align 16
 .less_than_64:
 	;; if there is, load the constants
-	vmovdqa	xmm10, [rk_1b]
+	vmovdqa	xmm10, [r10 + crc_fold_const_fold_1x128b_b]
 
 	vmovdqu	xmm7, [arg2]		; load the plaintext
 	vpxor	xmm7, xmm1              ; xmm1 already has initial crc value
@@ -379,135 +440,48 @@ align 16
 
 align 16
 .less_than_32:
-	; mov initial crc to the return value. this is necessary for zero-length buffers.
-	mov	eax, arg1_low32
-	test	arg3, arg3
-	je	.cleanup
-
+	;; should be in the range [17, 31] bytes
 	vmovd	xmm0, arg1_low32	; get the initial crc value
-
-	cmp	arg3, 16
-	je	.exact_16_left
-	jl	.less_than_16_left
 
 	vmovdqu	xmm7, [arg2]		; load the plaintext
 	vpxor	xmm7, xmm0		; xor the initial crc value
 	add	arg2, 16
 	sub	arg3, 16
-	vmovdqa	xmm10, [rk1]		; rk1 and rk2 in xmm10
+	vmovdqa	xmm10, [r10 + crc_fold_const_fold_1x128b]		; rk1 and rk2 in xmm10
 	jmp	.get_last_two_xmms
 
+; fastpath for short data
 align 16
-.less_than_16_left:
-	cmp	arg3, 4
-	jl	.only_less_than_4
-
-        xor     r10, r10
-        bts     r10, arg3
-        dec     r10
-        kmovw   k2, r10d
-        vmovdqu8 xmm7{k2}{z}, [arg2]
-
-	vpxor	xmm7, xmm0	; xor the initial crc value
-
-	lea	rax, [rel pshufb_shf_table]
-	vmovdqu	xmm0, [rax + arg3]
-	vpshufb	xmm7,xmm0
-	jmp	.128_done
+.no_more_than_16:
+	test	arg3, 16		; check if exact 16 bytes
+	jz	.less_than_16		; no, do 8 bytes check
+	crc32	rax, qword[arg2]
+	crc32	rax, qword[arg2+8]
+	jmp	.cleanup		; done
 
 align 16
-.exact_16_left:
-	vmovdqu	xmm7, [arg2]
-	vpxor	xmm7, xmm0      ; xor the initial crc value
-	jmp	.128_done
+.less_than_16:
+	test	arg3, 8			; check if 8 bytes remaining at least
+	jz	.less_than_8		; no, do 4 bytes check
+	crc32	rax, qword[arg2]	; calculate 8 bytes anyway
+	add	arg2, 8
 
-align 16
-.only_less_than_4:
-        mov     eax, arg1_low32
-	cmp	arg3, 2
-	jb	.only_1_left
-        je      .only_2_left
+.less_than_8:
+	test	arg3, 4			; check if 4 bytes remaining at least
+	jz	.less_than_4		; no, do 2 bytes check
+	crc32	eax, dword[arg2]	; calculate 4 bytes anyway
+	add	arg2, 4
 
-        ; 3 bytes left
-        crc32   eax, word [arg2]
-        crc32   eax, byte [arg2 + 2]
-        jmp     .cleanup
+.less_than_4:
+	test	arg3, 2			; check if 2 bytes remaining at least
+	jz	.less_than_2		; no, do 1 byte check
+	crc32	eax, word[arg2]		; calculate 2 bytes anyway
+	add	arg2, 2
 
-align 16
-.only_2_left:
-        crc32   eax, word [arg2]
-        jmp     .cleanup
+.less_than_2:
+	test	arg3, 1			; check if 1 byte remaining
+	jz	.cleanup		; no, done
+	crc32	eax, byte[arg2]		; calculate 1 byte
+	jmp	.cleanup		; all done
 
-align 16
-.only_1_left:
-        crc32   eax, byte [arg2]
-        jmp     .cleanup
-
-section .data
-align 32
-
-%ifndef USE_CONSTS
-; precomputed constants
-rk_1: dq 0x00000000b9e02b86
-rk_2: dq 0x00000000dcb17aa4
-rk1: dq 0x00000000493c7d27
-rk2: dq 0x0000000ec1068c50
-rk3: dq 0x0000000206e38d70
-rk4: dq 0x000000006992cea2
-rk5: dq 0x00000000493c7d27
-rk6: dq 0x00000000dd45aab8
-rk7: dq 0x00000000dea713f0
-rk8: dq 0x0000000105ec76f0
-rk9: dq 0x0000000047db8317
-rk10: dq 0x000000002ad91c30
-rk11: dq 0x000000000715ce53
-rk12: dq 0x00000000c49f4f67
-rk13: dq 0x0000000039d3b296
-rk14: dq 0x00000000083a6eec
-rk15: dq 0x000000009e4addf8
-rk16: dq 0x00000000740eef02
-rk17: dq 0x00000000ddc0152b
-rk18: dq 0x000000001c291d04
-rk19: dq 0x00000000ba4fc28e
-rk20: dq 0x000000003da6d0cb
-
-rk_1b: dq 0x00000000493c7d27
-rk_2b: dq 0x0000000ec1068c50
-	dq 0x0000000000000000
-	dq 0x0000000000000000
-
-%else
-INCLUDE_CONSTS
-%endif
-
-pshufb_shf_table:
-; use these values for shift constants for the pshufb instruction
-; different alignments result in values as shown:
-;       dq 0x8887868584838281, 0x008f8e8d8c8b8a89 ; shl 15 (16-1) / shr1
-;       dq 0x8988878685848382, 0x01008f8e8d8c8b8a ; shl 14 (16-3) / shr2
-;       dq 0x8a89888786858483, 0x0201008f8e8d8c8b ; shl 13 (16-4) / shr3
-;       dq 0x8b8a898887868584, 0x030201008f8e8d8c ; shl 12 (16-4) / shr4
-;       dq 0x8c8b8a8988878685, 0x04030201008f8e8d ; shl 11 (16-5) / shr5
-;       dq 0x8d8c8b8a89888786, 0x0504030201008f8e ; shl 10 (16-6) / shr6
-;       dq 0x8e8d8c8b8a898887, 0x060504030201008f ; shl 9  (16-7) / shr7
-;       dq 0x8f8e8d8c8b8a8988, 0x0706050403020100 ; shl 8  (16-8) / shr8
-;       dq 0x008f8e8d8c8b8a89, 0x0807060504030201 ; shl 7  (16-9) / shr9
-;       dq 0x01008f8e8d8c8b8a, 0x0908070605040302 ; shl 6  (16-10) / shr10
-;       dq 0x0201008f8e8d8c8b, 0x0a09080706050403 ; shl 5  (16-11) / shr11
-;       dq 0x030201008f8e8d8c, 0x0b0a090807060504 ; shl 4  (16-12) / shr12
-;       dq 0x04030201008f8e8d, 0x0c0b0a0908070605 ; shl 3  (16-13) / shr13
-;       dq 0x0504030201008f8e, 0x0d0c0b0a09080706 ; shl 2  (16-14) / shr14
-;       dq 0x060504030201008f, 0x0e0d0c0b0a090807 ; shl 1  (16-15) / shr15
-dq 0x8786858483828100, 0x8f8e8d8c8b8a8988
-dq 0x0706050403020100, 0x000e0d0c0b0a0908
-
-mask:  dq     0xFFFFFFFFFFFFFFFF, 0x0000000000000000
-mask2: dq     0xFFFFFFFF00000000, 0xFFFFFFFFFFFFFFFF
-mask3: dq     0x8080808080808080, 0x8080808080808080
-
-%else  ; Assembler doesn't understand these opcodes. Add empty symbol for windows.
-%ifidn __OUTPUT_FORMAT__, win64
-global no_ %+ FUNCTION_NAME
-no_ %+ FUNCTION_NAME %+ :
-%endif
-%endif ; (AS_FEATURE_LEVEL) >= 10
+%include "crc_const_extern.asm"

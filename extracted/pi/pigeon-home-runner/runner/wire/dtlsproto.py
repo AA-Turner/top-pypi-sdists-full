@@ -104,9 +104,12 @@ EXT_PRE_SHARED_KEY = 41
 EXT_PSK_MODES = 45
 EXT_COOKIE = 47
 EXT_CONNECTION_ID = 54
-# Private-use extension type for this bounded profile: the
-# configuration-style platform payload in EncryptedExtensions.
-EXT_PLATFORM_CONFIGURATION = 0xFE00
+EXT_EARLY_DATA = 42
+# Interim code point for platform_info, until IANA assigns
+# one. RFC 8446 and RFC 8447 reserve values whose first byte
+# is 255 (0xFF00-0xFFFF) for Private Use, except 0xFF01,
+# which is renegotiation_info. 0xFE00 is not in that range.
+EXT_PLATFORM_CONFIGURATION = 0xFFA0
 
 PSK_MODE_KE = 0              # prohibited by the profile -- never
 PSK_MODE_DHE_KE = 1          # the only mode this profile speaks
@@ -911,6 +914,13 @@ class DtlsClientCore(_Endpoint):
             (EXT_KEY_SHARE, shares),
             (EXT_PSK_MODES, bytes([1, PSK_MODE_DHE_KE])),
             (EXT_CONNECTION_ID, b"\x04" + self._our_cid()),
+            # The platform offer: empty. It says only that
+            # this endpoint can receive the disclosure in
+            # EncryptedExtensions; it asks for nothing, and
+            # the responder chooses the tier. Without it the
+            # responder must not send the extension at all
+            # (RFC 8446 section 4.2).
+            (EXT_PLATFORM_CONFIGURATION, b""),
         ]
         if self._cookie is not None:
             exts.append((EXT_COOKIE, len(self._cookie).to_bytes(
@@ -1268,6 +1278,7 @@ class _ServerSession(_Endpoint):
         self.resumed = False
         self.established = False
         self.platform_sent = False
+        self._platform_offered = False
         self._our_cid = None
         self._hs = None
         self._c_hs = None
@@ -1387,6 +1398,11 @@ class _ServerSession(_Endpoint):
                           "dtls: PSK binder mismatch; handshake "
                           "refused")
         self.transcript.add(raw_ch)
+        # The disclosure rides only to a peer that offered
+        # it in this ClientHello; an extension the client
+        # did not offer must not be sent (RFC 8446 4.2).
+        self._platform_offered = (
+            EXT_PLATFORM_CONFIGURATION in exts)
         if EXT_CONNECTION_ID in exts:
             cid_ext = exts[EXT_CONNECTION_ID]
             if cid_ext:
@@ -1425,7 +1441,9 @@ class _ServerSession(_Endpoint):
         self._s_hs = _derive_secret(hs, b"s hs traffic", th)
         self.receivers[2] = _RecordSealer(self._c_hs)
         self.senders[2] = _RecordSealer(self._s_hs)
-        platform_payload = self._platform_payload()
+        platform_payload = (
+            self._platform_payload() if self._platform_offered
+            else None)
         ee_exts = [] if platform_payload is None else [
             (EXT_PLATFORM_CONFIGURATION, platform_payload)]
         ee_raw = _hs_message(
@@ -1689,6 +1707,18 @@ class DtlsServerCore:
             fields = _parse_client_hello(body)
         except DtlsError:
             self.log("dtls: malformed ClientHello; dropped",
+                     "WARN")
+            return []
+        if EXT_EARLY_DATA in fields["exts"]:
+            # This profile has no 0-RTT, ever: early data is
+            # not forward secret and is replayable between
+            # connections, and a job is not safe to replay. A
+            # ClientHello that carries early data is a
+            # malformed flight for this profile and is
+            # rejected -- not answered, and not processed with
+            # the early data quietly skipped.
+            self.log("dtls: ClientHello carries early data; "
+                     "rejected (no 0-RTT in this profile)",
                      "WARN")
             return []
         cookie_ext = fields["exts"].get(EXT_COOKIE)

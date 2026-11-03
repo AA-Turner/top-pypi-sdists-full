@@ -1,5 +1,7 @@
+import asyncio
 import json
 import sys
+import threading
 from io import BytesIO
 from socket import AF_INET, SOCK_RAW, SOCK_STREAM, socket
 
@@ -8,6 +10,7 @@ import requests
 import vcr.errors
 from packaging import version
 
+from pytest_recording import network
 from pytest_recording.network import blocking_context
 
 # Windows doesn’t have AF_NETLINK & AF_UNIX
@@ -59,7 +62,7 @@ def test_recording(httpbin):
 
 @pytest.mark.block_network
 def test_error(httpbin):
-    with pytest.raises(RuntimeError, match=r"^Network is disabled$"):
+    with pytest.raises(RuntimeError, match=r"^Network is disabled for host '127.0.0.1'$"):
         assert requests.get(httpbin.url + "/ip").status_code == 200
     """
     )
@@ -88,7 +91,7 @@ def test_recording(httpbin):
 
 @pytest.mark.block_network
 def test_error(httpbin):
-    with pytest.raises(RuntimeError, match=r"^Network is disabled$"):
+    with pytest.raises(RuntimeError, match=r"^Network is disabled for host '127.0.0.1'$"):
         assert requests.get(httpbin.url + "/ip").status_code == 200
     """
     )
@@ -112,7 +115,7 @@ def test_recording(httpbin):
 
 @pytest.mark.block_network
 def test_error(httpbin):
-    with pytest.raises(RuntimeError, match=r"^Network is disabled$"):
+    with pytest.raises(RuntimeError, match=r"^Network is disabled for host '127.0.0.1'$"):
         assert requests.get(httpbin.url + "/ip").status_code == 200
     """
     )
@@ -141,7 +144,7 @@ import pytest
 @pytest.mark.block_network
 def test_no_blocking(httpbin):
     _, port = httpbin.url.rsplit(":", 1)
-    with pytest.raises(RuntimeError, match=r"^Network is disabled$"):
+    with pytest.raises(RuntimeError, match=r"^Network is disabled for host '127.0.0.1'$"):
         call(int(port))
     """
     )
@@ -170,7 +173,7 @@ def test_block_network_allowed_socket():
 @skip_unix
 @pytest.mark.block_network(allowed_hosts=["./allowed_socket"])
 def test_block_network_blocked_socket():
-    with pytest.raises(RuntimeError, match=r"^Network is disabled$"):
+    with pytest.raises(RuntimeError, match=r"^Network is disabled for host './blocked_socket'$"):
         call("./blocked_socket", AF_UNIX, SOCK_STREAM)
 
 
@@ -179,7 +182,7 @@ def test_block_network_blocked_socket():
 @skip_netlink
 @pytest.mark.block_network(allowed_hosts=["./allowed_socket", "127.0.0.1", "0"])
 def test_blocked():
-    with pytest.raises(RuntimeError, match=r"^Network is disabled$"):
+    with pytest.raises(RuntimeError, match=r"^Network is disabled for host ''$"):
         call((0, 0), AF_NETLINK, SOCK_RAW)
 
 
@@ -189,7 +192,7 @@ def test_blocked():
 @pytest.mark.block_network
 @pytest.mark.vcr
 def test_with_vcr_mark(httpbin):
-    with pytest.raises(vcr.errors.CannotOverwriteExistingCassetteException, match=r"overwrite existing cassette"):
+    with pytest.raises(vcr.errors.CannotOverwriteExistingCassetteException):
         requests.get(httpbin.url + "/ip")
     assert socket.connect.__name__ == "network_guard"
     assert socket.connect_ex.__name__ == "network_guard"
@@ -197,20 +200,20 @@ def test_with_vcr_mark(httpbin):
 
 @pytest.mark.block_network
 def test_no_vcr_mark(httpbin):
-    with pytest.raises(RuntimeError, match=r"^Network is disabled$"):
+    with pytest.raises(RuntimeError, match=r"^Network is disabled for host '127.0.0.1'$"):
         requests.get(httpbin.url + "/ip")
 
 
 @pytest.mark.block_network(allowed_hosts=["127.0.0.2"])
 def test_no_vcr_mark_bytes():
-    with pytest.raises(RuntimeError, match=r"^Network is disabled$"):
+    with pytest.raises(RuntimeError, match=r"^Network is disabled for host b'127.0.0.1'$"):
         with socket(AF_INET, SOCK_STREAM) as sock:
             sock.connect((b"127.0.0.1", 80))
 
 
 @pytest.mark.block_network(allowed_hosts=["127.0.0.2"])
 def test_no_vcr_mark_bytearray():
-    with pytest.raises(RuntimeError, match=r"^Network is disabled$"):
+    with pytest.raises(RuntimeError, match=r"^Network is disabled for host bytearray\(b'127.0.0.1'\)$"):
         with socket(AF_INET, SOCK_STREAM) as sock:
             sock.connect((bytearray(b"127.0.0.1"), 80))
 
@@ -256,7 +259,7 @@ def test_allowed(httpbin):
 
 {marker}
 def test_blocked():
-    with pytest.raises(RuntimeError, match="^Network is disabled$"):
+    with pytest.raises(RuntimeError, match="^Network is disabled for host "):
         requests.get("http://example.com")
     assert socket.socket.connect.__name__ == "network_guard"
     assert socket.socket.connect_ex.__name__ == "network_guard"
@@ -281,14 +284,14 @@ import vcr.errors
 
 @pytest.mark.vcr
 def test_with_vcr_mark(httpbin):
-    with pytest.raises(vcr.errors.CannotOverwriteExistingCassetteException, match=r"overwrite existing cassette"):
+    with pytest.raises(vcr.errors.CannotOverwriteExistingCassetteException):
         requests.get(httpbin.url + "/ip")
     assert socket.socket.connect.__name__ == "network_guard"
     assert socket.socket.connect_ex.__name__ == "network_guard"
 
 
 def test_no_vcr_mark(httpbin):
-    with pytest.raises(RuntimeError, match=r"^Network is disabled$"):
+    with pytest.raises(RuntimeError, match=r"^Network is disabled for host '127.0.0.1'$"):
         requests.get(httpbin.url + "/ip")
     """
     )
@@ -312,7 +315,7 @@ def test_recording(httpbin):
     assert requests.get(httpbin.url + "/ip").status_code == 200
 
 def test_no_vcr_mark(httpbin):
-    with pytest.raises(RuntimeError, match=r"^Network is disabled$"):
+    with pytest.raises(RuntimeError, match=r"^Network is disabled for host '127.0.0.1'$"):
         requests.get(httpbin.url + "/ip")
     """
     )
@@ -335,7 +338,7 @@ def test_pycurl_error(httpbin):
     c = pycurl.Curl()
     c.setopt(c.URL, httpbin.url + "/ip")  # type: ignore[attr-defined]
     c.setopt(c.WRITEDATA, buffer)  # type: ignore[attr-defined]
-    with pytest.raises(RuntimeError, match=r"^Network is disabled$"):
+    with pytest.raises(RuntimeError, match=r"^Network is disabled for host '127.0.0.1'$"):
         c.perform()
     c.close()
 
@@ -374,7 +377,7 @@ def test_pycurl_with_allowed_hosts_blocked(httpbin):
     c = pycurl.Curl()
     c.setopt(c.URL, "http://example.com")  # type: ignore[attr-defined]
     c.setopt(c.WRITEDATA, buffer)  # type: ignore[attr-defined]
-    with pytest.raises(RuntimeError, match=r"^Network is disabled$"):
+    with pytest.raises(RuntimeError, match=r"^Network is disabled for host 'example.com'$"):
         c.perform()
     c.close()
 
@@ -450,3 +453,75 @@ def test_request():
         result.assert_outcomes(error=1)
     expected = "Invalid arguments to `block_network`. It accepts only the following keyword arguments: `allowed_hosts`."
     assert expected in result.stdout.str()
+
+
+def test_socketpair_is_allowed_while_network_is_blocked():
+    # `socketpair()` is emulated on Windows with a real loopback `connect()`, which the guard used
+    # to reject - the socket is in-process, so it must not count as network access.
+    with blocking_context():
+        left, right = network.socket.socketpair()
+        try:
+            left.sendall(b"ping")
+            assert right.recv(4) == b"ping"
+        finally:
+            left.close()
+            right.close()
+
+        # A real remote connect is still blocked.
+        probe = socket(AF_INET, SOCK_STREAM)
+        try:
+            with pytest.raises(RuntimeError, match="Network is disabled"):
+                probe.connect(("192.0.2.1", 80))
+        finally:
+            probe.close()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="only Windows builds the self-pipe from socketpair()")
+def test_event_loop_can_be_created_while_network_is_blocked():
+    # asyncio builds every event loop's self-pipe with socketpair(), so before the guard exempted
+    # it, every asyncio test died at setup with "Network is disabled".
+    with blocking_context():
+        loop = asyncio.new_event_loop()
+        loop.close()
+
+
+def test_socketpair_exemption_does_not_leak_to_other_threads(monkeypatch):
+    # The exemption is thread-local on purpose: a module-level flag would unblock every other
+    # thread's connections for as long as one thread sits inside `socketpair()`.
+    started = threading.Event()
+    release = threading.Event()
+    real_socketpair = network._original_socketpair
+
+    def slow_socketpair(*args, **kwargs):
+        started.set()
+        assert release.wait(10), "main thread never released the socketpair call"
+        return real_socketpair(*args, **kwargs)
+
+    monkeypatch.setattr(network, "_original_socketpair", slow_socketpair)
+
+    made: "list[tuple[socket, socket]]" = []
+
+    def worker_target() -> None:
+        made.append(network.socket.socketpair())
+
+    worker = threading.Thread(target=worker_target)
+
+    with blocking_context():
+        worker.start()
+        assert started.wait(10), "worker never entered socketpair()"
+        try:
+            # While that call is in flight, this thread is still not allowed to connect.
+            probe = socket(AF_INET, SOCK_STREAM)
+            try:
+                with pytest.raises(RuntimeError, match="Network is disabled"):
+                    probe.connect(("192.0.2.1", 80))
+            finally:
+                probe.close()
+        finally:
+            release.set()
+            worker.join(10)
+
+    assert not worker.is_alive()
+    left, right = made[0]
+    left.close()
+    right.close()

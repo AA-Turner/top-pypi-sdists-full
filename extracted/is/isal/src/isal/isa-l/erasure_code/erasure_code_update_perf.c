@@ -138,9 +138,13 @@ decode_test(int m, int k, u8 **update_buffs, u8 **recov, u8 *a, u8 *src_in_err, 
                 return -1;
         }
 
-        for (i = 0; i < nerrs; i++)
+        memset(c, 0, sizeof(c));
+        for (i = 0; i < nerrs; i++) {
+                int s = src_err_list[i];
                 for (j = 0; j < k; j++)
-                        c[k * i + j] = d[k * src_err_list[i] + j];
+                        for (r = 0; r < k; r++)
+                                c[k * i + j] ^= gf_mul(d[k * r + j], a[k * s + r]);
+        }
 
         // Recover data
         ec_init_tables(k, nerrs, c, g_tbls);
@@ -148,6 +152,24 @@ decode_test(int m, int k, u8 **update_buffs, u8 **recov, u8 *a, u8 *src_in_err, 
                 FUNCTION_UNDER_TEST(TEST_LEN(m), k, nerrs, i, g_tbls, recov[i], perf_update_buffs);
         }
         return 0;
+}
+
+// Helper function for single source benchmark
+void
+encode_single_src_test(const int m, const int k, u8 *g_tbls, u8 **perf_update_buffs, u8 *a)
+{
+        // Make parity vects
+        ec_init_tables(k, m - k, &a[k * k], g_tbls);
+        FUNCTION_UNDER_TEST(TEST_LEN(m), k, m - k, 0, g_tbls, perf_update_buffs[0],
+                            &perf_update_buffs[k]);
+}
+
+// Helper function for simple single source benchmark
+void
+encode_single_src_simple_test(const int m, const int k, u8 *g_tbls, u8 **perf_update_buffs, u8 *a)
+{
+        FUNCTION_UNDER_TEST(TEST_LEN(m), k, m - k, 0, g_tbls, perf_update_buffs[0],
+                            &perf_update_buffs[k]);
 }
 
 int
@@ -184,12 +206,6 @@ main(int argc, char *argv[])
                         usage(argv[0]);
                         return -1;
                 }
-        }
-
-        if (nerrs > k) {
-                printf("Number of errors (%d) cannot be higher than number of data buffers (%d)\n",
-                       nerrs, k);
-                return -1;
         }
 
         if (k <= 0) {
@@ -231,7 +247,7 @@ main(int argc, char *argv[])
         srand(TEST_SEED);
 
         for (i = 0; i < nerrs;) {
-                u8 next_err = rand() % k;
+                u8 next_err = rand() % m;
                 for (j = 0; j < i; j++)
                         if (next_err == err_list[j])
                                 break;
@@ -323,24 +339,19 @@ main(int argc, char *argv[])
         // Start encode test
         BENCHMARK(&start, BENCHMARK_TIME, encode_update_test(m, k, g_tbls, perf_update_buffs, a));
         printf(xstr(FUNCTION_UNDER_TEST) TEST_TYPE_STR ": ");
-        perf_print(start, (long long) (TEST_LEN(m)) * (m));
+        perf_print(start, (double) (TEST_LEN(m)) * (m));
 
         // Start encode test
         BENCHMARK(&start, BENCHMARK_TIME,
-                  // Make parity vects
-                  ec_init_tables(k, m - k, &a[k * k], g_tbls);
-                  FUNCTION_UNDER_TEST(TEST_LEN(m), k, m - k, 0, g_tbls, perf_update_buffs[0],
-                                      &perf_update_buffs[k]));
+                  encode_single_src_test(m, k, g_tbls, perf_update_buffs, a));
         printf(xstr(FUNCTION_UNDER_TEST) "_single_src" TEST_TYPE_STR ": ");
-        perf_print(start, (long long) (TEST_LEN(m)) * (m - k + 1));
+        perf_print(start, (double) (TEST_LEN(m)) * (m - k + 1));
 
         // Start encode test
         BENCHMARK(&start, BENCHMARK_TIME,
-                  // Make parity vects
-                  FUNCTION_UNDER_TEST(TEST_LEN(m), k, m - k, 0, g_tbls, perf_update_buffs[0],
-                                      &perf_update_buffs[k]));
+                  encode_single_src_simple_test(m, k, g_tbls, perf_update_buffs, a));
         printf(xstr(FUNCTION_UNDER_TEST) "_single_src_simple" TEST_TYPE_STR ": ");
-        perf_print(start, (long long) (TEST_LEN(m)) * (m - k + 1));
+        perf_print(start, (double) (TEST_LEN(m)) * (m - k + 1));
 
         for (i = k; i < m; i++) {
                 memset(update_buffs[i], 0, TEST_LEN(m)); // initialize the destination buffer to be
@@ -370,7 +381,7 @@ main(int argc, char *argv[])
         }
 
         printf(xstr(FUNCTION_UNDER_TEST) "_decode" TEST_TYPE_STR ": ");
-        perf_print(start, (long long) (TEST_LEN(m)) * (k + nerrs));
+        perf_print(start, (double) (TEST_LEN(m)) * (k + nerrs));
 
         printf("done all: Pass\n");
 

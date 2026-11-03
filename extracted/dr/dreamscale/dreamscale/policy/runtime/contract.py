@@ -66,6 +66,10 @@ class RuntimeContract:
     # Hy-VLA: the frames this many EXECUTED actions before the observation, oldest first,
     # those the episode has reached (policy.context.TickHistory); the server fills the rest.
     history_ticks: tuple[int, ...] = ()
+    # Rows that aren't the state (end-effector poses) held at ``current_position``: each
+    # action value's index in the state vector (-1: zero, e.g. a mobile base held still).
+    # Empty: the hold is the observation's own (``hold_action`` or its joint positions).
+    hold_indices: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         if not isfinite(self.task_prepare_timeout_s) or self.task_prepare_timeout_s <= 0:

@@ -223,7 +223,7 @@ fn py_int(lexeme: &str) -> String {
 
 // pad_exp=true: Python repr(float) layout. false: installed-orjson layout (fixed
 // notation through exponent -5, bare exponent, nonfinite -> null; orjson 3.11.9).
-fn py_float_repr(value: f64, pad_exp: bool) -> String {
+pub fn py_float_repr(value: f64, pad_exp: bool) -> String {
     if !value.is_finite() {
         return match (pad_exp, value.is_nan(), value.is_sign_negative()) {
             (false, _, _) => "null".to_string(),
@@ -337,7 +337,7 @@ fn py_repr(value: &Value) -> String {
 
 // Python repr() of a str: prefer single quotes (double only when the string has a single
 // quote and no double), escape the quote/backslash/\n\r\t, \x/\u/\U-escape non-printables.
-fn py_string_repr(s: &str) -> String {
+pub fn py_string_repr(s: &str) -> String {
     let quote = if s.contains('\'') && !s.contains('"') {
         '"'
     } else {
@@ -569,6 +569,22 @@ fn result_lines(
         return Vec::new();
     }
     quoted_result(label.head("result"), &result.content, budget)
+}
+
+pub(crate) fn registered_review_result_lines(
+    name: &str,
+    result: &ToolResultBlock,
+    budget: &Budget,
+) -> Vec<String> {
+    result_lines(
+        &CallLabel {
+            name,
+            ordinal: None,
+        },
+        result,
+        budget,
+        false,
+    )
 }
 
 fn quoted_result(head: String, content: &str, budget: &Budget) -> Vec<String> {

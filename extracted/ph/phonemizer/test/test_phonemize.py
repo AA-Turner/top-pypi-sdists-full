@@ -16,12 +16,15 @@
 
 # pylint: disable=missing-docstring
 
-import os
+import concurrent.futures
+import shutil
 import pytest
 
-from phonemizer.phonemize import phonemize
+from phonemizer.phonemize import (
+    phonemize, clear_backends_cache, _thread_cache)
 from phonemizer.separator import Separator
 from phonemizer.backend import EspeakBackend, EspeakMbrolaBackend, FestivalBackend
+from phonemizer.backend.espeak.wrapper import EspeakWrapper
 
 
 def test_bad_backend():
@@ -59,7 +62,7 @@ def test_bad_language():
 
 def test_text_type():
     text1 = ['one two', 'three', 'four five']
-    text2 = os.linesep.join(text1)
+    text2 = '\n'.join(text1)
 
     phn1 = phonemize(text1, language='en-us', backend='espeak', strip=True)
     phn2 = phonemize(text2, language='en-us', backend='espeak', strip=True)
@@ -70,8 +73,8 @@ def test_text_type():
 
     assert isinstance(phn1, list)
     assert isinstance(phn2, str)
-    assert os.linesep.join(phn1) == phn2
-    assert os.linesep.join(phn3) == phn2
+    assert '\n'.join(phn1) == phn2
+    assert '\n'.join(phn3) == phn2
     assert text3 == text1
 
 
@@ -92,10 +95,10 @@ def test_lang_switch():
 @pytest.mark.parametrize('njobs', [2, 4])
 def test_espeak_parallel_strip(njobs):
     text = ['one two', 'three', 'four five']
-    if EspeakBackend.version() >= (1, 52, 0):
-        expected = ['wʌn tuː', 'θɹiː', 'fɔːɹ faɪv']
-    else:
-        expected = ['wʌn tuː', 'θɹiː', 'foːɹ faɪv']
+    # the serial output, it depends on the espeak version and build
+    expected = [phonemize(
+        line, language='en-us', backend='espeak', strip=True)
+        for line in text]
 
     out = phonemize(
         text, language='en-us', backend='espeak',
@@ -104,30 +107,27 @@ def test_espeak_parallel_strip(njobs):
 
 @pytest.mark.parametrize('njobs', [2, 4])
 def test_espeak_parallel_nostrip(njobs):
-    text = ['one two', 'three', 'four five']
-    if EspeakBackend.version() >= (1, 52, 0):
-        expected = ['wʌn tuː', 'θɹiː', 'fɔːɹ faɪv ']
-    else:
-        expected = ['wʌn tuː', 'θɹiː', 'foːɹ faɪv ']
+    text = ' '.join(['one two', 'three', 'four five'])
+    # the serial output, it depends on the espeak version and build
+    expected = phonemize(text, language='en-us', backend='espeak', strip=False)
 
     out = phonemize(
-        ' '.join(text), language='en-us', backend='espeak',
-        strip=False, njobs=njobs)
-    assert out == ' '.join(expected)
+        text, language='en-us', backend='espeak', strip=False, njobs=njobs)
+    assert out == expected
 
 
 @pytest.mark.parametrize('njobs', [2, 4])
 def test_espeak_parallel_nostrip_multiline(njobs):
     text = ['one two', 'three', 'four five']
-    if EspeakBackend.version() >= (1, 52, 0):
-        expected = ['wʌn tuː ', 'θɹiː ', 'fɔːɹ faɪv ']
-    else:
-        expected = ['wʌn tuː ', 'θɹiː ', 'foːɹ faɪv ']
+    # the serial output, it depends on the espeak version and build
+    expected = [phonemize(
+        line, language='en-us', backend='espeak', strip=False)
+        for line in text]
 
     out = phonemize(
-        os.linesep.join(text), language='en-us', backend='espeak',
+        '\n'.join(text), language='en-us', backend='espeak',
         strip=False, njobs=njobs)
-    assert out == os.linesep.join(expected)
+    assert out == '\n'.join(expected)
 
 
 @pytest.mark.skipif(
@@ -168,9 +168,9 @@ def test_festival(njobs):
     assert out == ' '.join(['wahn tuw', 'thriy', 'faor fayv'])
 
     out = phonemize(
-        os.linesep.join(text), language='en-us', backend='festival',
+        '\n'.join(text), language='en-us', backend='festival',
         strip=True, njobs=njobs)
-    assert out == os.linesep.join(['wahn tuw', 'thriy', 'faor fayv'])
+    assert out == '\n'.join(['wahn tuw', 'thriy', 'faor fayv'])
 
 
 @pytest.mark.skipif(
@@ -206,9 +206,9 @@ def test_segments(njobs):
         ['untṵːlḛ ka̰ːpʼḛːl', 'o̰ːʃpʼḛːl', 'kantṵːlo̰ːn t̠͡ʃint̠͡ʃo '])
 
     out = phonemize(
-        os.linesep.join(text), language='yucatec', backend='segments',
+        '\n'.join(text), language='yucatec', backend='segments',
         strip=True, njobs=njobs)
-    assert out == os.linesep.join(
+    assert out == '\n'.join(
         ['untṵːlḛ ka̰ːpʼḛːl', 'o̰ːʃpʼḛːl', 'kantṵːlo̰ːn t̠͡ʃint̠͡ʃo'])
 
 
@@ -320,3 +320,46 @@ def test_empty_input(backend, empty_lines, punctuation, text, expected):
     assert expected == phonemize(
         text, language=language, backend=backend,
         preserve_punctuation=punctuation, preserve_empty_lines=empty_lines)
+
+
+def test_threads():
+    # concurrent calls must not share a cached backend between threads
+    text = [f'the quick brown fox number {i}' for i in range(20)]
+    expected = phonemize(text)
+    with concurrent.futures.ThreadPoolExecutor(4) as executor:
+        results = list(executor.map(lambda _: phonemize(text), range(16)))
+    assert all(result == expected for result in results)
+
+
+def test_clear_backends_cache_threads():
+    def backend():
+        phonemize('a')
+        return next(iter(_thread_cache().values()))
+
+    with concurrent.futures.ThreadPoolExecutor(1) as executor:
+        first = executor.submit(backend).result()
+        assert executor.submit(backend).result() is first
+        clear_backends_cache()
+        assert executor.submit(backend).result() is not first
+
+
+def test_cache_set_library(tmp_path):
+    # pylint: disable=protected-access
+    # a backend loaded before set_library() must not be reused after it
+    clear_backends_cache()
+    phonemize('a')
+    default = next(iter(_thread_cache().values()))
+    library = tmp_path / default._espeak.library_path.name
+    shutil.copy(default._espeak.library_path, library)
+    previous = EspeakWrapper._ESPEAK_LIBRARY
+    try:
+        EspeakBackend.set_library(str(library))
+        phonemize('a')
+        backend = next(reversed(_thread_cache().values()))
+        assert backend is not default
+        assert backend._espeak.library_path == library.resolve()
+    finally:
+        EspeakBackend.set_library(previous)
+
+    phonemize('a')
+    assert next(reversed(_thread_cache().values())) is default

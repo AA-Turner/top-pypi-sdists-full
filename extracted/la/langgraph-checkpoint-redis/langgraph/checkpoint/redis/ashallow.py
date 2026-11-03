@@ -26,7 +26,6 @@ from redisvl.index import AsyncSearchIndex
 from redisvl.query import FilterQuery
 from redisvl.query.filter import Num, Tag
 from redisvl.redis.connection import RedisConnectionFactory
-from ulid import ULID
 
 from langgraph.checkpoint.redis.base import (
     CHECKPOINT_PREFIX,
@@ -36,8 +35,10 @@ from langgraph.checkpoint.redis.base import (
     aexpire_with_retry,
 )
 from langgraph.checkpoint.redis.util import (
+    checkpoint_id_timestamp,
     to_storage_safe_id,
     to_storage_safe_str,
+    unwrap_connection_errors,
 )
 
 # Constants
@@ -146,8 +147,9 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
         # (Issue #179).
         self.loop = asyncio.get_running_loop()
 
-        await self.checkpoints_index.create(overwrite=False)
-        await self.checkpoint_writes_index.create(overwrite=False)
+        with unwrap_connection_errors():
+            await self.checkpoints_index.create(overwrite=False)
+            await self.checkpoint_writes_index.create(overwrite=False)
 
     async def setup(self) -> None:  # type: ignore[override]
         """Set up the checkpoint saver asynchronously.
@@ -200,17 +202,12 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
         }
 
         try:
-            # Extract timestamp from checkpoint_id (ULID) or fallback to checkpoint's ts field
-            # Note: LangGraph may generate checkpoint IDs in different formats (ULID, UUIDv6, etc.)
-            # We try ULID first, then fall back gracefully without warnings (Issue #136)
+            # Extract timestamp from checkpoint_id (ULID or LangGraph's UUIDv6), or fall back
+            # to the checkpoint's ts field for ids that encode no time (Issue #136)
             checkpoint_ts = None
             if checkpoint["id"]:
-                try:
-                    ulid_obj = ULID.from_str(checkpoint["id"])
-                    checkpoint_ts = ulid_obj.timestamp  # milliseconds since epoch
-                except Exception:
-                    # Not a valid ULID - this is expected for UUIDv6 and other formats
-                    # Fall back to checkpoint's timestamp field or current time
+                checkpoint_ts = checkpoint_id_timestamp(checkpoint["id"])
+                if checkpoint_ts is None:
                     checkpoint_ts = self._extract_fallback_timestamp(checkpoint)
 
             # Store channel values inline in the checkpoint
@@ -307,18 +304,17 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
                     query_filter.append(Tag("thread_id") == to_storage_safe_id(value))
                 elif key == "run_id":
                     query_filter.append(Tag("run_id") == to_storage_safe_id(value))
+                else:
+                    raise ValueError(f"Unsupported filter key: {key}")
 
         if before:
             before_checkpoint_id = get_checkpoint_id(before)
             if before_checkpoint_id:
-                try:
-                    before_ulid = ULID.from_str(before_checkpoint_id)
-                    before_ts = before_ulid.timestamp
+                before_ts = checkpoint_id_timestamp(before_checkpoint_id)
+                # An id that encodes no time (e.g. a uuid4) cannot be placed, so no filter.
+                if before_ts is not None:
                     # Use numeric range query: checkpoint_ts < before_ts
                     query_filter.append(Num("checkpoint_ts") < before_ts)
-                except Exception:
-                    # If not a valid ULID, ignore the before filter
-                    pass
 
         combined_filter = query_filter[0] if query_filter else "*"
         for expr in query_filter[1:]:
@@ -330,11 +326,8 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
             return_fields=[
                 "thread_id",
                 "checkpoint_ns",
-                "checkpoint_id",
-                "source",
-                "step",
-                "score",
-                "ts",
+                "$.checkpoint",
+                "$.metadata",
             ],
             num_results=limit or 100,  # Set higher limit to retrieve more results
             sort_by=("checkpoint_id", "DESC"),
@@ -342,30 +335,47 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
 
         results = await self.checkpoints_index.search(query)
         for doc in results.docs:
+            thread_id = cast(str, getattr(doc, "thread_id", ""))
+            checkpoint_ns = cast(str, getattr(doc, "checkpoint_ns", ""))
+
+            # Channel values are stored inline in the checkpoint, as list() reads them
+            checkpoint = json.loads(doc["$.checkpoint"])
+            channel_values: Dict[str, Any] = checkpoint.get("channel_values", {})
+            channel_values = self._deserialize_channel_values(channel_values)
+
+            # aput stores the metadata as a JSON string
+            metadata = json.loads(getattr(doc, "$.metadata", "{}"))
+            if isinstance(metadata, str):
+                metadata = json.loads(metadata)
+            sanitized_metadata = {
+                k.replace("\u0000", ""): (
+                    v.replace("\u0000", "") if isinstance(v, str) else v
+                )
+                for k, v in metadata.items()
+            }
+
+            checkpoint_param = self._load_checkpoint(
+                checkpoint,
+                channel_values,
+                [],  # No pending_sends in shallow mode
+            )
+
+            pending_writes = await self._aload_pending_writes(
+                thread_id, checkpoint_ns, checkpoint_param["id"]
+            )
+
             yield CheckpointTuple(
                 config={
                     "configurable": {
-                        "thread_id": getattr(doc, "thread_id", ""),
-                        "checkpoint_ns": getattr(doc, "checkpoint_ns", ""),
-                        "checkpoint_id": getattr(doc, "checkpoint_id", ""),
+                        "thread_id": thread_id,
+                        "checkpoint_ns": checkpoint_ns,
+                        "checkpoint_id": checkpoint_param["id"],
                     }
                 },
-                checkpoint={
-                    "v": 1,
-                    "ts": getattr(doc, "ts", ""),
-                    "id": getattr(doc, "checkpoint_id", ""),
-                    "channel_values": {},
-                    "channel_versions": {},
-                    "versions_seen": {},
-                    "pending_sends": [],
-                },
-                metadata={
-                    "source": getattr(doc, "source", "input"),
-                    "step": int(getattr(doc, "step", 0)),
-                    "writes": {},
-                    "score": float(getattr(doc, "score", 0)),
-                },
-                pending_writes=[],
+                checkpoint=checkpoint_param,
+                metadata=cast(CheckpointMetadata, sanitized_metadata),
+                parent_config=None,
+                pending_writes=pending_writes,
             )
 
     async def aget_tuple(self, config: RunnableConfig) -> Optional[CheckpointTuple]:
@@ -636,47 +646,44 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
         safe_checkpoint_ns = to_storage_safe_str(checkpoint_ns)
         thread_zset_key = f"write_keys_zset:{thread_id}:{safe_checkpoint_ns}:shallow"
 
-        try:
-            # Check if we have any writes in the thread sorted set
-            write_count = await self._redis.zcard(thread_zset_key)
+        # Check if we have any writes in the thread sorted set
+        write_count = await self._redis.zcard(thread_zset_key)
 
-            if write_count == 0:
-                # No writes for this thread
-                return []
+        if write_count == 0:
+            # No writes for this thread
+            return []
 
-            # Get all write keys from the thread sorted set
-            write_keys = await self._redis.zrange(thread_zset_key, 0, -1)
+        # Get all write keys from the thread sorted set
+        write_keys = await self._redis.zrange(thread_zset_key, 0, -1)
 
-            if write_keys:
-                # All keys in the set belong to current checkpoint
-                decoded_keys = [
-                    key.decode() if isinstance(key, bytes) else key
-                    for key in write_keys
-                ]
+        if write_keys:
+            # The registry is per thread and is not cleared when a new checkpoint
+            # is saved (Issue #133), so it can still hold writes made against
+            # earlier checkpoints. Only the writes for this checkpoint are pending.
+            decoded_keys = [
+                key.decode() if isinstance(key, bytes) else key for key in write_keys
+            ]
 
-                # Fetch all writes using pipeline
-                pipeline = self._redis.pipeline(transaction=False)
-                for key in decoded_keys:
-                    pipeline.json().get(key)
+            # Fetch all writes using pipeline
+            pipeline = self._redis.pipeline(transaction=False)
+            for key in decoded_keys:
+                pipeline.json().get(key)
 
-                results = await pipeline.execute()
+            results = await pipeline.execute()
 
-                # Build the writes dictionary
-                writes_dict: Dict[Tuple[str, str], Dict[str, Any]] = {}
+            # Build the writes dictionary
+            writes_dict: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
-                for write_data in results:
-                    if write_data:
-                        task_id = write_data.get("task_id", "")
-                        idx = write_data.get("idx", 0)
-                        writes_dict[(task_id, idx)] = write_data
+            for write_data in results:
+                if write_data and write_data.get("checkpoint_id") == checkpoint_id:
+                    task_id = write_data.get("task_id", "")
+                    idx = write_data.get("idx", 0)
+                    writes_dict[(task_id, idx)] = write_data
 
-                # Use base class method to deserialize
-                return BaseRedisSaver._load_writes(self.serde, writes_dict)
+            # Use base class method to deserialize
+            return BaseRedisSaver._load_writes(self.serde, writes_dict)
 
-        except Exception:
-            pass
-
-        # Return empty list if registry not available
+        # No write keys left in the registry
         return []
 
     def configure_client(

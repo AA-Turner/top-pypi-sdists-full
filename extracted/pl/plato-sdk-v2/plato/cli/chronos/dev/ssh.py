@@ -12,7 +12,6 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from plato.utils.ssh import gateway_proxy_command
 from plato.utils.subprocess import SSH_OPTS
 
 logger = logging.getLogger(__name__)
@@ -48,14 +47,14 @@ def _run_shell_with_timeout(
 GATEWAY_HOST = os.getenv("PLATO_GATEWAY_HOST", "gateway.plato.so")
 
 
-def get_vm_ssh_options(job_id: str, private_key_path: Path) -> list[tuple[str, str]]:
+def _get_ssh_options(job_id: str, private_key_path: Path) -> list[tuple[str, str]]:
     """Get SSH options for connecting to a VM via the gateway.
 
     Returns:
         List of (option_name, option_value) pairs
     """
     sni = f"{job_id}--22.{GATEWAY_HOST}"
-    proxy_cmd = gateway_proxy_command(GATEWAY_HOST, sni)
+    proxy_cmd = f"openssl s_client -quiet -connect {GATEWAY_HOST}:443 -servername {sni} 2>/dev/null"
 
     return [
         *SSH_OPTS,
@@ -184,7 +183,7 @@ def build_ssh_command(job_id: str, private_key_path: Path) -> list[str]:
     Returns:
         SSH command as list of strings
     """
-    options = get_vm_ssh_options(job_id, private_key_path)
+    options = _get_ssh_options(job_id, private_key_path)
 
     cmd = ["ssh", "-i", str(private_key_path)]
     for name, value in options:
@@ -204,7 +203,7 @@ def build_ssh_command_string(job_id: str, private_key_path: Path) -> str:
     Returns:
         SSH command string suitable for rsync -e option
     """
-    options = get_vm_ssh_options(job_id, private_key_path)
+    options = _get_ssh_options(job_id, private_key_path)
 
     parts = [f"ssh -i {private_key_path}"]
     for name, value in options:
@@ -245,12 +244,7 @@ async def run_ssh_command(
 
     if stream_output and process.stdout:
         while True:
-            try:
-                line = await process.stdout.readline()
-            except ValueError:
-                line = await process.stdout.read(2**16)
-                if not line:
-                    break
+            line = await process.stdout.readline()
             if not line:
                 break
             print(line.decode("utf-8", errors="replace").rstrip())

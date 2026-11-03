@@ -16,7 +16,7 @@ from ... import errors
 def get_home_row(rows: Iterable[dict]) -> dict | None:
     """The caller's home workspace among listed `rows`, or None.
 
-    The server marks it (`is_default`) only while the caller may still write it on merit;
+    The server marks it (`is_default`) only while the caller may still write it;
     `writable` also guards a stale mark from an older server."""
     return next(
         (r for r in rows if r.get("is_default") is True and r.get("writable") is not False),
@@ -90,7 +90,7 @@ class WorkspacesMixin:
 
         Your home is per person: a computer with no workspace set falls back to it.
         This computer's workspace (`probe workspace use`) is separate and unchanged.
-        Only a workspace you may write on merit (`home_eligible`) can be a home (403 else).
+        Only a workspace you may write (`home_eligible`) can be a home (403 else).
         """
         return self.transport.put(f"/v1/workspaces/{workspace_id}/default", None)
 

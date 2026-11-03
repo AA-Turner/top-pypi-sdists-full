@@ -129,6 +129,8 @@ class LineageRelation(StrEnum):
     SUPERSEDES = "supersedes"
     INFORMED_BY = "informed_by"
     RELATES_TO = "relates_to"
+    REFERENCES = "references"
+    PART_OF = "part_of"
 
 
 class RunCounts(BaseModel):

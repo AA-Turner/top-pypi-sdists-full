@@ -12,10 +12,14 @@ import subprocess
 import sys
 from threading import Thread
 import time
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
 import pyvista as pv
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 @pytest.mark.needs_playwright
@@ -305,6 +309,65 @@ def test_marimo_plots_survive_cell_rerun_and_reload(marimo_url) -> None:
         browser.close()
 
 
+_PLOT_SIZES = [None, [400, 300], [300, 700]]
+_FRAME_SIZE_JS = """(e) => {
+  const box = e.getBoundingClientRect();
+  return [box.width, box.height, e.parentElement.getBoundingClientRect().width];
+}"""
+
+
+def _frame_sizes(page) -> list[list[float]]:
+    """Return the width, height and container width of each pyvista iframe on ``page``."""
+    return [frame.evaluate(_FRAME_SIZE_JS) for frame in page.locator('iframe.pyvista').all()]
+
+
+def _check_frame_sizes(frames: list[list[float]], default_height: int) -> None:
+    """Check the default frame fills its container and the others match their window size."""
+    (width, height, container), *explicit = frames
+    assert [width, height] == [container, default_height]
+    assert [frame[:2] for frame in explicit] == _PLOT_SIZES[1:]
+
+
+@pytest.mark.needs_playwright
+def test_frame_sizes_in_jupyter_and_marimo(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Compare the frame sizes of the same plots in marimo and through the Jupyter widget."""
+    pytest.importorskip('marimo')
+    from playwright.sync_api import sync_playwright
+
+    from trame_pyvista import jupyter
+
+    notebook = tmp_path / 'sizes.py'
+    notebook.write_text((Path(__file__).parent / '_marimo_sizes.py').read_text())
+    (tmp_path / 'pyproject.toml').write_text('[tool.marimo.runtime]\nauto_instantiate = true\n')
+
+    monkeypatch.setattr(pv.global_theme, 'window_size', pv.themes.Theme().window_size)
+    widgets = []
+    for size in _PLOT_SIZES:
+        pl = pv.Plotter(notebook=True, window_size=size)
+        pl.add_mesh(pv.Sphere())
+        widgets.append(pl.show(jupyter_backend='html', return_viewer=True))
+
+    with _serve_marimo(notebook, 'edit', '--no-token') as url, sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page(viewport={'width': 1200, 'height': 1400})
+        for widget in widgets:
+            state = {
+                key: widget.get_state()[key] for key in ('scene', 'iframe_style', '_viewer_page')
+            }
+            page.evaluate(
+                _RENDER_SCENE_JS, [jupyter._SCENE_ESM, state, widget._viewer_page.html_gz]
+            )
+        jupyter_frames = _frame_sizes(page)
+
+        page.goto(url)
+        page.locator('iframe.pyvista').nth(len(_PLOT_SIZES) - 1).wait_for(timeout=90000)
+        marimo_frames = _frame_sizes(page)
+        browser.close()
+
+    _check_frame_sizes(jupyter_frames, 600)
+    _check_frame_sizes(marimo_frames, 576)
+
+
 _SCENE_FALLBACK_JS = """async ([esm, state, gz, html, dropInflate, noKernel, cached]) => {
   const load = () => import(URL.createObjectURL(new Blob([esm], {type: 'text/javascript'})));
   if (dropInflate) delete window.DecompressionStream;
@@ -524,13 +587,12 @@ def _png_pixels(data: bytes) -> np.ndarray:
     return np.asarray(Image.open(io.BytesIO(data)).convert('RGB'))
 
 
-@pytest.fixture
-def served_plotter(request):
-    """Serve the two-subplot scene in a subprocess and yield its iframe URL."""
-    client_type, mode = request.param
+@contextlib.contextmanager
+def _serve_plotters(*args: str, count: int = 1) -> Iterator[list[str]]:
+    """Serve ``count`` plotters with ``_serve_plotter.py`` and yield their iframe URLs."""
     script = Path(__file__).parent / '_serve_plotter.py'
     proc = subprocess.Popen(
-        [sys.executable, str(script), '--client-type', client_type, '--mode', mode],
+        [sys.executable, str(script), *args, '--count', str(count)],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -545,10 +607,10 @@ def served_plotter(request):
 
     Thread(target=drain, daemon=True).start()
     lines: list[str] = []
-    url = None
+    urls: list[str] = []
     deadline = time.monotonic() + 90
     try:
-        while url is None and time.monotonic() < deadline:
+        while len(urls) < count and time.monotonic() < deadline:
             try:
                 line = output.get(timeout=1)
             except queue.Empty:
@@ -557,9 +619,9 @@ def served_plotter(request):
                 continue
             lines.append(line)
             if line.startswith('URL '):
-                url = line.split()[1]
-        assert url is not None, ''.join(lines)
-        yield url
+                urls.append(line.split()[1])
+        assert len(urls) == count, ''.join(lines)
+        yield urls
     finally:
         proc.terminate()
         try:
@@ -567,6 +629,14 @@ def served_plotter(request):
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
+
+
+@pytest.fixture
+def served_plotter(request):
+    """Serve the two-subplot scene in a subprocess and yield its iframe URL."""
+    client_type, mode = request.param
+    with _serve_plotters('--client-type', client_type, '--mode', mode) as (url,):
+        yield url
 
 
 @pytest.mark.needs_playwright
@@ -625,6 +695,67 @@ def test_jupyter_app_renders_in_browser(served_plotter) -> None:
         browser.close()
 
     assert page_errors == []
+
+
+def _view_pixels(page) -> np.ndarray:
+    """Return the page's visible render view as integer pixels."""
+    view = page.locator('img, canvas').filter(visible=True).first
+    return _png_pixels(view.screenshot()).astype(int)
+
+
+def _mean_diff(a: np.ndarray, b: np.ndarray) -> float:
+    """Return the mean absolute pixel difference of two renders."""
+    return float(np.abs(a - b).mean())
+
+
+def _poll_pixels(page, done) -> np.ndarray:
+    """Return the page's render once ``done(previous, current)`` holds, or after 30 seconds."""
+    deadline = time.monotonic() + 30
+    current = _view_pixels(page)
+    while time.monotonic() < deadline:
+        page.wait_for_timeout(500)
+        previous, current = current, _view_pixels(page)
+        if done(previous, current):
+            break
+    return current
+
+
+@pytest.mark.needs_playwright
+@pytest.mark.parametrize('client_type', ['vue2', 'vue3'])
+@pytest.mark.parametrize('mode', ['client', 'server'])
+@pytest.mark.parametrize('scene', ['tight', 'tight-edges'])
+def test_toggle_leaves_other_viewers_alone(client_type: str, mode: str, scene: str) -> None:
+    """Toggling edges in one viewer leaves the other viewers on the same server unchanged."""
+    from playwright.sync_api import sync_playwright
+
+    page_errors: list[str] = []
+    args = ('--client-type', client_type, '--mode', mode, '--scene', scene)
+    with _serve_plotters(*args, count=3) as urls, sync_playwright() as p:
+        browser = p.chromium.launch()
+        pages = []
+        for url in urls:
+            page = browser.new_page(viewport={'width': 400, 'height': 300})
+            page.on('pageerror', lambda err: page_errors.append(str(err)))
+            page.goto(url)
+            page.locator('img, canvas').filter(visible=True).first.wait_for(timeout=30000)
+            pages.append(page)
+        first, *others = pages
+
+        before = [_poll_pixels(page, lambda a, b: _mean_diff(a, b) < 1) for page in pages]
+        first.locator('.mdi-grid, .mdi-grid-off').first.click(force=True)
+        after = [
+            _poll_pixels(first, lambda a, b: _mean_diff(b, before[0]) > 1 and _mean_diff(a, b) < 1)
+        ]
+        for page, expected in zip(others, before[1:], strict=True):
+            page.reload()
+            page.locator('img, canvas').filter(visible=True).first.wait_for(timeout=30000)
+            after.append(_poll_pixels(page, lambda _, b, e=expected: _mean_diff(b, e) < 1))
+        browser.close()
+
+    assert page_errors == []
+    assert _mean_diff(after[0], before[0]) > 1, 'edge toggle did not change its own viewer'
+    for i in (1, 2):
+        assert _mean_diff(after[i], before[i]) < 1, f'edge toggle changed viewer {i}'
 
 
 def _open_drawn_session(browser, url):

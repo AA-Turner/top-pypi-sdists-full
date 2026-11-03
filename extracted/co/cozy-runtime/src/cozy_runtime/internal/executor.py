@@ -1117,6 +1117,7 @@ class Executor:
         end_us: int,
         impl: str = "",
         segments: Sequence[Mapping[str, Any]] = (),
+        refused: Mapping[str, int] | None = None,
     ) -> dict[str, Any]:
         """The attempt's execution record: degree, every GPU, and the setup it ran on."""
         gpus = [
@@ -1128,7 +1129,7 @@ class Executor:
                     pin,
                     execution_evidence.observed(choices.hosts) if choices else "",
                     impl,
-                    attention.evidence(choices.totals() if choices else ()),
+                    attention.evidence(choices.totals() if choices else (), refused),
                     segments,
                     choices.fallbacks if choices else (),
                 ),
@@ -1473,7 +1474,7 @@ class Executor:
                 execution_evidence.attention(
                     observed=execution_evidence.observed(self._run_held.hosts),
                     impl=attention.implementations(served),
-                    kernels=attention.evidence(self._run_held.totals()),
+                    kernels=attention.evidence(self._run_held.totals(), served.refused),
                 ),
             ),
         }
@@ -3580,7 +3581,7 @@ class Executor:
         sol_counts: dict[str, int] = {}
         sol_rank_counts: dict[int, dict[str, int]] = {}
         sol_kernels: list[dict[str, Any]] = []
-        served_impls: dict[str, set[str]] = {}
+        served_impls = attention_ulysses.Seen()
         # A kernel that finishes compiling mid-run serves from the next step or stage on
         # (`_upgrade_attention`): each selection the run served and from which step.
         segments: list[dict[str, Any]] = []
@@ -3730,6 +3731,7 @@ class Executor:
             for member in self.model_executors or [self]:
                 self._emit_gemm(record, member)
                 self._emit_lora(record, member)
+                self._emit_compute(record, member)
             for feature, instead in accel.unavailable(self.device_kind) if self.models else ():
                 record.emit(
                     "log", f"{feature} unavailable on {self.device_kind}", "warn", instead=instead
@@ -3876,6 +3878,7 @@ class Executor:
                     released_us,
                     attention.implementations(served_impls),
                     segments if len(segments) > 1 else (),
+                    served_impls.refused,
                 ),
                 "cuts": self.host.cuts.pop(
                     command.request_id, {"sites": [], "levels": {}, "oom_floor": 0}
@@ -3958,6 +3961,19 @@ class Executor:
                     "confession", "gemm.lora", bakes.serving, how=bakes.how or "",
                     component=prefix + component, linears=len(bakes.bakes),
                 )  # fmt: skip
+
+    @staticmethod
+    def _emit_compute(record: AuthorAttempt, member: Executor) -> None:
+        """A CPU executor computes every component in float32, whatever lane its weights are
+        stored in (`weights._float32`): said beside the served lane, so a 16-bit lane is not read
+        as 16-bit compute (BiRefNet's "served fp16" on a CI runner, cr-247)."""
+        prefix = member._prefix()
+        widened = member.backend.widened if member.backend is not None else {}
+        for component, stored in sorted(widened.items()):
+            if stored:
+                weights = "/".join({"f16": "fp16"}.get(d, d) for d in stored)
+                said = f"served {weights} weights; computes in float32 on cpu"
+                record.emit("log", said, "warn", component=prefix + component, weights=weights)
 
     @staticmethod
     def _emit_gemm(record: AuthorAttempt, member: Executor) -> None:
@@ -5432,6 +5448,12 @@ def _idle(executor: Executor, order: _Order) -> None:
                 if fault(exc) in (Fault.STICKY, Fault.DEVICE):
                     executor.poisoned = executor.poisoned or f"device fault at idle: {exc}"[:300]
                     return
+                row = (
+                    "idle work failed: graphs or host pages stay unbuilt",
+                    {"reason": type(exc).__name__},
+                )
+                if row not in WARNINGS:
+                    WARNINGS.append(row)
 
 
 def serve(executor: Executor, channel: Channel) -> int:

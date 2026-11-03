@@ -19,13 +19,14 @@ class Ready(tuple):
 
     Each None while no worker serves, or for a worker on CPU.
 
-    While this robot waits in line for a slot (the deployment holds its `max_gpus` with every slot taken), `ready` is
-    False and these say where it stands:
+    While this robot waits in line for a slot - its connect put it there: the deployment holds its `max_gpus` with every
+    slot taken - `ready` is False and these say where it stands:
 
     - `queued`: True while it waits in line;
-    - `queue_position`: its place (1 = next to be served);
-    - `eta_s`: about how long until it can serve, when that can be estimated from how long the robots ahead keep their
-      slot - else None, with `eta_unknown` saying why ("no_history", "past_average", "not_measured").
+    - `queue_position`: its place (1 = next to be served).
+
+    About how long, and why, its connect's answer says - `wait_until_ready()` prints it, and hands it to `on_queue`: a
+    poll only looks, and leaves both out (`eta_s` None).
 
     While a worker starts for it, `eta_s` counts down to when the start should serve; past that it is None, with
     `eta_unknown` "past_expected": the start takes longer than it should (most often waiting for its card), and how

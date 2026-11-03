@@ -1,5 +1,6 @@
 #include "common.hpp"
 
+#include <nanobind/stl/pair.h>
 #include <nanobind/stl/tuple.h>
 #include <nanobind/stl/variant.h>
 
@@ -676,6 +677,7 @@ void bind_irregular(nb::module_& m)
         .def_rw("use_column_generation", &OptimizeParameters::use_column_generation)
         .def_rw("initial_maximum_approximation_ratio", &OptimizeParameters::initial_maximum_approximation_ratio)
         .def_rw("maximum_approximation_ratio_factor", &OptimizeParameters::maximum_approximation_ratio_factor)
+        .def_rw("minimum_maximum_approximation_ratio", &OptimizeParameters::minimum_maximum_approximation_ratio)
         .def_rw("many_items_in_bins_threshold", &OptimizeParameters::many_items_in_bins_threshold)
         .def_rw("many_item_type_copies_factor", &OptimizeParameters::many_item_type_copies_factor)
         .def_rw("periodic_packing_copies_threshold", &OptimizeParameters::periodic_packing_copies_threshold)
@@ -709,6 +711,7 @@ void bind_irregular(nb::module_& m)
     def_output_field(output, "open_dimension_x_bound", &irregular::Output::open_dimension_x_bound);
     def_output_field(output, "open_dimension_y_bound", &irregular::Output::open_dimension_y_bound);
     def_output_field(output, "is_proven_infeasible", &irregular::Output::is_proven_infeasible);
+    def_output_field(output, "infeasible_subset", &irregular::Output::infeasible_subset);
 
     m.def("optimize",
             [](std::shared_ptr<Instance> instance, const OptimizeParameters& parameters) {

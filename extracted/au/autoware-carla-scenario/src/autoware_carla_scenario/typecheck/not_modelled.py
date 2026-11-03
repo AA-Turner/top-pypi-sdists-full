@@ -257,6 +257,13 @@ NOT_MODELLED: dict[str, dict[str, str]] = {
             "scenario imports; the model declares no submodules of odd",
         ),
     },
+    f"{_PACKAGE}.pedestrian.soma": _each(
+        "DEFAULT_FPS SOMA_JOINTS",
+        "the frame rate a motion file that names none is read at, and the "
+        "SOMA rig's joints; load_soma_motion() reads them, not a scenario, "
+        "which plays a motion with PlayMotionAction; the model declares only "
+        "what the checked actions.play_motion uses of the module",
+    ),
     f"{_PACKAGE}.ros2.cyclone": _each(
         "control_from_message odometry_message ros_time trajectory_from_message",
         _CYCLONE,
@@ -314,11 +321,12 @@ NOT_MODELLED: dict[str, dict[str, str]] = {
     ),
     f"{_PACKAGE}.t4_scene": _each(
         "LOG_SUFFIX MAP_SUFFIX SCENE_SUFFIX T4SceneExport map_resource "
-        "trajectory_log_to_t4_scene write_t4_scene",
+        "trajectory_log_to_t4_scene",
         "writes a run's trajectory log as a T4Scene, which the runner does "
         "after a run (t4scene.enabled) and scenario-t4scene does from the "
         "shell, not a scenario; the model declares only the T4SceneExporter "
-        "the checked runner hands each log to",
+        "the checked runner hands each log to and the write_t4_scene() the "
+        "checked t4_scene.exporter writes it with",
     ),
     f"{_PACKAGE}.trajectory_recorder": {
         "SCHEMA_PATH": (
@@ -476,6 +484,13 @@ NOT_MODELLED_MEMBERS: dict[str, dict[str, str]] = {
             "the adversities its last check found, as adversity_activity "
             "ActiveAdversity records, for a run's report; a scenario reads the "
             "condition's verdict, not them"
+        ),
+    },
+    "SomaMotion": {
+        "directions": (
+            "each frame's bone directions, a numpy array typed with "
+            "numpy.typing (`NDArray`), which Codon's numpy lacks; frame() "
+            "reads one frame of them, as play_motion does"
         ),
     },
     "PedestrianEntity": {
@@ -686,6 +701,18 @@ NOT_MODELLED_MEMBERS: dict[str, dict[str, str]] = {
         "from_dict": _FROM_MAPPING,
     },
     "SweepConfig": _members("bindings constraints odd_sample", _SWEEP_FIELD),
+    "TrajectoryRecorder": {
+        "record_metric": (
+            "writes the metrics computed once the run is over; only "
+            "scenario_runner._record_metrics calls it, and that is not checked "
+            "(library.py), so no checked code reaches it"
+        ),
+        "record_condition_at": (
+            "writes a metric condition's state judged once the run is over; "
+            "only scenario_runner._record_metrics calls it, and that is not "
+            "checked (library.py)"
+        ),
+    },
     "TrafficSinkAction": {"set_traffic_backend": _SET_TRAFFIC_BACKEND},
     "ConstructionZoneAction": {"set_traffic_backend": _SET_TRAFFIC_BACKEND},
     "TrafficSourceAction": {"set_traffic_backend": _SET_TRAFFIC_BACKEND},

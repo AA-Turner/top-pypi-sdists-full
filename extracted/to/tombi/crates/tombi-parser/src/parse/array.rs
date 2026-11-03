@@ -20,6 +20,8 @@ impl Parse for tombi_ast_syntax::Array<'_> {
 
         trailing_comment(p);
 
+        p.push_closer(T![']']);
+
         loop {
             while p.eat(LINE_BREAK) {}
 
@@ -32,6 +34,8 @@ impl Parse for tombi_ast_syntax::Array<'_> {
 
             tombi_ast_syntax::ValueWithCommaGroup::parse(p);
         }
+
+        p.pop_closer();
 
         if !p.eat(T![']']) {
             p.error(crate::Error::new(ExpectedBracketEnd, p.current_span()));
@@ -246,5 +250,94 @@ mod test {
             SyntaxError(ExpectedValue, 0:7..0:10),
             SyntaxError(ForbiddenKeysLastPeriod, 0:11..0:12),
         ])
+    }
+
+    test_parser! {
+        #[test]
+        fn array_missing_value("key = [1,,2]") -> Err({
+            ast: {
+                KEY_VALUE_GROUP: {
+                    KEY_VALUE: {
+                        KEYS: {
+                            BARE_KEY: {
+                                BARE_KEY: "key"
+                            }
+                        },
+                        WHITESPACE: " ",
+                        EQUAL: "=",
+                        WHITESPACE: " ",
+                        ARRAY: {
+                            BRACKET_START: "[",
+                            VALUE_WITH_COMMA_GROUP: {
+                                INTEGER_DEC: {
+                                    INTEGER_DEC: "1"
+                                },
+                                COMMA: {
+                                    COMMA: ","
+                                },
+                            },
+                            VALUE_WITH_COMMA_GROUP: {
+                                INVALID_TOKEN: {
+                                    COMMA: ",",
+                                    INTEGER_DEC: "2"
+                                }
+                            },
+                            BRACKET_END: "]"
+                        }
+                    }
+                }
+            },
+            errors: [
+                SyntaxError(ExpectedValue, 0:9..0:11),
+            ]
+        })
+    }
+
+    test_parser! {
+        #[test]
+        fn array_stray_brace_after_comma("key = [1, }]") -> Err({
+            ast: {
+                KEY_VALUE_GROUP: {
+                    KEY_VALUE: {
+                        KEYS: {
+                            BARE_KEY: {
+                                BARE_KEY: "key"
+                            }
+                        },
+                        WHITESPACE: " ",
+                        EQUAL: "=",
+                        WHITESPACE: " ",
+                        ARRAY: {
+                            BRACKET_START: "[",
+                            VALUE_WITH_COMMA_GROUP: {
+                                INTEGER_DEC: {
+                                    INTEGER_DEC: "1"
+                                },
+                                COMMA: {
+                                    COMMA: ","
+                                }
+                            },
+                            WHITESPACE: " ",
+                            VALUE_WITH_COMMA_GROUP: {
+                                INVALID_TOKEN: {
+                                    BRACE_END: "}"
+                                }
+                            },
+                            BRACKET_END: "]"
+                        }
+                    }
+                }
+            },
+            errors: [
+                SyntaxError(ExpectedValue, 0:10..0:11),
+            ]
+        })
+    }
+
+    test_parser! {
+        #[test]
+        fn array_stops_invalid_value_at_bracket_end("a = [=]\nb = 1") -> Assert(|parsed| {
+            parsed.errors.len() == 1 && parsed.errors[0].kind() == ExpectedValue
+        })
     }
 }

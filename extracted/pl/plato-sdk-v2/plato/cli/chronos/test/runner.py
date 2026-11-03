@@ -45,14 +45,9 @@ from plato.chronos.models import (
     UpdateStatusRequest,
 )
 from plato.cli.chronos.dev.runner import resolve_agent_images
-from plato.cli.chronos.dev.ssh import (
-    SSHKeyPair,
-    build_ssh_command,
-    build_ssh_command_string,
-    get_vm_ssh_options,
-)
-from plato.cli.chronos.dev.sync import SyncManager, sync_fuse_binary_override
-from plato.cli.chronos.env import UnresolvedSecretError, resolve_config_env_vars, substitute_env_vars
+from plato.cli.chronos.dev.ssh import SSHKeyPair, build_ssh_command, build_ssh_command_string
+from plato.cli.chronos.dev.sync import SyncManager
+from plato.cli.chronos.env import resolve_config_env_vars, substitute_env_vars
 from plato.cli.chronos.provision import (
     SyncTarget,
     build_sync_targets,
@@ -65,7 +60,7 @@ from plato.cli.chronos.test.config import TestConfig, TestPhaseConfig
 from plato.otel import get_tracer, init_tracing, shutdown_tracing
 from plato.runtimes.config import VMRuntimeConfig
 from plato.utils.pypi_index import redact_pypi_token_credential
-from plato.utils.subprocess import VM_PATH_EXPORT, run_ssh, scp_content_to_vm
+from plato.utils.subprocess import VM_PATH_EXPORT
 from plato.v2 import AsyncPlato, Env
 from plato.v2.async_.session import SerializedSession, Session
 from plato.v2.types import SimConfigCompute
@@ -239,7 +234,6 @@ class TestRunner:
         """Run setup + selected test phases. Returns process exit code."""
         exit_code = 1
         error_message: str | None = None
-        config_fault = False
 
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.junit_dir.mkdir(parents=True, exist_ok=True)
@@ -252,16 +246,6 @@ class TestRunner:
             error_message = "Interrupted by user"
             self._print("ERROR: Interrupted by user")
             exit_code = 130
-        except UnresolvedSecretError as exc:
-            # A config fault, not a runner crash: the run never started, and
-            # the session and VM we just provisioned hold nothing worth a
-            # post-mortem. Tear them down normally rather than taking the
-            # client-fault path, which deliberately leaves a VM running.
-            error_message = str(exc)
-            self._print(f"ERROR: {error_message}")
-            logger.error("chronos test failed: %s", exc)
-            exit_code = 1
-            config_fault = True
         except Exception as exc:  # noqa: BLE001
             error_message = str(exc)
             self._print(f"ERROR: {error_message}")
@@ -275,22 +259,8 @@ class TestRunner:
             else:
                 status = "failed"
             keep_vm = self._should_keep_vm()
-            # An unexpected exception is a LOCAL CLIENT fault (world/test
-            # failures arrive as phase exit codes, not exceptions) — never
-            # mark the remote session failed or close it for one: a runner
-            # crash (oversized log line) once tore down a healthy 20h run.
-            client_fault = error_message is not None and exit_code not in (0, 130) and not config_fault
             if self.session_id and status == "cancelled":
                 await self._cancel_chronos_session(error_message or "Interrupted by user")
-            elif client_fault and self.session_id:
-                self._print(f"CLIENT_FAULT — session left running: {settings.chronos_url}/sessions/{self.session_id}")
-                logger.error(
-                    "Local client error — leaving Chronos session RUNNING: "
-                    "https://chronos.plato.so/sessions/%s (stop it manually with "
-                    "'plato chronos stop %s' if unwanted)",
-                    self.session_id,
-                    self.session_id,
-                )
             elif self.session_id and not keep_vm:
                 await self._complete_chronos_session(status, exit_code, error_message)
             elif self.session_id and keep_vm:
@@ -298,7 +268,7 @@ class TestRunner:
 
             self._write_summary(exit_code=exit_code, status=status, error_message=error_message)
 
-            await self._cleanup(keep_vm=keep_vm, preserve_session=client_fault)
+            await self._cleanup(keep_vm=keep_vm)
 
             self._print(f"TEST_STATUS={status}")
             self._print(f"TEST_EXIT_CODE={exit_code}")
@@ -536,8 +506,6 @@ class TestRunner:
             raise RuntimeError(f"Sync failed for {failed} target(s)")
         self._print("[reuse] Code synced (skipped editable install)")
 
-        await self._sync_fuse_binary_override()
-
         await self._sync_world_deps()
         await self._resolve_and_write_config()
         self._print("[reuse] VM ready for tests")
@@ -563,19 +531,13 @@ class TestRunner:
     async def _resolve_and_write_config(self) -> None:
         """Resolve ${VAR} placeholders in world config and write runtime files to the VM."""
         world_config = self.config.world.config or {}
-        # pass_env (explicit, from the local shell) substitutes FIRST so it
-        # wins over the Chronos analyzer-env store. The reverse order let the
-        # store consume placeholders it happened to have and left pass_env
-        # filling only the rest — for AWS this paired the store's static
-        # access key/secret with the runner's unrelated session token, an
-        # invalid mix Bedrock rejects with 403 "security token invalid".
+        await resolve_config_env_vars(world_config, self.api_key)
         pass_env_values = {name: val for name in self.config.test.pass_env if (val := os.environ.get(name))}
         if pass_env_values:
             substituted = substitute_env_vars(world_config, pass_env_values)
             if isinstance(substituted, dict):
                 world_config.clear()
                 world_config.update(substituted)
-        await resolve_config_env_vars(world_config, self.api_key)
         await resolve_agent_images(world_config, self.api_key)
         await self._write_runtime_files()
 
@@ -585,21 +547,6 @@ class TestRunner:
         if not targets:
             raise RuntimeError("No sync targets configured. Provide `dev.world` and/or `dev.agents`.")
         return targets
-
-    async def _sync_fuse_binary_override(self) -> None:
-        """Honor PLATO_FUSE_BINARY like dev mode does.
-
-        Without this, a test run validating a locally built plato-fuse runs
-        the image-baked binary instead — the world mounts with it AND the
-        agent-VM fuse transport pushes it to agent VMs, silently voiding the
-        binary under test.
-        """
-        if not self.world_env or not self.ssh_key:
-            raise RuntimeError("world_env and ssh_key must be initialized")
-        fuse_binary = await sync_fuse_binary_override(self.world_env.job_id, self.ssh_key.private_key_path)
-        if fuse_binary:
-            await self.world_env.execute("chmod +x /usr/local/bin/plato-fuse", timeout=10)
-            self._print(f"[setup] plato-fuse binary synced to VM: {fuse_binary}")
 
     async def _install_editable_packages(self) -> None:
         if not self.world_env:
@@ -611,8 +558,6 @@ class TestRunner:
         t0 = perf_counter()
         await self.world_env.execute(ENSURE_FUSE3_COMMAND, timeout=60)
         logger.info("fuse3 check: %.1fs", perf_counter() - t0)
-
-        await self._sync_fuse_binary_override()
 
         # Clean build artifacts so editable install uses fresh source
         if self.config.dev.world:
@@ -759,8 +704,7 @@ class TestRunner:
         ssh_cmd = build_ssh_command(self.world_env.job_id, self.ssh_key.private_key_path)
         ssh_cmd.append(remote_cmd)
 
-        self._phase_process = await asyncio.create_subprocess_exec(  # noqa: S603
-            limit=2**24,
+        self._phase_process = await asyncio.create_subprocess_exec(
             *ssh_cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
@@ -789,23 +733,7 @@ class TestRunner:
             stdout = proc.stdout
             if stdout:
                 while True:
-                    try:
-                        line = await stdout.readline()
-                    except ValueError:
-                        # A single log line exceeded the StreamReader limit
-                        # (readline drops the oversized chunk into the buffer
-                        # and raises). Drain what is buffered and continue —
-                        # a giant line must never kill the runner: its
-                        # teardown stops the REMOTE session (this exact crash
-                        # killed a healthy 20h workday run at round 6).
-                        chunk = await stdout.read(2**16)
-                        if not chunk:
-                            break
-                        decoded = chunk.decode(errors="replace")
-                        output_lines.append(decoded)
-                        sys.stdout.write(decoded)
-                        sys.stdout.flush()
-                        continue
+                    line = await stdout.readline()
                     if not line:
                         break
                     decoded = line.decode(errors="replace")
@@ -854,62 +782,6 @@ class TestRunner:
             logger.warning("Failed to fetch %s: %s", remote_path, stderr.decode(errors="replace"))
             return False
         return True
-
-    async def _push_files_via_ssh(self, files: dict[str, str]) -> None:
-        """Deliver files to the VM over the runner's existing SSH channel.
-
-        The test runner already holds mesh SSH to the world VM (dev sync
-        rsyncs code over it moments earlier), so runtime files go over scp
-        like ``plato.agents.vm_setup`` delivers agent env files — instead of
-        N chunked ``printf`` exec ops that each ride the backend's per-worker
-        ops queue with a 30s no-retry timeout (the classic
-        "Operation ... timed out" setup flake).
-
-        Files are staged into /tmp and moved into place with a single direct
-        SSH command (scp can't mkdir -p destination directories).
-        """
-        if not self.world_env or not self.ssh_key:
-            raise RuntimeError("world_env and ssh_key must be initialized")
-        hostname = f"{self.world_env.job_id}.plato"
-        # Gateway ProxyCommand + connection-multiplexing opts — same tunnel
-        # the runner's dev-sync rsync uses (plain SSH can't reach the VM).
-        ssh_opts = get_vm_ssh_options(self.world_env.job_id, self.ssh_key.private_key_path)
-
-        moves: list[str] = []
-        for index, (remote_path, content) in enumerate(files.items()):
-            stage_path = f"/tmp/.plato_runtime_file_{index}"
-            await scp_content_to_vm(
-                self.ssh_key.private_key_path,
-                hostname,
-                stage_path,
-                content.encode(),
-                extra_opts=ssh_opts,
-            )
-            q_dest = shlex.quote(remote_path)
-            moves.append(f"mkdir -p $(dirname {q_dest}) && mv {shlex.quote(stage_path)} {q_dest}")
-
-        exit_code, _, stderr = await run_ssh(
-            self.ssh_key.private_key_path,
-            hostname,
-            " && ".join(moves),
-            timeout=30,
-            extra_opts=ssh_opts,
-        )
-        if exit_code != 0:
-            raise RuntimeError(f"Failed to move runtime files into place: {stderr}")
-
-    async def _write_files_to_vm(self, files: dict[str, str]) -> None:
-        """Deliver files to the VM, preferring scp with chunked-exec fallback."""
-        try:
-            await self._push_files_via_ssh(files)
-            return
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "SSH runtime-file delivery failed, falling back to chunked exec writes: %s",
-                exc,
-            )
-        for remote_path, content in files.items():
-            await self._write_file_to_vm(remote_path, content, mkdir=True)
 
     async def _write_file_to_vm(self, remote_path: str, content: str, *, mkdir: bool = False) -> None:
         """Write content to a file on the VM using chunked base64 to avoid ARG_MAX limits."""
@@ -984,17 +856,19 @@ class TestRunner:
                     "hostname": runtime_hostname,
                 },
             }
-        files = {"/tmp/config.json": json.dumps(config_dict)}
+        config_json = json.dumps(config_dict)
+        await self._write_file_to_vm("/tmp/config.json", config_json)
+
         if serialized_session:
-            files["/etc/plato/session.json"] = json.dumps(
+            session_json = json.dumps(
                 serialized_session.model_dump(mode="json")
                 if hasattr(serialized_session, "model_dump")
                 else serialized_session
             )
-        await self._write_files_to_vm(files)
+            await self._write_file_to_vm("/etc/plato/session.json", session_json, mkdir=True)
 
     async def _create_chronos_session(self) -> CreateSessionResponse:
-        world_config = self.config.world.to_session_payload()
+        world_config = self.config.world.config or {}
         tags = list({*self.config.tags, "test", "ci.test"})
         # world_name is resolved from the schema in _setup_vm, or set
         # explicitly in the config. Fall back to package name as last resort.
@@ -1115,7 +989,7 @@ class TestRunner:
         except Exception:  # noqa: BLE001
             logger.warning("Failed to save reuse file", exc_info=True)
 
-    async def _cleanup(self, *, keep_vm: bool, preserve_session: bool = False) -> None:
+    async def _cleanup(self, *, keep_vm: bool) -> None:
         if self._tracing_initialized:
             shutdown_tracing()
 
@@ -1127,12 +1001,10 @@ class TestRunner:
             return
 
         logger.info("Cleaning up session and VM...")
-        if self.session and not self.reuse_vm and not preserve_session:
+        if self.session and not self.reuse_vm:
             # Don't close the underlying Plato session when reusing — we didn't create it
             await self.session.close()
             logger.info("Session closed: %s", self.session_id)
-        elif preserve_session:
-            logger.info("Session left running (client fault): %s", self.session_id)
         if self.plato:
             await self.plato.close()
         logger.info("Cleanup complete.")

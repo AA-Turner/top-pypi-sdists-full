@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trajectory-sdk
-Version: 0.9.35
+Version: 0.10.1
 Summary: Generated Trajectory API client and high-level workflows
 Project-URL: Documentation, https://docs.trajectory.ai
 Project-URL: Cookbook, https://github.com/Trajectorylabs/trajectory-cookbook
@@ -16,7 +16,7 @@ Dynamic: license-file
 # Trajectory SDK
 
 Generated Python client for the Trajectory API, with high-level workflows for uploading
-trajectories, telemetry, and runtime-backed benchmarks.
+trajectories, telemetry, and runtime-backed specs (benchmarks).
 
 ## Install
 
@@ -31,14 +31,14 @@ The SDK installs a Trajectory skill for coding agents at
 python -c "import importlib.metadata as m; print(next(f.locate().resolve() for f in m.files('trajectory-sdk') if f.name == 'SKILL.md'))"
 ```
 
-Copy that file into your benchmark repo at `.agents/skills/trajectory/SKILL.md` for Codex or
+Copy that file into your spec repo at `.agents/skills/trajectory/SKILL.md` for Codex or
 `.claude/skills/trajectory/SKILL.md` for Claude Code.
 
 ## Start here
 
 The [Trajectory docs](https://docs.trajectory.ai) cover the SDK. Start with the
 [quickstart](https://docs.trajectory.ai/quickstart), then
-[bring a benchmark](https://docs.trajectory.ai/guides/benchmarks),
+[bring a spec](https://docs.trajectory.ai/guides/spec),
 [evaluate](https://docs.trajectory.ai/guides/evaluations),
 [train](https://docs.trajectory.ai/guides/training), and
 [deploy](https://docs.trajectory.ai/guides/deployments).
@@ -56,7 +56,7 @@ client = Client()
 benchmarks = client.benchmarks.list(limit=10)
 ```
 
-For task execution, follow the [native benchmark harness](#native-benchmark-harness) and
+For task execution, follow the [native spec harness](#native-spec-harness) and
 [registration and image builds](#registration-and-image-builds) examples below.
 
 SDK-owned API clients use a 600-second read/write/pool timeout and a 5-second connection timeout.
@@ -72,10 +72,10 @@ duration or signed-URL expiry.
 `push()` and `start_push()` retry each upload request up to `upload_max_retries` times (default
 `32`, within 4.5 minutes of waiting), separately from the client's `max_retries`.
 
-The generated resource methods map directly to the public HTTP API. Benchmark submission
+The generated resource methods map directly to the public HTTP API. Spec submission
 and file-upload workflows are available from `trajectory.lib`.
 
-## Native benchmark harness
+## Native spec harness
 
 A task's `run_command` starts your program inside its runtime. This self-contained example uses
 an inline question and expected answer for clarity. Inputs and references may come from files or
@@ -125,7 +125,7 @@ Define a `BenchmarkSpec` named `benchmark` with your tasks, distinct `train`/`te
 and a runtime such as `DockerfileBuild("Dockerfile")`. With the Dockerfile and harness under
 the local `benchmark/` directory,
 [choose or create an agent](https://docs.trajectory.ai/agent), then register the
-benchmark and build its runtime. Replace `YOUR_AGENT_NAME` with that agent's name:
+spec and build its runtime. Replace `YOUR_AGENT_NAME` with that agent's name:
 
 ```python registration.py
 from pathlib import Path
@@ -139,11 +139,11 @@ result = push(
 )
 ```
 
-The benchmark name comes from `manifest.name`: reusing a name under the same agent pushes
+The spec name comes from `manifest.name`: reusing a name under the same agent pushes
 a new version.
-Every new submission returns a new benchmark ID. Uploads do not accept a benchmark ID.
+Every new submission returns a new spec ID. Uploads do not accept a spec ID.
 
-`push()` calls `start_push()` and waits for registration, returning a benchmark result
+`push()` calls `start_push()` and waits for registration, returning a spec result
 with `bench_id`. Both upload files with progress and accept the same arguments. Image builds
 are off by default; pass `build_images=True` to include them and receive build failures
 through the ingestion operation.
@@ -155,7 +155,7 @@ It is a regular Python function; it does not require `await`.
 
 `push()` raises `BenchmarkOperationError` on a failed build; inspect its `failures`
 for the affected runtime and build error. Once the runtime is ready, follow the
-SDK benchmark guide's validation and evaluation steps; uploading does not execute
+SDK spec guide's diagnostic and evaluation steps; uploading does not execute
 the tasks. Start evaluation or training with `agent_name` and `benchmark_name`
 to select the latest version, or `bench_id` to select a specific version.
 Run this registration code with your organization's API key.

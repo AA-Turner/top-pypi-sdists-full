@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm
-Version: 0.32.0
+Version: 0.33.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -25,10 +25,11 @@ Requires-Dist: psutil
 Requires-Dist: sentencepiece
 Requires-Dist: numpy
 Requires-Dist: requests>=2.33.0
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: tqdm
 Requires-Dist: blake3
 Requires-Dist: py-cpuinfo
-Requires-Dist: transformers<5.20.0,>=5.16.1
+Requires-Dist: transformers<5.21.0,>=5.16.1
 Requires-Dist: huggingface_hub>=1.31.0
 Requires-Dist: tokenizers>=0.23.2
 Requires-Dist: safetensors>=0.6.2
@@ -36,11 +37,13 @@ Requires-Dist: protobuf!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2
 Requires-Dist: protobuf==7.36.1; platform_machine == "s390x"
 Requires-Dist: fastapi[standard]<0.137.0,>=0.133.0
 Requires-Dist: starlette>=1.0.1
-Requires-Dist: aiohttp>=3.14.3
+Requires-Dist: aiohttp>=3.14.4
+Requires-Dist: multidict>=6.9.1
 Requires-Dist: openai>=2.25.0
 Requires-Dist: pydantic>=2.12.0
+Requires-Dist: orjson>=3.11.6
 Requires-Dist: prometheus_client>=0.18.0
-Requires-Dist: pillow>=12.3.0
+Requires-Dist: pillow>=13.0.0
 Requires-Dist: prometheus-fastapi-instrumentator>=8.0.0
 Requires-Dist: tiktoken>=0.6.0
 Requires-Dist: lm-format-enforcer==0.11.3
@@ -73,30 +76,30 @@ Requires-Dist: setproctitle
 Requires-Dist: oss-harmony>=0.0.11
 Requires-Dist: anthropic>=0.71.0
 Requires-Dist: model-hosting-container-standards<1.0.0,>=0.1.14
-Requires-Dist: mcp<3.0.0,>=2.0.0
+Requires-Dist: mcp<3.0.0,>=2.2.0
 Requires-Dist: opentelemetry-sdk>=1.27.0
 Requires-Dist: opentelemetry-api>=1.27.0
 Requires-Dist: opentelemetry-exporter-otlp>=1.27.0
 Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.1
 Requires-Dist: numba==0.65.0
-Requires-Dist: torch==2.13.0
+Requires-Dist: torch==2.14.0
 Requires-Dist: torchaudio==2.11.0
-Requires-Dist: torchvision==0.28.0
+Requires-Dist: torchvision==0.29.0
 Requires-Dist: torchcodec>=0.14
 Requires-Dist: PyNvVideoCodec==2.0.4
-Requires-Dist: flashinfer-python==0.7.0.post1
+Requires-Dist: flashinfer-python==0.7.2.post1
 Requires-Dist: apache-tvm-ffi==0.1.11
 Requires-Dist: tilelang==0.1.12
-Requires-Dist: nvidia-cudnn-frontend>=1.19.1
+Requires-Dist: nvidia-cudnn-frontend>=1.31.0
 Requires-Dist: nvtx==0.2.15
 Requires-Dist: fastsafetensors>=0.3.3
 Requires-Dist: instanttensor>=0.2.2
 Requires-Dist: nvidia-cutlass-dsl[cu13]==4.8.0
 Requires-Dist: quack-kernels==0.6.5
-Requires-Dist: tokenspeed-mla==0.2.15; platform_system == "Linux"
-Requires-Dist: humming-kernels[cu13]==0.1.17
+Requires-Dist: tokenspeed-mla==2.0.3; platform_system == "Linux"
+Requires-Dist: humming-kernels[cu13]==0.1.19
 Provides-Extra: zen
-Requires-Dist: zentorch==2.13.0.1; extra == "zen"
+Requires-Dist: zentorch==2.14.0.1; extra == "zen"
 Provides-Extra: bench
 Requires-Dist: pandas; extra == "bench"
 Requires-Dist: matplotlib; extra == "bench"

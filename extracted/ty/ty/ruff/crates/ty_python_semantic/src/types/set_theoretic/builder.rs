@@ -447,7 +447,7 @@ impl<'db> Type<'db> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum UnionElement<'db> {
     Type(Type<'db>),
     // A map from integer literals to their promotability.
@@ -642,6 +642,7 @@ const MAX_RECURSIVE_UNION_LITERALS: usize = 5;
 /// Huge enums and string literal sets are not uncommon (especially in generated code), and it's annoying
 /// if reachability analysis etc. fails when analysing these enums.
 const MAX_NON_RECURSIVE_UNION_LITERALS: usize = 8192;
+#[derive(Clone)]
 pub(crate) struct UnionBuilder<'db> {
     elements: Vec<UnionElement<'db>>,
     db: &'db dyn Db,
@@ -1695,6 +1696,15 @@ impl<'db> IntersectionBuilder<'db> {
     pub(crate) fn add_negative(mut self, ty: Type<'db>) -> Self {
         self.add_negative_in_place(ty);
         self
+    }
+
+    /// Add a negative element without expanding multiple disjunctions beyond the intersection budget.
+    ///
+    /// Returns `None` if the exact result exceeds the budget.
+    pub(crate) fn bounded_add_negative(mut self, ty: Type<'db>) -> Option<Self> {
+        self.add_negative_impl::<BoundedIntersection>(ty, &mut vec![])
+            .continue_value()?;
+        Some(self)
     }
 
     pub(crate) fn add_negative_in_place(&mut self, ty: Type<'db>) {

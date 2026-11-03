@@ -229,7 +229,7 @@ def scrub_string(value: str, *, _depth: int = 0) -> str:
 
 def _scrub_string(value: str, *, _depth: int = 0) -> str:
     """`scrub_string` without the cache."""
-    from probe.tap_core.secrets import redact
+    from probe.foundation.transcripts.credential_scan.credential_scan import redact
 
     # Inspect the original credential before ordinary scrubbing can remove
     # its prefix and leave a NUL-separated suffix behind. The inspection view
@@ -335,7 +335,7 @@ def default_scrub(value: Any, *, key: str = "") -> Any:
 # tier WOULD change something (`secret_gate._findings`). On a 20 MB file that
 # question cost as much as a full scrub, because `_KEYED_VALUE` matches every
 # `key: value` pair and re-scrubs each value. The server can say where a change
-# is even possible (an accelerator, see `probe.tap_core.secrets.Windows`), and
+# is even possible (an accelerator, see `probe.foundation.transcripts.credential_scan.credential_scan.Windows`), and
 # `scrub_changes` reads only there.
 
 #: A key `is_sensitive_key` could accept, up to its separator. Case-insensitive
@@ -364,7 +364,8 @@ def scrub_hint() -> re.Pattern[str]:
     rule's keyword is a new hint. Escapes, NUL, brackets (a nested JSON value)
     and URLs are the non-keyword ways a string changes.
     """
-    from probe.tap_core.secrets import _ANCHOR_KEYWORDS, _RULES
+    from probe.foundation.transcripts.credential_scan.rules import _RULES
+    from probe.foundation.transcripts.credential_scan.shapes import _ANCHOR_KEYWORDS
 
     literals = sorted(
         {keyword for rule in _RULES for keyword in rule.keywords}
@@ -397,7 +398,9 @@ def scrub_changes(
     carry a hint. `_scanned` is the caller saying `scan(value)` already found
     nothing, so the `redact` step could change nothing either.
     """
-    from probe.tap_core.secrets import _ACCEL_MIN_CHARS, _ESCAPE_REACH, _matches, _snap, scan
+    from probe.foundation.transcripts.credential_scan.credential_scan import _ACCEL_MIN_CHARS, scan
+    from probe.foundation.transcripts.credential_scan.decoding import _ESCAPE_REACH, _snap
+    from probe.foundation.transcripts.credential_scan.windows import _matches
 
     if accel is None or len(value) < _ACCEL_MIN_CHARS:
         return scrub_string(value, _depth=_depth) != value
@@ -579,7 +582,7 @@ def scan_accelerator(text: str, accel: Any) -> Any:
     the limit: at most one regex step per 64 characters of `text`."""
     if accel is None:
         return None
-    from probe.tap_core.secrets import _ENCODED_CHAR
+    from probe.foundation.transcripts.credential_scan.decoding import _ENCODED_CHAR
 
     limit = len(text) // _ACCEL_CHARS_PER_ESCAPE
     dense = next(itertools.islice(_ENCODED_CHAR.finditer(text), limit, None), None) is not None
@@ -732,7 +735,7 @@ _KEYED_VALUE = re.compile(
 
 def _indirect_value(value: str, *, allow_lookup: bool = True) -> bool:
     if allow_lookup and _ENV_LOOKUP.fullmatch(value.strip()):
-        from probe.tap_core.secrets import redact
+        from probe.foundation.transcripts.credential_scan.credential_scan import redact
 
         # An environment reference is not a waiver for a recognizable credential
         # embedded in its variable name.
@@ -765,7 +768,7 @@ def _credential_shaped(value: str) -> bool:
     or be high-entropy. `hunter2` and `deadbeefdeadbeef` pass; `chocolate`,
     `flour`, `12345` and `$<<60*0.1=6>>6.` do not.
     """
-    from probe.tap_core.secrets import shannon_entropy
+    from probe.foundation.transcripts.credential_scan.values import shannon_entropy
 
     if len(value) < _PLAIN_WORD_MIN_LEN or not _CREDENTIAL_ALPHABET.fullmatch(value):
         return False

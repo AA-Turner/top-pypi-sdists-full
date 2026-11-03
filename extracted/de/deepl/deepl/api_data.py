@@ -3,10 +3,35 @@
 # license that can be found in the LICENSE file.
 
 import datetime
-from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from enum import Enum, auto
+from typing import (
+    Any,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
-from deepl.util import get_int_safe, parse_timestamp
+from deepl.util import (
+    get_float_safe,
+    get_int_safe,
+    parse_timestamp,
+)
+
+
+class AppInfo(NamedTuple):
+    """Identifies the application using the library, sent in the User-Agent
+    header as ``<app_name>/<app_version>``.
+
+    :param app_name: Name of the application.
+    :param app_version: Version of the application.
+    """
+
+    app_name: str
+    app_version: str
 
 
 class TextResult:
@@ -16,13 +41,15 @@ class TextResult:
         self,
         text: str,
         detected_source_lang: str,
-        billed_characters: int,
+        billed_characters: Optional[int],
         model_type_used: Optional[str] = None,
+        tag_handling_version: Optional[str] = None,
     ):
         self.text = text
         self.detected_source_lang = detected_source_lang
         self.billed_characters = billed_characters
         self.model_type_used = model_type_used
+        self.tag_handling_version = tag_handling_version
 
     def __str__(self):
         return self.text
@@ -68,13 +95,15 @@ class DocumentHandle:
 class DocumentStatus:
     """Status of a document translation request.
 
-    :param status: One of the Status enum values below.
+    :param status: One of the Status enum values below. A status the API
+        sends that is not one of these values is kept as a string.
     :param seconds_remaining: Estimated time until document translation
         completes in seconds, or None if unknown.
     :param billed_characters: Number of characters billed for this document, or
         None if unknown or before translation is complete.
     :param error_message: A short description of the error, or None if no error
         has occurred.
+    :param document_id: ID of the document this status belongs to.
     """
 
     class Status(Enum):
@@ -90,14 +119,24 @@ class DocumentStatus:
         seconds_remaining=None,
         billed_characters=None,
         error_message=None,
+        document_id: str = "",
     ):
-        self._status = self.Status(status)
+        self._document_id = document_id
+        try:
+            self._status: Union[DocumentStatus.Status, str] = self.Status(
+                status
+            )
+        except ValueError:
+            # Keep a status this version does not know as a plain string.
+            self._status = status
         self._seconds_remaining = seconds_remaining
         self._billed_characters = billed_characters
         self._error_message = error_message
 
     def __str__(self) -> str:
-        return self.status.value
+        if isinstance(self._status, self.Status):
+            return self._status.value
+        return str(self._status)
 
     @property
     def ok(self) -> bool:
@@ -108,7 +147,13 @@ class DocumentStatus:
         return self._status == self.Status.DONE
 
     @property
-    def status(self) -> Status:
+    def document_id(self) -> str:
+        return self._document_id
+
+    @property
+    def status(self) -> Union[Status, str]:
+        """The status as a Status member, or as the API's string if it is not
+        one of the Status values."""
         return self._status
 
     @property
@@ -120,7 +165,7 @@ class DocumentStatus:
         return self._billed_characters
 
     @property
-    def error_message(self) -> Optional[int]:
+    def error_message(self) -> Optional[str]:
         return self._error_message
 
 
@@ -130,6 +175,9 @@ class Usage:
     The character, document and team_document properties provide details about
     each corresponding usage type. These properties allow each usage type to be
     checked individually.
+    For API Pro accounts, api_key_character, speech_to_text_minutes,
+    speech_to_speech_minutes, products, start_time and end_time provide
+    further details; for other accounts they are None.
     The any_limit_reached property checks if for any usage type the amount used
     has reached the allowed amount.
     """
@@ -167,22 +215,122 @@ class Usage:
             import warnings
 
             warnings.warn(
-                "limit_reached is deprecated", DeprecationWarning, stacklevel=2
+                "limit_exceeded is deprecated, use limit_reached",
+                DeprecationWarning,
+                stacklevel=2,
             )
             return self.limit_reached
 
         def __str__(self) -> str:
             return f"{self.count} of {self.limit}" if self.valid else "Unknown"
 
+    class Product:
+        """Usage of one product (e.g. "translate", "write") in the current
+        billing period.
+
+        :param product_type: Product type, for example "translate", "write",
+            "speechToText" or "speechToSpeech".
+        :param billing_unit: Unit the product is billed in, for example
+            "characters" or "minutes".
+        :param api_key_unit_count: Units used by this API key.
+        :param account_unit_count: Units used by the whole account.
+        """
+
+        def __init__(
+            self,
+            product_type: Optional[str],
+            billing_unit: Optional[str],
+            api_key_unit_count: Optional[int],
+            account_unit_count: Optional[int],
+        ):
+            self._product_type = product_type
+            self._billing_unit = billing_unit
+            self._api_key_unit_count = api_key_unit_count
+            self._account_unit_count = account_unit_count
+
+        @staticmethod
+        def from_json(json: dict) -> "Usage.Product":
+            return Usage.Product(
+                json.get("product_type"),
+                json.get("billing_unit"),
+                get_int_safe(json, "api_key_unit_count"),
+                get_int_safe(json, "account_unit_count"),
+            )
+
+        @property
+        def product_type(self) -> Optional[str]:
+            """Returns the product type, for example "translate"."""
+            return self._product_type
+
+        @property
+        def billing_unit(self) -> Optional[str]:
+            """Returns the billing unit, for example "characters"."""
+            return self._billing_unit
+
+        @property
+        def api_key_unit_count(self) -> Optional[int]:
+            """Returns the units used for this product by this API key."""
+            return self._api_key_unit_count
+
+        @property
+        def account_unit_count(self) -> Optional[int]:
+            """Returns the units used for this product by the account."""
+            return self._account_unit_count
+
+        def __str__(self) -> str:
+            return (
+                f"{self.product_type}: {self.api_key_unit_count} (API key), "
+                f"{self.account_unit_count} (account) {self.billing_unit}"
+            )
+
     def __init__(self, json: Optional[dict]):
         self._character = self.Detail(json, "character")
         self._document = self.Detail(json, "document")
         self._team_document = self.Detail(json, "team_document")
+        self._api_key_character = self._optional_detail(
+            json, "api_key_character"
+        )
+        self._speech_to_text_minutes = self._optional_detail(
+            json, "speech_to_text_minutes"
+        )
+        self._speech_to_speech_minutes = self._optional_detail(
+            json, "speech_to_speech_minutes"
+        )
+        products = json.get("products") if json else None
+        self._products: Optional[List[Usage.Product]] = (
+            [
+                Usage.Product.from_json(p)
+                for p in products
+                if isinstance(p, dict)
+            ]
+            if isinstance(products, list)
+            else None
+        )
+        self._start_time = parse_optional_timestamp(
+            json.get("start_time") if json else None
+        )
+        self._end_time = parse_optional_timestamp(
+            json.get("end_time") if json else None
+        )
+
+    @staticmethod
+    def _optional_detail(
+        json: Optional[dict], prefix: str
+    ) -> Optional["Usage.Detail"]:
+        """Returns the Detail for prefix, or None if the response contains
+        neither its count nor its limit."""
+        if not json or (
+            f"{prefix}_count" not in json and f"{prefix}_limit" not in json
+        ):
+            return None
+        return Usage.Detail(json, prefix)
 
     @property
     def any_limit_reached(self) -> bool:
-        """True if for any API usage type, the amount used is greater than or
-        equal to the amount allowed, otherwise False."""
+        """True if for the character, document or team document usage, the
+        amount used is greater than or equal to the amount allowed, otherwise
+        False. The API Pro usage types (api_key_character and the speech
+        minutes) are not considered; check their limit_reached directly."""
         return (
             self.character.limit_reached
             or self.document.limit_reached
@@ -195,7 +343,9 @@ class Usage:
         import warnings
 
         warnings.warn(
-            "any_limit_reached is deprecated", DeprecationWarning, stacklevel=2
+            "any_limit_exceeded is deprecated, use any_limit_reached",
+            DeprecationWarning,
+            stacklevel=2,
         )
         return self.any_limit_reached
 
@@ -214,6 +364,45 @@ class Usage:
     def team_document(self) -> Detail:
         """Returns usage details for documents shared among your team."""
         return self._team_document
+
+    @property
+    def api_key_character(self) -> Optional[Detail]:
+        """Returns character usage details for this API key, as opposed to
+        character, which covers the whole account, or None if the response
+        does not contain them (only present for API Pro accounts)."""
+        return self._api_key_character
+
+    @property
+    def speech_to_text_minutes(self) -> Optional[Detail]:
+        """Returns speech-to-text usage details in minutes, or None if the
+        response does not contain them (only present for API Pro
+        accounts)."""
+        return self._speech_to_text_minutes
+
+    @property
+    def speech_to_speech_minutes(self) -> Optional[Detail]:
+        """Returns speech-to-speech usage details in minutes, or None if the
+        response does not contain them (only present for API Pro
+        accounts)."""
+        return self._speech_to_speech_minutes
+
+    @property
+    def products(self) -> Optional[List["Usage.Product"]]:
+        """Returns the per-product usage details, or None if the response does
+        not contain them (only present for API Pro accounts)."""
+        return self._products
+
+    @property
+    def start_time(self) -> Optional[datetime.datetime]:
+        """Returns the start of the current billing period, or None (only
+        present for API Pro accounts)."""
+        return self._start_time
+
+    @property
+    def end_time(self) -> Optional[datetime.datetime]:
+        """Returns the end of the current billing period, or None (only
+        present for API Pro accounts)."""
+        return self._end_time
 
     def __str__(self) -> str:
         details: List[Tuple[str, Usage.Detail]] = [
@@ -235,6 +424,11 @@ class Language:
     :param name: Name of the language in English.
     :param supports_formality: (Optional) Specifies whether the formality
         option is available for this language; target languages only.
+
+    Deprecated: the language code constants of this class, for example
+    Language.GERMAN, will be removed in the next major version. Use language
+    code strings instead, for example "de", or the languages returned by
+    get_source_languages() and get_target_languages().
     """
 
     def __init__(
@@ -256,6 +450,8 @@ class Language:
         else:
             return str(language).upper()
 
+    # Deprecated: these constants will be removed in the next major version.
+    # Use language code strings instead, for example "de".
     ACEHNESE = "ace"
     AFRIKAANS = "af"
     ARAGONESE = "an"
@@ -277,18 +473,23 @@ class Language:
     WELSH = "cy"
     DANISH = "da"
     GERMAN = "de"
+    GERMAN_SWISS = "de-CH"  # Only usable as a target language
+    GERMAN_GERMANY = "de-DE"  # Only usable as a target language
     GREEK = "el"
-    ENGLISH = "en"  # Only usable as a source language
+    ENGLISH = "en"  # Source or target; as target, translates to en-US
     ENGLISH_BRITISH = "en-GB"  # Only usable as a target language
     ENGLISH_AMERICAN = "en-US"  # Only usable as a target language
     ESPERANTO = "eo"
     SPANISH = "es"
     SPANISH_LATIN_AMERICAN = "es-419"  # Only usable as a target language
+    SPANISH_EUROPEAN = "es-ES"  # Only usable as a target language
     ESTONIAN = "et"
     BASQUE = "eu"
     PERSIAN = "fa"
     FINNISH = "fi"
     FRENCH = "fr"
+    FRENCH_CANADIAN = "fr-CA"  # Only usable as a target language
+    FRENCH_EUROPEAN = "fr-FR"  # Only usable as a target language
     IRISH = "ga"
     GALICIAN = "gl"
     GUARANI = "gn"
@@ -339,7 +540,7 @@ class Language:
     POLISH = "pl"
     DARI = "prs"
     PASHTO = "ps"
-    PORTUGUESE = "pt"  # Only usable as a source language
+    PORTUGUESE = "pt"  # Source or target; as target, translates to pt-PT
     PORTUGUESE_BRAZILIAN = "pt-BR"  # Only usable as a target language
     PORTUGUESE_EUROPEAN = "pt-PT"  # Only usable as a target language
     QUECHUA = "qu"
@@ -401,6 +602,118 @@ class GlossaryLanguagePair:
         return self._target_lang
 
 
+def _required(json, key: str):
+    """Returns json[key]; raises KeyError if the field is missing or null."""
+    value = json[key]
+    if value is None:
+        raise KeyError(key)
+    return value
+
+
+class ResourceFeature:
+    """A feature supported by a DeepL API resource, as returned by
+    DeepLClient.get_language_resources().
+
+    :param name: The feature name, for example "glossary" or "formality".
+    :param needs_source_support: True if the source language must support
+        the feature for it to be available; False if the API omits it.
+    :param needs_target_support: True if the target language must support
+        the feature for it to be available; False if the API omits it.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        needs_source_support: bool = False,
+        needs_target_support: bool = False,
+    ):
+        self._name = name
+        self._needs_source_support = needs_source_support
+        self._needs_target_support = needs_target_support
+
+    @staticmethod
+    def from_json(json) -> "ResourceFeature":
+        """Create ResourceFeature from the given API JSON object."""
+        return ResourceFeature(
+            name=_required(json, "name"),
+            needs_source_support=bool(json.get("needs_source_support")),
+            needs_target_support=bool(json.get("needs_target_support")),
+        )
+
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def name(self) -> str:
+        """Returns the feature name."""
+        return self._name
+
+    @property
+    def needs_source_support(self) -> bool:
+        """Returns True if the source language must support this feature,
+        False otherwise (also when the API did not specify it)."""
+        return self._needs_source_support
+
+    @property
+    def needs_target_support(self) -> bool:
+        """Returns True if the target language must support this feature,
+        False otherwise (also when the API did not specify it)."""
+        return self._needs_target_support
+
+
+class LanguageResource:
+    """A DeepL API resource and the features it supports, as returned by
+    DeepLClient.get_language_resources().
+
+    :param name: The resource name, for example "translate_text".
+    :param features: Dictionary mapping feature names to ResourceFeature
+        objects.
+    """
+
+    def __init__(self, name: str, features: Dict[str, ResourceFeature]):
+        self._name = name
+        self._features = features
+
+    @staticmethod
+    def from_json(json) -> "LanguageResource":
+        """Create LanguageResource from the given API JSON object."""
+        features = [
+            ResourceFeature.from_json(feature)
+            for feature in json.get("features") or []
+        ]
+        return LanguageResource(
+            name=_required(json, "name"),
+            features={feature.name: feature for feature in features},
+        )
+
+    def __str__(self) -> str:
+        return self.name
+
+    def supports(self, feature: str) -> bool:
+        """Returns True if this resource exposes the given feature."""
+        return feature in self._features
+
+    @property
+    def name(self) -> str:
+        """Returns the resource name."""
+        return self._name
+
+    @property
+    def features(self) -> Dict[str, ResourceFeature]:
+        """Returns a dictionary mapping feature names to ResourceFeature
+        objects."""
+        return self._features
+
+
+def _malformed_response(type_name: str, error: Exception) -> Exception:
+    # Imported here: deepl.exceptions imports this module.
+    from deepl.exceptions import DeepLException
+
+    return DeepLException(
+        f"Unexpected response for {type_name}: {type(error).__name__}: {error}"
+    )
+
+
 class MultilingualGlossaryDictionaryEntries:
     def __init__(
         self,
@@ -422,13 +735,24 @@ class MultilingualGlossaryDictionaryEntries:
     @staticmethod
     def from_json(json) -> "MultilingualGlossaryDictionaryEntries":
         """Create MultilingualGlossaryDictionaryEntries from the given
-        API JSON object.
+        API JSON object. Entries in TSV format, as the API returns them, are
+        kept as the TSV string; use deepl.util.convert_tsv_to_dict() to parse
+        them.
         """
-        return MultilingualGlossaryDictionaryEntries(
-            str(json["source_lang"]),
-            str(json["target_lang"]),
-            json["entries"],
-        )
+        try:
+            entries = json["entries"]
+            if not isinstance(entries, (str, dict)):
+                raise TypeError(f"entries is a {type(entries).__name__}")
+            return MultilingualGlossaryDictionaryEntries(
+                str(json["source_lang"]),
+                str(json["target_lang"]),
+                # Released behaviour: API entries stay the raw TSV string.
+                cast(Dict[str, str], entries),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise _malformed_response(
+                "MultilingualGlossaryDictionaryEntries", error
+            ) from error
 
     def to_json(self):
         """Create API JSON object from
@@ -470,7 +794,12 @@ class MultilingualGlossaryDictionaryEntriesResponse:
         """Create MultilingualGlossaryDictionaryEntriesResponse from the given
         API JSON object.
         """
-        glossary_dicts = list(json["dictionaries"])
+        try:
+            glossary_dicts = list(json["dictionaries"])
+        except (KeyError, TypeError) as error:
+            raise _malformed_response(
+                "MultilingualGlossaryDictionaryEntriesResponse", error
+            ) from error
         serialized_dicts = list(
             map(
                 lambda glossary_dict: MultilingualGlossaryDictionaryEntries.from_json(  # noqa: E501
@@ -496,11 +825,24 @@ class MultilingualGlossaryDictionaryInfo:
     def from_json(json) -> "MultilingualGlossaryDictionaryInfo":
         """Create MultilingualGlossaryDictionaryInfo from the given API JSON
         object."""
-        return MultilingualGlossaryDictionaryInfo(
-            str(json["source_lang"]).upper(),
-            str(json["target_lang"]).upper(),
-            int(json["entry_count"]),
-        )
+        try:
+            return MultilingualGlossaryDictionaryInfo(
+                str(json["source_lang"]).upper(),
+                str(json["target_lang"]).upper(),
+                int(json["entry_count"]),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise _malformed_response(
+                "MultilingualGlossaryDictionaryInfo", error
+            ) from error
+
+    def to_json(self) -> dict:
+        """Create API JSON object from MultilingualGlossaryDictionaryInfo."""
+        return {
+            "source_lang": self._source_lang,
+            "target_lang": self._target_lang,
+            "entry_count": self._entry_count,
+        }
 
     @property
     def source_lang(self) -> str:
@@ -544,28 +886,32 @@ class MultilingualGlossaryInfo:
     @staticmethod
     def from_json(json) -> "MultilingualGlossaryInfo":
         """Create MultilingualGlossaryInfo from the given API JSON object."""
+        try:
+            glossary_id = json["glossary_id"]
+            name = json["name"]
+            creation_time = parse_timestamp(json["creation_time"])
+            dictionaries = list(json["dictionaries"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise _malformed_response(
+                "MultilingualGlossaryInfo", error
+            ) from error
         return MultilingualGlossaryInfo(
-            json["glossary_id"],
-            json["name"],
-            parse_timestamp(json["creation_time"]),
-            list(
-                map(
-                    lambda entry: MultilingualGlossaryDictionaryInfo.from_json(
-                        entry
-                    ),
-                    json["dictionaries"],
-                )
-            ),
+            glossary_id,
+            name,
+            creation_time,
+            [
+                MultilingualGlossaryDictionaryInfo.from_json(entry)
+                for entry in dictionaries
+            ],
         )
 
-    @staticmethod
     def to_json(self) -> dict:
         """Create API JSON object from MultilingualGlossaryInfo."""
         return {
             "glossary_id": self._glossary_id,
             "name": self._name,
-            "creation_time": self._creation_time,
-            "dictionaries": self._dictionaries,
+            "creation_time": self._creation_time.isoformat(),
+            "dictionaries": [d.to_json() for d in self._dictionaries],
         }
 
     @property
@@ -583,6 +929,127 @@ class MultilingualGlossaryInfo:
     @property
     def creation_time(self) -> datetime.datetime:
         return self._creation_time
+
+
+class SpokenTermsList:
+    """Information about the term list of one language in a spoken-terms
+    collection, excluding the entries.
+
+    :param lang: Language of the terms.
+    :param entry_count: Number of terms in the list.
+    """
+
+    def __init__(self, lang: str, entry_count: int):
+        self._lang = lang
+        self._entry_count = entry_count
+
+    def __str__(self) -> str:
+        return f"SpokenTermsList: {self._lang}, {self._entry_count} entries"
+
+    @staticmethod
+    def from_json(json) -> "SpokenTermsList":
+        """Create SpokenTermsList from the given API JSON object."""
+        return SpokenTermsList(str(json["lang"]), int(json["entry_count"]))
+
+    @property
+    def lang(self) -> str:
+        return self._lang
+
+    @property
+    def entry_count(self) -> int:
+        return self._entry_count
+
+
+class SpokenTermsEntries:
+    """The terms of one language in a spoken-terms collection.
+
+    :param lang: Language of the terms.
+    :param entries: The terms, one per list item.
+    """
+
+    def __init__(self, lang: str, entries: List[str]):
+        self._lang = lang
+        self._entries = entries
+
+    def __str__(self) -> str:
+        return f"SpokenTermsEntries: {self._lang}, {self._entries}"
+
+    @staticmethod
+    def from_json(json) -> "SpokenTermsEntries":
+        """Create SpokenTermsEntries from the given API JSON object."""
+        # The API sends the terms newline-separated, one term per line.
+        entries = [
+            line for line in str(json.get("entries") or "").split("\n") if line
+        ]
+        return SpokenTermsEntries(str(json["lang"]), entries)
+
+    def to_json(self) -> dict:
+        """Create API JSON object from SpokenTermsEntries."""
+        return {"lang": self._lang, "entries": "\n".join(self._entries)}
+
+    @property
+    def lang(self) -> str:
+        return self._lang
+
+    @property
+    def entries(self) -> List[str]:
+        return self._entries
+
+
+class SpokenTerms:
+    """Information about a spoken-terms collection, excluding the entries.
+    Used by the /v3/spoken-terms API endpoints.
+
+    :param spoken_terms_id: Unique ID assigned to the collection.
+    :param name: User-defined name assigned to the collection.
+    :param creation_time: Timestamp when the collection was created.
+    :param term_lists: Term lists in this collection, one per language,
+        each with its language and the number of terms.
+    """
+
+    def __init__(
+        self,
+        spoken_terms_id: str,
+        name: str,
+        creation_time: datetime.datetime,
+        term_lists: List[SpokenTermsList],
+    ):
+        self._spoken_terms_id = spoken_terms_id
+        self._name = name
+        self._creation_time = creation_time
+        self._term_lists = term_lists
+
+    def __str__(self) -> str:
+        return f'SpokenTerms "{self._name}" ({self._spoken_terms_id})'
+
+    @staticmethod
+    def from_json(json) -> "SpokenTerms":
+        """Create SpokenTerms from the given API JSON object."""
+        return SpokenTerms(
+            json["spoken_terms_id"],
+            json["name"],
+            parse_timestamp(json["creation_time"]),
+            [
+                SpokenTermsList.from_json(term_list)
+                for term_list in json.get("term_lists") or []
+            ],
+        )
+
+    @property
+    def spoken_terms_id(self) -> str:
+        return self._spoken_terms_id
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def creation_time(self) -> datetime.datetime:
+        return self._creation_time
+
+    @property
+    def term_lists(self) -> List[SpokenTermsList]:
+        return self._term_lists
 
 
 class GlossaryInfo:
@@ -697,12 +1164,36 @@ class SplitSentences(Enum):
         prevent the engine from splitting the sentence unintentionally.
     - ALL: (default) splits on punctuation and on newlines.
     - NO_NEWLINES: splits on punctuation only, ignoring newlines.
+    - DEFAULT: deprecated alias of ALL, use ALL instead.
     """
 
     OFF = "0"
     ALL = "1"
     NO_NEWLINES = "nonewlines"
     DEFAULT = ALL
+    """Deprecated alias of ALL, use ALL instead."""
+
+    def __str__(self):
+        return self.value
+
+
+class TagHandlingMode(Enum):
+    """Options for the tag_handling parameter: the type of tags to parse
+    before translation."""
+
+    HTML = "html"
+    XML = "xml"
+
+    def __str__(self):
+        return self.value
+
+
+class TagHandlingVersion(Enum):
+    """Options for the tag_handling_version parameter: the version of the tag
+    handling algorithm to use."""
+
+    V1 = "v1"
+    V2 = "v2"
 
     def __str__(self):
         return self.value
@@ -1008,11 +1499,11 @@ class StyleRuleInfo:
 
 
 def parse_optional_timestamp(
-    value: Optional[str],
+    value: Any,
 ) -> Optional[datetime.datetime]:
-    """Parses an optional API timestamp, returning None if it is absent or in
-    an unrecognised format."""
-    if not value:
+    """Parses an optional API timestamp, returning None if it is absent, not
+    a string or in an unrecognised format."""
+    if not value or not isinstance(value, str):
         return None
     try:
         return parse_timestamp(value)
@@ -1025,6 +1516,152 @@ def parse_optional_timestamp(
             )
         except ValueError:
             return None
+
+
+def _parse_utc_timestamp(value: Any) -> Optional[datetime.datetime]:
+    """Parses an Admin API timestamp, taking one without a timezone offset
+    (e.g. the report start and end dates) as UTC."""
+    timestamp = (
+        parse_optional_timestamp(value) if isinstance(value, str) else None
+    )
+    if timestamp is not None and timestamp.tzinfo is None:
+        return timestamp.replace(tzinfo=datetime.timezone.utc)
+    return timestamp
+
+
+def _string_list(value) -> List[str]:
+    """Returns the strings of an API list; a missing or non-list value is an
+    empty list and non-string entries are skipped."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+class StyleProfile:
+    """Information about a style profile. Used by the /v3/style_profiles API
+    endpoints.
+
+    :param style_profile_id: Unique ID assigned to the style profile.
+    :param name: User-defined name assigned to the style profile.
+    :param description: Description of the style profile, or None if it has
+        none.
+    :param industry: Industry the style profile is written for, or None if it
+        has none.
+    :param glossary_ids: IDs of the linked glossaries, highest priority first.
+    :param style_rule_ids: IDs of the linked style rule lists.
+    :param translation_memory_ids: IDs of the linked translation memories.
+    :param glossary_priority_order_enabled: Whether the order of glossary_ids
+        decides which glossary wins when glossaries overlap.
+    :param creation_time: Timestamp when the style profile was created.
+    :param updated_time: Timestamp of the last update.
+    """
+
+    def __init__(
+        self,
+        style_profile_id: str,
+        name: str,
+        description: Optional[str],
+        industry: Optional[str],
+        glossary_ids: List[str],
+        style_rule_ids: List[str],
+        translation_memory_ids: List[str],
+        glossary_priority_order_enabled: bool,
+        creation_time: datetime.datetime,
+        updated_time: datetime.datetime,
+    ):
+        self._style_profile_id = style_profile_id
+        self._name = name
+        self._description = description
+        self._industry = industry
+        self._glossary_ids = glossary_ids
+        self._style_rule_ids = style_rule_ids
+        self._translation_memory_ids = translation_memory_ids
+        self._glossary_priority_order_enabled = glossary_priority_order_enabled
+        self._creation_time = creation_time
+        self._updated_time = updated_time
+
+    def __str__(self) -> str:
+        return f'StyleProfile "{self._name}" ({self._style_profile_id})'
+
+    @staticmethod
+    def from_json(json) -> "StyleProfile":
+        """Create StyleProfile from the given API JSON object.
+
+        :raises DeepLException: If the response is not a JSON object, or a
+            required field is missing or malformed.
+        """
+        # Imported here: deepl.exceptions imports this module.
+        from deepl.exceptions import DeepLException
+
+        if not isinstance(json, dict):
+            raise DeepLException("Style profile response is not a JSON object")
+        for field in ("style_profile_id", "name"):
+            if not isinstance(json.get(field), str):
+                raise DeepLException(
+                    f"Style profile response is missing {field}"
+                )
+
+        def required_timestamp(field: str) -> datetime.datetime:
+            timestamp = parse_optional_timestamp(json.get(field))
+            if timestamp is None:
+                raise DeepLException(
+                    f"Style profile response has a missing or malformed "
+                    f"{field}"
+                )
+            return timestamp
+
+        return StyleProfile(
+            json["style_profile_id"],
+            json["name"],
+            _str_or_none(json.get("description")),
+            _str_or_none(json.get("industry")),
+            _string_list(json.get("glossary_ids")),
+            _string_list(json.get("style_rule_ids")),
+            _string_list(json.get("translation_memory_ids")),
+            json.get("glossary_priority_order_enabled") is True,
+            required_timestamp("creation_time"),
+            required_timestamp("updated_time"),
+        )
+
+    @property
+    def style_profile_id(self) -> str:
+        return self._style_profile_id
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def description(self) -> Optional[str]:
+        return self._description
+
+    @property
+    def industry(self) -> Optional[str]:
+        return self._industry
+
+    @property
+    def glossary_ids(self) -> List[str]:
+        return self._glossary_ids
+
+    @property
+    def style_rule_ids(self) -> List[str]:
+        return self._style_rule_ids
+
+    @property
+    def translation_memory_ids(self) -> List[str]:
+        return self._translation_memory_ids
+
+    @property
+    def glossary_priority_order_enabled(self) -> bool:
+        return self._glossary_priority_order_enabled
+
+    @property
+    def creation_time(self) -> datetime.datetime:
+        return self._creation_time
+
+    @property
+    def updated_time(self) -> datetime.datetime:
+        return self._updated_time
 
 
 class TranslationMemoryInfo:
@@ -1420,11 +2057,47 @@ class TranslationMemoryExport:
         return self._reused_existing
 
 
+class TranslationMemoryJobStatus(str, Enum):
+    """Status of a translation memory import or export job.
+
+    Members are strings and compare equal to the status string the API
+    returns, for example ``TranslationMemoryJobStatus.COMPLETED ==
+    "completed"``.
+    """
+
+    AWAITING_INPUT = "awaiting_input"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    EXPIRED = "expired"
+
+    def __str__(self) -> str:
+        return self.value
+
+    def __format__(self, format_spec: str) -> str:
+        return format(self.value, format_spec)
+
+    # Hash like the plain status string, so members and strings are
+    # interchangeable as dict keys and set members.
+    __hash__ = str.__hash__
+
+
+def _parse_translation_memory_job_status(
+    status: Any,
+) -> Union[TranslationMemoryJobStatus, str]:
+    try:
+        return TranslationMemoryJobStatus(status)
+    except ValueError:
+        # Unknown statuses are kept as given.
+        return status
+
+
 class TranslationMemoryJobResult:
     """The outcome of a translation memory import or export job.
 
-    :param status: Job status, one of "awaiting_input", "processing",
-        "completed", "downloaded", "failed" or "expired".
+    :param status: Job status. A known status is returned as a
+        TranslationMemoryJobStatus member, any other value as the plain
+        string.
     :param required_action: Human-readable action the caller must take, set
         while the job is waiting on the caller.
     :param download_url: Download URL of the exported TMX file, set once an
@@ -1454,7 +2127,7 @@ class TranslationMemoryJobResult:
         translation_memory_id: Optional[str] = None,
         skipped_segment_count: Optional[int] = None,
     ):
-        self._status = status
+        self._status = _parse_translation_memory_job_status(status)
         self._required_action = required_action
         self._download_url = download_url
         self._expires_at = expires_at
@@ -1482,8 +2155,9 @@ class TranslationMemoryJobResult:
         )
 
     @property
-    def status(self) -> str:
-        """Returns the job status."""
+    def status(self) -> Union[TranslationMemoryJobStatus, str]:
+        """Returns the job status: a TranslationMemoryJobStatus member, or the
+        plain string for a status this library does not know."""
         return self._status
 
     @property
@@ -1631,8 +2305,9 @@ class TranslationMemoryJob:
         return self._results[0] if self._results else None
 
     @property
-    def status(self) -> Optional[str]:
-        """Returns the status of the job result."""
+    def status(self) -> Optional[Union[TranslationMemoryJobStatus, str]]:
+        """Returns the status of the job result, see
+        TranslationMemoryJobResult.status."""
         return self.result.status if self.result else None
 
     @property
@@ -1674,3 +2349,804 @@ class TranslationMemoryJob:
     def source_content_length(self) -> Optional[int]:
         """Returns the size in bytes declared for an import job's file."""
         return self._source_content_length
+
+
+class LanguageResourceName(Enum):
+    """Resources that can be passed to
+    `DeepLClient.get_languages_for_resource()`."""
+
+    TRANSLATE_TEXT = "translate_text"
+    TRANSLATE_DOCUMENT = "translate_document"
+    GLOSSARY = "glossary"
+    VOICE = "voice"
+    WRITE = "write"
+    STYLE_RULES = "style_rules"
+    TRANSLATION_MEMORY = "translation_memory"
+
+    def __str__(self):
+        return self.value
+
+
+class LanguageInclude(Enum):
+    """Options for the `include` parameter of
+    `DeepLClient.get_languages_for_resource()`. By default only stable
+    languages and features are returned."""
+
+    BETA = "beta"
+    """Also return languages and features in beta."""
+
+    EXTERNAL = "external"
+    """Also return features that rely on third-party service providers."""
+
+    def __str__(self):
+        return self.value
+
+
+class LanguageFeature:
+    """Support level of a single feature of a language for a resource.
+
+    :param status: Availability status of the feature, for example "stable"
+        or "beta".
+    """
+
+    def __init__(self, status: str):
+        self._status = status
+
+    @staticmethod
+    def from_json(json) -> "LanguageFeature":
+        """Create LanguageFeature from the given API JSON object."""
+        return LanguageFeature(status=_required(json, "status"))
+
+    @property
+    def status(self) -> str:
+        """Returns the availability status of the feature."""
+        return self._status
+
+
+class LanguageSupport:
+    """Information about a language supported by a DeepL API resource, as
+    returned by `DeepLClient.get_languages_for_resource()`.
+
+    :param code: Language code (BCP 47), for example "de" or "en-US".
+    :param name: Name of the language in English.
+    :param status: Availability status of the language, for example
+        "stable" or "beta".
+    :param usable_as_source: True if the language can be used as a source
+        language for the resource.
+    :param usable_as_target: True if the language can be used as a target
+        language for the resource.
+    :param features: Map of feature name to LanguageFeature; empty if no
+        optional features are supported.
+    """
+
+    def __init__(
+        self,
+        code: str,
+        name: str,
+        status: str,
+        usable_as_source: bool,
+        usable_as_target: bool,
+        features: Dict[str, LanguageFeature],
+    ):
+        self._code = code
+        self._name = name
+        self._status = status
+        self._usable_as_source = usable_as_source
+        self._usable_as_target = usable_as_target
+        self._features = features
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.code})"
+
+    @staticmethod
+    def from_json(json) -> "LanguageSupport":
+        """Create LanguageSupport from the given API JSON object."""
+        features = json.get("features") or {}
+        return LanguageSupport(
+            code=_required(json, "lang"),
+            name=_required(json, "name"),
+            status=_required(json, "status"),
+            usable_as_source=bool(_required(json, "usable_as_source")),
+            usable_as_target=bool(_required(json, "usable_as_target")),
+            features={
+                name: LanguageFeature.from_json(feature)
+                for name, feature in features.items()
+            },
+        )
+
+    def supports(self, feature: str) -> bool:
+        """Returns True if the language supports the given feature, for
+        example "formality", for the requested resource."""
+        return feature in self._features
+
+    @property
+    def code(self) -> str:
+        """Returns the language code (BCP 47)."""
+        return self._code
+
+    @property
+    def name(self) -> str:
+        """Returns the name of the language in English."""
+        return self._name
+
+    @property
+    def status(self) -> str:
+        """Returns the availability status of the language."""
+        return self._status
+
+    @property
+    def usable_as_source(self) -> bool:
+        """Returns True if usable as a source language."""
+        return self._usable_as_source
+
+    @property
+    def usable_as_target(self) -> bool:
+        """Returns True if usable as a target language."""
+        return self._usable_as_target
+
+    @property
+    def features(self) -> Dict[str, LanguageFeature]:
+        """Returns the map of feature name to LanguageFeature."""
+        return self._features
+
+
+class AdminUsageGroupBy(Enum):
+    """Options for grouping the admin usage analytics report."""
+
+    KEY = "key"
+    """Group usage by API key."""
+
+    KEY_AND_DAY = "key_and_day"
+    """Group usage by API key and usage date."""
+
+    def __str__(self):
+        return self.value
+
+
+class CustomTagUsageAggregateBy(Enum):
+    """Options for aggregating the custom tag usage analytics report."""
+
+    PERIOD = "period"
+    """Aggregate usage over the entire date range."""
+
+    DAY = "day"
+    """Aggregate usage by individual day."""
+
+    def __str__(self):
+        return self.value
+
+
+def _str_or_none(value: Any) -> Optional[str]:
+    return value if isinstance(value, str) else None
+
+
+def _group_by_or_none(value: Any) -> Union[AdminUsageGroupBy, str, None]:
+    # The live API answers group_by=key_and_day with "keyAndDay".
+    if value == "keyAndDay":
+        return AdminUsageGroupBy.KEY_AND_DAY
+    return _open_enum(AdminUsageGroupBy, value)
+
+
+def _open_enum(enum_type: Any, value: Any) -> Any:
+    """Returns the enum member for a known value, an unknown string as is,
+    and None for anything else."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return enum_type(value)
+    except ValueError:
+        return value
+
+
+def _limit_or_none(json: dict, key: str) -> Optional[int]:
+    return None if isinstance(json.get(key), bool) else get_int_safe(json, key)
+
+
+class DeveloperKeyUsageLimits:
+    """Usage limits of a developer key. A value of None means unlimited.
+
+    :param characters: Maximum number of characters per usage period.
+    :param speech_to_text_milliseconds: Maximum number of speech-to-text
+        milliseconds per usage period.
+    :param speech_to_speech_milliseconds: Maximum number of speech-to-speech
+        milliseconds per usage period.
+    """
+
+    def __init__(
+        self,
+        characters: Optional[int] = None,
+        speech_to_text_milliseconds: Optional[int] = None,
+        speech_to_speech_milliseconds: Optional[int] = None,
+    ):
+        self._characters = characters
+        self._speech_to_text_milliseconds = speech_to_text_milliseconds
+        self._speech_to_speech_milliseconds = speech_to_speech_milliseconds
+
+    @staticmethod
+    def from_json(json: Any) -> "DeveloperKeyUsageLimits":
+        """Create DeveloperKeyUsageLimits from the given API JSON object."""
+        json = _as_dict(json)
+        return DeveloperKeyUsageLimits(
+            characters=_limit_or_none(json, "characters"),
+            speech_to_text_milliseconds=_limit_or_none(
+                json, "speech_to_text_milliseconds"
+            ),
+            speech_to_speech_milliseconds=_limit_or_none(
+                json, "speech_to_speech_milliseconds"
+            ),
+        )
+
+    @property
+    def characters(self) -> Optional[int]:
+        """Returns the character limit, or None if unlimited."""
+        return self._characters
+
+    @property
+    def speech_to_text_milliseconds(self) -> Optional[int]:
+        """Returns the speech-to-text limit in milliseconds, or None if
+        unlimited."""
+        return self._speech_to_text_milliseconds
+
+    @property
+    def speech_to_speech_milliseconds(self) -> Optional[int]:
+        """Returns the speech-to-speech limit in milliseconds, or None if
+        unlimited."""
+        return self._speech_to_speech_milliseconds
+
+
+class _Unset(Enum):
+    UNSET = auto()
+
+    def __repr__(self):
+        return "<unset>"
+
+
+_UNSET = _Unset.UNSET
+
+
+class DeveloperKeyUsageLimitsUpdate:
+    """Changes to the usage limits of a developer key, for
+    DeepLAdminClient.set_developer_key_usage_limits(). Each limit is sent only
+    if you pass it; omitted limits keep their current value. Pass None to
+    remove a limit (unlimited usage) and 0 to block that usage.
+
+    :param characters: (Optional) Maximum number of characters per usage
+        period across text translation, document translation and text
+        improvement, or None for unlimited.
+    :param speech_to_text_milliseconds: (Optional) Maximum number of
+        speech-to-text milliseconds per usage period, or None for unlimited.
+    :param speech_to_speech_milliseconds: (Optional) Maximum number of
+        speech-to-speech milliseconds per usage period, or None for
+        unlimited.
+    """
+
+    def __init__(
+        self,
+        *,
+        characters: Union[int, None, _Unset] = _UNSET,
+        speech_to_text_milliseconds: Union[int, None, _Unset] = _UNSET,
+        speech_to_speech_milliseconds: Union[int, None, _Unset] = _UNSET,
+    ):
+        self._limits = {
+            name: value
+            for name, value in (
+                ("characters", characters),
+                ("speech_to_text_milliseconds", speech_to_text_milliseconds),
+                (
+                    "speech_to_speech_milliseconds",
+                    speech_to_speech_milliseconds,
+                ),
+            )
+            if value is not _UNSET
+        }
+
+    def __repr__(self) -> str:
+        args = ", ".join(f"{k}={v!r}" for k, v in self._limits.items())
+        return f"DeveloperKeyUsageLimitsUpdate({args})"
+
+    def _to_request_dict(self) -> Dict[str, Optional[int]]:
+        """Returns the limits that were set, keyed by their API names."""
+        return dict(self._limits)
+
+
+class DeveloperKey:
+    """Information about a developer API key, as returned by the Admin API.
+
+    :param key_id: Unique ID of the key.
+    :param label: Label assigned to the key, or None if absent.
+    :param creation_time: Timestamp when the key was created.
+    :param deactivated_time: Timestamp when the key was deactivated, if it was.
+    :param is_deactivated: True if the key is deactivated.
+    :param usage_limits: Usage limits configured for the key, or None if
+        absent.
+    """
+
+    def __init__(
+        self,
+        key_id: str,
+        label: Optional[str],
+        creation_time: Optional[datetime.datetime],
+        deactivated_time: Optional[datetime.datetime],
+        is_deactivated: bool,
+        usage_limits: Optional[DeveloperKeyUsageLimits],
+    ):
+        self._key_id = key_id
+        self._label = label
+        self._creation_time = creation_time
+        self._deactivated_time = deactivated_time
+        self._is_deactivated = is_deactivated
+        self._usage_limits = usage_limits
+
+    def __str__(self) -> str:
+        if self.label is None:
+            return f"DeveloperKey ({self.key_id})"
+        return f'DeveloperKey "{self.label}" ({self.key_id})'
+
+    @staticmethod
+    def from_json(json: Any) -> "DeveloperKey":
+        """Create DeveloperKey from the given API JSON object."""
+        json = _as_dict(json)
+        return DeveloperKey(
+            key_id=_str_or_empty(json, "key_id"),
+            label=_str_or_none(json.get("label")),
+            creation_time=_parse_utc_timestamp(json.get("creation_time")),
+            deactivated_time=_parse_utc_timestamp(
+                json.get("deactivated_time")
+            ),
+            is_deactivated=json.get("is_deactivated") is True,
+            usage_limits=(
+                DeveloperKeyUsageLimits.from_json(json["usage_limits"])
+                if isinstance(json.get("usage_limits"), dict)
+                else None
+            ),
+        )
+
+    @property
+    def key_id(self) -> str:
+        """Returns the unique ID of the key."""
+        return self._key_id
+
+    @property
+    def label(self) -> Optional[str]:
+        """Returns the label of the key, or None if the API sent none."""
+        return self._label
+
+    @property
+    def creation_time(self) -> Optional[datetime.datetime]:
+        """Returns the creation timestamp."""
+        return self._creation_time
+
+    @property
+    def deactivated_time(self) -> Optional[datetime.datetime]:
+        """Returns the deactivation timestamp, or None if the key is active."""
+        return self._deactivated_time
+
+    @property
+    def is_deactivated(self) -> bool:
+        """Returns True if the key is deactivated."""
+        return self._is_deactivated
+
+    @property
+    def usage_limits(self) -> Optional[DeveloperKeyUsageLimits]:
+        """Returns the usage limits of the key, or None if the API sent
+        none."""
+        return self._usage_limits
+
+
+def _as_dict(value: Any) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _dict_items(value: Any) -> List[dict]:
+    """Returns the object entries of a list from the API, skipping any entry
+    that is not an object."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _str_or_empty(d: dict, key: str) -> str:
+    value = d.get(key)
+    return value if isinstance(value, str) else ""
+
+
+def _int_or_zero(d: Any, key: str) -> int:
+    return get_int_safe(_as_dict(d), key) or 0
+
+
+def _float_or_zero(d: Any, key: str) -> float:
+    return get_float_safe(_as_dict(d), key) or 0.0
+
+
+class AdminUsageBreakdown:
+    """Usage totals in an admin usage analytics report."""
+
+    def __init__(
+        self,
+        total_characters: int,
+        text_translation_characters: int,
+        document_translation_characters: int,
+        text_improvement_characters: int,
+        speech_to_text_minutes: float,
+        speech_to_speech_minutes: Optional[float] = None,
+    ):
+        self._total_characters = total_characters
+        self._text_translation_characters = text_translation_characters
+        self._document_translation_characters = document_translation_characters
+        self._text_improvement_characters = text_improvement_characters
+        self._speech_to_text_minutes = speech_to_text_minutes
+        self._speech_to_speech_minutes = speech_to_speech_minutes
+
+    @staticmethod
+    def from_json(json: Any) -> "AdminUsageBreakdown":
+        """Create AdminUsageBreakdown from the given API JSON object."""
+        return AdminUsageBreakdown(
+            total_characters=_int_or_zero(json, "total_characters"),
+            text_translation_characters=_int_or_zero(
+                json, "text_translation_characters"
+            ),
+            document_translation_characters=_int_or_zero(
+                json, "document_translation_characters"
+            ),
+            text_improvement_characters=_int_or_zero(
+                json, "text_improvement_characters"
+            ),
+            speech_to_text_minutes=_float_or_zero(
+                json, "speech_to_text_minutes"
+            ),
+            speech_to_speech_minutes=get_float_safe(
+                _as_dict(json), "speech_to_speech_minutes"
+            ),
+        )
+
+    @property
+    def total_characters(self) -> int:
+        """Returns the total number of characters used."""
+        return self._total_characters
+
+    @property
+    def text_translation_characters(self) -> int:
+        """Returns the number of characters used for text translation."""
+        return self._text_translation_characters
+
+    @property
+    def document_translation_characters(self) -> int:
+        """Returns the number of characters used for document translation."""
+        return self._document_translation_characters
+
+    @property
+    def text_improvement_characters(self) -> int:
+        """Returns the number of characters used for text improvement."""
+        return self._text_improvement_characters
+
+    @property
+    def speech_to_text_minutes(self) -> float:
+        """Returns the number of speech-to-text minutes used."""
+        return self._speech_to_text_minutes
+
+    @property
+    def speech_to_speech_minutes(self) -> Optional[float]:
+        """Returns the number of speech-to-speech minutes used, or None if the
+        report does not contain it."""
+        return self._speech_to_speech_minutes
+
+
+class KeyUsage:
+    """Usage of a single API key in an admin usage analytics report.
+
+    :param api_key: Masked API key.
+    :param api_key_label: Label of the API key, or None if absent.
+    :param usage: Usage of the API key.
+    :param usage_date: Day of the usage, present when grouped by key and day.
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        api_key_label: Optional[str],
+        usage: AdminUsageBreakdown,
+        usage_date: Optional[datetime.datetime] = None,
+    ):
+        self._api_key = api_key
+        self._api_key_label = api_key_label
+        self._usage = usage
+        self._usage_date = usage_date
+
+    @staticmethod
+    def from_json(json: Any) -> "KeyUsage":
+        """Create KeyUsage from the given API JSON object."""
+        json = _as_dict(json)
+        return KeyUsage(
+            api_key=_str_or_empty(json, "api_key"),
+            api_key_label=_str_or_none(json.get("api_key_label")),
+            usage=AdminUsageBreakdown.from_json(json.get("usage")),
+            usage_date=_parse_utc_timestamp(json.get("usage_date")),
+        )
+
+    @property
+    def api_key(self) -> str:
+        """Returns the masked API key."""
+        return self._api_key
+
+    @property
+    def api_key_label(self) -> Optional[str]:
+        """Returns the label of the API key, or None if the API sent none."""
+        return self._api_key_label
+
+    @property
+    def usage(self) -> AdminUsageBreakdown:
+        """Returns the usage of the API key."""
+        return self._usage
+
+    @property
+    def usage_date(self) -> Optional[datetime.datetime]:
+        """Returns the day of the usage, or None if not grouped by day."""
+        return self._usage_date
+
+
+class AdminUsageReport:
+    """Admin usage analytics report for a date range.
+
+    :param total_usage: Usage totals over the whole date range, or None if
+        absent.
+    :param start_date: Start of the report period.
+    :param end_date: End of the report period.
+    :param group_by: Grouping used for the report: an AdminUsageGroupBy for a
+        known value, the string for an unknown one, or None.
+    :param key_usages: Usage per key, present when grouped by key.
+    :param key_and_day_usages: Usage per key and day, present when grouped by
+        key and day.
+    """
+
+    def __init__(
+        self,
+        total_usage: Optional[AdminUsageBreakdown],
+        start_date: Optional[datetime.datetime],
+        end_date: Optional[datetime.datetime],
+        group_by: Union[AdminUsageGroupBy, str, None] = None,
+        key_usages: Optional[List[KeyUsage]] = None,
+        key_and_day_usages: Optional[List[KeyUsage]] = None,
+    ):
+        self._total_usage = total_usage
+        self._start_date = start_date
+        self._end_date = end_date
+        self._group_by = group_by
+        self._key_usages = key_usages or []
+        self._key_and_day_usages = key_and_day_usages or []
+
+    @staticmethod
+    def from_json(json: Any) -> "AdminUsageReport":
+        """Create AdminUsageReport from the given API JSON object."""
+        report = _as_dict(_as_dict(json).get("usage_report"))
+        total_usage = report.get("total_usage")
+        return AdminUsageReport(
+            total_usage=(
+                AdminUsageBreakdown.from_json(total_usage)
+                if isinstance(total_usage, dict)
+                else None
+            ),
+            start_date=_parse_utc_timestamp(report.get("start_date")),
+            end_date=_parse_utc_timestamp(report.get("end_date")),
+            group_by=_group_by_or_none(report.get("group_by")),
+            key_usages=[
+                KeyUsage.from_json(item)
+                for item in _dict_items(report.get("key_usages"))
+            ],
+            key_and_day_usages=[
+                KeyUsage.from_json(item)
+                for item in _dict_items(report.get("key_and_day_usages"))
+            ],
+        )
+
+    @property
+    def total_usage(self) -> Optional[AdminUsageBreakdown]:
+        """Returns the usage totals over the whole date range, or None if the
+        report does not contain them."""
+        return self._total_usage
+
+    @property
+    def start_date(self) -> Optional[datetime.datetime]:
+        """Returns the start of the report period."""
+        return self._start_date
+
+    @property
+    def end_date(self) -> Optional[datetime.datetime]:
+        """Returns the end of the report period."""
+        return self._end_date
+
+    @property
+    def group_by(self) -> Union[AdminUsageGroupBy, str, None]:
+        """Returns the grouping used for the report as an AdminUsageGroupBy,
+        the string the API sent if it is not a known value, or None."""
+        return self._group_by
+
+    @property
+    def key_usages(self) -> List[KeyUsage]:
+        """Returns the usage per key, empty unless grouped by key."""
+        return self._key_usages
+
+    @property
+    def key_and_day_usages(self) -> List[KeyUsage]:
+        """Returns the usage per key and day, empty unless grouped by key and
+        day."""
+        return self._key_and_day_usages
+
+
+class CustomTagUsageBreakdown:
+    """Usage totals for a custom tag."""
+
+    def __init__(
+        self,
+        total_characters: int,
+        text_translation_characters: int,
+        text_improvement_characters: int,
+        speech_to_text_minutes: float,
+        speech_to_speech_minutes: Optional[float],
+    ):
+        self._total_characters = total_characters
+        self._text_translation_characters = text_translation_characters
+        self._text_improvement_characters = text_improvement_characters
+        self._speech_to_text_minutes = speech_to_text_minutes
+        self._speech_to_speech_minutes = speech_to_speech_minutes
+
+    @staticmethod
+    def from_json(json: Any) -> "CustomTagUsageBreakdown":
+        """Create CustomTagUsageBreakdown from the given API JSON object."""
+        return CustomTagUsageBreakdown(
+            total_characters=_int_or_zero(json, "total_characters"),
+            text_translation_characters=_int_or_zero(
+                json, "text_translation_characters"
+            ),
+            text_improvement_characters=_int_or_zero(
+                json, "text_improvement_characters"
+            ),
+            speech_to_text_minutes=_float_or_zero(
+                json, "speech_to_text_minutes"
+            ),
+            speech_to_speech_minutes=get_float_safe(
+                _as_dict(json), "speech_to_speech_minutes"
+            ),
+        )
+
+    @property
+    def total_characters(self) -> int:
+        """Returns the total number of characters used."""
+        return self._total_characters
+
+    @property
+    def text_translation_characters(self) -> int:
+        """Returns the number of characters used for text translation."""
+        return self._text_translation_characters
+
+    @property
+    def text_improvement_characters(self) -> int:
+        """Returns the number of characters used for text improvement."""
+        return self._text_improvement_characters
+
+    @property
+    def speech_to_text_minutes(self) -> float:
+        """Returns the number of speech-to-text minutes used."""
+        return self._speech_to_text_minutes
+
+    @property
+    def speech_to_speech_minutes(self) -> Optional[float]:
+        """Returns the number of speech-to-speech minutes used, or None if the
+        report does not contain it."""
+        return self._speech_to_speech_minutes
+
+
+class CustomTagUsage:
+    """Usage of a single custom tag.
+
+    :param custom_tag: The custom tag.
+    :param breakdown: Usage of the custom tag.
+    :param usage_date: Day of the usage, present when aggregated by day.
+    """
+
+    def __init__(
+        self,
+        custom_tag: str,
+        breakdown: CustomTagUsageBreakdown,
+        usage_date: Optional[datetime.datetime] = None,
+    ):
+        self._custom_tag = custom_tag
+        self._breakdown = breakdown
+        self._usage_date = usage_date
+
+    @staticmethod
+    def from_json(json: Any) -> "CustomTagUsage":
+        """Create CustomTagUsage from the given API JSON object."""
+        json = _as_dict(json)
+        return CustomTagUsage(
+            custom_tag=_str_or_empty(json, "custom_tag"),
+            breakdown=CustomTagUsageBreakdown.from_json(json.get("breakdown")),
+            usage_date=_parse_utc_timestamp(json.get("usage_date")),
+        )
+
+    @property
+    def custom_tag(self) -> str:
+        """Returns the custom tag."""
+        return self._custom_tag
+
+    @property
+    def breakdown(self) -> CustomTagUsageBreakdown:
+        """Returns the usage of the custom tag."""
+        return self._breakdown
+
+    @property
+    def usage_date(self) -> Optional[datetime.datetime]:
+        """Returns the day of the usage, or None if not aggregated by day."""
+        return self._usage_date
+
+
+class CustomTagUsageReport:
+    """Admin custom tag usage analytics report for a date range.
+
+    :param aggregate_by: Aggregation used for the report: a
+        CustomTagUsageAggregateBy for a known value, the string for an
+        unknown one, or None.
+    :param start_date: Start of the report period.
+    :param end_date: End of the report period.
+    :param next_page: Page number to request the next page, or None if this
+        is the last page.
+    :param usage: Usage entries per custom tag.
+    """
+
+    def __init__(
+        self,
+        aggregate_by: Union[CustomTagUsageAggregateBy, str, None],
+        start_date: Optional[datetime.datetime],
+        end_date: Optional[datetime.datetime],
+        next_page: Optional[int],
+        usage: List[CustomTagUsage],
+    ):
+        self._aggregate_by = aggregate_by
+        self._start_date = start_date
+        self._end_date = end_date
+        self._next_page = next_page
+        self._usage = usage
+
+    @staticmethod
+    def from_json(json: Any) -> "CustomTagUsageReport":
+        """Create CustomTagUsageReport from the given API JSON object."""
+        report = _as_dict(_as_dict(json).get("custom_tag_usage_report"))
+        return CustomTagUsageReport(
+            aggregate_by=_open_enum(
+                CustomTagUsageAggregateBy, report.get("aggregate_by")
+            ),
+            start_date=_parse_utc_timestamp(report.get("start_date")),
+            end_date=_parse_utc_timestamp(report.get("end_date")),
+            next_page=get_int_safe(report, "next_page"),
+            usage=[
+                CustomTagUsage.from_json(item)
+                for item in _dict_items(report.get("usage"))
+            ],
+        )
+
+    @property
+    def aggregate_by(self) -> Union[CustomTagUsageAggregateBy, str, None]:
+        """Returns the aggregation used for the report as a
+        CustomTagUsageAggregateBy, the string the API sent if it is not a
+        known value, or None."""
+        return self._aggregate_by
+
+    @property
+    def start_date(self) -> Optional[datetime.datetime]:
+        """Returns the start of the report period."""
+        return self._start_date
+
+    @property
+    def end_date(self) -> Optional[datetime.datetime]:
+        """Returns the end of the report period."""
+        return self._end_date
+
+    @property
+    def next_page(self) -> Optional[int]:
+        """Returns the page number of the next page, or None if this is the
+        last page."""
+        return self._next_page
+
+    @property
+    def usage(self) -> List[CustomTagUsage]:
+        """Returns the usage entries per custom tag."""
+        return self._usage

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapy-ingest
-Version: 2.0.0
+Version: 2.2.0
 Summary: One pipeline. Full crawl observability in SQL or Elasticsearch.
 Home-page: https://github.com/fawadss1/scrapy-ingest
 Author: Fawad Ali
@@ -82,17 +82,31 @@ Dynamic: summary
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/fawadss1/scrapy-ingest/blob/master/LICENSE)
 [![Changelog](https://img.shields.io/badge/changelog-releases-informational)](https://github.com/fawadss1/scrapy-ingest/releases)
 
-**One pipeline. Full crawl observability in SQL or Elasticsearch.**
+**One pipeline. Full crawl observability in SQL or Elasticsearch — plus an optional read-only web dashboard.**
 
-Set `DB_URL`, `SEARCH_URL`, or both — or use **no DB settings** and ingest writes to **`ingest.db`** (SQLite) in your project folder. Items, requests, logs, stats, parent URLs, and errors are captured automatically.
+Set `DB_URL`, `SEARCH_URL`, or both — or use **no DB settings** and ingest writes to **`ingest.db`** (SQLite) in your project folder. Items, requests, logs, stats, parent URLs, and errors are captured automatically. Browse the same data in the browser with **`scrapy-ingest dashboard`** (2.0+).
 
 ## Install
+
+**Pipeline only** (Postgres, MySQL, SQLite, Elasticsearch/OpenSearch):
 
 ```bash
 pip install scrapy-ingest
 ```
 
-This installs all runtime dependencies, including `psycopg2-binary`, `PyMySQL`, and `opensearch-py`.
+**Pipeline + read-only web dashboard** (adds FastAPI, Uvicorn, httpx):
+
+```bash
+pip install "scrapy-ingest[dashboard]"
+```
+
+Upgrade an existing install to include the dashboard:
+
+```bash
+pip install -U "scrapy-ingest[dashboard]"
+```
+
+The base install includes `psycopg2-binary`, `PyMySQL`, and `opensearch-py`. The `[dashboard]` extra is optional and only needed for `scrapy-ingest dashboard`.
 
 ## Minimal setup (settings.py)
 
@@ -176,7 +190,7 @@ Tables, indexes, and named constraints are created automatically when `CREATE_TA
 
 **PostgreSQL:** optional `DB_SCHEMA = "public"` (default). Ingest sets `search_path` before creating tables (fixes empty `search_path` on some servers).
 
-**Constraint / index names:** `uq_<table>_<column>`, `fk_<table>_<column>`, `ix_<table>_<column>` (e.g. `fk_ingest_items_job_id`, `ix_ingest_jobs_spider_name`).
+**Constraint / index names:** `uq_<table>_<column>`, `fk_<table>_<column>`, `ix_<table>_<column>` (e.g. `fk_ingest_items_job_id`, `ix_ingest_jobs_spider_id`).
 
 ## Elasticsearch / OpenSearch configuration
 
@@ -201,12 +215,14 @@ SEARCH_SSL_VERIFY = True  # set False only for self-signed certs in dev
 
 | Table / index         | Contents                                              |
 |-----------------------|-------------------------------------------------------|
-| `ingest_jobs`         | Job metadata: status, counts, elapsed time, stats     |
+| `ingest_spiders`      | Stable spider id, name, class path                    |
+| `ingest_jobs`         | Job metadata: status, counts, elapsed time            |
+| `ingest_job_meta`     | Spider args, ingest settings snapshot, Scrapy stats   |
 | `ingest_items`        | Scraped items as JSON documents                       |
 | `ingest_requests`     | Requests: url, fingerprint, parent_url, status, error |
 | `ingest_logs`         | Log lines: level, logger, message, exception          |
 
-Override table/index names with `JOBS_TABLE`, `ITEMS_TABLE`, `REQUESTS_TABLE`, and `LOGS_TABLE` (same setting for SQL and Elasticsearch/OpenSearch).
+Override table/index names with `SPIDERS_TABLE`, `JOBS_TABLE`, `JOB_META_TABLE`, `ITEMS_TABLE`, `REQUESTS_TABLE`, and `LOGS_TABLE` (same setting for SQL and Elasticsearch/OpenSearch).
 
 Indexes are created on first write if they do not exist.
 
@@ -214,20 +230,22 @@ Indexes are created on first write if they do not exist.
 
 ### Relational database (Postgres / MySQL)
 
-| Table             | Contents                                                                                                                                                                                                                                                      |
-|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ingest_jobs`     | One row per crawl: `id`, unique `job_id` string, spider, status, start/finish, counts, items/min, stats. `errors_count` = failed requests + standalone ERROR/CRITICAL logs (not double-counted from `scrapy.core.scraper` when the request is already failed) |
-| `ingest_items`    | JSON items (`crawled_at` added). `job_id` → `ingest_jobs.id` (`fk_ingest_items_job_id`, ON DELETE CASCADE)                                                                                                                                                    |
-| `ingest_requests` | url, parent_url, parent_id, status, response_time_secs, fingerprint, error, success (download errors, HTTP 4xx/5xx, spider callback tracebacks). FKs: `job_id` → jobs, `parent_id` → self                                                                     |
-| `ingest_logs`     | time, logger, level, message, exception; `job_id` → jobs (CASCADE)                                                                                                                                                                                            |
+| Table             | Contents                                                                                                                                                                                                                                                                             |
+|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ingest_spiders`  | One row per spider name: integer `id`, `class_path`, timestamps                                                                                                                                                                                                                      |
+| `ingest_jobs`     | One row per crawl: `id`, unique `job_id` string (e.g. `3/328`), `spider_id` → spiders, status, start/finish, counts, items/min. `errors_count` = failed requests + standalone ERROR/CRITICAL logs (not double-counted from `scrapy.core.scraper` when the request is already failed) |
+| `ingest_job_meta` | Per job: `spider_args`, ingest-related settings snapshot, Scrapy `stats` at finish (`job_id` → `ingest_jobs.id`, CASCADE)                                                                                                                                                            |
+| `ingest_items`    | JSON items (`crawled_at` added). `job_id` → `ingest_jobs.id` (`fk_ingest_items_job_id`, ON DELETE CASCADE)                                                                                                                                                                           |
+| `ingest_requests` | url, parent_url, parent_id, status, response_time_secs, fingerprint, error, success (download errors, HTTP 4xx/5xx, spider callback tracebacks). FKs: `job_id` → jobs, `parent_id` → self                                                                                            |
+| `ingest_logs`     | time, logger, level, message, exception; `job_id` → jobs (CASCADE)                                                                                                                                                                                                                   |
 
-Indexes on `job_id`, filters (`spider_name`, `status`, `level`, …), and lookup columns (`fingerprint`, `parent_id`, `created_at`) are created automatically. `ingest_jobs.job_id` has a named unique constraint (`uq_ingest_jobs_job_id`).
+Indexes on `job_id`, filters (`spider_id`, `status`, `level`, …), and lookup columns (`fingerprint`, `parent_id`, `created_at`) are created automatically. `ingest_jobs.job_id` has a named unique constraint (`uq_ingest_jobs_job_id`).
 
 Request `parent_url` is the page that scheduled the request (e.g. sitemap → product). Start URLs are `null`. The request `fingerprint` is a SHA1 hash of method + canonical URL for parent lookup.
 
 ### Elasticsearch / OpenSearch
 
-Same crawl data as JSON documents in the indexes listed above. Documents include the string `job_id` (not the integer SQL primary key). Elasticsearch/OpenSearch mode does not link `parent_id`; `parent_url` is stored on each request document.
+Same tables as indexes, with matching columns per document. Child documents reference `ingest_jobs.id` (integer), not the external `job_id` string. The jobs index uses the external `job_id` (e.g. `3/328`) as the document `_id` for lookups. `spider_args`, crawl settings, and stats live in `ingest_job_meta`. Search mode does not link `parent_id`; `parent_url` is stored on each request document.
 
 ## Ingest flow and connections
 
@@ -319,7 +337,7 @@ scrapy-ingest jobs show                                    # list recent jobs
 scrapy-ingest jobs show --limit 20                         # list up to 20 jobs
 scrapy-ingest jobs show --status running                   # filter by status (list mode)
 scrapy-ingest jobs show --spider my_spider                 # filter by spider (list mode)
-scrapy-ingest jobs show my_spider-1735123456-a1b2          # one job (Field | Value table)
+scrapy-ingest jobs show 3/328                              # one job (Field | Value table)
 scrapy-ingest jobs show --search-url "http://localhost:9200"
 ```
 
@@ -327,12 +345,35 @@ scrapy-ingest jobs show --search-url "http://localhost:9200"
 
 The job id is the string shown in the end-of-crawl summary (or your `JOB_ID` setting). Exit `0` on success (including an empty list); exit `1` if a specific job id is missing or the destination is unreachable.
 
+### `dashboard`
+
+Read-only web UI for jobs, items, requests, and logs — same destination rules as `jobs show` (SQL when `DB_URL` / default SQLite is used; search when only `SEARCH_URL` is set; **SQL wins** when both are configured).
+
+Install (once):
+
+```bash
+pip install "scrapy-ingest[dashboard]"
+```
+
+Run from your Scrapy project directory:
+
+```bash
+scrapy-ingest dashboard
+scrapy-ingest dashboard --host 0.0.0.0 --port 8765
+scrapy-ingest dashboard --no-browser
+python -m ingest_dashboard --db-url "sqlite:///./ingest.db"
+```
+
+Open `http://127.0.0.1:8765` (browser opens automatically unless `--no-browser`). **Home:** summary cards, jobs table with elapsed time, spider/status filters, 5s auto-refresh. **Job detail:** overview, stats, paginated items (JSON modal), requests, logs — hash routes like `#/job/<job_id>?tab=items`. Dark/light theme and a connection popover show where data is read from.
+
 Typical workflow:
 
 ```bash
+pip install "scrapy-ingest[dashboard]"   # optional UI
 scrapy-ingest check-config
 scrapy crawl your_spider
 scrapy-ingest jobs show
+scrapy-ingest dashboard
 scrapy-ingest jobs show --status finished --spider your_spider
 scrapy-ingest jobs show <job_id>
 ```
@@ -341,21 +382,22 @@ See [CLI docs](https://scrapy-ingest.readthedocs.io/en/latest/cli.html) for deta
 
 ## Useful settings
 
-| Setting                                                     | Default        | Description                                                 |
-|-------------------------------------------------------------|----------------|-------------------------------------------------------------|
-| `DB_URL` / `DB_*`                                           | —              | Database connection (enables SQL ingest)                    |
-| `SEARCH_URL`                                                | —              | Elasticsearch or OpenSearch URL (enables indexing)          |
-| `SEARCH_USER` / `SEARCH_PASSWORD`                           | —              | HTTP basic auth for Elasticsearch/OpenSearch (optional)     |
-| `SEARCH_SSL_VERIFY`                                         | `True`         | Verify HTTPS certificates                                   |
-| `CREATE_TABLES`                                             | `True`         | Auto-create SQL tables, indexes, and named FKs on startup   |
-| `DB_SCHEMA`                                                 | `public`       | PostgreSQL schema (`search_path`) for ingest tables         |
-| `INGEST_BATCH_SIZE`                                         | `50`           | Flush when this many rows are buffered                      |
-| `INGEST_FLUSH_INTERVAL`                                     | `10`           | Periodic flush in seconds                                   |
-| `INGEST_SHOW_SUMMARY`                                       | `True`         | Print crawl summary when the spider closes                  |
-| `DB_TYPE`                                                   | `postgres`     | `postgres` / `mysql` / `mariadb` for discrete `DB_*` fields |
-| `ITEMS_TABLE`, `REQUESTS_TABLE`, `LOGS_TABLE`, `JOBS_TABLE` | see defaults   | Override SQL table and index names (same value for both)    |
-| `TIMEZONE`                                                  | `Asia/Karachi` | Timezone for `created_at`                                   |
-| `JOB_ID`                                                    | auto           | Omit to auto-generate (`my_spider-1735123456-a1b2`)         |
+| Setting                                                                                        | Default        | Description                                                                      |
+|------------------------------------------------------------------------------------------------|----------------|----------------------------------------------------------------------------------|
+| `DB_URL` / `DB_*`                                                                              | —              | Database connection (enables SQL ingest)                                         |
+| `SEARCH_URL`                                                                                   | —              | Elasticsearch or OpenSearch URL (enables indexing)                               |
+| `SEARCH_USER` / `SEARCH_PASSWORD`                                                              | —              | HTTP basic auth for Elasticsearch/OpenSearch (optional)                          |
+| `SEARCH_SSL_VERIFY`                                                                            | `True`         | Verify HTTPS certificates                                                        |
+| `CREATE_TABLES`                                                                                | `True`         | Auto-create SQL tables, indexes, and named FKs on startup                        |
+| `DB_SCHEMA`                                                                                    | `public`       | PostgreSQL schema (`search_path`) for ingest tables                              |
+| `INGEST_BATCH_SIZE`                                                                            | `50`           | Flush when this many rows are buffered                                           |
+| `INGEST_FLUSH_INTERVAL`                                                                        | `10`           | Periodic flush in seconds                                                        |
+| `INGEST_SHOW_SUMMARY`                                                                          | `True`         | Print crawl summary when the spider closes                                       |
+| `DB_TYPE`                                                                                      | `postgres`     | `postgres` / `mysql` / `mariadb` for discrete `DB_*` fields                      |
+| `SPIDERS_TABLE`, `JOB_META_TABLE`, `ITEMS_TABLE`, `REQUESTS_TABLE`, `LOGS_TABLE`, `JOBS_TABLE` | see defaults   | Override SQL table and index names (same value for both)                         |
+| `TIMEZONE`                                                                                     | `Asia/Karachi` | Timezone for `created_at`                                                        |
+| `JOB_ID`                                                                                       | auto           | Omit for `spider_id/run` (e.g. `3/328`). Set `JOB_SESSION_ID` to fix the prefix. |
+| `JOB_NEW_SESSION_PER_CRAWL`                                                                    | `False`        | Use a new session prefix on every crawl instead of spider id                     |
 
 ## Troubleshooting
 
@@ -383,15 +425,15 @@ EXTENSIONS = {"scrapy_ingest.extensions.LoggingExtension": 500}
 
 How **scrapy-ingest** compares to other Scrapy storage packages — feature matrices, architecture notes, and a reproducible write-path benchmark.
 
-| Package                  |     SQL     | ES/OS | Mongo | Kafka | Requests / logs | Batched  |
-|--------------------------|:-----------:|:-----:|:-----:|:-----:|:---------------:|:--------:|
-| **scrapy-ingest**        | ✓ PG/MySQL |  ✓   |   —   |   —   |      auto       | ✓ (50)  |
-| scrapy-elasticsearch     |      —      |  ✓   |   —   |   —   |        —        | ✓ (500) |
-| scrapy-mongodb           |      —      |   —   |  ✓   |   —   |        —        | per-item |
-| scrapy-sql               |  ✓ FEEDS   |   —   |   —   |   —   |        —        |   bulk   |
-| os-scrapy-kafka-pipeline |      —      |   —   |   —   |  ✓   |        —        | per-item |
-| Manual psycopg2 pipeline |     DIY     |   —   |   —   |   —   |       DIY       | often ✗ |
-| Scrapy `FEEDS`           |    files    |   —   |   —   |   —   |        —        |  stream  |
+| Package                  |     SQL     | ES/OS | Mongo | Kafka | Requests / logs | Dashboard | Batched  |
+|--------------------------|:-----------:|:-----:|:-----:|:-----:|:---------------:|:---------:|:--------:|
+| **scrapy-ingest**        | ✓ PG/MySQL |  ✓   |   —   |   —   |      auto       |    ✓     | ✓ (50)  |
+| scrapy-elasticsearch     |      —      |  ✓   |   —   |   —   |        —        |     —     | ✓ (500) |
+| scrapy-mongodb           |      —      |   —   |  ✓   |   —   |        —        |     —     | per-item |
+| scrapy-sql               |  ✓ FEEDS   |   —   |   —   |   —   |        —        |     —     |   bulk   |
+| os-scrapy-kafka-pipeline |      —      |   —   |   —   |  ✓   |        —        |     —     | per-item |
+| Manual psycopg2 pipeline |     DIY     |   —   |   —   |   —   |       DIY       |     —     | often ✗ |
+| Scrapy `FEEDS`           |    files    |   —   |   —   |   —   |        —        |     —     |  stream  |
 
 Also in docs: **scrapy-pipelines** (Scrapedia/Mongo), **Scrapy MongoPipeline** (official example).
 
@@ -406,7 +448,7 @@ Full comparison, methodology, and production tuning: [docs/benchmarks.rst](docs/
 ## Links
 
 - Docs: https://scrapy-ingest.readthedocs.io/
-- Changelog: [docs/development/changelog.rst](docs/development/changelog.rst)
+- Changelog: [docs/development/changelog.rst](docs/development/changelog.rst) — **[2.2.0](docs/development/changelog.rst)** search index mappings, `check-config` layout checks, and `spider_id/run` doc examples; **[2.1.0](docs/development/changelog.rst)** spider registry and SQL-aligned search docs; **[2.0.0](docs/development/changelog.rst)** web dashboard and `[dashboard]` extra
 - Issues: https://github.com/fawadss1/scrapy-ingest/issues
 
 ## License

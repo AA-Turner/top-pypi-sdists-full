@@ -7,7 +7,6 @@ import platform
 import re
 import socket
 import time
-import warnings
 from collections.abc import Collection, Iterator, Mapping
 from random import random
 from types import TracebackType
@@ -711,12 +710,7 @@ class APIClient:
     if files is not None and content is not None:
       raise TypeError("Passing both `files` and `content` is not supported")
     if isinstance(body, bytes):
-      warnings.warn(
-        "Passing raw bytes as `body` is deprecated and will be removed in a future version. "
-        "Please pass raw bytes via the `content` parameter instead.",
-        DeprecationWarning,
-        stacklevel=2,
-      )
+      raise TypeError("Pass raw bytes via the `content` parameter, not `body`")
     # exclude_unset: an untouched optional field stays absent from the wire instead of
     # serializing as an explicit `null` that would clobber it server-side.
     json_data = (
@@ -785,12 +779,7 @@ class APIClient:
     if files is not None and content is not None:
       raise TypeError("Passing both `files` and `content` is not supported")
     if isinstance(body, bytes):
-      warnings.warn(
-        "Passing raw bytes as `body` is deprecated and will be removed in a future version. "
-        "Please pass raw bytes via the `content` parameter instead.",
-        DeprecationWarning,
-        stacklevel=2,
-      )
+      raise TypeError("Pass raw bytes via the `content` parameter, not `body`")
     # exclude_unset: an untouched optional field stays absent from the wire instead of
     # serializing as an explicit `null` that would clobber it server-side.
     json_data = (
@@ -859,12 +848,7 @@ class APIClient:
     if files is not None and content is not None:
       raise TypeError("Passing both `files` and `content` is not supported")
     if isinstance(body, bytes):
-      warnings.warn(
-        "Passing raw bytes as `body` is deprecated and will be removed in a future version. "
-        "Please pass raw bytes via the `content` parameter instead.",
-        DeprecationWarning,
-        stacklevel=2,
-      )
+      raise TypeError("Pass raw bytes via the `content` parameter, not `body`")
     # PATCH is a partial update: omit fields the caller never set instead of nulling them out.
     json_data = (
       body.model_dump(mode="json", exclude_unset=True) if isinstance(body, BaseModel) else body
@@ -932,12 +916,7 @@ class APIClient:
     if files is not None and content is not None:
       raise TypeError("Passing both `files` and `content` is not supported")
     if isinstance(body, bytes):
-      warnings.warn(
-        "Passing raw bytes as `body` is deprecated and will be removed in a future version. "
-        "Please pass raw bytes via the `content` parameter instead.",
-        DeprecationWarning,
-        stacklevel=2,
-      )
+      raise TypeError("Pass raw bytes via the `content` parameter, not `body`")
     # exclude_unset: an untouched optional field stays absent from the wire instead of
     # serializing as an explicit `null` that would clobber it server-side.
     json_data = (

@@ -8,17 +8,44 @@ import http
 import platform
 import random
 import requests  # type: ignore
+import socket
+import sys
 import traceback
 import time
+import types
+import warnings
 from functools import lru_cache
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 from .util import log_info
 from deepl import util
 
-
+# Deprecated in favour of the headers, max_retries and timeout_s client
+# options; will be removed in the next major version. Assigning any of them
+# emits a warning.
 user_agent = None
 max_network_retries = 5
 min_connection_timeout = 10.0
+
+_DEPRECATED_GLOBALS = {
+    "user_agent": "a User-Agent entry in the headers client option",
+    "max_network_retries": "the max_retries client option",
+    "min_connection_timeout": "the timeout_s client option",
+}
+
+
+class _HttpClientModule(types.ModuleType):
+    def __setattr__(self, name, value):
+        if name in _DEPRECATED_GLOBALS:
+            warnings.warn(
+                f"deepl.http_client.{name} is deprecated, use "
+                f"{_DEPRECATED_GLOBALS[name]}",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        super().__setattr__(name, value)
+
+
+sys.modules[__name__].__class__ = _HttpClientModule
 
 
 class _BackoffTimer:
@@ -31,7 +58,8 @@ class _BackoffTimer:
     BACKOFF_JITTER = 0.23
     BACKOFF_MULTIPLIER = 1.6
 
-    def __init__(self):
+    def __init__(self, min_timeout: Optional[float] = None):
+        self._min_timeout = min_timeout
         self._num_retries = 0
         self._backoff = self.BACKOFF_INITIAL
         self._deadline = time.time() + self._backoff
@@ -40,7 +68,12 @@ class _BackoffTimer:
         return self._num_retries
 
     def get_timeout(self):
-        return max(self.get_time_until_deadline(), min_connection_timeout)
+        min_timeout = (
+            min_connection_timeout
+            if self._min_timeout is None
+            else self._min_timeout
+        )
+        return max(self.get_time_until_deadline(), min_timeout)
 
     def get_time_until_deadline(self):
         return max(self._deadline - time.time(), 0.0)
@@ -67,7 +100,11 @@ class HttpClient:
         proxy: Union[Dict, str, None] = None,
         send_platform_info: bool = True,
         verify_ssl: Union[bool, str, None] = None,
+        max_retries: Optional[int] = None,
+        timeout_s: Optional[float] = None,
     ):
+        self._max_retries = max_retries
+        self._timeout_s = timeout_s
         self._session = requests.Session()
         if proxy:
             if isinstance(proxy, str):
@@ -100,12 +137,20 @@ class HttpClient:
         json: Optional[dict],
         headers: dict,
         stream: bool = False,
+        retry_only_unprocessed: bool = False,
         **kwargs,
     ) -> Tuple[int, Union[str, requests.Response]]:
         """Makes API request, retrying if necessary, and returns response.
 
+        If retry_only_unprocessed is True, the request is only retried after
+        failures that show it was not processed (HTTP 429, DNS resolution
+        errors, refused connections and connect timeouts), for requests that
+        are unsafe to repeat. Otherwise connection failures, including a
+        connection that breaks off while the response body is read, and
+        timeouts are retried too.
+
         Return and exceptions are the same as function request()."""
-        backoff = _BackoffTimer()
+        backoff = _BackoffTimer(self._timeout_s)
         request = self._prepare_request(
             method, url, data, json, headers, **kwargs
         )
@@ -122,7 +167,10 @@ class HttpClient:
                 exception = e
 
             if not self._should_retry(
-                response, exception, backoff.get_num_retries()
+                response,
+                exception,
+                backoff.get_num_retries(),
+                retry_only_unprocessed,
             ):
                 if response is not None:
                     return response
@@ -167,9 +215,15 @@ class HttpClient:
         self,
         request: requests.PreparedRequest,
         stream: bool,
-        timeout: float = min_connection_timeout,
+        timeout: Optional[float] = None,
         **kwargs,
     ) -> Tuple[int, Union[str, requests.Response]]:
+        if timeout is None:
+            timeout = (
+                min_connection_timeout
+                if self._timeout_s is None
+                else self._timeout_s
+            )
         try:
             response = self._session.send(
                 request, stream=stream, timeout=timeout, **kwargs
@@ -183,11 +237,22 @@ class HttpClient:
                 finally:
                     response.close()
 
+        except requests.exceptions.SSLError as e:
+            message = f"TLS connection failed: {e}"
+            raise ConnectionException(message, should_retry=False) from e
+        except requests.exceptions.ProxyError as e:
+            message = f"Proxy connection failed: {e}"
+            raise ConnectionException(message, should_retry=False) from e
         except requests.exceptions.ConnectionError as e:
             message = f"Connection failed: {e}"
             raise ConnectionException(message, should_retry=True) from e
         except requests.exceptions.Timeout as e:
             message = f"Request timed out: {e}"
+            raise ConnectionException(message, should_retry=True) from e
+        except requests.exceptions.ChunkedEncodingError as e:
+            # The connection broke off while the body was read (reset or
+            # truncated); the request reached the server.
+            message = f"Connection broken while reading response: {e}"
             raise ConnectionException(message, should_retry=True) from e
         except requests.exceptions.RequestException as e:
             message = f"Request failed: {e}"
@@ -196,17 +261,27 @@ class HttpClient:
             message = f"Unexpected request failure: {e}"
             raise ConnectionException(message, should_retry=False) from e
 
-    def _should_retry(self, response, exception, num_retries):
-        if num_retries >= max_network_retries:
+    def _should_retry(
+        self, response, exception, num_retries, only_unprocessed=False
+    ):
+        max_retries = (
+            max_network_retries
+            if self._max_retries is None
+            else self._max_retries
+        )
+        if num_retries >= max_retries:
             return False
 
         if response is None:
+            if only_unprocessed:
+                return exception.should_retry and _was_not_sent(exception)
             return exception.should_retry
 
         status_code, _ = response
         # Retry on Too-Many-Requests error and internal errors
         return status_code == http.HTTPStatus.TOO_MANY_REQUESTS or (
-            status_code >= http.HTTPStatus.INTERNAL_SERVER_ERROR
+            not only_unprocessed
+            and status_code >= http.HTTPStatus.INTERNAL_SERVER_ERROR
         )
 
     def _prepare_request(
@@ -219,15 +294,13 @@ class HttpClient:
         **kwargs,
     ) -> requests.PreparedRequest:
         try:
-            headers.setdefault(
-                "User-Agent",
-                _generate_user_agent(
+            if not any(k.lower() == "user-agent" for k in headers):
+                headers["User-Agent"] = _generate_user_agent(
                     user_agent,
                     self._send_platform_info,
                     self._app_info_name,
                     self._app_info_version,
-                ),
-            )
+                )
             return requests.Request(
                 method, url, data=data, headers=headers, json=json, **kwargs
             ).prepare()
@@ -235,6 +308,89 @@ class HttpClient:
             raise DeepLException(
                 f"Error occurred while preparing request: {e}"
             ) from e
+
+
+def read_response_text(response: requests.Response) -> str:
+    """Reads the body of a streamed response as text, raising
+    ConnectionException if the connection fails while it is read."""
+    try:
+        return response.text
+    except requests.exceptions.RequestException as e:
+        raise _body_read_exception(e) from e
+
+
+def iter_response_content(
+    response: requests.Response, chunk_size: int
+) -> Iterator[bytes]:
+    """Yields the body of a streamed response in chunks, raising
+    ConnectionException if the connection fails while it is read."""
+    try:
+        yield from response.iter_content(chunk_size=chunk_size)
+    except requests.exceptions.RequestException as e:
+        raise _body_read_exception(e) from e
+
+
+def _body_read_exception(
+    e: requests.exceptions.RequestException,
+) -> ConnectionException:
+    # Not retried; should_retry False until the next major version.
+    return ConnectionException(
+        f"Connection failed while reading response: {e}",
+        should_retry=False,
+    )
+
+
+# urllib3 1.x has no NameResolutionError; its connection errors keep the
+# socket.gaierror as context instead.
+_NAME_RESOLUTION_ERRORS = tuple(
+    e
+    for e in (
+        socket.gaierror,
+        getattr(
+            requests.packages.urllib3.exceptions,  # type: ignore[attr-defined]
+            "NameResolutionError",
+            None,
+        ),
+    )
+    if e is not None
+)
+
+
+_CONNECT_TIMEOUT_ERRORS = (
+    requests.exceptions.ConnectTimeout,
+    requests.packages.urllib3.exceptions.ConnectTimeoutError,  # type: ignore
+)
+
+
+def _was_not_sent(exception: BaseException) -> bool:
+    """Returns True if the exception shows that the request was never sent:
+    the host name could not be resolved, the connection was refused or
+    connecting timed out."""
+    return _caused_by(
+        exception,
+        _NAME_RESOLUTION_ERRORS
+        + (ConnectionRefusedError,)
+        + _CONNECT_TIMEOUT_ERRORS,
+    )
+
+
+def _caused_by(exception: BaseException, types: tuple) -> bool:
+    """Returns True if the exception or any exception in its cause chain is
+    an instance of one of the given types."""
+    pending: List[Optional[BaseException]] = [exception]
+    seen = set()
+    while pending:
+        e = pending.pop()
+        if e is None or id(e) in seen:
+            continue
+        seen.add(id(e))
+        if isinstance(e, types):
+            return True
+        pending.extend(
+            [e.__cause__, e.__context__, getattr(e, "reason", None)]
+        )
+        pending.extend(a for a in e.args if isinstance(a, BaseException))
+    return False
 
 
 @lru_cache(maxsize=4)
@@ -252,8 +408,7 @@ def _generate_user_agent(
             try:
                 library_info_str += (
                     f" ({platform.platform()}) "
-                    f"python/{platform.python_version()} "
-                    f"requests/{requests.__version__}"
+                    f"python/{platform.python_version()}"
                 )
             except Exception:
                 util.log_info(

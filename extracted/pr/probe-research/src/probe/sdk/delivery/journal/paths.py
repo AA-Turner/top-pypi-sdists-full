@@ -9,7 +9,7 @@ import re
 import shutil
 import time
 
-from ...._shared import oscompat
+from ....foundation.os_backend import os_backend as oscompat
 from ....foundation.durable.durable import file_lock
 
 
@@ -192,8 +192,8 @@ def _queue_is_empty(path: Path) -> bool:
     # bytes) is not empty and must never be pruned. `discarded/`: writes someone set aside are
     # kept, not deleted with the folder (`relocate_discards` moves them to the root first).
     for sub in (
-        "ops", "failed", "discarded", "waiting", "blobs",
-        "multipart/ops", "multipart/staged", "multipart/failed",
+        "ops", "failed", "discarded", "waiting", "blobs", "held",
+        "multipart/ops", "multipart/staged", "multipart/failed", "multipart/held",
     ):
         try:
             if os.listdir(path / sub):

@@ -39,7 +39,6 @@ from redisvl.index import AsyncSearchIndex
 from redisvl.query import FilterQuery
 from redisvl.query.filter import Num, Tag
 from redisvl.redis.connection import RedisConnectionFactory
-from ulid import ULID
 
 from langgraph.checkpoint.redis.base import (
     CHECKPOINT_PREFIX,
@@ -54,10 +53,12 @@ from langgraph.checkpoint.redis.key_registry import (
 )
 from langgraph.checkpoint.redis.util import (
     EMPTY_ID_SENTINEL,
+    checkpoint_id_timestamp,
     from_storage_safe_id,
     from_storage_safe_str,
     to_storage_safe_id,
     to_storage_safe_str,
+    unwrap_connection_errors,
 )
 
 logger = logging.getLogger(__name__)
@@ -255,8 +256,9 @@ class AsyncRedisSaver(
         self.loop = asyncio.get_running_loop()
 
         self.create_indexes()
-        await self.checkpoints_index.create(overwrite=False)
-        await self.checkpoint_writes_index.create(overwrite=False)
+        with unwrap_connection_errors():
+            await self.checkpoints_index.create(overwrite=False)
+            await self.checkpoint_writes_index.create(overwrite=False)
 
         # Detect cluster mode if not explicitly set
         await self._detect_cluster_mode()
@@ -646,9 +648,10 @@ class AsyncRedisSaver(
             if run_id := config["configurable"].get("run_id"):
                 filter_expression.append(Tag("run_id") == to_storage_safe_id(run_id))
 
-            # Search for checkpoints with any namespace, including an empty
-            # string, while `checkpoint_id` has to have a value.
-            if checkpoint_ns := config["configurable"].get("checkpoint_ns"):
+            # An empty string is the root namespace and is filtered on like any
+            # other; only a config with no `checkpoint_ns` lists every namespace.
+            checkpoint_ns = config["configurable"].get("checkpoint_ns")
+            if checkpoint_ns is not None:
                 filter_expression.append(
                     Tag("checkpoint_ns") == to_storage_safe_str(checkpoint_ns)
                 )
@@ -673,14 +676,11 @@ class AsyncRedisSaver(
         if before:
             before_checkpoint_id = get_checkpoint_id(before)
             if before_checkpoint_id:
-                try:
-                    before_ulid = ULID.from_str(before_checkpoint_id)
-                    before_ts = before_ulid.timestamp
+                before_ts = checkpoint_id_timestamp(before_checkpoint_id)
+                # An id that encodes no time (e.g. a uuid4) cannot be placed, so no filter.
+                if before_ts is not None:
                     # Use numeric range query: checkpoint_ts < before_ts
                     filter_expression.append(Num("checkpoint_ts") < before_ts)
-                except Exception:
-                    # If not a valid ULID, ignore the before filter
-                    pass
 
         # Combine all filter expressions
         combined_filter = filter_expression[0] if filter_expression else "*"
@@ -947,16 +947,12 @@ class AsyncRedisSaver(
         # Store checkpoint data with cluster-aware handling
         try:
             # Store checkpoint data WITH inline channel values
-            # Extract timestamp from checkpoint_id (ULID)
+            # Extract timestamp from checkpoint_id (ULID or LangGraph's UUIDv6)
             checkpoint_ts = None
             if checkpoint_id:
-                try:
-                    from ulid import ULID
-
-                    ulid_obj = ULID.from_str(checkpoint_id)
-                    checkpoint_ts = ulid_obj.timestamp  # milliseconds since epoch
-                except Exception:
-                    # If not a valid ULID, use current time
+                checkpoint_ts = checkpoint_id_timestamp(checkpoint_id)
+                if checkpoint_ts is None:
+                    # The id encodes no time, use current time
                     import time
 
                     checkpoint_ts = time.time() * 1000

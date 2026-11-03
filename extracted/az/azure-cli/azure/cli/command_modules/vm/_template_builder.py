@@ -324,7 +324,9 @@ def build_vm_resource(  # pylint: disable=too-many-locals, too-many-statements, 
         wire_server_mode=None, wire_server_use_local_file_rules=None, imds_mode=None,
         wire_server_access_control_profile_reference_id=None,
         imds_access_control_profile_reference_id=None, key_incarnation_id=None, add_proxy_agent_extension=None,
-        disk_iops_read_write=None, disk_mbps_read_write=None, zone_movement=None):
+        disk_iops_read_write=None, disk_mbps_read_write=None, zone_movement=None,
+        os_disk_storage_fault_domain_alignment=None, data_disk_storage_fault_domain_alignment=None,
+        preferred_size=None):
 
     os_caching = disk_info['os'].get('caching')
 
@@ -572,6 +574,8 @@ def build_vm_resource(  # pylint: disable=too-many-locals, too-many-statements, 
             profile['osDisk']['writeAcceleratorEnabled'] = disk_info['os']['writeAcceleratorEnabled']
         if os_disk_delete_option is not None:
             profile['osDisk']['deleteOption'] = os_disk_delete_option
+        if os_disk_storage_fault_domain_alignment is not None:
+            profile['osDisk']['storageFaultDomainAlignment'] = os_disk_storage_fault_domain_alignment
         data_disks = [v for k, v in disk_info.items() if k != 'os']
         if data_disk_encryption_sets:
             if len(data_disk_encryption_sets) != len(data_disks):
@@ -586,6 +590,8 @@ def build_vm_resource(  # pylint: disable=too-many-locals, too-many-statements, 
                     data_disk['diskIOPSReadWrite'] = disk_iops_read_write
                 if disk_mbps_read_write is not None:
                     data_disk['diskMBPSReadWrite'] = disk_mbps_read_write
+                if data_disk_storage_fault_domain_alignment is not None:
+                    data_disk['storageFaultDomainAlignment'] = data_disk_storage_fault_domain_alignment
         if disk_info['os'].get('diffDiskSettings'):
             profile['osDisk']['diffDiskSettings'] = disk_info['os']['diffDiskSettings']
 
@@ -597,8 +603,12 @@ def build_vm_resource(  # pylint: disable=too-many-locals, too-many-statements, 
 
         return profile
 
-    vm_properties = {'hardwareProfile': {'vmSize': size}, 'networkProfile': {'networkInterfaces': nics},
+    vm_properties = {'hardwareProfile': {}, 'networkProfile': {'networkInterfaces': nics},
                      'storageProfile': _build_storage_profile()}
+    if preferred_size is None:
+        vm_properties['hardwareProfile']['vmSize'] = size
+    else:
+        vm_properties['flexProfile'] = {'preferredVMSize': preferred_size}
     if processor_mode is not None:
         vm_properties['hardwareProfile']['processorMode'] = processor_mode
 
@@ -654,6 +664,8 @@ def build_vm_resource(  # pylint: disable=too-many-locals, too-many-statements, 
 
     if vm_size_properties:
         vm_properties['hardwareProfile']['vmSizeProperties'] = vm_size_properties
+    if not vm_properties['hardwareProfile']:
+        del vm_properties['hardwareProfile']
 
     if availability_set_id:
         vm_properties['availabilitySet'] = {'id': availability_set_id}
@@ -1092,7 +1104,8 @@ def build_vmss_resource(cmd, name, computer_name_prefix, location, tags, overpro
                         automatic_zone_balancing_strategy=None, automatic_zone_balancing_behavior=None,
                         enable_automatic_repairs=None, zone_placement_policy=None, include_zones=None,
                         exclude_zones=None, max_zone_count=None, instance_percent_policy=None,
-                        max_instance_percent=None):
+                        max_instance_percent=None, data_disk_storage_fault_domain_alignment=None,
+                        os_disk_storage_fault_domain_alignment=None, zonal_platform_fault_domain_align_mode=None):
 
     # Build IP configuration
     ip_configuration = {}
@@ -1285,6 +1298,13 @@ def build_vmss_resource(cmd, name, computer_name_prefix, location, tags, overpro
         storage_properties['dataDisks'] = data_disks
     if disk_controller_type is not None:
         storage_properties['diskControllerType'] = disk_controller_type
+
+    # Aligned Zonal Fault Domains: per-disk storage fault domain alignment overrides.
+    if os_disk_storage_fault_domain_alignment is not None and 'osDisk' in storage_properties:
+        storage_properties['osDisk']['storageFaultDomainAlignment'] = os_disk_storage_fault_domain_alignment
+    if data_disk_storage_fault_domain_alignment is not None and storage_properties.get('dataDisks'):
+        for data_disk in storage_properties['dataDisks']:
+            data_disk['storageFaultDomainAlignment'] = data_disk_storage_fault_domain_alignment
 
     # Build OS Profile
     os_profile = {}
@@ -1517,6 +1537,9 @@ def build_vmss_resource(cmd, name, computer_name_prefix, location, tags, overpro
     if platform_fault_domain_count is not None and cmd.supported_api_version(
             min_api='2017-12-01', operation_group='virtual_machine_scale_sets'):
         vmss_properties['platformFaultDomainCount'] = platform_fault_domain_count
+
+    if zonal_platform_fault_domain_align_mode is not None:
+        vmss_properties['zonalPlatformFaultDomainAlignMode'] = zonal_platform_fault_domain_align_mode
 
     if ultra_ssd_enabled is not None:
         if cmd.supported_api_version(min_api='2019-03-01', operation_group='virtual_machine_scale_sets'):

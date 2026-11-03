@@ -3,17 +3,23 @@ from __future__ import annotations
 import json
 import os
 import shutil
+from contextlib import suppress
 from logging import getLogger
 from pathlib import Path
 from stat import S_ISDIR
-from typing import Any
+from typing import Any, cast
+from uuid import uuid4
 
 import aiofiles
 import aiofiles.os
 import aiofiles.ospath
-from asgiref.typing import HTTPRequestEvent
+from asgiref.typing import HTTPDisconnectEvent, HTTPRequestEvent
 
 from asgi_webdav.constants import (
+    DAV_RESERVED_FILE_SUFFIX_EXTENSION,
+    DAV_RESERVED_FILE_SUFFIX_EXTENSION_LEGACY,
+    DAV_RESERVED_FILE_SUFFIX_TEMPORARY,
+    DAV_RESERVED_FILE_SUFFIXES,
     RESPONSE_DATA_BLOCK_SIZE,
     DAVDepth,
     DAVPath,
@@ -35,7 +41,6 @@ from asgi_webdav.request import DAVRequest
 
 logger = getLogger(__name__)
 
-DAV_EXTENSION_INFO_FILE_EXTENSION = "WebDAV"
 """dav extension info file format: JSON
 {
     'property': [
@@ -43,6 +48,12 @@ DAV_EXTENSION_INFO_FILE_EXTENSION = "WebDAV"
     ]
 }
 """
+
+
+def _is_reserved_file(name: str) -> bool:
+    """reserved files: the property sidecar (.davext) and the upload
+    temporary (.davtmp)"""
+    return name.endswith(DAV_RESERVED_FILE_SUFFIXES)
 
 
 def _parser_property_from_json(data: dict[str, Any]) -> dict[DAVPropertyIdentity, str]:
@@ -179,6 +190,21 @@ class FileSystemProvider(DAVProvider):
 
         return self.root_path.joinpath(*path.parts)
 
+    def _request_targets_reserved(self, request: DAVRequest) -> bool:
+        # reserved files (the property sidecar and the upload temporary) —
+        # and legacy pre-rename sidecars on disk — are shielded: any request
+        # naming one is answered 404
+        paths = [request.dist_src_path]
+        dst_path = getattr(request, "dist_dst_path", None)
+        if dst_path is not None:
+            paths.append(dst_path)
+
+        return any(
+            _is_reserved_file(path.name)
+            or path.name.endswith(DAV_RESERVED_FILE_SUFFIX_EXTENSION_LEGACY)
+            for path in paths
+        )
+
     async def _get_res_etag(self, request: DAVRequest) -> str:
         fs_path = self._get_fs_path(request.dist_src_path, request.user.username)
         stat_result = await aiofiles.os.stat(fs_path)
@@ -193,7 +219,7 @@ class FileSystemProvider(DAVProvider):
 
     @staticmethod
     def _get_fs_properties_path(path: Path) -> Path:
-        return path.parent.joinpath(f"{path.name}.{DAV_EXTENSION_INFO_FILE_EXTENSION}")
+        return path.parent.joinpath(f"{path.name}{DAV_RESERVED_FILE_SUFFIX_EXTENSION}")
 
     async def _create_dav_property_obj(
         self,
@@ -241,13 +267,17 @@ class FileSystemProvider(DAVProvider):
         if self.ignore_property_extra or request.propfind_only_fetch_basic:
             return dav_property
 
+        # extra properties live in a sidecar file; a request for named
+        # properties must report 404 for the missing ones even when no
+        # sidecar exists yet
         properties_path = self._get_fs_properties_path(fs_path)
+        extra_data: dict[DAVPropertyIdentity, str] = {}
         if await aiofiles.ospath.exists(properties_path):
             extra_data = await _load_extra_property(properties_path)
             dav_property.extra_data = extra_data
 
-            s = set(request.propfind_extra_keys) - set(extra_data.keys())
-            dav_property.extra_not_found = list(s)
+        s = set(request.propfind_extra_keys) - set(extra_data.keys())
+        dav_property.extra_not_found = list(s)
 
         return dav_property
 
@@ -270,12 +300,14 @@ class FileSystemProvider(DAVProvider):
         depth_limit: int = 99,  # TODO into config
     ) -> None:
         sub_dir_names: list[str] = list()
-        dav_extension_info_file_extension = f".{DAV_EXTENSION_INFO_FILE_EXTENSION}"
-
         dir_entry_iter = await aiofiles.os.scandir(fs_path_base)
         for dir_entry in dir_entry_iter:
-            if dir_entry.name.endswith(dav_extension_info_file_extension):
-                # Found a WebDAV DAV info file
+            # reserved files (the property sidecar and the upload
+            # temporary) and legacy sidecars
+            # from before the .davext rename never surface as resources
+            if _is_reserved_file(dir_entry.name) or dir_entry.name.endswith(
+                DAV_RESERVED_FILE_SUFFIX_EXTENSION_LEGACY
+            ):
                 continue
 
             href_path = href_path_base.add_child(dir_entry.name)
@@ -305,6 +337,9 @@ class FileSystemProvider(DAVProvider):
         return
 
     async def _do_propfind(self, request: DAVRequest) -> dict[DAVPath, DAVProperty]:
+        if self._request_targets_reserved(request):
+            return dict()
+
         dav_properties: dict[DAVPath, DAVProperty] = dict()
 
         base_fs_path = self._get_fs_path(request.dist_src_path, request.user.username)
@@ -324,11 +359,13 @@ class FileSystemProvider(DAVProvider):
                 fs_path_base=base_fs_path,
                 infinity=request.depth == DAVDepth.INFINITY,
             )
-            pass
 
         return dav_properties
 
     async def _do_proppatch(self, request: DAVRequest) -> int:
+        if self._request_targets_reserved(request):
+            return 404
+
         if self.ignore_property_extra:
             return 207
 
@@ -346,6 +383,9 @@ class FileSystemProvider(DAVProvider):
         return 409
 
     async def _do_mkcol(self, request: DAVRequest) -> int:
+        if self._request_targets_reserved(request):
+            return 404
+
         fs_path = self._get_fs_path(request.dist_src_path, request.user.username)
 
         try:
@@ -367,6 +407,9 @@ class FileSystemProvider(DAVProvider):
         DAVResponseBodyGenerator | None,
         DAVResponseContentRange | None,
     ]:
+        if self._request_targets_reserved(request):
+            return 404, None, None, None
+
         fs_path = self._get_fs_path(request.dist_src_path, request.user.username)
         if not await aiofiles.ospath.exists(fs_path):
             return 404, None, None, None
@@ -423,6 +466,9 @@ class FileSystemProvider(DAVProvider):
     async def _do_head(
         self, request: DAVRequest
     ) -> tuple[int, DAVPropertyBasicData | None]:
+        if self._request_targets_reserved(request):
+            return 404, None
+
         fs_path = self._get_fs_path(request.dist_src_path, request.user.username)
         if not await aiofiles.ospath.exists(fs_path):  # TODO macOS 不区分大小写
             return 404, None
@@ -455,9 +501,27 @@ class FileSystemProvider(DAVProvider):
         return 204
 
     async def _do_delete(self, request: DAVRequest) -> int:
+        if request.dist_src_path.raw == "/":
+            # RFC 4918 9.6.1: the root carries the whole URI mapping and MAY
+            # be excluded from DELETE
+            return 403
+
+        if self._request_targets_reserved(request):
+            return 404
+
         return await self._fs_delete(request.dist_src_path, request.user.username)
 
+    @staticmethod
+    async def _remove_quiet(path: Path) -> None:
+        # best effort cleanup: the directory may be unwritable or the file
+        # may already be gone
+        with suppress(OSError):
+            await aiofiles.os.remove(path)
+
     async def _do_put(self, request: DAVRequest) -> int:
+        if self._request_targets_reserved(request):
+            return 404
+
         fs_path = self._get_fs_path(request.dist_src_path, request.user.username)
         if await aiofiles.ospath.exists(fs_path):
             if await aiofiles.ospath.isdir(fs_path):
@@ -465,19 +529,42 @@ class FileSystemProvider(DAVProvider):
         if not await aiofiles.ospath.isdir(fs_path.parent):
             return 409
 
+        # write to a sibling temp file and rename on completion: an aborted
+        # upload must not destroy an existing file, and a partial upload must
+        # not be visible to other requests
+        tmp_path = fs_path.with_name(f"{fs_path.name}.{uuid4().hex}.davtmp")
+        client_disconnected = False
         try:
-            async with aiofiles.open(fs_path, "wb") as f:
+            async with aiofiles.open(tmp_path, "wb") as f:
                 more_body = True
                 while more_body:
-                    request_data: HTTPRequestEvent = await request.receive()  # type: ignore
-                    more_body = request_data.get("more_body")
+                    # the http scope only ever yields these two event types
+                    request_data = cast(
+                        "HTTPRequestEvent | HTTPDisconnectEvent",
+                        await request.receive(),
+                    )
+                    if request_data["type"] == "http.disconnect":
+                        # client went away mid-upload — persist nothing
+                        client_disconnected = True
+                        break
 
-                    data = request_data.get("body", b"")
-                    await f.write(data)
+                    more_body = request_data["more_body"]
+                    await f.write(request_data["body"])
 
         except PermissionError:
+            await self._remove_quiet(tmp_path)
             return 403
 
+        except OSError:
+            # disk full and similar: clean the partial temp, report 507
+            await self._remove_quiet(tmp_path)
+            return 507
+
+        if client_disconnected:
+            await self._remove_quiet(tmp_path)
+            return 400
+
+        await aiofiles.os.replace(tmp_path, fs_path)
         return 201
 
     @staticmethod
@@ -505,8 +592,13 @@ class FileSystemProvider(DAVProvider):
         return
 
     async def _do_copy(self, request: DAVRequest) -> int:
-        def success_return() -> int:
-            if request.overwrite:
+        if self._request_targets_reserved(request):
+            return 404
+
+        def success_return(dst_existed: bool) -> int:
+            # RFC 4918 9.8.4: 201 for a new resource, 204 when an existing
+            # one was overwritten
+            if request.overwrite and dst_existed:
                 return 204
             else:
                 return 201
@@ -514,13 +606,14 @@ class FileSystemProvider(DAVProvider):
         # check src_path
         src_fs_path = self._get_fs_path(request.dist_src_path, request.user.username)
         if not await aiofiles.ospath.exists(src_fs_path):
-            return 403
+            return 404
 
         # check dst_path
         dst_fs_path = self._get_fs_path(request.dist_dst_path, request.user.username)
         if not await aiofiles.ospath.exists(dst_fs_path.parent):
             return 409
-        if not request.overwrite and await aiofiles.ospath.exists(dst_fs_path):
+        dst_existed = await aiofiles.ospath.exists(dst_fs_path)
+        if not request.overwrite and dst_existed:
             return 412
 
         # below ---
@@ -530,20 +623,26 @@ class FileSystemProvider(DAVProvider):
         if not await aiofiles.ospath.isdir(src_fs_path):
             shutil.copy2(src_fs_path, dst_fs_path)  # TODO aiofile
             await self._copy_property_file(src_fs_path, dst_fs_path)
-            return success_return()
+            return success_return(dst_existed)
 
         # copy dir
         if request.depth != DAVDepth.ZERO:  # TODO .d1 .infinity
             # TODO aiofile
-            shutil.copytree(src_fs_path, dst_fs_path, dirs_exist_ok=request.overwrite)
+            shutil.copytree(
+                src_fs_path,
+                dst_fs_path,
+                dirs_exist_ok=request.overwrite,
+                # the upload temporary does not travel with copies
+                ignore=shutil.ignore_patterns(f"*{DAV_RESERVED_FILE_SUFFIX_TEMPORARY}"),
+            )
             await self._copy_property_file(src_fs_path, dst_fs_path)
-            return success_return()
+            return success_return(dst_existed)
 
         if self._copy_dir_depth0(src_fs_path, dst_fs_path, request.overwrite):
             await self._copy_property_file(src_fs_path, dst_fs_path)
-            return success_return()
+            return success_return(dst_existed)
 
-        return 412
+        return 412  # pragma: no cover  # the gates above already 412 this
 
     async def _move_property_file(self, src_path: Path, des_path: Path) -> None:
         property_src_path = self._get_fs_properties_path(src_path)
@@ -558,8 +657,13 @@ class FileSystemProvider(DAVProvider):
         return
 
     async def _do_move(self, request: DAVRequest) -> int:
-        def success_return() -> int:
-            if request.overwrite:
+        if self._request_targets_reserved(request):
+            return 404
+
+        def success_return(dst_existed: bool) -> int:
+            # RFC 4918 9.9.4: 201 for a new resource, 204 when an existing
+            # one was overwritten
+            if request.overwrite and dst_existed:
                 return 204
             else:
                 return 201
@@ -580,7 +684,7 @@ class FileSystemProvider(DAVProvider):
 
         # check src_path
         if not src_exists:
-            return 403
+            return 404
 
         # check dst_path
         if not await aiofiles.ospath.exists(dst_fs_path.parent):
@@ -604,4 +708,4 @@ class FileSystemProvider(DAVProvider):
 
         await aiofiles.os.rename(src_fs_path, dst_fs_path)
         await self._move_property_file(src_fs_path, dst_fs_path)
-        return success_return()
+        return success_return(dst_exists)

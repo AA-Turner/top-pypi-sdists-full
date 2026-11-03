@@ -34,8 +34,6 @@
 %include "reg_sizes.asm"
 %include "gf_vect_gfni.inc"
 
-%if AS_FEATURE_LEVEL >= 10
-
 %ifidn __OUTPUT_FORMAT__, elf64
  %define arg0  rdi
  %define arg1  rsi
@@ -140,9 +138,9 @@ mk_global gf_vect_mad_avx512_gfni, function
 func(gf_vect_mad_avx512_gfni)
 	FUNC_SAVE
 	xor	pos, pos
-	shl	vec_i, 3		;Multiply by 8
+	shl	vec_i, 5		;Multiply by 32
 
-        vbroadcastf32x2 xgft1, [vec_i + mul_array]
+        vpbroadcastq xgft1, [vec_i + mul_array]
 
         cmp     len, 64
         jl      .len_lt_64
@@ -172,4 +170,3 @@ func(gf_vect_mad_avx512_gfni)
 	ret
 
 endproc_frame
-%endif  ; if AS_FEATURE_LEVEL >= 10

@@ -1,13 +1,19 @@
+from functools import partial
 from math import ceil
 
 import torch
 from einops.layers.torch import Rearrange
 from torch import nn
-from torch.nn import init
 from torch.nn.utils.parametrizations import weight_norm
 
+from braindecode.functional import fft_conv1d, init_weights_, prefer_fft_conv
 from braindecode.models.base import EEGModuleMixin
 from braindecode.modules import Ensure4d
+
+# Xavier-normal classifier weight, zero bias.
+_init_classifier = partial(
+    init_weights_, weights={nn.Linear: nn.init.xavier_normal_}, norms=()
+)
 
 
 class TIDNet(EEGModuleMixin, nn.Module):
@@ -114,10 +120,14 @@ class TIDNet(EEGModuleMixin, nn.Module):
 
         self.final_layer = self._create_classifier(self.num_features, self.n_outputs)
 
+    def _init_parameters(self) -> None:
+        """Model-specific initialization (see ``reset_parameters``); the
+        constructor initializes the classifier as it builds it."""
+        _init_classifier(self.final_layer[0])
+
     def _create_classifier(self, incoming: int, n_outputs: int):
         classifier = nn.Linear(incoming, n_outputs)
-        init.xavier_normal_(classifier.weight)
-        classifier.bias.data.zero_()
+        _init_classifier(classifier)
         seq_clf = nn.Sequential(classifier, nn.Identity())
 
         return seq_clf
@@ -300,7 +310,7 @@ class _TemporalFilter(nn.Module):
         for i in range(depth):
             dil = depth - i
             conv = weight_norm(
-                nn.Conv2d(
+                _TemporalConv(
                     n_chans if i == 0 else filters,
                     filters,
                     kernel_size=(1, temp_len),
@@ -389,3 +399,19 @@ class _TIDNetFeatures(nn.Module):
         x = self.temporal(x)
         x = self.spatial(x)
         return self.extract_features(x)
+
+
+class _TemporalConv(nn.Conv2d):
+    """``(1, k)`` Conv2d with "same" output length; on CPU, through
+    :func:`~braindecode.functional.fft_conv1d` where
+    :func:`~braindecode.functional.prefer_fft_conv` expects it to be faster."""
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # dilated layers stay direct (fft_conv1d takes dense kernels)
+        if self.dilation[1] > 1 or not prefer_fft_conv(x, self.kernel_size[1]):
+            return self._conv_forward(x, self.weight, self.bias)
+        b, _, h, t = x.shape  # the conv1d of each of the b * h rows
+        rows = x.transpose(1, 2).reshape(b * h, -1, t)
+        # float64: TIDNet's ill-conditioned gradients amplify float32 FFT rounding
+        y = fft_conv1d(rows.double(), self.weight.squeeze(2), self.bias).to(x.dtype)
+        return y.unflatten(0, [b, h]).transpose(1, 2)

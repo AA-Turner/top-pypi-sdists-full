@@ -54,12 +54,19 @@ class RemoteCallArgs(_message.Message):
     def __init__(self, feather_bytes: _Optional[bytes] = ..., storage_object_id: _Optional[str] = ...) -> None: ...
 
 class EnqueueRemoteCallRequest(_message.Message):
-    __slots__ = ("name", "args")
+    __slots__ = ("name", "args", "max_retries")
     NAME_FIELD_NUMBER: _ClassVar[int]
     ARGS_FIELD_NUMBER: _ClassVar[int]
+    MAX_RETRIES_FIELD_NUMBER: _ClassVar[int]
     name: str
     args: RemoteCallArgs
-    def __init__(self, name: _Optional[str] = ..., args: _Optional[_Union[RemoteCallArgs, _Mapping]] = ...) -> None: ...
+    max_retries: int
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        args: _Optional[_Union[RemoteCallArgs, _Mapping]] = ...,
+        max_retries: _Optional[int] = ...,
+    ) -> None: ...
 
 class EnqueueRemoteCallResponse(_message.Message):
     __slots__ = ("call_id",)
@@ -68,15 +75,21 @@ class EnqueueRemoteCallResponse(_message.Message):
     def __init__(self, call_id: _Optional[str] = ...) -> None: ...
 
 class OpenRemoteCallBatch(_message.Message):
-    __slots__ = ("name", "batch_id", "result_cursor")
+    __slots__ = ("name", "batch_id", "result_cursor", "max_retries")
     NAME_FIELD_NUMBER: _ClassVar[int]
     BATCH_ID_FIELD_NUMBER: _ClassVar[int]
     RESULT_CURSOR_FIELD_NUMBER: _ClassVar[int]
+    MAX_RETRIES_FIELD_NUMBER: _ClassVar[int]
     name: str
     batch_id: str
     result_cursor: str
+    max_retries: int
     def __init__(
-        self, name: _Optional[str] = ..., batch_id: _Optional[str] = ..., result_cursor: _Optional[str] = ...
+        self,
+        name: _Optional[str] = ...,
+        batch_id: _Optional[str] = ...,
+        result_cursor: _Optional[str] = ...,
+        max_retries: _Optional[int] = ...,
     ) -> None: ...
 
 class SubmitRemoteCallBatchChunk(_message.Message):
@@ -276,19 +289,35 @@ class PurgeQueueResponse(_message.Message):
     def __init__(self, items_removed_by_function: _Optional[_Mapping[str, int]] = ...) -> None: ...
 
 class FunctionCallInfo(_message.Message):
-    __slots__ = ("call_id", "function_name", "enqueued_at", "status", "result_summary", "trace_id")
+    __slots__ = (
+        "call_id",
+        "function_name",
+        "enqueued_at",
+        "status",
+        "result_summary",
+        "trace_id",
+        "attempt_count",
+        "max_attempts",
+        "last_attempt_at",
+    )
     CALL_ID_FIELD_NUMBER: _ClassVar[int]
     FUNCTION_NAME_FIELD_NUMBER: _ClassVar[int]
     ENQUEUED_AT_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     RESULT_SUMMARY_FIELD_NUMBER: _ClassVar[int]
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    ATTEMPT_COUNT_FIELD_NUMBER: _ClassVar[int]
+    MAX_ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
+    LAST_ATTEMPT_AT_FIELD_NUMBER: _ClassVar[int]
     call_id: str
     function_name: str
     enqueued_at: _timestamp_pb2.Timestamp
     status: RemoteCallStatus
     result_summary: str
     trace_id: str
+    attempt_count: int
+    max_attempts: int
+    last_attempt_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         call_id: _Optional[str] = ...,
@@ -297,6 +326,9 @@ class FunctionCallInfo(_message.Message):
         status: _Optional[_Union[RemoteCallStatus, str]] = ...,
         result_summary: _Optional[str] = ...,
         trace_id: _Optional[str] = ...,
+        attempt_count: _Optional[int] = ...,
+        max_attempts: _Optional[int] = ...,
+        last_attempt_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class GetRecentCallsRequest(_message.Message):

@@ -68,10 +68,14 @@ def inner_or_action(t):
     Parse action for unified disjunction: term , term , ...
     Each term is a Group containing [inner_and_result, optional_cut_marker].
     If there's only one term with no cut marker, pass through without wrapping.
+    A trailing comma before the closing paren, (a,), makes an OpGroupTuple.
     """
     terms = list(t)
+    trailing = isinstance(terms[-1], str)
+    if trailing:
+        terms = terms[:-1]
     # Single term, no cut marker — pass through (don't wrap in OpGroupOr)
-    if len(terms) == 1 and len(terms[0]) == 1:
+    if len(terms) == 1 and len(terms[0]) == 1 and not trailing:
         return terms[0][0]
     out = []
     for term in terms:
@@ -82,6 +86,9 @@ def inner_or_action(t):
                 out.append(base.BRANCH_SOFTCUT)
             elif term[1] == '#':
                 out.append(base.BRANCH_CUT)
+    # with more than one branch the group is a pattern anyway: (a,b,) is (a,b)
+    if trailing and len(terms) == 1:
+        return groups.OpGroupTuple(*out)
     return groups.OpGroupOr(*out)
 
 
@@ -1211,15 +1218,13 @@ def _split_postfix(tokens):
 def _decorate(op, tr, filters, gxf, pred_op, guard, vxf):
     """
     op with the postfix on it: the type guard, then filters, then the
-    guard with its transforms, then the value transforms. A , & or ?
-    group gets it on the last op of every branch, through ~ on the group;
-    a negation gets it on the last op of its branch when the branch
-    continues past the negated op, else on the negation itself, so (!a)=5
-    is the non-a values equal to 5.
+    guard with its transforms, then the value transforms. A , or & group
+    gets it on the last op of every branch, through ~ on the group; a
+    negation or a ? group gets it on itself, so (!a.b)=5 is the values of
+    the complement of a.b equal to 5, and (a,b)?=5 is the first match if
+    it equals 5, as *?=5 is.
     """
-    if isinstance(op, groups.OpGroupNot) and len(op.inner) > 1:
-        return groups.OpGroupNot(op.inner[:-1] + (_decorate(op.inner[-1], tr, filters, gxf, pred_op, guard, vxf),))
-    if isinstance(op, groups.OpGroup) and not isinstance(op, groups.OpGroupNot):
+    if isinstance(op, groups.OpGroup) and not isinstance(op, (groups.OpGroupNot, groups.OpGroupFirst)):
         branches = []
         for b in op.branches:
             if not isinstance(b, tuple) or not b:
@@ -1268,7 +1273,9 @@ inner_atom = op_seq
 inner_not = _with_postfix((bang + inner_atom).set_parse_action(inner_not_action) | inner_atom)
 inner_and = (inner_not + OM(amp + inner_not)).set_parse_action(inner_and_action) | inner_not
 inner_or_term = pp.Group(inner_and + Opt(cut_marker))
-inner_or = (inner_or_term + ZM(_comma_ws + inner_or_term)).set_parse_action(inner_or_action) | inner_and
+# A trailing comma, (a,), right before the closing paren: kept as ','
+_trailing_comma = pp.Literal(',') + pp.Optional(pp.White()).suppress() + pp.FollowedBy(')')
+inner_or = (inner_or_term + ZM(_comma_ws + inner_or_term) + Opt(_trailing_comma)).set_parse_action(inner_or_action) | inner_and
 inner_expr <<= inner_or
 
 # ---------------------------------------------------------------------------
@@ -1294,7 +1301,7 @@ _explicit_inner_atom = _explicit_op_seq
 _explicit_inner_not = _with_postfix((bang + _explicit_inner_atom).set_parse_action(inner_not_action) | _explicit_inner_atom)
 _explicit_inner_and = (_explicit_inner_not + OM(amp + _explicit_inner_not)).set_parse_action(inner_and_action) | _explicit_inner_not
 _explicit_inner_or_term = pp.Group(_explicit_inner_and + Opt(cut_marker))
-_explicit_inner_or = (_explicit_inner_or_term + ZM(_comma_ws + _explicit_inner_or_term)).set_parse_action(inner_or_action) | _explicit_inner_and
+_explicit_inner_or = (_explicit_inner_or_term + ZM(_comma_ws + _explicit_inner_or_term) + Opt(_trailing_comma)).set_parse_action(inner_or_action) | _explicit_inner_and
 _explicit_inner_expr <<= _explicit_inner_or
 
 # Top-level: flatten op_seq Groups into flat ops list

@@ -187,7 +187,7 @@ def parse_color(tokens: dict[str, Any], space: Space) -> tuple[Vector, float] | 
     if values != num_channels:
         return None
 
-    alpha = norm_alpha_channel(tokens['func']['values'][-1]['value']) if tokens['func']['slash'] else 1.0
+    alpha = norm_alpha_channel(tokens['func']['values'][-1]['value'].lower()) if tokens['func']['slash'] else 1.0
 
     channels = []
     properties = space.CHANNELS
@@ -195,7 +195,7 @@ def parse_color(tokens: dict[str, Any], space: Space) -> tuple[Vector, float] | 
         c = tokens['func']['values'][i]['value']
         channel = properties[i]
         if channel.flags & FLG_ANGLE:
-            v = norm_angle_channel(c)
+            v = norm_angle_channel(c.lower())
             channels.append(v * (channel.high / 360) if channel.angle != ANGLE_DEG else v)
         else:
             channels.append(norm_color_channel(c.lower(), channel.span, channel.offset))
@@ -225,7 +225,7 @@ def validate_srgb(tokens: dict[str, Any]) -> bool:
     else:
         if any(v['type'] == 'degree' for v in tokens['func']['values']):
             return False
-        if length == 4 and not tokens['func']['slash']:
+        if (length == 4) != tokens['func']['slash']:
             return False
     return True
 
@@ -256,7 +256,7 @@ def validate_cylindrical_srgb(tokens: dict[str, Any]) -> bool:
         if any(v['type'] == 'degree' for v in tokens['func']['values'][1:]):
             return False
 
-        if length == 4 and not tokens['func']['slash']:
+        if (length == 4) != tokens['func']['slash']:
             return False
     return True
 
@@ -276,7 +276,7 @@ def validate_lab(tokens: dict[str, Any]) -> bool:
     if any(v['type'] == 'degree' for v in tokens['func']['values'][:]):
         return False
 
-    if length == 4 and not tokens['func']['slash']:
+    if (length == 4) != tokens['func']['slash']:
         return False
 
     return True
@@ -300,7 +300,7 @@ def validate_lch(tokens: dict[str, Any]) -> bool:
     if any(v['type'] == 'degree' for v in tokens['func']['values'][0:2]):
         return False
 
-    if length == 4 and (not tokens['func']['slash'] or tokens['func']['values'][3]['type'] == 'degree'):
+    if (length == 4) != tokens['func']['slash'] or (length == 4 and tokens['func']['values'][3]['type'] == 'degree'):
         return False
 
     return True
@@ -361,7 +361,8 @@ def tokenize_css(css: str, start: int = 0) -> dict[str, Any]:
             # Get channel value
             m2 = RE_CHANNEL.match(css, m.end())
             if not m2:
-                if slash:
+                # A slash or comma must be followed by a channel
+                if slash or delimiter == 'comma':
                     return {}
                 break
             m = m2
@@ -462,8 +463,8 @@ def parse_css(
     if not tokens:
         return None
 
-    # Does the space match the target space?
-    if tokens['id'] not in target:
+    # Does the space match the target space? Space names are not case sensitive.
+    if tokens['id'].lower() not in [t.lower() for t in target]:
         return None
 
     # Did we get a full match if requested?

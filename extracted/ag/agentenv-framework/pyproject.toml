@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentenv-framework"
-version = "0.9.1410"
+version = "0.9.1419"
 description = "SDK and CLI for building, deploying and running agent environments and the tasks that grade agents in them."
 readme = "README.md"
 license = "Apache-2.0"
@@ -29,7 +29,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "agentenv-framework-protocol[computer]==0.1.425",  # a computer_driver env's put reads the driver class with it
+    "agentenv-framework-protocol[computer]==0.1.434",  # a computer_driver env's put reads the driver class with it
     "certifi>=2024.2.2",  # the public roots the local transfer CA's trust bundle carries
     "click>=8.0.0",
     "cryptography>=42",  # the local transfer CA
@@ -48,6 +48,7 @@ dependencies = [
     "modal>=1.5.2.dev22",  # dev22 adds _experimental_create(tags=); dev2 added VM-mode V2 (vm_runtime)
     "e2b~=2.46.4",  # AsyncSandbox/AsyncTemplate APIs validated against the 2.46 line
     "fastapi>=0.110",  # the explorer, agent-env up
+    "tzdata>=2024.1",  # sync_env_clock reads a task's timezone on a worker image with no system zone files
 ]
 
 [project.optional-dependencies]
@@ -90,6 +91,11 @@ skyrl = [
     "agentenv-framework[openenv]",
     "pyarrow>=19",
     "transformers>=5",
+]
+# agent_env.training.miles: Miles' trainers on a bundle served as an OpenEnv env; installed into Miles' own environment,
+# whose Miles, SGLang and torch are the trainer's to pin. It needs nothing beyond the openenv extra.
+miles = [
+    "agentenv-framework[openenv]",
 ]
 # The AWS store backends (S3, Secrets Manager, DynamoDB, ECR), selected by impl pointer in config.toml.
 aws = [

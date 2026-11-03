@@ -9,7 +9,10 @@ import typing_extensions
 from inngest._internal import (
     client_lib,
     errors,
+    run_context,
+    sandbox_lib,
     server_lib,
+    sessions,
     transforms,
     types,
 )
@@ -40,6 +43,7 @@ class Step(base.StepBase):
         )
 
         self.ai = AI(self)
+        self.sandbox = sandbox_lib.DurableSandboxTools(self)
         self._execution = exe
 
     async def invoke(
@@ -50,6 +54,7 @@ class Step(base.StepBase):
         data: typing.Mapping[str, object] | None = None,
         timeout: int | datetime.timedelta | None = None,
         v: str | None = None,
+        meta: sessions.EventMeta | None = None,
     ) -> types.T:
         """
         Invoke an Inngest function with data. Returns the result of the returned
@@ -66,6 +71,7 @@ class Step(base.StepBase):
             data: Will become `event.data` in the invoked function. Must be JSON serializable.
             timeout: The maximum number of milliseconds to wait for the function to complete.
             v: Will become `event.v` in the invoked function.
+            meta: Session overrides for the invoked function's event.
         """
 
         output = await self.invoke_by_id(
@@ -75,6 +81,7 @@ class Step(base.StepBase):
             data=data,
             timeout=timeout,
             v=v,
+            meta=meta,
         )
 
         output = self._client._deserialize(output, function._output_type)
@@ -90,6 +97,7 @@ class Step(base.StepBase):
         data: typing.Mapping[str, object] | None = None,
         timeout: int | datetime.timedelta | None = None,
         v: str | None = None,
+        meta: sessions.EventMeta | None = None,
     ) -> object:
         """
         Invoke an Inngest function with data. Returns the result of the returned
@@ -110,6 +118,7 @@ class Step(base.StepBase):
             data: Will become `event.data` in the invoked function. Must be JSON serializable.
             timeout: The maximum number of milliseconds to wait for the function to complete.
             v: Will become `event.v` in the invoked function.
+            meta: Session overrides for the invoked function's event.
         """
 
         if app_id is None:
@@ -121,11 +130,16 @@ class Step(base.StepBase):
         if isinstance(timeout_str, Exception):
             raise timeout_str
 
+        # Invokes bypass client.send: stamp_meta validates and normalizes their
+        # metadata here, immediately before constructing the outgoing payload.
         opts = base.InvokeOpts(
             function_id=f"{app_id}-{function_id}",
             payload=base.InvokeOptsPayload(
                 data=data,
                 v=v,
+                meta=sessions.stamp_meta(
+                    meta, inherited_sessions=run_context.get_sessions()
+                ),
             ),
             timeout=timeout_str,
         ).to_dict()
@@ -171,13 +185,38 @@ class Step(base.StepBase):
             output_type: Only set if returning a non-JSON-serializable object. Related to the client's serializer argument.
         """
 
+        return await self._run(
+            step_id, handler, *handler_args, output_type=output_type
+        )
+
+    async def _run(
+        self,
+        step_id: str,
+        handler: typing.Callable[
+            [typing_extensions.Unpack[types.TTuple]], typing.Awaitable[types.T]
+        ],
+        *handler_args: typing_extensions.Unpack[types.TTuple],
+        output_type: object = types.EmptySentinel,
+        step_type: str | None = None,
+        display_name: str | None = None,
+        origin: str | None = None,
+    ) -> types.T:
         parsed_step_id = self._parse_step_id(step_id)
 
+        opts: dict[str, object] = {}
+        if step_type is not None:
+            opts["type"] = step_type
+        if origin is not None:
+            # The library that ran this step for the user, like
+            # "inngest-py@1.0.0". The Inngest UI de-emphasizes such steps.
+            opts["origin"] = origin
+
         step_info = base.StepInfo(
-            display_name=parsed_step_id.user_facing,
+            display_name=display_name or parsed_step_id.user_facing,
             id=parsed_step_id.hashed,
             name=parsed_step_id.user_facing,
             op=server_lib.Opcode.STEP_RUN,
+            opts=opts or None,
             userland=parsed_step_id.userland_info(),
         )
 
@@ -215,7 +254,12 @@ class Step(base.StepBase):
                 transforms.remove_first_traceback_frame(err)
 
                 max_attempts = self._execution._request.ctx.max_attempts
-                if (
+                if not errors.is_retriable(err) and isinstance(
+                    err, errors.StepFailureError
+                ):
+                    # Fail now, even with retries left.
+                    step_info.op = server_lib.Opcode.STEP_FAILED
+                elif (
                     max_attempts is not None
                     and self._execution._request.ctx.attempt + 1 >= max_attempts
                 ):
@@ -257,12 +301,13 @@ class Step(base.StepBase):
         """
 
         async def fn() -> list[str]:
-            if isinstance(events, list):
-                _events = events
-            else:
-                _events = [events]
+            # Validate inside the durable callback so failures belong to this
+            # step and completed sends replay without validating again.
+            outgoing = sessions.stamp_events(
+                events, inherited_sessions=run_context.get_sessions()
+            )
 
-            middleware_err = await self._middleware.before_send_events(_events)
+            middleware_err = await self._middleware.before_send_events(outgoing)
             if isinstance(middleware_err, Exception):
                 raise middleware_err
 
@@ -273,7 +318,7 @@ class Step(base.StepBase):
                 result = client_models.SendEventsResult(
                     ids=(
                         await self._client.send(
-                            events,
+                            outgoing,
                             # Skip middleware since we're already running it above. Without
                             # this, we'll double-call middleware hooks
                             skip_middleware=True,

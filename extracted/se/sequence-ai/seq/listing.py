@@ -143,7 +143,8 @@ def eval_episodes(eval_id: str, *, task: str | list[str] | None = None, outcome:
                                   "terminated", "truncated", "timed_out", "error", "metrics", ...}, ...],
          "total": N, "offset": 0, "next_cursor": "50" or None}
 
-    `task` one task or several; `outcome` success, failure, error, truncated or timed_out; `arm` one arm's. An
+    `task` one task or several; `outcome` success, failure or error (a run at its time limit is a failure, a platform
+    timeout an error); `arm` one arm's. An
     episode's `success` is what the benchmark's @seq.step said of its last step - None for one that errored - what the
     outcome filter reads; `metrics` the dict its steps returned beside it. `wall_s` is its seconds from reset to end;
     `start` the start it ran - its seed - and `repeat` how many times that start ran before it (0 the first).
@@ -182,7 +183,7 @@ def versions(name: str, *, base_url: str | None = None, echo: Callable[[str], No
     which evals run until a newer one passes; a version canceled, or stopped before it finished, says so.
     """
     from seq.deploy_cli import elapsed
-    from seq.deployments_cli import _call, copy_line, error_line
+    from seq.deployments_cli import _call, error_line
     from sequence_ai._core.names import segment
 
     out = _call("GET", f"/v1/benchmarks/{segment(name)}/builds", base_url)
@@ -216,16 +217,10 @@ def versions(name: str, *, base_url: str | None = None, echo: Callable[[str], No
             where = f"{how} in its {r['failed_stage']} step" if r.get("failed_stage") else how
             echo(f"{'':{widths[0]}}  ↳ {where}" + (f": {first}" if first else "")
                  + (", before it finished" if how == "stopped" else "") + replaced)
-        if copy := copy_line(r):
-            echo(f"{'':6}  ↳ {copy}")
     echo(f"a version's build: seq benchmark logs {name}@v<ver> --build")
     if any(r.get("state") == "kept" for r in rows):
 
         echo(f"a kept version: evals run it with --benchmark {name}@v<ver>, and seq benchmark rm {name}@v<ver> deletes it")
-    from seq.freeze import footer
-
-    if said := footer("benchmark", name, rows):
-        echo(said)
     return out
 
 
@@ -393,7 +388,7 @@ def print_benchmarks(out: dict, *, echo: Callable[[str], None] = print) -> None:
     where this page sits in the whole list."""
     rows = out.get("benchmarks") or []
     if not rows:
-        echo("you have no benchmarks yet: register one with `seq deploy <file>`")
+        echo("you have no benchmarks yet: register one with `seq deploy <folder>`")
         return
 
     cards = [card_label(b.get("gpu"), b.get("driver")) for b in rows]
@@ -438,9 +433,11 @@ def print_benchmark_evals(out: dict, *, echo: Callable[[str], None] = print) -> 
 
 
 def _adapter(a: Any) -> str:
-    """The adapter as the eval ran it, {name, version, sha256} → name@vN."""
+    """The adapter as the eval ran it, {name, version, sha256} → name@vN - "name@vN (deleted)" for one deleted since
+    (the gateway's `deleted`), which no adapter registered again under its name is."""
     if isinstance(a, dict):
-        return f"{a.get('name') or '?'}" + (f"@v{a['version']}" if a.get("version") is not None else "")
+        return (f"{a.get('name') or '?'}" + (f"@v{a['version']}" if a.get("version") is not None else "")
+                + (" (deleted)" if a.get("deleted") else ""))
     return "—"
 
 
@@ -540,12 +537,17 @@ def episodes(eval_id: str, *, task: list[str] | None = None, outcome: str | None
 
 
 def _result(e: dict) -> str:
-    """How an episode ended: an error, out of time, at its time limit, or ended by the benchmark (done)."""
-    if e.get("error"):
+    """An episode's result, the three a user sees: `error` (it errored, or the platform's per-episode time ran out),
+    `success` or `fail` - its `success` as the benchmark's @seq.step judged it, a run at its time limit (truncated)
+    counted a fail; `ended` for one with no success answer, its metric alone beside it. The raw truncated/timed_out
+    stay in the CSV."""
+    if e.get("error") or e.get("timed_out"):
         return "error"
-    if e.get("timed_out"):
-        return "timed out"
-    return "truncated" if e.get("truncated") else "ended"
+    if e.get("success") is True:
+        return "success"
+    if e.get("success") is False or e.get("truncated"):
+        return "fail"
+    return "ended"
 
 
 def _answer(v: Any) -> bool:
@@ -588,7 +590,7 @@ def print_episodes(out: dict, *, echo: Callable[[str], None] = print) -> None:
     width = max([len("TASK")] + [len(str(e.get("task"))) for e in rows])
     echo(f"{'#':>5}  " + ("ARM  " if arms else "") + f"{'TASK':<{width}}  {'SEED':>6}  "
          + (f"{'REPEAT':>6}  " if again else "") + f"{'STEPS':>6}  {'SECONDS':>7}  {'PAUSED':>6}  "
-         f"{'ENDED':<9}  {'SUCCEEDED':<9}" + "".join(f"  {k}" for k in keys))
+         f"{'RESULT':<9}  {'SUCCEEDED':<9}" + "".join(f"  {k}" for k in keys))
     for e in rows:
         seconds = "—" if e.get("seconds") is None else f"{float(e['seconds']):.1f}"
         echo(f"{_cell(e.get('index')):>5}  " + (f"{_cell(e.get('arm')):>3}  " if arms else "")

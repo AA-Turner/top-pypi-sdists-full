@@ -311,3 +311,40 @@ class ResetDigitalFiltersResponse(_message.Message):
     success: ResetDigitalFiltersResponse.ResetDigitalFiltersResponseSuccess
     error: ResetDigitalFiltersResponse.ResetDigitalFiltersResponseError
     def __init__(self, success: _Optional[_Union[ResetDigitalFiltersResponse.ResetDigitalFiltersResponseSuccess, _Mapping]] = ..., error: _Optional[_Union[ResetDigitalFiltersResponse.ResetDigitalFiltersResponseError, _Mapping]] = ...) -> None: ...
+
+class GetMaxFullScalePowerDbmRequest(_message.Message):
+    __slots__ = ["quantum_machine_id", "ports"]
+    QUANTUM_MACHINE_ID_FIELD_NUMBER: _ClassVar[int]
+    PORTS_FIELD_NUMBER: _ClassVar[int]
+    quantum_machine_id: str
+    ports: _containers.RepeatedCompositeFieldContainer[_inc_qua_config_pb2.QuaConfig.DacPortReference]
+    def __init__(self, quantum_machine_id: _Optional[str] = ..., ports: _Optional[_Iterable[_Union[_inc_qua_config_pb2.QuaConfig.DacPortReference, _Mapping]]] = ...) -> None: ...
+
+class GetMaxFullScalePowerDbmResponse(_message.Message):
+    __slots__ = ["success", "error"]
+    class PortUpConverterPower(_message.Message):
+        __slots__ = ["port", "upconverter", "upconverter_frequency", "max_full_scale_power_dbm"]
+        PORT_FIELD_NUMBER: _ClassVar[int]
+        UPCONVERTER_FIELD_NUMBER: _ClassVar[int]
+        UPCONVERTER_FREQUENCY_FIELD_NUMBER: _ClassVar[int]
+        MAX_FULL_SCALE_POWER_DBM_FIELD_NUMBER: _ClassVar[int]
+        port: _inc_qua_config_pb2.QuaConfig.DacPortReference
+        upconverter: int
+        upconverter_frequency: float
+        max_full_scale_power_dbm: float
+        def __init__(self, port: _Optional[_Union[_inc_qua_config_pb2.QuaConfig.DacPortReference, _Mapping]] = ..., upconverter: _Optional[int] = ..., upconverter_frequency: _Optional[float] = ..., max_full_scale_power_dbm: _Optional[float] = ...) -> None: ...
+    class GetMaxFullScalePowerDbmResponseSuccess(_message.Message):
+        __slots__ = ["results"]
+        RESULTS_FIELD_NUMBER: _ClassVar[int]
+        results: _containers.RepeatedCompositeFieldContainer[GetMaxFullScalePowerDbmResponse.PortUpConverterPower]
+        def __init__(self, results: _Optional[_Iterable[_Union[GetMaxFullScalePowerDbmResponse.PortUpConverterPower, _Mapping]]] = ...) -> None: ...
+    class GetMaxFullScalePowerDbmResponseError(_message.Message):
+        __slots__ = ["details"]
+        DETAILS_FIELD_NUMBER: _ClassVar[int]
+        details: str
+        def __init__(self, details: _Optional[str] = ...) -> None: ...
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    success: GetMaxFullScalePowerDbmResponse.GetMaxFullScalePowerDbmResponseSuccess
+    error: GetMaxFullScalePowerDbmResponse.GetMaxFullScalePowerDbmResponseError
+    def __init__(self, success: _Optional[_Union[GetMaxFullScalePowerDbmResponse.GetMaxFullScalePowerDbmResponseSuccess, _Mapping]] = ..., error: _Optional[_Union[GetMaxFullScalePowerDbmResponse.GetMaxFullScalePowerDbmResponseError, _Mapping]] = ...) -> None: ...

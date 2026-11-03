@@ -13,6 +13,11 @@ for _piece in (
     "probe.sdk.delivery.outbox.drainers.detached",
     "probe.sdk.delivery.outbox.rescuer",
     "probe.sdk.delivery.outbox.outbox",
+    # Loaded now, never first at exit (finish() at interpreter exit reaches them).
+    "probe.sdk.delivery.outbox.held",
+    "probe.sdk.delivery.outbox.progress",
+    "probe.sdk.delivery.outbox.stall",
+    "probe.sdk.delivery.outbox.waiter",
 ):
     importlib.import_module(_piece)
 del _piece
@@ -93,6 +98,9 @@ _HOMES = {
     "_refuse_restored": "probe.sdk.delivery.outbox.rescuer",
     "_settle_restore": "probe.sdk.delivery.outbox.rescuer",
     "_look_again_later": "probe.sdk.delivery.outbox.rescuer",
+    # probe.sdk.delivery.outbox.waiter (guaranteed delivery: what a waiting finish() raises)
+    "DeliveryIncomplete": "probe.sdk.delivery.outbox.waiter.incomplete",
+    "WaitOutcome": "probe.sdk.delivery.outbox.waiter.outcome",
     # probe.sdk.delivery.outbox.outbox
     "OutboxOutcome": "probe.sdk.delivery.outbox.outbox",
     "_BACKOFF_START_SECONDS": "probe.sdk.delivery.outbox.outbox",

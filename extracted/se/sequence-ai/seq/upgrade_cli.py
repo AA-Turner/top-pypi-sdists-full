@@ -95,12 +95,12 @@ def template_lines(template: dict | None, update: dict | None, name: str, kind: 
     return lines
 
 
-def kept_scaling(request_autoscaler: Any, scaling_now: dict | None, named: tuple[str, ...]) -> dict:
+def kept_scaling(request_autoscaler: Any, scaling_now: dict | None) -> dict:
     """{field: (the deployment's, the file's)} for each scaling field a new version keeps where the file says otherwise:
-    a deploy sets only the fields it names (--max-gpus); the rest are the deployment's."""
+    the deployment's, as `seq policy set` changes it."""
     asked = request_autoscaler.model_dump() if hasattr(request_autoscaler, "model_dump") else dict(request_autoscaler or {})
     now = scaling_now or {}
-    return {k: (now[k], asked[k]) for k in SETTING_KEY if k in asked and k in now and k not in named
+    return {k: (now[k], asked[k]) for k in SETTING_KEY if k in asked and k in now
             and asked[k] is not None and now[k] != asked[k]}
 
 

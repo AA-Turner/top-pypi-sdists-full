@@ -110,6 +110,7 @@ def reload_hot_config(cfg: dict, path: str, state: dict,
         fresh = _runner().load_config(path)
     except Exception:
         return []
+    _name_bad_refuse(fresh)
     changed = []
     for key in _runner().HOT_KEYS:
         if key in pinned or key not in fresh:
@@ -155,5 +156,42 @@ def reload_hot_config(cfg: dict, path: str, state: dict,
             changed.append(key)
     state["mtime"] = mtime
     return changed
+
+
+def _name_bad_refuse(fresh):
+    """A bad refuse-class value written live is named and not applied.
+
+    Ports and key policies take effect at the next start. Until
+    this read them, a bad value sat in the file and the log
+    never said so.
+    """
+    if not isinstance(fresh, dict):
+        return
+    R = _runner()
+    for key in ("imap_port", "smtp_port"):
+        if key not in fresh:
+            continue
+        try:
+            R._port({key: fresh[key]}, key, 1)
+        except Exception as exc:
+            R.log("config reload: refuse-class %s=%r is not applied (%s)"
+                  % (key, fresh[key], exc), "ERROR")
+    # The size caps are refuse-class too (stage 4 P6 finding
+    # F1, the disposition's extension of this read): the same
+    # validator the startup gauntlet uses names a bad one.
+    try:
+        cap_err = R._validate_size_caps(fresh)
+    except Exception:
+        cap_err = None
+    if cap_err:
+        R.log("config reload: refuse-class value is not applied (%s)"
+              % cap_err, "ERROR")
+    if "key_policies" not in fresh:
+        return
+    try:
+        R.build_key_policies({"key_policies": fresh["key_policies"]})
+    except Exception as exc:
+        R.log("config reload: refuse-class key_policies is not applied (%s)"
+              % exc, "ERROR")
 
 

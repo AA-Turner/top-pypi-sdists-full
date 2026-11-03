@@ -10,6 +10,7 @@ classification from Wei Zhao et al. (2024).
 from __future__ import annotations
 
 import math
+from collections import OrderedDict
 from typing import Optional
 
 import torch
@@ -20,7 +21,9 @@ from torch import Tensor, nn
 from braindecode.models.base import EEGModuleMixin
 from braindecode.modules import (
     FeedForwardBlock,
+    LearnedPositionalEncoding,
     MultiHeadAttention,
+    PostNormTransformerBlock,
 )
 
 
@@ -176,18 +179,47 @@ class CTNet(EEGModuleMixin, nn.Module, license="mit"):
             activation=self.activation_patch,
         )
 
-        self.position = _PositionalEncoding(
-            emb_size=self.embed_dim,
-            drop_prob=self.att_positional_drop_prob,
-            n_times=self.n_times,
-            pool_size=self.pool_size_1,
+        length = 100
+        needed = max(
+            int(self.n_times / (self.pool_size_1 * self.pool_size_1)),
+            self.sequence_length or 0,
+        )
+        if needed > length:
+            warn(
+                "the temporal dimensional is too long for this default length. "
+                "The length parameter will be automatically adjusted to "
+                "avoid inference issues."
+            )
+            length = needed
+        self.position = LearnedPositionalEncoding(
+            length, self.embed_dim, self.att_positional_drop_prob
         )
 
-        self.trans = _TransformerEncoder(
-            self.num_heads,
-            self.num_layers,
-            self.embed_dim,
-            activation=self.activation_transformer,
+        # ``layers`` and the ``Sequential`` around the attention keep the
+        # parameter names of saved checkpoints.
+        self.trans = nn.Sequential(
+            OrderedDict(
+                layers=nn.Sequential(
+                    *[
+                        PostNormTransformerBlock(
+                            self.embed_dim,
+                            nn.Sequential(
+                                MultiHeadAttention(self.embed_dim, self.num_heads, 0.5)
+                            ),
+                            nn.Sequential(
+                                FeedForwardBlock(
+                                    self.embed_dim,
+                                    expansion=4,
+                                    drop_p=0.5,
+                                    activation=self.activation_transformer,
+                                )
+                            ),
+                            0.5,
+                        )
+                        for _ in range(self.num_layers)
+                    ]
+                )
+            )
         )
 
         self.flatten_drop_layer = nn.Sequential(
@@ -220,7 +252,7 @@ class CTNet(EEGModuleMixin, nn.Module, license="mit"):
         cnn = self.position(cnn)
         trans = self.trans(cnn)
         features = cnn + trans
-        flatten_feature = self.flatten(features)
+        flatten_feature = self.flatten_drop_layer(features)
         out = self.final_layer(flatten_feature)
         return out
 
@@ -378,167 +410,14 @@ class _PatchEmbeddingEEGNet(nn.Module):
         Tensor
             Embedded patches of shape (batch_size, num_patches, embedding_dim).
         """
-        x = self.eegnet_module(x)
+        layers = self.eegnet_module
+        x = layers[1](layers[0](x))
+        # The depthwise (n_chans, 1) convolution as a matmul over the channel
+        # axis: same values, a faster backward than the grouped convolution's.
+        b, f, c, t = x.shape
+        x = torch.matmul(layers[2].weight.view(f, -1, c), x).view(b, -1, 1, t)
+        for i, layer in enumerate(layers):
+            if i > 2:
+                x = layer(x)
         x = self.projection(x)
         return x
-
-
-class _ResidualAdd(nn.Module):
-    def __init__(self, module: nn.Module, emb_size: int, drop_p: float):
-        super().__init__()
-        self.module = module
-        self.drop = nn.Dropout(drop_p)
-        self.layernorm = nn.LayerNorm(emb_size)
-
-    def forward(self, x: Tensor) -> Tensor:
-        """
-        Forward pass with residual connection.
-
-        Parameters
-        ----------
-        x : Tensor
-            Input tensor.
-        **kwargs : Any
-            Additional arguments.
-
-        Returns
-        -------
-        Tensor
-            Output tensor after applying residual connection.
-        """
-        res = self.module(x)
-        out = self.layernorm(self.drop(res) + x)
-        return out
-
-
-class _TransformerEncoderBlock(nn.Module):
-    def __init__(
-        self,
-        dim_feedforward: int,
-        num_heads: int = 4,
-        drop_prob: float = 0.5,
-        forward_expansion: int = 4,
-        forward_drop_p: float = 0.5,
-        activation: type[nn.Module] = nn.GELU,
-    ):
-        super().__init__()
-        self.attention = _ResidualAdd(
-            nn.Sequential(
-                MultiHeadAttention(dim_feedforward, num_heads, drop_prob),
-            ),
-            dim_feedforward,
-            drop_prob,
-        )
-        self.feed_forward = _ResidualAdd(
-            nn.Sequential(
-                FeedForwardBlock(
-                    dim_feedforward,
-                    expansion=forward_expansion,
-                    drop_p=forward_drop_p,
-                    activation=activation,
-                ),
-            ),
-            dim_feedforward,
-            drop_prob,
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        """
-        Forward pass of the transformer encoder block.
-
-        Parameters
-        ----------
-        x : Tensor
-            Input tensor.
-        **kwargs : Any
-            Additional arguments.
-
-        Returns
-        -------
-        Tensor
-            Output tensor after transformer encoder block.
-        """
-        x = self.attention(x)
-        x = self.feed_forward(x)
-        return x
-
-
-class _TransformerEncoder(nn.Module):
-    def __init__(
-        self,
-        nheads: int,
-        depth: int,
-        dim_feedforward: int,
-        activation: type[nn.Module] = nn.GELU,
-    ):
-        super().__init__()
-        self.layers = nn.Sequential(
-            *[
-                _TransformerEncoderBlock(
-                    dim_feedforward=dim_feedforward,
-                    num_heads=nheads,
-                    activation=activation,
-                )
-                for _ in range(depth)
-            ]
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        """
-        Forward pass of the transformer encoder.
-
-        Parameters
-        ----------
-        x : Tensor
-            Input tensor.
-
-        Returns
-        -------
-        Tensor
-            Output tensor after transformer encoder.
-        """
-        return self.layers(x)
-
-
-class _PositionalEncoding(nn.Module):
-    def __init__(
-        self,
-        n_times: int,
-        emb_size: int,
-        length: int = 100,
-        drop_prob: float = 0.1,
-        pool_size: int = 8,
-    ):
-        super().__init__()
-        self.pool_size = pool_size
-        self.n_times = n_times
-
-        if int(n_times / (pool_size * pool_size)) > length:
-            warn(
-                "the temporal dimensional is too long for this default length. "
-                "The length parameter will be automatically adjusted to "
-                "avoid inference issues."
-            )
-            length = int(n_times / (pool_size * pool_size))
-
-        self.dropout = nn.Dropout(drop_prob)
-        self.encoding = nn.Parameter(torch.randn(1, length, emb_size))
-
-    def forward(self, x: Tensor) -> Tensor:
-        """
-        Forward pass of the positional encoding.
-
-        Parameters
-        ----------
-        x : Tensor
-            Input tensor of shape (batch_size, sequence_length, embedding_dim).
-
-        Returns
-        -------
-        Tensor
-            Tensor with positional encoding added.
-        """
-        seq_length = x.size(1)
-        encoding = self.encoding[:, :seq_length, :]
-        x = x + encoding
-        return self.dropout(x)

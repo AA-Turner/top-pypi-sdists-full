@@ -17,6 +17,7 @@
 from typing import Any, List, Optional, Tuple, Type, TypeVar, Union
 
 from etils.enp.array_types import dtypes
+from etils.enp.numpy_utils import lazy  # pylint: disable=g-importing-member
 import numpy as np
 
 _T = TypeVar('_T')
@@ -74,14 +75,14 @@ class ArrayAliasMeta(type):
 
   def __init__(cls, shape: Optional[ShapeSpec], dtype: Optional[_DType]):
     del shape, dtype
-    super().__init__(cls, cls.__name__, (cls,), {})  # pytype: disable=wrong-arg-count
+    super().__init__(cls, cls.__name__, (cls,), {})  # pyrefly: ignore[no-matching-overload]
 
   def __getitem__(cls, shape: _ShapeSpecInput) -> 'ArrayAliasMeta':
     if shape is None:  # Normalize 'Array[None]'
       shape = (shape,)
-    return ArrayAliasMeta(shape=shape, dtype=cls.dtype)
+    return ArrayAliasMeta(shape=shape, dtype=cls.dtype)  # pyrefly: ignore[bad-argument-type]
 
-  def __eq__(cls, other: 'ArrayAliasMeta') -> bool:
+  def __eq__(cls, other: 'ArrayAliasMeta') -> bool:  # pyrefly: ignore[bad-override]
     return (
         isinstance(other, ArrayAliasMeta)
         and cls.shape == other.shape
@@ -109,6 +110,8 @@ def _normalize_shape_item(item: _ShapeItem) -> ShapeSpec:
     return '...'
   elif item is None:
     return '_'
+  elif lazy.has_jax and lazy.jax.export.is_symbolic_dim(item):
+    return str(item)
   else:
     raise TypeError(f'Invalid shape type {type(item)} of: {item}')
 

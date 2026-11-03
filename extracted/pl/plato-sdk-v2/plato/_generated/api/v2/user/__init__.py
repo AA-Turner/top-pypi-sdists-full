@@ -1,9 +1,7 @@
 """API endpoints."""
 
-from . import get_current_user, get_my_orgs, set_my_active_org
+from . import get_current_user
 
 __all__ = [
     "get_current_user",
-    "get_my_orgs",
-    "set_my_active_org",
 ]

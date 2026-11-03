@@ -12,15 +12,18 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Sequence
-from typing import Literal, cast
+from concurrent.futures import ThreadPoolExecutor
+from typing import Literal
 
 import torch
 import torch.nn.functional as F
+import torchaudio.functional as ta_functional
 import torchaudio.transforms as ta_transforms
-from einops import pack, rearrange, reduce, repeat, unpack
+from einops import rearrange
 from einops.layers.torch import Rearrange
 from torch import nn
 
+from braindecode.functional import spectral_input
 from braindecode.models.base import EEGModuleMixin
 
 _LPadType = int | Literal["none", "steady", "full"]
@@ -217,7 +220,9 @@ class MetaNeuromotorHand(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
     n_chans : int
         Number of EMG channels. Defaults to ``16`` (one armband).
     sfreq : float
-        Sampling frequency in Hz. Defaults to ``2000``.
+        Sampling frequency in Hz. Defaults to ``2000``, unless
+        ``n_times`` and ``input_window_seconds`` are both given, in which
+        case it is inferred from them.
     mpf_window_length : int
         MPF window length in samples.
     mpf_stride : int
@@ -346,7 +351,7 @@ class MetaNeuromotorHand(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
         self,
         n_outputs: int = 100,
         n_chans: int = 16,
-        sfreq: float = 2000.0,
+        sfreq: float | None = None,
         # MPF featurizer
         mpf_window_length: int = 160,
         mpf_stride: int = 40,
@@ -387,6 +392,8 @@ class MetaNeuromotorHand(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
         input_window_seconds=None,
         chs_info=None,
     ) -> None:
+        if sfreq is None and (n_times is None or input_window_seconds is None):
+            sfreq = 2000.0
         super().__init__(
             n_outputs=n_outputs,
             n_chans=n_chans,
@@ -486,6 +493,7 @@ class MetaNeuromotorHand(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
         """Replace the classification head for a new number of outputs."""
         self.final_layer = nn.Linear(self.final_layer.in_features, n_outputs)
         self._n_outputs = n_outputs
+        self._update_init_kwargs(n_outputs=n_outputs)
 
     def compute_output_lengths(self, input_lengths: torch.Tensor) -> torch.Tensor:
         """Compute the valid emission length for each input sequence.
@@ -576,6 +584,24 @@ class _ChannelwiseSTFT(ta_transforms.Spectrogram):
         # Kept for upstream-checkpoint key compatibility; not read anywhere.
         self.register_buffer("window_norm", torch.linalg.vector_norm(self.window))
 
+    def forward(self, waveform: torch.Tensor) -> torch.Tensor:
+        # Spectrogram.forward with the window on the input's device and dtype
+        # (spectral_input: float32 at least, CPU for HPU). Complex output.
+        x = spectral_input(waveform)
+        return ta_functional.spectrogram(
+            x,
+            self.pad,
+            self.window.to(x),
+            self.n_fft,
+            self.hop_length,
+            self.win_length,
+            self.power,
+            self.normalized,
+            self.center,
+            self.pad_mode,
+            self.onesided,
+        )
+
 
 class _FrequencyBandAverager(nn.Module):
     """Reduce high-resolution FFT bins to a few coarse ``(low, high)`` Hz bands.
@@ -647,11 +673,6 @@ class _FrequencyBandAverager(nn.Module):
             self.register_buffer("freq_masks", freq_masks)
             self.n_output_freqs = len(frequency_bins)
 
-        self.add_band_axis = Rearrange(
-            "batch time freq channels1 channels2 -> "
-            "batch time 1 freq channels1 channels2"
-        )
-
     @staticmethod
     def _build_freq_masks(
         n_fft: int,
@@ -673,9 +694,10 @@ class _FrequencyBandAverager(nn.Module):
         if self.frequency_bins is None:
             return x
 
-        freq_masks = cast(torch.Tensor, self.freq_masks)
-        weighted = self.add_band_axis(x) * freq_masks
-        return weighted.sum(dim=3) / freq_masks.sum(dim=3)
+        freq_masks = self.freq_masks.to(x)
+        # Sum each band's bins as one matmul with the (band, freq) masks.
+        summed = torch.einsum("btfij,nf->btnij", x, freq_masks[0, 0, :, :, 0, 0])
+        return summed / freq_masks.sum(dim=3)
 
 
 class _CrossSpectralDensity(nn.Module):
@@ -728,11 +750,38 @@ class _CrossSpectralDensity(nn.Module):
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         window_size = inputs.shape[-1]
-        # Pack over all leading dims so matmul broadcasts uniformly.
-        outputs, packed_shape = pack([inputs], "* channels window")
+        # Flatten all leading dims so matmul broadcasts uniformly.
+        outputs = inputs.reshape(-1, inputs.shape[-2], window_size)
         outputs = (outputs @ self.transpose_last_two(outputs.conj())) / window_size
         outputs = outputs.abs().pow(2)
-        return unpack(outputs, packed_shape, "* channels1 channels2")[0]
+        return outputs.unflatten(0, inputs.shape[:-2])
+
+
+@torch.jit.unused
+def _cpu_eigh(inputs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """``torch.linalg.eigh`` of a batch of matrices on all CPU threads.
+
+    torch's CPU ``eigh`` solves a batch one matrix after another on one
+    thread. Chunks of the batch in a thread pool (the op releases the GIL)
+    give the same per-matrix results on every thread.
+    """
+    flat = inputs.reshape(-1, inputs.shape[-2], inputs.shape[-1])
+    # ponytail: at least 256 matrices per chunk so small batches skip the pool.
+    n_chunks = min(torch.get_num_threads(), flat.shape[0] // 256)
+    # torch.compile / torch.export trace on this thread only.
+    if n_chunks < 2 or torch.compiler.is_compiling():
+        return torch.linalg.eigh(inputs)
+    grad_enabled = torch.is_grad_enabled()
+
+    def eigh(chunk):  # grad mode is thread-local
+        with torch.set_grad_enabled(grad_enabled):
+            return torch.linalg.eigh(chunk)
+
+    with ThreadPoolExecutor(n_chunks) as pool:
+        parts = list(pool.map(eigh, flat.chunk(n_chunks)))
+    eigvals = torch.cat([part[0] for part in parts]).reshape(inputs.shape[:-1])
+    eigvecs = torch.cat([part[1] for part in parts]).reshape(inputs.shape)
+    return eigvals, eigvecs
 
 
 class _SPDMatrixLog(nn.Module):
@@ -771,7 +820,10 @@ class _SPDMatrixLog(nn.Module):
         self.transpose_eigvecs = Rearrange("... row col -> ... col row")
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-        eigvals, eigvecs = torch.linalg.eigh(inputs)
+        if not torch.jit.is_scripting() and inputs.device.type == "cpu":
+            eigvals, eigvecs = _cpu_eigh(inputs)
+        else:
+            eigvals, eigvecs = torch.linalg.eigh(inputs)
         eigvals = eigvals.log().nan_to_num(nan=0.0, neginf=0.0)
         return (eigvecs * self.broadcast_eigvals(eigvals)) @ self.transpose_eigvecs(
             eigvecs
@@ -950,7 +1002,8 @@ class _MultivariatePowerFrequencyFeatures(nn.Module):
         x = self.csd(x)
         x = self.band_averager(x)
         x = self.spd_log(x)
-        return self.time_last_layout(x)
+        # STFT to matrix log ran in spectral_input(inputs) (see _ChannelwiseSTFT).
+        return self.time_last_layout(x).to(inputs)
 
     def compute_time_downsampling(self, input_lengths: torch.Tensor) -> torch.Tensor:
         cospectrum_len = 1 + (input_lengths - self.n_fft) // self.fft_stride
@@ -1024,7 +1077,7 @@ class _VectorizeSymmetricMatrix(nn.Module):
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         inputs = self.flatten_matrix(inputs)
-        indices = cast(torch.Tensor, self.flattened_matrix_indices)
+        indices = self.flattened_matrix_indices
         return torch.index_select(inputs, dim=-1, index=indices)
 
 
@@ -1053,20 +1106,26 @@ class _RotationInvariantMPFMLP(nn.Module):
             raise ValueError("hidden_dims must be non-empty")
         self.offsets = list(offsets)
         self.activation = activation()
-        self.vectorize = _VectorizeSymmetricMatrix(
+        # Roll both channel axes by each offset, half-vectorize and flatten
+        # (freqs, covariance) as one gather: entry (row, col) of rotation
+        # ``offset`` reads entry ((row - offset) % C, (col - offset) % C).
+        kept = _VectorizeSymmetricMatrix(
             num_channels=num_channels,
             num_adjacent_cov=num_adjacent_cov,
-        )
-        self.flatten_features = Rearrange(
-            "batch time rotation freqs covariance -> "
-            "batch time rotation (freqs covariance)"
-        )
-        # Stacked rotations come out of torch.stack as
-        # (batch, freqs, c1, c2, time, rotation); put time first so the MLP
-        # broadcasts cleanly across (time, rotation).
-        self.rotations_to_time_major = Rearrange(
-            "batch freqs channels1 channels2 time rotation -> "
-            "batch time rotation freqs channels1 channels2"
+        ).flattened_matrix_indices
+        rows, cols = kept // num_channels, kept % num_channels
+        self.register_buffer(
+            "rotation_index",
+            torch.cat(
+                [
+                    freq * num_channels**2
+                    + (rows - offset) % num_channels * num_channels
+                    + (cols - offset) % num_channels
+                    for offset in self.offsets
+                    for freq in range(num_freqs)
+                ]
+            ),
+            persistent=False,
         )
         self.features_to_time_last = Rearrange(
             "batch time features -> batch features time"
@@ -1081,19 +1140,13 @@ class _RotationInvariantMPFMLP(nn.Module):
             dim = hidden_dim
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-        x = torch.stack(
-            [
-                inputs.roll(shifts=[offset, offset], dims=[2, 3])
-                for offset in self.offsets
-            ],
-            dim=-1,
-        )
-        x = self.rotations_to_time_major(x)
-        x = self.vectorize(x)
-        x = self.flatten_features(x)
+        # (batch, freqs, c1, c2, time) -> (batch, time, rotation, features)
+        x = inputs.permute(0, 4, 1, 2, 3).flatten(2)
+        x = x.index_select(-1, self.rotation_index)
+        x = x.unflatten(-1, (len(self.offsets), -1))
         for layer in self.fully_connected_layers:
             x = self.activation(layer(x))
-        x = reduce(x, "batch time rotation features -> batch time features", "mean")
+        x = x.mean(dim=2)  # average over the rotations
         return self.features_to_time_last(x)
 
 
@@ -1140,7 +1193,7 @@ class _MaskAug(nn.Module):
 
         # Pre-resolve the mask schedule, in canonical "CFT" order, so forward
         # is a plain nested loop with no dict lookups or class indirection.
-        plans: list[tuple[int, int, tuple[int, ...]]] = []
+        plans: list[tuple[int, int, list[int]]] = []
         for dim in "CFT":
             if dim not in dims or dim not in axes_by_coord:
                 continue
@@ -1152,7 +1205,7 @@ class _MaskAug(nn.Module):
                 (
                     int(max_num_masks[idx]),
                     int(max_mask_lengths[idx]),
-                    axes_by_coord[dim],
+                    list(axes_by_coord[dim]),  # one list type for TorchScript
                 )
             )
         self._plans = plans
@@ -1183,7 +1236,7 @@ class _MaskAug(nn.Module):
                 # training and cast back to long for indexing.
                 start_range = (data_length - mask_length).to(torch.float32)
                 mask_start = (
-                    torch.rand(batch, device=x.device, dtype=torch.float32)
+                    torch.rand((batch,), device=x.device, dtype=torch.float32)
                     * start_range
                 ).to(torch.long)
                 mask_end = mask_start + mask_length
@@ -1313,7 +1366,7 @@ class _Window(nn.Module):
         # the lpad-mode branching, so the unfold and dilation slice stay
         # inline here rather than being factored into separate modules.
         if self.state_size > 0:
-            inputs = F.pad(inputs, (0, 0, self.state_size, 0), "constant", 0)
+            inputs = F.pad(inputs, (0, 0, self.state_size, 0), "constant", 0.0)
         windows = inputs.unfold(
             dimension=1, size=self.receptive_field, step=self.stride
         )
@@ -1434,7 +1487,7 @@ class _MultiHeadAttention(nn.Module):
         self.register_buffer("attn_mask", attn_mask)
 
     def _get_attn_mask(self) -> torch.Tensor:
-        return cast(torch.Tensor, self.attn_mask)
+        return self.attn_mask
 
     def _windows(self, inputs: torch.Tensor) -> torch.Tensor:
         inputs = self.flatten_trailing(inputs)
@@ -1460,13 +1513,12 @@ class _MultiHeadAttention(nn.Module):
         t_end: int,
     ) -> torch.Tensor:
         T_out = windows.shape[1]
-        warmup_idx = slice(
-            max(t_start, self.extra_left_context),
-            min(t_end, self.window_size - 1),
-            self.stride,
-        )
         attn_mask = self._get_attn_mask()
-        attn_mask_warmup = attn_mask[warmup_idx]
+        attn_mask_warmup = attn_mask[
+            max(t_start, self.extra_left_context) : min(
+                t_end, self.window_size - 1
+            ) : self.stride
+        ]
         T_out_warmup = len(attn_mask_warmup)
         T_out_steady = T_out - T_out_warmup
         if T_out_steady < 0:
@@ -1482,11 +1534,11 @@ class _MultiHeadAttention(nn.Module):
     ) -> torch.Tensor:
         batch_size, output_time = windows.shape[:2]
         attn_mask = self._attn_mask_op(windows, t_start, t_end)
-        return repeat(
-            attn_mask,
-            "time window -> (batch time heads) window",
-            batch=batch_size,
-            heads=self.op.num_heads,
+        # (time, window) -> (batch * time * heads, window)
+        return (
+            attn_mask[None, :, None]
+            .expand(batch_size, -1, self.op.num_heads, -1)
+            .reshape(-1, attn_mask.shape[-1])
         )
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:

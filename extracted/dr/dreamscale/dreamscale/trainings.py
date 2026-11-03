@@ -324,8 +324,11 @@ def run_settings(
     base_step: int | None = None, normalization: str | None = None,
     batch_size: int | None = None, warmup_steps: int | None = None,
     lr_schedule: str | None = None, checkpoint_every: int | None = None,
+    inputs: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """The create body's fields besides the dataset (only what was chosen)."""
+    """The create body's fields besides the dataset (only what was chosen). ``inputs``: the
+    run's inputs beside its dataset that its base's family takes, by name (a JSON object each,
+    sent inline)."""
     settings = {
         key: value
         for key, value in (
@@ -351,6 +354,8 @@ def run_settings(
         body["settings"] = settings
     if mapping:
         body["mapping"] = mapping
+    if inputs:
+        body["inputs"] = inputs
     return body
 
 
@@ -358,7 +363,7 @@ def estimate_body(body: dict[str, Any]) -> dict[str, Any]:
     """What the estimate prices: the create body without its name, RTC and accepted price."""
     return {k: v for k, v in body.items() if k in ("dataset", "base", "base_step", "steps",
                                                      "max_usd", "hf_token", "mapping",
-                                                     "eval_fraction", "settings")}
+                                                     "eval_fraction", "settings", "inputs")}
 
 
 # --- the control plane ----------------------------------------------------------------------
@@ -1047,11 +1052,13 @@ def create(
     name: str | None = None,
     hf_token: str | None = None,
     eval_fraction: float | None = None,
+    inputs: dict[str, dict[str, Any]] | None = None,
     client_factory: Callable[..., Any] = ControlPlaneClient,
 ) -> Training:
     """Start a training run without a prompt: ``dataset`` is a ``Dataset``, ``"towels@2"``,
     ``"acme/towels"`` or ``"hf://…"``; ``max_usd`` is the most it may cost, and the call refuses a
-    quote above it. Length is Auto unless ``steps`` is given."""
+    quote above it. Length is Auto unless ``steps`` is given. ``inputs``: what the base's family
+    takes beside the dataset, by name (a JSON object each); sent only when given."""
     if not base:
         raise errors.catalog("base_required")
     pinned = getattr(dataset, "ref", None)
@@ -1062,7 +1069,7 @@ def create(
     body = run_settings(
         base=base, steps=steps, max_usd=None, rtc=rtc, name=name or default_name(source),
         learning_rate=None, prompt=None, hardware_check=True, trim_idle=True,
-        eval_fraction=eval_fraction,
+        eval_fraction=eval_fraction, inputs=inputs,
     )
     fp = fingerprint(source, body)
     existing = active_run(client_factory, fp)

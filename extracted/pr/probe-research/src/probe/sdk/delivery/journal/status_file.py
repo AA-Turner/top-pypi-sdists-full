@@ -8,9 +8,21 @@ from pathlib import Path
 from typing import Any
 
 from probe.foundation.durable.durable import SYNC_FULL, file_lock, now_iso, write_text_atomic
+from probe.sdk.delivery.status_fields import QueueStatus, StatusField, WrittenStatus
 
 
-def auth_blocked_since(status: dict | None, fingerprints=None) -> str | None:
+#: Counts a root's `read_status` adds up from its delivery namespace, and from its credential queues.
+_SUMMED_FROM_DELIVERY = (StatusField.PENDING, StatusField.PENDING_BYTES, StatusField.FAILED, StatusField.HELD)
+_SUMMED_FROM_CREDENTIAL_QUEUES = (
+    StatusField.PENDING,
+    StatusField.PENDING_BYTES,
+    StatusField.FAILED,
+    StatusField.WAITING,
+    StatusField.HELD,
+)
+
+
+def auth_blocked_since(status: QueueStatus | None, fingerprints=None) -> str | None:
     """When delivery was last refused a credential (401/403), from a status.json dict, or None.
     Either the queue-wide block (`auth_blocked_since`: writes of a release stamping no
     credential) or, since #2041, a credential the drain set aside (`refused_fingerprints`,
@@ -20,8 +32,8 @@ def auth_blocked_since(status: dict | None, fingerprints=None) -> str | None:
     credential cooldown counts from the latest): this is the LATEST refusal, not the first."""
     if not isinstance(status, dict):
         return None
-    blocked = status.get("auth_blocked_since") or None
-    refused = status.get("refused_fingerprints")
+    blocked = status.get(StatusField.AUTH_BLOCKED_SINCE) or None
+    refused = status.get(StatusField.REFUSED_FINGERPRINTS)
     if not blocked and isinstance(refused, dict) and refused:
         # An adopted credential's writes go out with the login now: its old token's refusal
         # blocks nothing (`probe outbox adopt`, the rescue).
@@ -50,9 +62,13 @@ def _forget_idle_refusals(status: dict, queue: Path) -> None:
     empty queue. So a queue with no write pending (count 0 and neither `ops/` nor
     `multipart/ops/` holds one) reads with no refusal and nothing held. The file keeps what the
     drain wrote: a credential that queues again is refused at most once more."""
-    if _status_count(status.get("pending")) > 0:
+    if _status_count(status.get(StatusField.PENDING)) > 0:
         return
-    if not (status.get("refused_fingerprints") or status.get("auth_blocked_since") or status.get("held")):
+    if not (
+        status.get(StatusField.REFUSED_FINGERPRINTS)
+        or status.get(StatusField.AUTH_BLOCKED_SINCE)
+        or status.get(StatusField.HELD)
+    ):
         return
     # The count is the last write's; the folders are the truth (a failed status write leaves a
     # stale 0 beside writes still queued).
@@ -64,39 +80,42 @@ def _forget_idle_refusals(status: dict, queue: Path) -> None:
             continue
         except OSError:
             return
-    status["refused_fingerprints"] = {}
-    status["auth_blocked_since"] = None
-    status["held"] = 0
-    status["close_held"] = 0
+    status[StatusField.REFUSED_FINGERPRINTS] = {}
+    status[StatusField.AUTH_BLOCKED_SINCE] = None
+    status[StatusField.HELD] = 0
+    status[StatusField.CLOSE_HELD] = 0
 
 
-def _blocked_marker(status: dict) -> dict:
+def _blocked_marker(status: QueueStatus) -> QueueStatus:
     """One queue's own status.json as `blocked_oldest_pending` (its oldest write) and
     `blocked_reason`, when what it holds waits on a credential: `auth_blocked` (an older
     client's queue-wide block), `credential_refused` (writes held with a credential the API
     refused) or `held` (writes held for a credential nothing here has). A close held for its
     run's writes in another queue is not (`close_held`). Judged per queue, so `read_status`'s
     fold never pairs one queue's old backlog with another's fresh hold."""
-    pending, oldest = _status_count(status.get("pending")), status.get("oldest_pending")
-    held = _status_count(status.get("held")) - _status_count(status.get("close_held"))
-    refused = status.get("refused_fingerprints")
+    pending = _status_count(status.get(StatusField.PENDING))
+    oldest = status.get(StatusField.OLDEST_PENDING)
+    held = _status_count(status.get(StatusField.HELD)) - _status_count(status.get(StatusField.CLOSE_HELD))
+    refused = status.get(StatusField.REFUSED_FINGERPRINTS)
     if pending <= 0 or not oldest:
         reason = None
-    elif status.get("auth_blocked_since"):
+    elif status.get(StatusField.AUTH_BLOCKED_SINCE):
         reason = "auth_blocked"
     elif held > 0:
         reason = "credential_refused" if isinstance(refused, dict) and refused else "held"
     else:
         reason = None
-    return {"blocked_oldest_pending": oldest if reason else None, "blocked_reason": reason}
+    return QueueStatus(blocked_oldest_pending=oldest if reason else None, blocked_reason=reason)
 
 
-def _older_block(status: dict, child: dict) -> dict:
+def _older_block(status: QueueStatus, child: QueueStatus) -> QueueStatus:
     """Of two folded queues' blocks (`_blocked_marker`), the one blocked longest."""
-    mine, theirs = status.get("blocked_oldest_pending"), child.get("blocked_oldest_pending")
+    mine = status.get(StatusField.BLOCKED_OLDEST_PENDING)
+    theirs = child.get(StatusField.BLOCKED_OLDEST_PENDING)
     if theirs and (not mine or str(theirs) < str(mine)):
-        return {"blocked_oldest_pending": theirs, "blocked_reason": child.get("blocked_reason")}
-    return {"blocked_oldest_pending": mine or None, "blocked_reason": status.get("blocked_reason") if mine else None}
+        return QueueStatus(blocked_oldest_pending=theirs, blocked_reason=child.get(StatusField.BLOCKED_REASON))
+    reason = status.get(StatusField.BLOCKED_REASON) if mine else None
+    return QueueStatus(blocked_oldest_pending=mine or None, blocked_reason=reason)
 
 
 class StatusFileMixin:
@@ -160,46 +179,46 @@ class StatusFileMixin:
             pending_count = (
                 max(0, set_pending)
                 if set_pending is not None
-                else max(0, int(previous.get("pending") or 0) + pending_delta)
+                else max(0, int(previous.get(StatusField.PENDING) or 0) + pending_delta)
             )
-            failed_count = int(previous.get("failed") or 0)
-            pending_bytes = max(0, int(previous.get("pending_bytes") or 0) + pending_bytes_delta)
-            oldest = previous.get("oldest_pending")
+            failed_count = int(previous.get(StatusField.FAILED) or 0)
+            pending_bytes = max(0, int(previous.get(StatusField.PENDING_BYTES) or 0) + pending_bytes_delta)
+            oldest = previous.get(StatusField.OLDEST_PENDING)
             if pending_count == 0:
                 oldest = None
             elif not oldest and pending_delta > 0:
                 # First op onto an empty queue: this append IS the oldest.
                 oldest = enqueued_at
-        status = {
-            "schema": SCHEMA,
-            "updated_at": now_iso(),
-            "pending": pending_count,
-            "pending_bytes": pending_bytes,
-            "failed": failed_count,
-            "oldest_pending": oldest,
-            "paused": self.paused,
-            "auth_blocked_since": previous.get("auth_blocked_since"),
+        status = WrittenStatus(
+            schema=SCHEMA,
+            updated_at=now_iso(),
+            pending=pending_count,
+            pending_bytes=pending_bytes,
+            failed=failed_count,
+            oldest_pending=oldest,
+            paused=self.paused,
+            auth_blocked_since=previous.get(StatusField.AUTH_BLOCKED_SINCE),
             # Per-credential refusals (#2041 review): fingerprint -> when the API last refused it.
             # Carried like the block above.
-            "refused_fingerprints": previous.get("refused_fingerprints") or {},
+            refused_fingerprints=previous.get(StatusField.REFUSED_FINGERPRINTS) or {},
             # Ops the last drain pass had to leave held (another credential, a refused one, a close
             # waiting on another queue) and when: a kick adding nothing deliverable need not fork a
             # worker (#2041 round 3). Carried like the fields around it.
-            "held": int(previous.get("held") or 0),
+            held=int(previous.get(StatusField.HELD) or 0),
             # Of those, closes waiting on their run's writes in another queue
             # (at most CLOSE_HOLD_MAX_SECONDS): held, but not stuck.
-            "close_held": int(previous.get("close_held") or 0),
-            "held_at": previous.get("held_at"),
-            "last_error": previous.get("last_error"),
+            close_held=int(previous.get(StatusField.CLOSE_HELD) or 0),
+            held_at=previous.get(StatusField.HELD_AT),
+            last_error=previous.get(StatusField.LAST_ERROR),
             # Monotonic tally of uploads that DEGRADED to unstaged for want of disk headroom,
             # carried forward like the fields above. Counting by scanning ops would make every
             # append O(queue), the regression the O(1) status rewrite fixed.
-            "unstaged_low_disk": (
-                int(previous.get("unstaged_low_disk") or 0) + int(unstaged_low_disk)
+            unstaged_low_disk=(
+                int(previous.get(StatusField.UNSTAGED_LOW_DISK) or 0) + int(unstaged_low_disk)
             ),
             # Tally of torn op files moved to failed/ (plan T6), carried like the one above.
-            "torn": int(previous.get("torn") or 0) + int(torn_delta),
-        }
+            torn=int(previous.get(StatusField.TORN) or 0) + int(torn_delta),
+        )
         status.update(extra)
         # scanning disabled: if recount or extra:
             # An APPEND's status carries only numbers, timestamps this module minted and fields
@@ -230,7 +249,7 @@ class StatusFileMixin:
         credential_queues: bool = True,
         keep_idle_refusals: bool = False,
         _pause: bool = True,
-    ) -> dict | None:
+    ) -> QueueStatus | None:
         """Banner-grade counts, including the fenced delivery namespace and (``credential_queues``)
         every credential queue under this root. A queue holding no writes reads with no refusal and
         nothing held (`_forget_idle_refusals`), each judged on its own before any is folded in.
@@ -251,22 +270,26 @@ class StatusFileMixin:
             child = Journal.read_status(root / DELIVERY_NAMESPACE, include_receipts=False, _pause=False)
             if child:
                 status = dict(status or {})
-                for field in ("pending", "pending_bytes", "failed", "held"):
+                for field in _SUMMED_FROM_DELIVERY:
                     status[field] = int(status.get(field) or 0) + int(child.get(field) or 0)
                 status.update(_older_block(status, child))
-                status["delivery_pending"] = int(child.get("pending") or 0)
-                status["delivery_failed"] = int(child.get("failed") or 0)
-                status["delivery_pending_bytes"] = int(child.get("pending_bytes") or 0)
-                status["delivery_paused"] = _pause and _pause_marker(root / DELIVERY_NAMESPACE) is not None
-                status["delivery_last_error"] = child.get("last_error")
-                status["auth_blocked_since"] = status.get("auth_blocked_since") or child.get(
-                    "auth_blocked_since"
+                status[StatusField.DELIVERY_PENDING] = int(child.get(StatusField.PENDING) or 0)
+                status[StatusField.DELIVERY_FAILED] = int(child.get(StatusField.FAILED) or 0)
+                status[StatusField.DELIVERY_PENDING_BYTES] = int(
+                    child.get(StatusField.PENDING_BYTES) or 0
                 )
+                status[StatusField.DELIVERY_PAUSED] = (
+                    _pause and _pause_marker(root / DELIVERY_NAMESPACE) is not None
+                )
+                status[StatusField.DELIVERY_LAST_ERROR] = child.get(StatusField.LAST_ERROR)
+                status[StatusField.AUTH_BLOCKED_SINCE] = status.get(
+                    StatusField.AUTH_BLOCKED_SINCE
+                ) or child.get(StatusField.AUTH_BLOCKED_SINCE)
         if root.name != DELIVERY_NAMESPACE:
             waiting = Journal.count_waiting(root)
             if waiting or status is not None:
                 status = dict(status or {})
-                status["waiting"] = waiting
+                status[StatusField.WAITING] = waiting
         if (
             include_receipts
             and credential_queues
@@ -281,31 +304,37 @@ class StatusFileMixin:
                 status = dict(status or {})
                 # `held`: writes a drain set aside for a credential nothing here can send; a held
                 # queue under an empty root is still a backlog.
-                for field in ("pending", "pending_bytes", "failed", "waiting", "held"):
+                for field in _SUMMED_FROM_CREDENTIAL_QUEUES:
                     status[field] = int(status.get(field) or 0) + int(child.get(field) or 0)
-                oldest = [v for v in (status.get("oldest_pending"), child.get("oldest_pending")) if v]
-                status["oldest_pending"] = min(oldest) if oldest else None
+                oldest = [
+                    v
+                    for v in (status.get(StatusField.OLDEST_PENDING), child.get(StatusField.OLDEST_PENDING))
+                    if v
+                ]
+                status[StatusField.OLDEST_PENDING] = min(oldest) if oldest else None
                 status.update(_older_block(status, child))
-                status["auth_blocked_since"] = status.get("auth_blocked_since") or child.get(
-                    "auth_blocked_since"
-                )
-                child_refused = child.get("refused_fingerprints")
+                status[StatusField.AUTH_BLOCKED_SINCE] = status.get(
+                    StatusField.AUTH_BLOCKED_SINCE
+                ) or child.get(StatusField.AUTH_BLOCKED_SINCE)
+                child_refused = child.get(StatusField.REFUSED_FINGERPRINTS)
                 if isinstance(child_refused, dict) and child_refused:
                     # A refused credential's queue is the one holding its writes: the root's banner
                     # must see it (`auth_blocked_since`).
-                    merged = dict(status.get("refused_fingerprints") or {})
+                    merged = dict(status.get(StatusField.REFUSED_FINGERPRINTS) or {})
                     for fp, at in child_refused.items():
                         merged[fp] = min(str(at), str(merged[fp])) if merged.get(fp) else at
-                    status["refused_fingerprints"] = merged
-                status["last_error"] = status.get("last_error") or child.get("last_error")
+                    status[StatusField.REFUSED_FINGERPRINTS] = merged
+                status[StatusField.LAST_ERROR] = status.get(StatusField.LAST_ERROR) or child.get(
+                    StatusField.LAST_ERROR
+                )
         if status is not None and _pause:
             # From the marker, never status.json: a pause that ran out is over, whatever the last
             # status write saw.
             pause = _pause_in_effect(root)
-            status["paused"] = pause is not None
-            status["paused_until"] = pause["until"] if pause else None
-            if "delivery_paused" in status:
-                status["delivery_paused"] = bool(status["delivery_paused"] or pause)
+            status[StatusField.PAUSED] = pause is not None
+            status[StatusField.PAUSED_UNTIL] = pause["until"] if pause else None
+            if StatusField.DELIVERY_PAUSED in status:
+                status[StatusField.DELIVERY_PAUSED] = bool(status[StatusField.DELIVERY_PAUSED] or pause)
         return status
 
 from probe.sdk.delivery.outbox.drain.accounts import _read_records  # noqa: E402 -- pieces need each other; the front door loads this one first

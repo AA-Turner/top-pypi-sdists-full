@@ -10,23 +10,14 @@ from pathlib import Path
 from opentelemetry import trace
 from pydantic import BaseModel, computed_field
 
-from plato.cli.chronos.registry import parse_package_string
-
 
 class AgentContext(BaseModel):
     """Context for running an agent."""
 
     image: str
     package: str | None = None
-    # Registered agent to run when the package registers several; defaults to
-    # the package name (AgentConfig.agent_name).
-    agent_name: str | None = None
     config: dict[str, object]
     instruction: str
-    # Agent-runner subcommand to invoke: "run" (normal execution) or "compact"
-    # (first-class session compaction — see BaseAgent.compact). Lets the world
-    # request a compaction explicitly instead of overloading the instruction.
-    command: str = "run"
     display_name: str | None = None
     ssh_probe_timeout: int = 30
     ssh_probe_retries: int = 3
@@ -34,16 +25,6 @@ class AgentContext(BaseModel):
     runtime: dict[str, object] | None = None
     # Path on world VM to agent code (for syncing to agent VM in dev mode)
     agent_code_path: Path | None = None
-
-    @property
-    def runner_agent_name(self) -> str:
-        """The ``--agent-package`` value for the runner: the requested agent
-        name, else the package name without its version."""
-        if self.agent_name:
-            return self.agent_name
-        if self.package:
-            return parse_package_string(self.package)[0]
-        return ""
 
     @computed_field
     @property
@@ -114,11 +95,6 @@ class OTelContext(BaseModel):
             env_vars.append("OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf")
         if self.session_id:
             env_vars.append(f"SESSION_ID={self.session_id}")
-            # Sandboxes started on agent VMs default to attaching to the
-            # Chronos session (tracked + lifecycle-managed with it). Propagate
-            # the world's current value so an explicit 0 disables it downstream.
-            attach = os.environ.get("PLATO_SANDBOX_ATTACH_SESSION", "1")
-            env_vars.append(f"PLATO_SANDBOX_ATTACH_SESSION={attach}")
         if self.upload_url:
             env_vars.append(f"UPLOAD_URL={self.upload_url}")
         if self.traceparent:

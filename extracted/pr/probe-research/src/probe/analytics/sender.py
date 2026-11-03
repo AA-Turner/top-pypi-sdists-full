@@ -6,7 +6,7 @@ import atexit
 import queue
 import threading
 
-from probe import __version__ as _cli_version
+from probe.foundation.version.version import VERSION as _cli_version
 from probe.analytics import core as core
 from probe.foundation.tls.tls import ssl_context
 from probe.analytics.outcomes import IdentityMode

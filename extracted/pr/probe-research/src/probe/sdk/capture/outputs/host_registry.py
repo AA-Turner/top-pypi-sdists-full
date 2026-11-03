@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ...._shared import oscompat
+from ....foundation.os_backend import os_backend as oscompat
 from ...recording_rules import ignore as _ignore
 from ....foundation.safe_warn import safe_warn as _diagnostics
 OWNER_ENV = "PROBE_CAPTURE_OWNER"

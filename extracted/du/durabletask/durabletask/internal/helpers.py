@@ -5,7 +5,7 @@ import logging
 import traceback
 from collections.abc import Mapping, Sequence
 from decimal import Decimal
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from google.protobuf import struct_pb2, timestamp_pb2, wrappers_pb2
@@ -215,7 +215,7 @@ def failure_details_from_protobuf(details: pb.TaskFailureDetails) -> "FailureDet
 
 
 def new_failure_details(
-        ex: Exception,
+        ex: BaseException,
         exception_properties_provider: ExceptionPropertiesProvider | None = None,
         logger: logging.Logger | None = None,
         _visited: set[int] | None = None) -> pb.TaskFailureDetails:
@@ -226,7 +226,7 @@ def new_failure_details(
     if len(_visited) > 10 or (inner and id(inner) in _visited) or not isinstance(inner, Exception):
         inner = None
     properties: dict[str, struct_pb2.Value] | None = None
-    if exception_properties_provider is not None:
+    if exception_properties_provider is not None and isinstance(ex, Exception):
         try:
             provider_properties = exception_properties_provider.get_exception_properties(ex)
         except Exception:
@@ -254,10 +254,20 @@ def new_failure_details(
                         get_qualified_name(type(ex)),
                         exc_info=True)
 
+    if isinstance(ex, BaseExceptionGroup):
+        ex = cast(BaseExceptionGroup[BaseException], ex)
+        # Bound group rendering; the protobuf does not model every child.
+        stack_trace = traceback.TracebackException.from_exception(
+            ex, max_group_width=15, max_group_depth=10).format()
+    elif isinstance(ex, Exception):
+        stack_trace = traceback.format_tb(ex.__traceback__)
+    else:
+        stack_trace = traceback.format_exception(ex)
+
     failure_details = pb.TaskFailureDetails(
         errorType=get_qualified_name(type(ex)),
         errorMessage=str(ex),
-        stackTrace=wrappers_pb2.StringValue(value=''.join(traceback.format_tb(ex.__traceback__))),
+        stackTrace=wrappers_pb2.StringValue(value=''.join(stack_trace)),
         innerFailure=(
             new_failure_details(
                 inner, exception_properties_provider, logger, _visited)
@@ -545,7 +555,7 @@ def ensure_aware(value: datetime | None) -> datetime | None:
     if value is None:
         return None
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
+        return value.replace(tzinfo=UTC)
     return value
 
 

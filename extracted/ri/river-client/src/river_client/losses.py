@@ -11,6 +11,9 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from torch import Tensor
 
+# The server dispatch name of a captured custom-loss graph.
+LOSS_NAME = "loss_graph_v1"
+
 
 LossInputs = Mapping[str, str | Mapping[str, object]]
 

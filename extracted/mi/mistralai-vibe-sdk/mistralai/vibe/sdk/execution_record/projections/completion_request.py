@@ -87,6 +87,7 @@ def build_completion_request_from_state(
     if projection.compaction_summary is not None:
         messages.append(Message(role="user", content=projection.compaction_summary))
 
+    reasoning = _assistant_reasoning(projection.entries)
     for index, entry in projection.entries:
         if isinstance(entry, MessageEntry):
             if entry.payload.channel == "thinking":
@@ -101,7 +102,11 @@ def build_completion_request_from_state(
                 messages.append(Message(role="user", content=content))
             elif role == "assistant":
                 text_content = content_text(entry.payload.content)
-                msg = Message(role="assistant", content=text_content or None)
+                msg = Message(
+                    role="assistant",
+                    content=text_content or None,
+                    reasoning_content=reasoning.get(index),
+                )
                 tool_calls = _collect_assistant_tool_calls(history, index)
                 if tool_calls:
                     msg.tool_calls = [
@@ -154,6 +159,38 @@ def build_completion_request_from_state(
         metadata=metadata,
         request_kind=request_kind,
     )
+
+
+def _assistant_reasoning(entries: list[tuple[int, HistoryEntry]]) -> dict[int, str]:
+    """Map each visible assistant message index to the thinking of its completion.
+
+    One completion writes at most one thinking entry and one visible entry, next to each
+    other in either order. Thinking with no visible entry in its run has nothing to ride on.
+    """
+    reasoning: dict[int, list[str]] = {}
+    pending: list[str] = []
+    last_visible: int | None = None
+
+    def flush() -> None:
+        if pending and last_visible is not None:
+            reasoning.setdefault(last_visible, []).extend(pending)
+        pending.clear()
+
+    for index, entry in entries:
+        if not (isinstance(entry, MessageEntry) and entry.payload.role == "assistant"):
+            flush()
+            last_visible = None
+            continue
+        if entry.payload.channel == "thinking":
+            if text := content_text(entry.payload.content):
+                pending.append(text)
+            continue
+        if pending:
+            reasoning.setdefault(index, []).extend(pending)
+            pending.clear()
+        last_visible = index
+    flush()
+    return {index: "".join(parts) for index, parts in reasoning.items()}
 
 
 def _bounded_tool_result(value: Any, *, max_chars: int) -> str:

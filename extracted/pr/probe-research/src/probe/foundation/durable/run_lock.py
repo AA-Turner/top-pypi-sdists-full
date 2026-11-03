@@ -10,7 +10,7 @@ import os
 import time
 from pathlib import Path
 
-from probe.shared.updates import version_policy
+from probe.foundation.version_policy import version_policy
 
 RUNS_DIRNAME = "runs"
 FLOCK_SUFFIX = ".flock"
@@ -39,11 +39,11 @@ def _to_safe_name(run_id: str) -> str:
 
 
 def _fcntl():
-    """The flock provider: `probe._shared.oscompat` (fcntl's flock on POSIX, msvcrt's byte
+    """The flock provider: `probe.foundation.os_backend.os_backend` (fcntl's flock on POSIX, msvcrt's byte
     lock on Windows), or None on a platform with neither. Reported, never swallowed (unlike
     the outbox's `_kick_drainer`): swallowing would break fail-closed exactly there."""
     try:
-        from ..._shared import oscompat
+        from ..os_backend import os_backend as oscompat
 
         return oscompat
     except ImportError:

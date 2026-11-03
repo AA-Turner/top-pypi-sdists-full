@@ -125,6 +125,22 @@ namespace sogen
         }
     };
 
+    // Every path that presents a window surface goes through this, so none of them can drop the layered-window
+    // alpha and have the compositor show a layered window opaque.
+    inline ui_surface_desc make_window_surface_desc(const gdi_bitmap_surface& surface, const window* win)
+    {
+        return ui_surface_desc{
+            .width = static_cast<int>(surface.width),
+            .height = static_cast<int>(surface.height),
+            .stride = static_cast<int>(surface.width * sizeof(uint32_t)),
+            .format = ui_surface_format::bgra8,
+            .pixels = surface.pixels.data(),
+            .layered = win && win->layered_blend,
+            .premultiplied_alpha = win && win->layered_premultiplied_alpha,
+            .constant_alpha = win ? win->layered_constant_alpha : uint8_t{255},
+        };
+    }
+
     struct gdi_dc_state
     {
         uint32_t selected_bitmap{};
@@ -475,6 +491,7 @@ namespace sogen
         std::map<uint32_t, std::vector<gdi_dc_state>> gdi_dc_save_states{};
         std::map<uint32_t, gdi_bitmap_surface> gdi_bitmap_surfaces{};
         std::map<uint32_t, EMU_LOGFONTW> gdi_fonts{};
+        std::map<uint32_t, std::vector<RECT>> gdi_regions{};
         // Persistent per-top-level-window paint surface; child controls composite into it at their offset.
         std::map<uint32_t, gdi_bitmap_surface> gdi_window_surfaces{};
         dxgk_state dxgk{};
@@ -672,6 +689,7 @@ namespace sogen
         handle_store<handle_types::registry, registry_key> registry_keys{};
         handle_store<handle_types::process, emulator_process> processes{};
         handle_store<handle_types::managed_thread, managed_process_thread> managed_threads{};
+        handle_store<handle_types::debug_object, debug_object> debug_objects{};
         std::map<uint32_t, handle> thread_handles_by_id{};
         std::map<uint16_t, atom_entry> atoms{};
         utils::insensitive_u16string_map<class_entry> classes{};

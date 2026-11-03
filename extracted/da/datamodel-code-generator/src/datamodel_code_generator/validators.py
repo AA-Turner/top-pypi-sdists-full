@@ -5,15 +5,13 @@ Provides types for defining custom field validators that can be added to generat
 
 from __future__ import annotations
 
-import keyword
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, RootModel, ValidationError, field_validator
 
-from datamodel_code_generator.python_literal import _normalize_string
-
-_MIN_DOTTED_PATH_PARTS = 2
+from datamodel_code_generator._free_names import first_free
+from datamodel_code_generator.python_literal import _normalize_string, _normalized_safe_python_name
 
 
 class ValidatorMode(str, Enum):
@@ -28,23 +26,15 @@ class ValidatorMode(str, Enum):
 _VALIDATOR_MODE_VALUES = frozenset(mode.value for mode in ValidatorMode)
 
 
-def _is_python_identifier(value: str) -> bool:
-    normalized_value = _normalize_string(value)
-    return normalized_value.isidentifier() and not keyword.iskeyword(normalized_value)
-
-
 def _validate_python_identifier(value: str) -> str:
-    normalized_value = _normalize_string(value)
-    if not _is_python_identifier(normalized_value):
+    if (normalized_value := _normalized_safe_python_name(_normalize_string(value))) is None:
         msg = f"must be a valid Python identifier: {value!r}"
         raise ValueError(msg)
     return normalized_value
 
 
 def _validate_dotted_python_identifier_path(value: str) -> str:
-    normalized_value = _normalize_string(value)
-    parts = normalized_value.split(".")
-    if len(parts) < _MIN_DOTTED_PATH_PARTS or any(not _is_python_identifier(part) for part in parts):
+    if (normalized_value := _normalized_safe_python_name(value, dotted=True)) is None or "." not in normalized_value:
         msg = f"must be a dotted Python identifier path: {value!r}"
         raise ValueError(msg)
     return normalized_value
@@ -54,8 +44,7 @@ def _validate_python_import_path(value: object) -> str:
     """Validate an import path with an optional dotted symbol suffix."""
     if (
         not isinstance(value, str)
-        or not (normalized_value := _normalize_string(value).strip())
-        or any(not _is_python_identifier(part) for part in normalized_value.split("."))
+        or (normalized_value := _normalized_safe_python_name(_normalize_string(value).strip(), dotted=True)) is None
     ):
         msg = f"must be a Python import path composed of identifiers: {value!r}"
         raise ValueError(msg)
@@ -148,11 +137,7 @@ def normalize_validators(validators: Any) -> list[dict[str, Any]]:
 
 def _reserve_validator_name(name: str, reserved_names: set[str], next_suffixes: dict[str, int]) -> str:
     """Reserve a Python identifier without changing an available user spelling."""
-    count = next_suffixes.get(name, 0)
-    candidate = name if count == 0 else f"{name}_{count}"
-    while candidate in reserved_names:
-        count += 1
-        candidate = f"{name}_{count}"
+    candidate, count = first_free(name, reserved_names.__contains__, "underscore", start=next_suffixes.get(name, 0))
     reserved_names.add(candidate)
     next_suffixes[name] = count + 1
     return candidate

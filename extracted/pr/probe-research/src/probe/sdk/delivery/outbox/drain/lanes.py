@@ -23,6 +23,11 @@ def _multipart_waiting(op: Any) -> bool:
     return state in ("verifying", "busy")
 
 
+def _is_waited_for(op: Any, runs: set) -> bool:
+    """Whether ``op`` belongs to a run a `finish()` is waiting on (R2)."""
+    return isinstance(op, dict) and op.get("run_ref") in runs
+
+
 def _round_robin(queued: list[tuple[Path, dict]]) -> list[tuple[Path, dict]]:
     """The FIFO list interleaved by run: each run's ops keep their order and the runs take
     turns, one op each, in the order of their oldest op."""
@@ -87,6 +92,10 @@ class LaneBackoff:
             self._until[lane] = now + wait
             self._last_wait[lane] = wait
 
+    def forget(self, lane: Any) -> None:
+        """Try ``lane`` again on the next pass (its stuck head was set aside)."""
+        self._forget(lane)
+
     def _forget(self, lane: Any) -> None:
         self._delays.pop(lane, None)
         self._until.pop(lane, None)
@@ -119,6 +128,8 @@ class DrainLanesMixin:
         # promoted in between is then both "waiting" and queued, holding successors back one
         # pass; the other order would miss it in both and let its close go first.
         self.held_back = {} if journal.receipt_enabled else journal.waiting_positions()
+        # Runs whose lane is held after a stall (`outbox/held`): none of their writes goes this pass.
+        self.held_lanes = set() if journal.receipt_enabled else held_lanes(journal.dir)
         # ONE parse of the queue, outside the append lock (plan 1.9): this pass's work list,
         # quarantine list and the recount's cache.
         queued, corrupt = journal._scan_ops(stamps=self.drain_hold.stamps)
@@ -133,8 +144,15 @@ class DrainLanesMixin:
             self.lanes.setdefault(_lane_of(item[1]), []).append(item)
         self.lane_index = {item[0]: n for ops in self.lanes.values() for n, item in enumerate(ops)}
         self.consumed: set[Path] = set()
+        priority = set(options.priority_runs or ())
         if options.run_ref is None:
             queued = _round_robin(queued)
+            if priority:
+                # R2: the runs a `finish()` waits on go first, each keeping its order.
+                queued = sorted(queued, key=lambda item: not _is_waited_for(item[1], priority))
+                multipart_queue = sorted(
+                    multipart_queue, key=lambda item: not _is_waited_for(item[1], priority)
+                )
         else:
             # A run's own pass (its close, a takeover): the run's lane first, then what rides a
             # lane of its own (the open's archive, queued at open), so a store that never answers
@@ -147,6 +165,11 @@ class DrainLanesMixin:
         # server); the next starts only when it is verifying, so an earlier checkpoint finishes
         # and releases its staged bytes before a later one pins more.
         self.queued = [*queued, *multipart_queue]
+        self.report.lane_refs = {
+            _lane_of(op): op.get("run_ref")
+            for _, op in self.queued
+            if isinstance(op, dict) and (op.get("run_ref") is None or isinstance(op.get("run_ref"), str))
+        }
         self.multipart_turn = next(
             (p for p, o in multipart_queue if not _multipart_waiting(o)), None
         )
@@ -242,6 +265,9 @@ class DrainLanesMixin:
             if self.credential_lanes[lane]:
                 report.permanently_held += 1
             return True
+        if lane in self.held_lanes:
+            report.lane_held += 1
+            return True  # held after a stall: nothing of its run passes its stuck write
         if lane in self.skip:
             report.skipped += 1
             return True  # backed off: its run waits; the other runs do not
@@ -310,6 +336,36 @@ class DrainLanesMixin:
                 return True
         return False
 
+    def _is_close_behind_an_upload(self, op: dict, lane: Any) -> bool:
+        """A run's close while an upload of that run is still being sent from a multipart queue
+        (its own lane: the run's order cannot see it), in this queue or another of the outbox:
+        sent now, the server would close the run before the checkpoint lands. Held, no time
+        cap: a stuck upload is set aside by the stall rule (`outbox/held`), then the close goes."""
+        if lane is None or not _is_run_close(op):
+            return False
+        uploading = self.count_uploads_of(lane)
+        if not uploading:
+            return False
+        reason = f"the close of run {lane} waits for {uploading} of its upload(s) still sending"
+        self.stalled[lane] = LaneStall(reason, held=True, wake_by=_UPLOAD_RECHECK_SECONDS)
+        if reason not in self.report.held_reasons:
+            self.report.held_reasons.append(reason)
+        return True
+
+    def count_uploads_of(self, run: str) -> int:
+        """Multipart uploads of ``run`` still queued (not set aside) in any queue of the outbox.
+        Read once per pass, only when the pass meets a close."""
+        if getattr(self, "uploads", None) is None:
+            self.uploads = {}
+            for queue in self.journal.outbox_queues():
+                if queue.receipt_enabled:
+                    continue
+                for _path, upload in Journal._read_dir(queue.dir / "multipart" / "ops"):
+                    ref = upload.get("run_ref") if isinstance(upload, dict) else None
+                    if isinstance(ref, str):
+                        self.uploads[ref] = self.uploads.get(ref, 0) + 1
+        return self.uploads.get(run, 0)
+
     def count_writes_elsewhere(self, run: str, before: str | None, epoch: Any = None) -> int:
         """How many blocking writes of ``run`` queued no later than ``before`` sit in the
         outbox's other queues. A write stamped with an OLDER write epoch than the close's is
@@ -345,6 +401,7 @@ class DrainLanesMixin:
             (only_ops is not None and op.get("op_id") not in only_ops)
             or self._waits_for_own_lane(op)
             or lane in self.skip
+            or lane in self.held_lanes
             or lane in self.stalled
             or lane in self.held_runs
             or lane in self.credential_lanes
@@ -367,6 +424,9 @@ class DrainLanesMixin:
         self.consumed.add(item_path)
         return False
 
+#: How soon a close held behind its run's upload looks again (an upload sends a slice per pass).
+_UPLOAD_RECHECK_SECONDS = 5.0
+
 from probe.sdk.delivery.journal.journal import Journal  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.ops import _lane_of  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.report import DrainReport  # noqa: E402 -- pieces need each other; the front door loads this one first
@@ -382,3 +442,4 @@ from probe.sdk.delivery.ops.op_handler import multipart_storage  # noqa: E402 --
 from probe.sdk.delivery.ops.ops import op_meta  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.credentials import stamp_identity  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.window import is_short_of_disk  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.outbox.held import held_lanes  # noqa: E402 -- pieces need each other; the front door loads this one first

@@ -36,6 +36,59 @@ def _explain(tool: str, extra: str, module: str) -> int:
     return 1
 
 
+#: The private package the CLI, daemon and service ship in (agent/packaging/private).
+CLI_DIST = "probe-research-cli"
+
+
+def _is_cli_missing(exc: ImportError) -> bool:
+    """`probe.cli` is not installed (probe-research without its `cli` extra), or only an empty
+    folder is left of it (files a Python wrote under `probe/cli/` outlive an uninstall)."""
+    if exc.name not in ("probe.cli", "probe.cli.main"):
+        return False
+    cli = sys.modules.get("probe.cli")
+    if cli is not None and getattr(cli, "__file__", None) is None:
+        return True
+    from importlib import metadata
+
+    try:
+        metadata.version(CLI_DIST)
+    except metadata.PackageNotFoundError:
+        return True
+    return False
+
+
+def _explain_no_cli() -> int:
+    print(
+        "probe: this install of probe-research has the Python SDK but not the CLI "
+        f"(the {CLI_DIST} package).\n"
+        "  Install it:  pip install 'probe-research[all]'\n"
+        "  (a uv tool install:  uv tool install 'probe-research[all]', or "
+        "'probe-research[all,daemon]' where the Probe daemon records)",
+        file=sys.stderr,
+    )
+    return 1
+
+
+def _warn_on_version_skew() -> None:
+    """`pip install -U probe-research` without `[all]` updates the public package and leaves the
+    compiled CLI at its old version: say how to update both (the next auto-update does too)."""
+    try:
+        from importlib import metadata
+
+        import probe
+
+        cli_version = metadata.version(CLI_DIST)
+    except Exception:  # noqa: BLE001 -- no CLI package (a source tree, the SDK alone): nothing to compare
+        return
+    if cli_version != probe.__version__:
+        print(
+            f"probe: probe-research is {probe.__version__} but its CLI ({CLI_DIST}) is {cli_version}; "
+            "update both:  pip install -U 'probe-research[all]'  (a uv tool install:  "
+            "uv tool install 'probe-research[all]')",
+            file=sys.stderr,
+        )
+
+
 #: How long a `probe` command (an agent's or a person's, read-only ones too)
 #: waits out an in-place update before it answers busy: under an agent's own
 #: command timeout (Claude Code's Bash tool: 120 s). A machine's first update
@@ -167,11 +220,14 @@ def main(argv: list[str] | None = None) -> int:
         # `probe.cli` loads its implementation on first use: load it here, so a
         # missing extra is this message, not a traceback from inside the call.
         importlib.import_module("probe.cli.main")
-    except ModuleNotFoundError as exc:
-        module = _missing_dependency(exc, _CLI_MODULES)
+    except ImportError as exc:
+        if _is_cli_missing(exc):
+            return _explain_no_cli()
+        module = _missing_dependency(exc, _CLI_MODULES) if isinstance(exc, ModuleNotFoundError) else None
         if module is None:
             raise
         return _explain("probe", "cli", module)
+    _warn_on_version_skew()
     return cli_main(argv)
 
 

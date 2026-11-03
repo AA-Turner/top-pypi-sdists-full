@@ -38,31 +38,42 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing_extensions import TypeIs, override
 
 from datamodel_code_generator import Error, NamingStrategy, _model_keys
-from datamodel_code_generator._format_types import PythonVersion
+from datamodel_code_generator._context_scope import context_values
+from datamodel_code_generator._format_types import PythonVersion  # noqa: TC001  # Preserve the established reference export.
+from datamodel_code_generator._free_names import Numbering, candidate_at, first_free, is_numbered
+from datamodel_code_generator._graph_links import data_type_children
+from datamodel_code_generator._json_pointer import join_pointer
 from datamodel_code_generator._model_keys import MODEL_KEY_ATTRIBUTE
+from datamodel_code_generator._python_target_names import target_builtin_type_attributes
 from datamodel_code_generator._records import record
 from datamodel_code_generator._target_unicode import (
     is_identifier,
     is_nfkc,
     is_numeric,
+    is_python_name,
     nfkc,
     replace_non_word,
     upper,
 )
-from datamodel_code_generator._url_redaction import redact_path, redact_reference
+from datamodel_code_generator._url_redaction import is_url, redact_path, redact_reference
+from datamodel_code_generator._user_keys import field_keys, first_given, first_present
 from datamodel_code_generator.enums import ClassNameAffixScope, HTTPBackend
 from datamodel_code_generator.util import camel_to_snake
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
+    from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Sequence
     from collections.abc import Set as AbstractSet
+    from typing import Literal, TypeAlias
 
     import inflect
 
     from datamodel_code_generator.model import base as model_base
-    from datamodel_code_generator.types import DataType
 
     DEFAULT_FIELD_NAME_RESOLVERS: dict[ModelType, type[FieldNameResolver]]
+    _RwDirection: TypeAlias = Literal["request", "response"]
+    FieldOriginKind: TypeAlias = Literal["property", "required-only", "additional", "root", "tag"]
+    """What a field is built for: a property, a required name without one, the typed extra properties, the value of a
+    root model or the tag a discriminated union gives a variant without a field of that name."""
 
 
 _ALIAS_RESOLUTION_CLASS_NAME_KEY: Final = "_alias_resolution_class_name"
@@ -73,6 +84,17 @@ ModelKey = _model_keys.ModelKey
 """The identity of the model a `Reference` names (defined in a leaf module that every layer can import)."""
 model_key_of = _model_keys.model_key_of
 _MODEL_KEYS: Final = count()
+
+
+def _wire_name(field: model_base.DataModelFieldBase) -> str | None:
+    return field.alias if field.alias is not None else field.original_name
+
+
+def _count_reference_names(references: Iterable[Reference]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for reference in references:
+        counts[reference.name] = counts.get(reference.name, 0) + 1
+    return counts
 
 
 def split_module_name(
@@ -99,11 +121,7 @@ def split_module_name(
 
     parts = name.split(".")
     for part in parts:
-        if (
-            not is_identifier(part, target_python_version)
-            or iskeyword(part)
-            or not is_nfkc(part, target_python_version)
-        ):
+        if not is_python_name(part, target_python_version) or not is_nfkc(part, target_python_version):
             return None
     return parts
 
@@ -128,13 +146,6 @@ def get_inferred_module_name(
     return ".".join(parts[:-1])
 
 
-def _is_data_type(value: object) -> TypeIs[DataType]:
-    """Check if value is a DataType instance."""
-    from datamodel_code_generator.types import DataType as DataType_  # noqa: PLC0415
-
-    return isinstance(value, DataType_)
-
-
 def _is_data_model(value: object) -> TypeIs[model_base.DataModel]:
     """Check if value is a DataModel instance."""
     from datamodel_code_generator.model.base import DataModel as DataModel_  # noqa: PLC0415
@@ -146,10 +157,9 @@ def _is_data_model(value: object) -> TypeIs[model_base.DataModel]:
 class ReferenceChild(Protocol):
     """Protocol for objects that can be stored in Reference.children.
 
-    This is a minimal protocol - actual usage checks isinstance for DataType
-    or DataModel to access specific methods like replace_reference or class_name.
-    Using a property makes the type covariant, allowing both DataModel (Reference)
-    and DataType (Reference | None) to satisfy this protocol.
+    This is a minimal protocol: `_graph_links.py` tells a DataType child by its replace_reference method, and
+    `Reference.iter_data_model_children` checks isinstance for DataModel. Using a property makes the type covariant,
+    allowing both DataModel (Reference) and DataType (Reference | None) to satisfy this protocol.
     """
 
     @property
@@ -275,9 +285,8 @@ class Reference(_BaseModel):
 
     def replace_children_references(self, new_reference: Reference) -> None:
         """Replace all DataType children's reference with new_reference."""
-        for child in self.children[:]:
-            if _is_data_type(child):
-                child.replace_reference(new_reference)
+        for child in data_type_children(self):
+            child.replace_reference(new_reference)
 
     def iter_data_model_children(self) -> Iterator[Any]:
         """Yield all DataModel children."""
@@ -291,10 +300,13 @@ SINGULAR_NAME_SUFFIX: str = "Item"
 ID_PATTERN: Pattern[str] = re.compile(r"^#[^/].*")
 
 SPECIAL_PATH_MARKER: str = "#-datamodel-code-generator-#-"
+_SPECIAL_PATH_SUFFIX: Final = "-#-special-#"
+_SPECIAL_PATH_FORMAT: Final = f"{SPECIAL_PATH_MARKER}{{}}{_SPECIAL_PATH_SUFFIX}"
+"""The path token of a model that the generator makes at a path (``parser.base.SPECIAL_PATH_FORMAT``)."""
+_RW_DIRECTIONS: Final[tuple[_RwDirection, ...]] = ("request", "response")
 
 SCHEMA_LOCATION_KEY: Final = "_schema_location"
 SCHEMA_LOCATION_CONFLICT_KEY: Final = "_schema_location_conflict"
-SCHEMA_OWNER_FRAMES_KEY: Final = "_schema_owner_frames"
 
 
 @record
@@ -307,7 +319,7 @@ class SchemaLocation:
     @property
     def pointer(self) -> str:
         """Return the RFC 6901 string form of the tokens, without percent-encoding."""
-        return "".join(f"/{token.replace('~', '~0').replace('/', '~1')}" for token in self.tokens)
+        return join_pointer(self.tokens)
 
     @override
     def __str__(self) -> str:
@@ -328,14 +340,118 @@ def location_of(reference: Reference) -> SchemaLocation | None:
     return reference.__dict__.get(SCHEMA_LOCATION_KEY)
 
 
+FIELD_ORIGIN_KEY: Final = "_field_origin"
+TYPE_ORIGIN_KEY: Final = "_type_origin"
+BINARY_CONTENT_KEY: Final = "_binary_content"
+
+
+@record
+class FieldOrigin:
+    """Where a field is built: its kind, and the location of the schema object it is built from, if it has one.
+
+    The location is None for a field built from no schema object of its own (a required name) or from one without a
+    location; a boolean property schema is located where its object declares it.
+    """
+
+    kind: FieldOriginKind
+    location: SchemaLocation | None
+
+
+def field_origin_of(field: object) -> FieldOrigin | None:
+    """Return where a field was built (FIELD_ORIGIN, final after L5); a copy of a field keeps the origin it copies.
+
+    The parser's builders record it when they build the field in L1, and the L5 discriminator pass when it appends a
+    tag field (kind ``tag``, without a location). A field built by no builder that records it, such as a parser
+    extension's, has none.
+    """
+    return field.__dict__.get(FIELD_ORIGIN_KEY)
+
+
+def type_origin_of(data_type: object) -> SchemaLocation | None:
+    """Return the location of the schema object the parser built a type node from (TYPE_ORIGIN, final after L1).
+
+    ``parse_item`` records it on the node it returns for a subschema and on the nodes it built inside that node (a
+    container, the members of a type list), a union member the location of its branch, a property field's type and a
+    root field's type the location of the property or root schema. The innermost build keeps its record, so a node a
+    nested parse returned keeps the location of the nested schema. A copy of a node keeps the origin of the node it
+    copies; a node a later pass builds, and a node built from a schema object without a location, has none.
+    """
+    return data_type.__dict__.get(TYPE_ORIGIN_KEY)
+
+
+def binary_content_of(data_type: object) -> bool:
+    """Return whether the parser reads the string a type node is built for as raw octets (BINARY_CONTENT, L1).
+
+    The type mapping records it when it builds the node, from the schema as the specification reads it, whatever
+    the model type: a format that maps to bytes other than bytes mapped from base64 text, or in OpenAPI 3.1 and later
+    a content media type without a content encoding. A copy of a node keeps it; an enum or const of such strings, and
+    a node a later pass builds, has none.
+    """
+    return BINARY_CONTENT_KEY in data_type.__dict__
+
+
+def _special_path(keyword: str, path: list[str]) -> list[str]:
+    """Return ``path`` followed by the token of the model that the generator makes there for ``keyword``."""
+    return [*path, _SPECIAL_PATH_FORMAT.format(keyword)]
+
+
+def _is_special_path(path: str) -> bool:
+    """Return whether a path, or a token of one, holds a token that ``_special_path`` makes.
+
+    The path names a model the generator makes, or a place below one: no document holds a schema there.
+    """
+    return SPECIAL_PATH_MARKER in path
+
+
+def _special_token_pattern(keyword: str) -> Pattern[str]:
+    """Return the pattern of a token that ``_special_path`` makes for a keyword the pattern ``keyword`` matches.
+
+    Group 1 is the keyword.
+    """
+    return re.compile(f"{re.escape(SPECIAL_PATH_MARKER)}({keyword}){re.escape(_SPECIAL_PATH_SUFFIX)}")
+
+
+def _rw_variant_path(base: str, direction: _RwDirection) -> list[str]:
+    """Return the path of the read (request) or write (response) variant of the model at ``base``.
+
+    The parser adds the variant at this path and the target binding finds it there: both join it with the model
+    resolver's ``join_path``.
+    """
+    return _special_path(f"read-write-{direction}", base.split("/"))
+
+
+def _rw_variant_of(path: str) -> tuple[str, _RwDirection] | None:
+    """Return the base path and the direction of the read or write variant a reference path names, else None.
+
+    The variant is named by the last special token of the path.
+    """
+    base, marker, special = path.rpartition(SPECIAL_PATH_MARKER)
+    if marker and (
+        direction := next((found for found in _RW_DIRECTIONS if special.startswith(f"read-write-{found}")), None)
+    ):
+        return base.rstrip("/"), direction
+    return None
+
+
 def _source_path(path: str) -> str:
     """Return a reference path without the marker of a read or write variant of its model."""
-    if (variant := path.rpartition(SPECIAL_PATH_MARKER))[1] and variant[2].startswith("read-write-"):
-        return variant[0].rstrip("/")
-    return path
+    return variant[0] if (variant := _rw_variant_of(path)) else path
+
+
+def _rw_direction(suffix: Literal["Request", "Response"]) -> _RwDirection:
+    """Return the direction of the read or write variant whose class name ends in ``suffix``."""
+    return "request" if suffix == "Request" else "response"
 
 
 T = TypeVar("T")
+
+
+def _rw_variant_flag(direction: _RwDirection, read_only: T, write_only: T) -> T:
+    """Return, of a property's readOnly and writeOnly values, the one by which the variant in ``direction`` drops it.
+
+    A request variant leaves out the read-only properties, a response variant the write-only ones.
+    """
+    return read_only if direction == "request" else write_only
 
 
 @contextmanager
@@ -352,22 +468,7 @@ def context_variable(setter: Callable[[T], None], current_value: T, new_value: T
 _BUILTIN_TYPE_ATTRIBUTES: frozenset[str] = frozenset(
     name for cls in (str, int, float, bytes) for name in dir(cls) if not name.startswith("_")
 )
-
-_BUILTIN_TYPE_ATTRIBUTES_INTRODUCED_IN: dict[PythonVersion, frozenset[str]] = {
-    PythonVersion.PY_314: frozenset({"from_number"}),
-}
-
-
-def _get_builtin_type_attributes_for_target(target: PythonVersion) -> frozenset[str]:
-    """Get builtin type attributes adjusted for the target Python version."""
-    attrs = set(_BUILTIN_TYPE_ATTRIBUTES)
-    target_key = target.version_key
-    for ver, names in _BUILTIN_TYPE_ATTRIBUTES_INTRODUCED_IN.items():
-        if target_key >= ver.version_key:
-            attrs.update(names)
-        else:
-            attrs.difference_update(names)
-    return frozenset(attrs)
+"""The running interpreter's attributes of the builtin types, read only by a resolver without a target (API only)."""
 
 
 class FieldNameResolver:
@@ -417,13 +518,10 @@ class FieldNameResolver:
         """Retain selected explicit aliases until all emitted field names are finalized."""
         aliases = self.aliases
         for field in fields:
-            if (original_name := field.alias if field.alias is not None else field.original_name) is None:
+            if (original_name := _wire_name(field)) is None:
                 continue
             class_name = field.__dict__.get(_ALIAS_RESOLUTION_CLASS_NAME_KEY, reference.original_name)
-            alias = aliases.get(f"{class_name}.{original_name}")
-            if not isinstance(alias, str) and not alias:
-                alias = aliases.get(original_name)
-            if isinstance(alias, str):
+            if isinstance(alias := first_given(aliases, field_keys(class_name, original_name)), str):
                 field.__dict__[_EXPLICIT_FIELD_ALIAS_KEY] = (alias, original_name)
             else:
                 field.__dict__.pop(_EXPLICIT_FIELD_ALIAS_KEY, None)
@@ -450,11 +548,11 @@ class FieldNameResolver:
             name = cast("str", field.name)
             if final:
                 name = nfkc(name, target_python_version)
-            original_name = field.alias if field.alias is not None else field.original_name
+            original_name = _wire_name(field)
             explicit = _EXPLICIT_FIELD_ALIAS_KEY in field.__dict__
             if (
                 (previous := names.get(name)) is not None
-                and (previous.alias if previous.alias is not None else previous.original_name) != original_name
+                and _wire_name(previous) != original_name
                 and (explicit or _EXPLICIT_FIELD_ALIAS_KEY in previous.__dict__)
             ):
                 conflict = field if explicit else previous
@@ -464,9 +562,7 @@ class FieldNameResolver:
             names[name] = field
             if not final:
                 continue
-            invalid = explicit and (
-                not is_identifier(cast("str", field.name), target_python_version) or iskeyword(cast("str", field.name))
-            )
+            invalid = explicit and not is_python_name(cast("str", field.name), target_python_version)
             if (
                 explicit
                 and (conflicts_with_alias := cast("model_base.DataModel", field.parent).EXPLICIT_ALIAS_CONFLICT_CHECKER)
@@ -542,8 +638,7 @@ class FieldNameResolver:
         else:
             new_name = name
         while (
-            not is_identifier(new_name, target)
-            or iskeyword(new_name)
+            not is_python_name(new_name, target)
             or (excludes and new_name in excludes)
             or not self._validate_field_name(new_name)
         ):
@@ -603,15 +698,9 @@ class FieldNameResolver:
               or list[str] for multiple aliases (Pydantic v2 AliasChoices).
         """
         del path
-        if class_name:
-            scoped_key = f"{class_name}.{field_name}"
-            resolved_alias = self._resolve_alias_value(field_name, self.aliases.get(scoped_key), excludes)
-            if resolved_alias is not None:
+        for key in field_keys(class_name or None, field_name):
+            if (resolved_alias := self._resolve_alias_value(field_name, self.aliases.get(key), excludes)) is not None:
                 return resolved_alias
-
-        resolved_alias = self._resolve_alias_value(field_name, self.aliases.get(field_name), excludes)
-        if resolved_alias is not None:
-            return resolved_alias
 
         valid_name = self.get_valid_name(field_name, excludes=excludes)
         return (
@@ -628,7 +717,7 @@ class EnumFieldNameResolver(FieldNameResolver):
         super().__init__(**kwargs)
         target = self.target_python_version
         self._builtin_type_attributes = (
-            _get_builtin_type_attributes_for_target(target) if target is not None else _BUILTIN_TYPE_ATTRIBUTES
+            target_builtin_type_attributes(target.version_key) if target is not None else _BUILTIN_TYPE_ATTRIBUTES
         )
 
     @override
@@ -693,31 +782,23 @@ def _default_field_name_resolver_class(model_type: ModelType) -> type[FieldNameR
     return resolver_class
 
 
+_LAZY_EXPORTS: Final = ("PydanticFieldNameResolver", "MsgspecFieldNameResolver", "DEFAULT_FIELD_NAME_RESOLVERS")
+
+
 def __getattr__(name: str) -> Any:
     """Lazily preserve legacy resolver imports without owning output policy."""
     match name:
         case "PydanticFieldNameResolver":
-            from datamodel_code_generator.model.field_name import (  # noqa: PLC0415
-                PydanticFieldNameResolver,
-            )
-
-            value = PydanticFieldNameResolver
+            value = _default_field_name_resolver_class(ModelType.PYDANTIC)
         case "MsgspecFieldNameResolver":
-            from datamodel_code_generator.model.field_name import MsgspecFieldNameResolver  # noqa: PLC0415
-
-            value = MsgspecFieldNameResolver
+            value = _default_field_name_resolver_class(ModelType.MSGSPEC)
         case "DEFAULT_FIELD_NAME_RESOLVERS":
             value = {
                 model_type: _default_field_name_resolver_class(model_type)
                 for model_type in _FIELD_NAME_RESOLVER_MODEL_TYPES
             }
         case "__all__":
-            value = (
-                *(public_name for public_name in globals() if not public_name.startswith("_")),
-                "PydanticFieldNameResolver",
-                "MsgspecFieldNameResolver",
-                "DEFAULT_FIELD_NAME_RESOLVERS",
-            )
+            value = (*(public_name for public_name in globals() if not public_name.startswith("_")), *_LAZY_EXPORTS)
         case _:
             msg = f"module {__name__!r} has no attribute {name!r}"
             raise AttributeError(msg)
@@ -727,7 +808,7 @@ def __getattr__(name: str) -> Any:
 
 def __dir__() -> list[str]:
     """Include lazily preserved exports in module discovery."""
-    return sorted((*globals(), "PydanticFieldNameResolver", "MsgspecFieldNameResolver", "DEFAULT_FIELD_NAME_RESOLVERS"))
+    return sorted((*globals(), *_LAZY_EXPORTS))
 
 
 class _FieldNameResolverOptions(NamedTuple):
@@ -784,16 +865,10 @@ class _FieldNameResolvers:
         is_enum = model_type is ModelType.ENUM
         options = self._options
         resolver = resolver_class(
-            aliases=options.aliases,
-            snake_case_field=options.snake_case_field,
-            empty_field_name=options.empty_field_name,
-            original_delimiter=options.original_delimiter,
-            special_field_name_prefix=options.special_field_name_prefix,
-            remove_special_field_name_prefix=options.remove_special_field_name_prefix,
-            capitalise_enum_members=options.capitalise_enum_members if is_enum else False,
-            no_alias=options.no_alias,
-            use_subclass_enum=options.use_subclass_enum if is_enum else False,
-            target_python_version=options.target_python_version,
+            **options._replace(
+                capitalise_enum_members=options.capitalise_enum_members if is_enum else False,
+                use_subclass_enum=options.use_subclass_enum if is_enum else False,
+            )._asdict()
         )
         self._resolved[model_type] = resolver
         return resolver
@@ -859,11 +934,8 @@ def unmatched_model_name_keys_unreported() -> Generator[None, None, None]:
 
     A comparison generates its baseline input inside, so the keys are reported for the current input alone.
     """
-    token = _UNMATCHED_MODEL_NAME_KEYS_REPORTED.set(False)
-    try:
+    with context_values({_UNMATCHED_MODEL_NAME_KEYS_REPORTED: False}):
         yield
-    finally:
-        _UNMATCHED_MODEL_NAME_KEYS_REPORTED.reset(token)
 
 
 class ModelResolver:  # noqa: PLR0904
@@ -1041,10 +1113,9 @@ class ModelResolver:  # noqa: PLR0904
         if "field_name_resolvers" in instance_state:
             instance_state["_field_name_resolvers"] = instance_state.pop("field_name_resolvers")
         if type(instance_state.get("_reference_names_cache")) is not dict:
-            reference_names: dict[str, int] = {}
-            for reference in instance_state.get("references", {}).values():
-                reference_names[reference.name] = reference_names.get(reference.name, 0) + 1
-            instance_state["_reference_names_cache"] = reference_names
+            instance_state["_reference_names_cache"] = _count_reference_names(
+                instance_state.get("references", {}).values()
+            )
         self.__dict__.update(instance_state)
         self.__dict__.setdefault("_resolved_base_path_cache", None)
         self.__dict__.setdefault("_yielding_names", {})
@@ -1117,7 +1188,7 @@ class ModelResolver:  # noqa: PLR0904
         """Return why ``--model-name-map`` cannot give ``mapped_name`` to a model generated as ``generated_name``."""
         if (
             mapped_name != reserved_name
-            and mapped_name in self._get_reference_names()
+            and mapped_name in self._reference_names_cache
             and mapped_name not in self._yielding_names
         ):
             return "already used"
@@ -1216,8 +1287,8 @@ class ModelResolver:  # noqa: PLR0904
         """Return whether ``reference`` still gives its name to references that do not yield."""
         return (entry := self._yielding_names.get(reference.name)) is not None and entry.reference is reference
 
-    def settle_yielding_names(self) -> set[int]:
-        """Keep the current names of yielding references from now on and return the ids of those references.
+    def settle_yielding_names(self) -> set[ModelKey]:
+        """Keep the current names of yielding references from now on and return the model keys of those references.
 
         Model name keys of ``--model-name-map`` that matched no other reference apply to these references by their
         final names. The final names are recorded, and the names of references that changed name since they were
@@ -1239,7 +1310,7 @@ class ModelResolver:  # noqa: PLR0904
             self.final_yielding_names[reference.path] = reference.name, reference.duplicate_name
             if reference.name != entry.created_name:
                 self.yielding_name_changes.update((entry.created_name, reference.name))
-        return {id(entry.reference) for entry in entries}
+        return {model_key_of(entry.reference) for entry in entries}
 
     def _evict_yielding_reference(self, name: str) -> None:
         """Move a yielding reference off ``name`` so that a reference that does not yield can take it.
@@ -1258,10 +1329,6 @@ class ModelResolver:  # noqa: PLR0904
         del self._reference_names_cache[name]
         self._reference_names_cache[new_name] = 1
         self._yielding_names[new_name] = entry
-
-    def _get_reference_names(self) -> dict[str, int]:
-        """Get the counts of all reference names for uniqueness checking."""
-        return self._reference_names_cache
 
     def _update_reference_name(self, old_name: str | None, new_name: str, *, unique: bool = True) -> None:
         """Update the reference names cache when a reference name changes."""
@@ -1284,10 +1351,7 @@ class ModelResolver:  # noqa: PLR0904
 
     def refresh_reference_names(self) -> None:
         """Refresh cached names after a batch reference rename."""
-        reference_names: dict[str, int] = {}
-        for reference in self.references.values():
-            reference_names[reference.name] = reference_names.get(reference.name, 0) + 1
-        self._reference_names_cache = reference_names
+        self._reference_names_cache = _count_reference_names(self.references.values())
         self._unique_name_start_hints.clear()
         self._yielding_name_start_hints.clear()
 
@@ -1337,6 +1401,10 @@ class ModelResolver:  # noqa: PLR0904
     def current_root(self) -> Sequence[str]:
         """Return the current root path components."""
         return self._current_root
+
+    @property
+    def _current_root_id(self) -> str:
+        return "/".join(self.current_root)
 
     def set_current_root(self, current_root: Sequence[str]) -> None:
         """Set the current root path components."""
@@ -1396,16 +1464,16 @@ class ModelResolver:  # noqa: PLR0904
 
     def add_id(self, id_: str, path: Sequence[str]) -> None:
         """Register an identifier mapping to a resolved reference path."""
-        self.ids["/".join(self.current_root)][id_] = self.resolve_ref(path)
+        self.ids[self._current_root_id][id_] = self.resolve_ref(path)
 
     def _get_path_absolute_local_file(self, ref: str) -> tuple[Path, str] | None:
         """Return the local file path for a path-absolute URI ref."""
         if not (self.root_id and self.current_base_path and self.current_root and ref.startswith("/")):
             return None
 
-        file_path, fragment = ref.split("#", 1) if "#" in ref else (ref, "")
+        file_path, fragment = ref.partition("#")[::2]
         root_path = urlparse(self.root_id).path
-        current_root = "/".join(self.current_root)
+        current_root = self._current_root_id
         if not (root_path and current_root and root_path.endswith(f"/{current_root}")):
             return None
 
@@ -1447,7 +1515,7 @@ class ModelResolver:  # noqa: PLR0904
         """Resolve a reference path to its canonical form."""
         joined_path = path if isinstance(path, str) else self.join_path(tuple(path))
         if not joined_path or joined_path == "#":
-            return f"{'/'.join(self.current_root)}#"
+            return f"{self._current_root_id}#"
         if path_absolute_ref := self._resolve_path_absolute_local_ref(joined_path):
             joined_path = path_absolute_ref
         if (
@@ -1457,7 +1525,7 @@ class ModelResolver:  # noqa: PLR0904
             and not is_url(joined_path)
         ):
             # resolve local file path
-            file_path, fragment = joined_path.split("#", 1) if "#" in joined_path else (joined_path, "")
+            file_path, fragment = joined_path.partition("#")[::2]
             cache_key = current_base_path, file_path
             if (resolved_file_part := self._resolved_local_file_parts.get(cache_key)) is None:
                 local_file_path = Path(current_base_path, file_path)
@@ -1479,8 +1547,8 @@ class ModelResolver:  # noqa: PLR0904
                 and (anchor_ref := self.ids.get(file_part, {}).get(f"#{fragment}"))
             ):
                 return anchor_ref
-        if ID_PATTERN.match(joined_path) and SPECIAL_PATH_MARKER not in joined_path:
-            id_scope = "/".join(self.current_root)
+        if ID_PATTERN.match(joined_path) and not _is_special_path(joined_path):
+            id_scope = self._current_root_id
             scoped_ids = self.ids[id_scope]
             ref: str | None = scoped_ids.get(joined_path)
             if ref is None:
@@ -1494,7 +1562,7 @@ class ModelResolver:  # noqa: PLR0904
             if "#" not in joined_path:
                 joined_path += "#"
             elif joined_path[0] == "#" and self.current_root:
-                joined_path = f"{'/'.join(self.current_root)}{joined_path}"
+                joined_path = f"{self._current_root_id}{joined_path}"
 
             file_path, fragment = joined_path.split("#", 1)
             ref = f"{file_path}#{fragment}"
@@ -1508,12 +1576,12 @@ class ModelResolver:  # noqa: PLR0904
 
         if is_url(ref):
             file_part, path_part = ref.split("#", 1)
-            id_scope = "/".join(self.current_root)
+            id_scope = self._current_root_id
             scoped_ids = self.ids[id_scope]
             if file_part in scoped_ids:
                 mapped_ref = scoped_ids[file_part]
                 if path_part:
-                    mapped_base, mapped_fragment = mapped_ref.split("#", 1) if "#" in mapped_ref else (mapped_ref, "")
+                    mapped_base, mapped_fragment = mapped_ref.partition("#")[::2]
                     combined_fragment = f"{mapped_fragment.rstrip('/')}/{path_part.lstrip('/')}"
                     return f"{mapped_base}#{combined_fragment}"
                 return mapped_ref
@@ -1535,7 +1603,7 @@ class ModelResolver:  # noqa: PLR0904
         if is_url(ref):
             file_part, path_part = ref.split("#", 1)
             if file_part == self.root_id:  # pragma: no cover
-                return f"{'/'.join(self.current_root)}#{path_part}"
+                return f"{self._current_root_id}#{path_part}"
             target_url: ParseResult = urlparse(file_part)
             if not (self.root_id and self.current_base_path):
                 return ref
@@ -1610,10 +1678,7 @@ class ModelResolver:  # noqa: PLR0904
         # For PrimaryFirst strategy, use unique=True for external references
         # so that definitions in the main input file get priority for clean names
         use_unique = self.naming_strategy == NamingStrategy.PrimaryFirst and self._is_external_path(path)
-        has_affix_config = bool(self.class_name_prefix or self.class_name_suffix)
-        needs_scope = self.class_name_affix_scope != ClassNameAffixScope.All
-        skip_affix = has_affix_config and needs_scope
-        generate = partial(self.get_class_name, original_name, unique=use_unique, skip_affix=skip_affix)
+        generate = partial(self.get_class_name, original_name, unique=use_unique, skip_affix=self._affix_needs_scope)
         name = self._apply_model_name_map(path, original_name, generate(), regenerate=generate).name
         if self._yielding_names:
             self._evict_yielding_reference(name)
@@ -1656,6 +1721,12 @@ class ModelResolver:  # noqa: PLR0904
                 return parent_reference
             parent_path = parent_path[:-1]
         return None
+
+    @property
+    def _affix_needs_scope(self) -> bool:
+        return bool(self.class_name_prefix or self.class_name_suffix) and (
+            self.class_name_affix_scope != ClassNameAffixScope.All
+        )
 
     def _check_parent_scope_option(self, name: str, path: Sequence[str]) -> str:
         # Check for parent-prefixed naming via either the legacy flag or the new naming strategy
@@ -1722,7 +1793,7 @@ class ModelResolver:  # noqa: PLR0904
                     self._update_reference_name(old_name, new_name)
                     break
 
-    def add(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
+    def add(  # noqa: PLR0912, PLR0913, PLR0915
         self,
         path: Sequence[str],
         original_name: str,
@@ -1750,9 +1821,7 @@ class ModelResolver:  # noqa: PLR0904
             was_already_loaded = reference.loaded
             if loaded and not reference.loaded:
                 reference.loaded = True
-            has_affix_config = bool(self.class_name_prefix or self.class_name_suffix)
-            needs_scope = self.class_name_affix_scope != ClassNameAffixScope.All
-            needs_reprocess = has_affix_config and needs_scope and not was_already_loaded
+            needs_reprocess = self._affix_needs_scope and not was_already_loaded
             if not needs_reprocess and (
                 not original_name or original_name in {reference.original_name, reference.name}
             ):
@@ -2004,23 +2073,16 @@ class ModelResolver:  # noqa: PLR0904
         prefix: str = "",
         yields: bool = False,
     ) -> str:
-        # Determine the suffix to use
-        suffix = self._get_suffix_for_model_type(model_type)
-        if not suffix and self.duplicate_name_suffix:
-            suffix = self.duplicate_name_suffix
-
-        delimiter = "" if camel else "_"
+        suffix = self._duplicate_name_suffix(model_type)
+        numbering: Numbering = "joined" if camel else "underscore"
         if yields:
-            return self._get_yielding_unique_name(name, suffix, delimiter, prefix)
+            return self._get_yielding_unique_name(name, suffix, numbering, prefix)
         is_taken = self._is_taken_beside_yielding_names if self._yielding_names else self._is_taken
-        hint_key = (name, suffix or "", delimiter)
+        hint_key = (name, suffix or "", "" if camel else "_")
         count = self._unique_name_start_hints.get(hint_key, 0)
-        if count and not is_taken(self._build_unique_name_candidate(name, suffix, delimiter, count - 1)):
+        if count and not is_taken(candidate_at(name, numbering, count - 1, suffix)):
             count = 0
-        unique_name = self._build_unique_name_candidate(name, suffix, delimiter, count)
-        while is_taken(unique_name):
-            count += 1
-            unique_name = self._build_unique_name_candidate(name, suffix, delimiter, count)
+        unique_name, count = first_free(name, is_taken, numbering, suffix=suffix, start=count)
         if count:
             self._unique_name_start_hints[hint_key] = count + 1
         return unique_name
@@ -2036,69 +2098,48 @@ class ModelResolver:  # noqa: PLR0904
             or name in self._released_model_names
         )
 
-    def _get_yielding_unique_name(self, name: str, suffix: str | None, delimiter: str, prefix: str) -> str:
+    def _get_yielding_unique_name(self, name: str, suffix: str | None, numbering: Numbering, prefix: str) -> str:
         """Return a duplicate candidate free also in the module of a yielding reference, after those given before.
 
         Candidates before the last one given stay skipped even when a name among them is released later, which only
         numbers a later model of a map value higher.
         """
         reference_names = self._reference_names_cache
-        hint_key = (name, suffix or "", delimiter, prefix)
-        count = self._yielding_name_start_hints.get(hint_key, 0)
-        unique_name = self._build_unique_name_candidate(name, suffix, delimiter, count)
-        while (
-            unique_name in reference_names
-            or f"{prefix}{unique_name}" in reference_names
-            or unique_name in self.exclude_names
-        ):
-            count += 1
-            unique_name = self._build_unique_name_candidate(name, suffix, delimiter, count)
-        self._yielding_name_start_hints[hint_key] = count
+        hint_key = (name, suffix or "", numbering, prefix)
+        unique_name, self._yielding_name_start_hints[hint_key] = first_free(
+            name,
+            lambda unique_name: (
+                unique_name in reference_names
+                or f"{prefix}{unique_name}" in reference_names
+                or unique_name in self.exclude_names
+            ),
+            numbering,
+            suffix=suffix,
+            start=self._yielding_name_start_hints.get(hint_key, 0),
+        )
         return unique_name
-
-    @staticmethod
-    def _build_unique_name_candidate(name: str, suffix: str | None, delimiter: str, count: int) -> str:
-        """Build the same duplicate candidate sequence used by _get_unique_name."""
-        if count == 0:
-            return name
-        if suffix:
-            suffix_count = count - 1
-            return delimiter.join((name, suffix, str(suffix_count))) if suffix_count else delimiter.join((name, suffix))
-        return delimiter.join((name, str(count)))
-
-    @staticmethod
-    def _matches_unique_name_candidate(candidate: str, name: str, suffix: str, delimiter: str) -> bool:
-        """Return whether candidate belongs to the duplicate sequence for name."""
-        if candidate == name:
-            return True
-        if suffix:
-            first_duplicate = delimiter.join((name, suffix))
-            if candidate == first_duplicate:
-                return True
-            prefix = f"{first_duplicate}{delimiter}" if delimiter else first_duplicate
-        else:
-            prefix = f"{name}{delimiter}" if delimiter else name
-        if not candidate.startswith(prefix):
-            return False
-        count = candidate.removeprefix(prefix)
-        return bool(count) and count.isdecimal()
 
     def _invalidate_unique_name_hints(self, released_name: str) -> None:
         """Drop duplicate-name hints whose sequence may reuse a released name."""
         if not self._unique_name_start_hints:
             return
         for hint_key in tuple(self._unique_name_start_hints):
-            if self._matches_unique_name_candidate(released_name, *hint_key):
+            name, suffix, delimiter = hint_key
+            if is_numbered(released_name, name, "underscore" if delimiter else "joined", suffix):
                 del self._unique_name_start_hints[hint_key]
 
     def _get_suffix_for_model_type(self, model_type: str) -> str:
         """Get the suffix for a given model type from the suffix map."""
         return self.duplicate_name_suffix_map.get(model_type, self.duplicate_name_suffix_map.get("default", ""))
 
+    def _duplicate_name_suffix(self, model_type: str) -> str | None:
+        """Return the suffix a duplicate name of a model type takes: its suffix map entry, else the lone suffix."""
+        return self._get_suffix_for_model_type(model_type) or self.duplicate_name_suffix
+
     @classmethod
     def validate_name(cls, name: str, target_python_version: PythonVersion | None = None) -> bool:
         """Check if a name is a valid Python identifier in the target Python version."""
-        return is_identifier(name, target_python_version) and not iskeyword(name)
+        return is_python_name(name, target_python_version)
 
     def get_valid_field_name(
         self,
@@ -2166,16 +2207,10 @@ class ModelResolver:  # noqa: PLR0904
         class_name: str | None,
     ) -> tuple[Any, bool]:
         """Resolve default value for a field, applying overrides if configured."""
-        if not self.default_value_overrides:
-            return original_default, has_default
-
-        scoped_key = f"{class_name}.{field_name}" if class_name else None
-        if scoped_key and scoped_key in self.default_value_overrides:
-            return self.default_value_overrides[scoped_key], True
-
-        if field_name in self.default_value_overrides:
-            return self.default_value_overrides[field_name], True
-
+        if self.default_value_overrides:
+            value, found = first_present(self.default_value_overrides, field_keys(class_name or None, field_name))
+            if found:
+                return value, True
         return original_default, has_default
 
 
@@ -2227,6 +2262,8 @@ def _import_inflect_without_typeguard_instrumentation() -> Any:
     import importlib  # ruff: ignore[import-outside-top-level]
     import sys  # ruff: ignore[import-outside-top-level]
 
+    from datamodel_code_generator._module_paths import is_within_name  # ruff: ignore[import-outside-top-level]
+
     with _INFLECT_IMPORT_LOCK:
         if sys.modules.get("inflect") is None:
             if (inflect_module := sys.modules.get(_PRIVATE_INFLECT_MODULE)) is not None:
@@ -2237,7 +2274,7 @@ def _import_inflect_without_typeguard_instrumentation() -> Any:
             except BaseException as error:
                 # Failed imports must not leave a reusable partial private package.
                 for module_name in tuple(sys.modules):
-                    if module_name == _PRIVATE_INFLECT_MODULE or module_name.startswith(f"{_PRIVATE_INFLECT_MODULE}."):
+                    if is_within_name(module_name, _PRIVATE_INFLECT_MODULE):
                         sys.modules.pop(module_name, None)
                 if not isinstance(error, (AttributeError, ImportError, TypeError)):
                     raise
@@ -2275,8 +2312,3 @@ def snake_to_upper_camel(word: str, delimiter: str = "_", *, target_python_versi
         word = word[1:]
 
     return prefix + "".join(upper(x[0], target_python_version) + x[1:] for x in word.split(delimiter) if x)
-
-
-def is_url(ref: str) -> bool:
-    """Check if a reference string is a URL (HTTP, HTTPS, or file scheme)."""
-    return ref.startswith(("https://", "http://", "file://"))

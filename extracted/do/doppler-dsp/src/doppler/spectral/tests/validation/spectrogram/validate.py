@@ -536,7 +536,8 @@ def characterise(d) -> None:
     R.md(
         "This section is the dB mode's alone: a power row has no floor but "
         "float32's, and an all-zero frame reads 0 there (C §13). PSD's dB "
-        "conversion (`dp_power_to_db_f32`, F12) reads 1e-20 and below as "
+        "conversion (`dp_power_to_db_f32`, "
+        f"{R.ref('db_row_fast_conversion_power')}) reads 1e-20 and below as "
         "exactly -200, so no bin "
         "of a dB row reads below -200 dB. The measurement record's entry 5.4 "
         "(`docs/design/spectrogram-measurements.md`) is the long form; "
@@ -558,10 +559,13 @@ def characterise(d) -> None:
     R.md()
     R.md(
         "An on-bin tone of power L dBFS reads L in its bin down to the "
-        "floor, then the floor. Its other bins show the window's leakage, "
-        "not rounding: PSD's windows are symmetric (#2053), so a tone on "
-        "the grid leaks into neighbouring bins under every window but the "
-        "rectangular one."
+        "floor, then the floor. Its other bins show the window's leakage "
+        "on the grid: PSD's windows are periodic (#2053), so Hann and "
+        "Blackman-Harris, sums of cosines that complete whole periods over "
+        "the frame, put an on-bin tone into its first one (Hann) or three "
+        "(Blackman-Harris) neighbours each side and only float rounding "
+        "further out; Kaiser, not a sum of cosines, leaks into every bin; "
+        "and the rectangular window, whose transform is one bin, into none."
     )
     R.md()
     tone = d["floor_tone"]
@@ -666,7 +670,7 @@ def review(d) -> None:
     R.md("## 3. Review")
     R.md()
     R.find(
-        "F1",
+        "byte_written_claim",
         "FIXED",
         "The inventory (§1) found the header's \"every one [byte] "
         'written" for `get_state` pinned only by heap contents: the C test '
@@ -677,7 +681,7 @@ def review(d) -> None:
         "pad memset removed; §2.5 measures it at every cut.",
     )
     R.find(
-        "F2",
+        "claims_verified_in_c",
         "C-ONLY",
         "Every claim here is verified in C, where the header states it. The "
         "Python face (`doppler.spectral.Spectrogram`, #2171) is generated "
@@ -686,18 +690,19 @@ def review(d) -> None:
         "short `out`, flush's -1 raised as `ValueError`), not here.",
     )
     R.find(
-        "F3",
+        "bin_reads_no_lower_db",
         "BY DESIGN",
         "A bin reads no lower than -200 dB, so a tone under the floor and "
         "digital silence give the same row (§2.7), and noise reaches it "
         "about `10·log10(nfft)` sooner. A logarithm has to stop somewhere; "
         "the header and the guide now say where. It is the dB mode's "
         "floor: a caller that must tell zero from tiny takes power rows, "
-        "the default since #1968 (F6), whose only floor is float32's and "
+        f"the default since #1968 ({R.ref('mode_power_reserved_refused')}), "
+        "whose only floor is float32's and "
         "where an all-zero frame reads exactly 0.",
     )
     R.find(
-        "F4",
+        "foreign_blob_refused",
         "BY DESIGN",
         "A blob from another window, beta or mode is refused, and the object "
         "is unchanged (#2102, the owner's ruling). The blob carries the "
@@ -708,7 +713,7 @@ def review(d) -> None:
         "same configuration.",
     )
     R.find(
-        "F5",
+        "object_not_thread_safe",
         "BY DESIGN",
         "One object is not thread-safe: the kernel uses the object's own "
         "scratch. That is a contract, not something a test can prove. "
@@ -718,7 +723,7 @@ def review(d) -> None:
     lv = d["level"]
     pw = max((_f(r, "max_abs_err") for r in _in(lv, "power")), default=0.0)
     R.find(
-        "F6",
+        "mode_power_reserved_refused",
         "FIXED",
         "`mode = power` was reserved and refused. #1968 wired it to PSD's "
         "normalised per-frame power, `dp_psd_frame_linear`, and made it "
@@ -731,16 +736,16 @@ def review(d) -> None:
     )
     hann2 = next(p for k, p, _ in _leak(d, "hann") if k == 2)
     R.find(
-        "F7",
-        "GAP",
-        "Rows inherit PSD's symmetric windows, which are not orthogonal on "
-        f"the N-point grid, so an on-bin tone under Hann leaks {hann2:.1f} "
-        "dBc into bins +-2, where a periodic window would put none (§2.7). "
-        "It is PSD's convention, open there as #2053, and the Spectrogram "
-        "follows whatever PSD decides.",
+        "rows_inherited_symmetric",
+        "FIXED",
+        "Rows inherited PSD's symmetric windows, which are not orthogonal "
+        "on the N-point grid, so an on-bin tone under Hann leaked -69.7 dBc "
+        "into bins +-2. PSD's windows are periodic now (#2053) and the rows "
+        "follow, with no change here: under Hann an on-bin tone puts "
+        f"{hann2:.1f} dBc into bins +-2, float rounding (§2.7).",
     )
     R.find(
-        "F8",
+        "nfft_power_of_two_row_width",
         "BY DESIGN",
         "`nfft` must be a power of two, and the frame length and the row "
         "width are the same number: a frame PSD would zero-pad to a longer "
@@ -748,7 +753,7 @@ def review(d) -> None:
         "Separating the two is #1966.",
     )
     R.find(
-        "F9",
+        "flush_stays_explicit",
         "BY DESIGN",
         "`flush` stays explicit. Only the caller knows where its own stream "
         "ends, and the transports' end-of-stream marker can be dropped "
@@ -757,18 +762,19 @@ def review(d) -> None:
         "measurement record's entry 5.5.",
     )
     R.find(
-        "F10",
+        "speed_not_certified",
         "BY DESIGN",
         "Speed is not in this report, which certifies what a caller may "
         "rely on. What a row costs and how many rows one core sustains are "
         "the design's U1 to U4, measured on a pinned machine and recorded "
         "in the measurement record's entries 5.6 to 5.9. The decision they "
         "raised, the cost of the dB conversion, made power rows the default "
-        "(#1968, F6) and gives dB rows a faster `log10` (#2074, through "
+        f"(#1968, {R.ref('mode_power_reserved_refused')}) and gives dB rows a "
+        "faster `log10` (#2074, through "
         "#2094).",
     )
     R.find(
-        "F11",
+        "hop_refusal_masked_in_c",
         "FIXED",
         "Sabotaging the header's refusals (C21) found the hop refusal "
         "masked in C. With the framer's stored-hop check removed, §14 "
@@ -786,7 +792,7 @@ def review(d) -> None:
         default=0.0,
     )
     R.find(
-        "F12",
+        "db_row_fast_conversion_power",
         "BY DESIGN",
         "**A dB row is the fast conversion of the power row** (#2094, the "
         "owner's decision on #2074). Every dB value is "
@@ -1159,7 +1165,7 @@ def build(write: bool = True) -> Report:
     R.md(
         "- `native/inc/doppler/spectrogram/spectrogram_core.h`: the SSOT "
         "for every claim below\n"
-        "- `native/tests/test_spectrogram_core.c`: the C pins\n"
+        "- `native/tests/spectrogram/test_spectrogram_core.c`: the C pins\n"
         "- [The Spectrogram](../../../../../docs/design/spectrogram.md): "
         "the design, and "
         "[its measurement record](../../../../../docs/design/"
@@ -1192,7 +1198,8 @@ def build(write: bool = True) -> Report:
                 "C1",
                 "`create` refuses an `nfft` that is not a power of two of "
                 "at least 2, a hop past `nfft` (0 means `nfft`), a bad window "
-                "or one with no gain at `nfft` (Hann at 2), in either mode, "
+                "or one that is not finite (a NaN Kaiser beta), in either "
+                "mode, "
                 "and any mode but power and dB; it accepts both modes",
                 "§1",
                 "#1975: the `nfft` check removed (N1), and its validation "
@@ -1253,7 +1260,7 @@ def build(write: bool = True) -> Report:
                 "push with that room writes exactly that many",
                 "§4",
                 "#1975: a capped `rows_for`; the framer's `frames_in` "
-                "forgetting the owed hop, wrapping, capped (F1-F3)",
+                "forgetting the owed hop, wrapping, capped",
                 "§2.3",
             ],
             [
@@ -1352,7 +1359,7 @@ def build(write: bool = True) -> Report:
                 "`get_state` writes every byte of the blob",
                 "§14 (NEW)",
                 "this report: an unwritten tail; the framer's pad left "
-                "unwritten (F1)",
+                f"unwritten ({R.ref('byte_written_claim')})",
                 "§2.5",
             ],
             [
@@ -1372,7 +1379,8 @@ def build(write: bool = True) -> Report:
                 "#2043: any version (K5), any size (K6), an impossible "
                 "carry (K7), mutate before validating (M7). This report: "
                 "the magic check removed; the stored-hop check removed, "
-                "which stayed green until §14 gained a no-row case (F11)",
+                "which stayed green until §14 gained a no-row case "
+                f"({R.ref('hop_refusal_masked_in_c')})",
                 "§2.5 (not the carry)",
             ],
             [
@@ -1397,7 +1405,7 @@ def build(write: bool = True) -> Report:
                 "C24",
                 "one object is not thread-safe",
                 "— (a contract)",
-                "— (not testable, F5)",
+                f"— (not testable, {R.ref('object_not_thread_safe')})",
                 "—",
             ],
             [
@@ -1435,7 +1443,7 @@ def build(write: bool = True) -> Report:
                 "§16",
                 "#2094: PSD's dB path given its own 10·log10 back (and "
                 "PSD's own pin, test_psd_core.c)",
-                "§2.7 (F12)",
+                f"§2.7 ({R.ref('db_row_fast_conversion_power')})",
             ],
         ],
     )
@@ -1459,7 +1467,8 @@ def build(write: bool = True) -> Report:
             "**Power rows are the default, dB rows are asked for by name, "
             "and every claim below holds in both.** A power row is "
             "`dp_psd_frame_linear` of its frame, so a full-scale tone reads "
-            "1.0 under every window (§2.6, F6).",
+            "1.0 under every window (§2.6, "
+            f"{R.ref('mode_power_reserved_refused')}).",
             "**Any split of the stream gives the same rows, and every row "
             "is PSD's reading of its own slice, bit for bit.** "
             f"{_total(_in(shapes, 'power'), 'partitions')} distinct "
@@ -1472,17 +1481,18 @@ def build(write: bool = True) -> Report:
             "**`flush` lands on the hop grid, once, only if a sample is "
             "owed**, and the stream restarts after it. It stays explicit, "
             "because only the caller knows where its stream ends (§2.4, "
-            "F9).",
+            f"{R.ref('flush_stays_explicit')}).",
             "**The blob is a fixed size per `nfft`, every byte written, "
             "and resumes bit for bit from any cut.** It carries the "
             "configuration a row depends on, so a blob from another window, "
             "the other mode or another Kaiser beta is refused at every cut "
-            "and the object is left as it was (§2.5, F4).",
+            "and the object is left as it was (§2.5, "
+            f"{R.ref('foreign_blob_refused')}).",
             "**A dB row reads no lower than -200 dB.** A tone under the floor "
             "and digital silence give the same row, and wideband noise "
             "reaches it about `10·log10(nfft)` sooner; at `nfft` 1,024 a "
             "total of -190 dBFS is all floor, every bin of every frame "
-            "under every window (§2.7, F3).",
+            f"under every window (§2.7, {R.ref('bin_reads_no_lower_db')}).",
             "**The evidence shares one part with the object: PSD's "
             "kernel.** Every row is checked against `dp_psd_frame_linear` "
             "or `dp_psd_frame_db` of its slice, so a defect inside that "
@@ -1494,8 +1504,8 @@ def build(write: bool = True) -> Report:
     )
     R.summary(
         "\n- The runs behind §2 are `native/validation/spectrogram_certify.c`"
-        ", emitted as CSV; the pins are `native/tests/test_spectrogram_core"
-        ".c`."
+        ", emitted as CSV; the pins are "
+        "`native/tests/spectrogram/test_spectrogram_core.c`."
     )
     if write:
         R.emit(HERE / "results.md")

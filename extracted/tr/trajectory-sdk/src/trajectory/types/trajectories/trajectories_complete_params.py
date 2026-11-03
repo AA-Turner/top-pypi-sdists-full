@@ -29,9 +29,11 @@ class TrajectoriesCompleteParams(TypedDict, total=False):
   maps to ENV_DONE.
   
   Training admits ENV_DONE; all incomplete attempts require train_on_truncation.
-  In training and evaluation, TRUNCATION uses 0 if ungraded and caps positive rewards at 0.
   train_on_error admits ERROR; train_on_timeout admits TIMEOUT.
-  These enabled failures use the recorded reward, or 0 when none is recorded.
-  An ungraded ENV_DONE is excluded. Admitted samples can still be
-  rejected by other training filters. ERROR is a failed evaluation attempt.
+  Admitted TRUNCATION, TIMEOUT and ERROR attempts train with reward 0; recorded rewards are
+  unchanged.
+  An ungraded ENV_DONE is excluded unless train_on_error is enabled. Admitted samples can still
+  be
+  rejected by other training filters. In evaluation, TRUNCATION uses 0 if ungraded and caps
+  positive rewards at 0, and ERROR is a failed attempt.
   """

@@ -34,6 +34,15 @@ class Music:
     recent: tuple[dict[str, str], ...] = ()
 
 
+# What the demo plays, as in its screenshots, until the user picks something else.
+DEMO_MUSIC = Music(
+    "youtube",
+    "https://www.youtube.com/watch?v=0GvTE_kG1yY",
+    "0GvTE_kG1yY",
+    title="Sci-Fi Ambient Sounds for Deep Focus | Remote Station Foggy Ocean Study Music",
+)
+
+
 def parse_youtube(url: str) -> tuple[str | None, str | None]:
     """Return (video id, playlist id) from a YouTube link, or raise ValueError."""
     parts = urlsplit(url.strip())
@@ -59,7 +68,7 @@ def parse_youtube(url: str) -> tuple[str | None, str | None]:
 async def load_music(request: Request, db: AsyncSession) -> Music:
     data = await store.get_provider_settings(db, request.app.state.secret_box, PROVIDER)
     if not data:
-        return Music()
+        return DEMO_MUSIC if request.app.state.settings.demo else Music()
     return Music(**{**data, "recent": tuple(data.get("recent", ()))})
 
 

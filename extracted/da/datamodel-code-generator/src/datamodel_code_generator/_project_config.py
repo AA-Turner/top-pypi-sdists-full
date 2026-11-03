@@ -7,6 +7,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from datamodel_code_generator import Error
+from datamodel_code_generator._config_fields import (
+    JSON_FIELDS,
+    PYPROJECT_API_PATH_FIELDS,
+    PYPROJECT_PATH_FIELDS,
+    TARGET_JSON_FIELDS,
+)
+from datamodel_code_generator._option_names import FIELD_ALIASES, GENERATE_FIELD_NAMES, field_name
+from datamodel_code_generator._paths import resolved
 from datamodel_code_generator.util import load_toml
 
 if TYPE_CHECKING:
@@ -17,8 +25,10 @@ def _resolve_profile_extends(
     profiles: Mapping[str, Any],
     profile_name: str,
     visited: set[str] | None = None,
+    *,
+    missing: str | None = None,
 ) -> dict[str, Any]:
-    """Resolve profile inheritance via extends key."""
+    """Resolve profile inheritance via extends key; ``missing`` names a missing requested profile."""
     if visited is None:
         visited = set()
 
@@ -29,7 +39,8 @@ def _resolve_profile_extends(
 
     if profile_name not in profiles:
         available = list(profiles.keys()) if profiles else "none"
-        msg = f"Extended profile '{profile_name}' not found in pyproject.toml. Available profiles: {available}"
+        missing = missing or f"Extended profile '{profile_name}' not found in pyproject.toml"
+        msg = f"{missing}. Available profiles: {available}"
         raise Error(msg)
 
     visited.add(profile_name)
@@ -94,12 +105,9 @@ def _get_pyproject_toml_config_with_path(
             if not isinstance(profiles, Mapping):
                 msg = "[tool.datamodel-codegen.profiles] must be a table"
                 raise Error(msg)
-            if profile not in profiles:
-                available = list(profiles.keys()) if profiles else "none"
-                msg = f"Profile '{profile}' not found in pyproject.toml. Available profiles: {available}"
-                raise Error(msg)
-            resolved_profile = _resolve_profile_extends(profiles, profile)
-            base_config.update(resolved_profile)
+            base_config.update(
+                _resolve_profile_extends(profiles, profile, missing=f"Profile '{profile}' not found in pyproject.toml")
+            )
 
         return _normalize_pyproject_config(base_config), pyproject_path
 
@@ -112,61 +120,15 @@ def _get_pyproject_toml_config_with_path(
 
 def _normalize_pyproject_config(config: Mapping[str, Any]) -> dict[str, Any]:
     """Convert TOML option spelling to Config field spelling."""
-    normalized = {key.replace("-", "_"): value for key, value in config.items()}
-    if "capitalize_enum_members" in normalized and "capitalise_enum_members" not in normalized:  # pragma: no cover
-        normalized["capitalise_enum_members"] = normalized.pop("capitalize_enum_members")
+    normalized = {field_name(key): value for key, value in config.items()}
+    for alias, field in FIELD_ALIASES.items():
+        if alias in normalized and field not in normalized:  # pragma: no cover
+            normalized[field] = normalized.pop(alias)
     return normalized
 
 
-_PYPROJECT_RELATIVE_PATH_FIELDS = frozenset({
-    "custom_file_header_path",
-    "custom_template_dir",
-    "diff_against",
-    "emit_model_metadata",
-    "http_local_ref_path",
-    "input",
-    "lockfile",
-    "output",
-    "server_output",
-    "client_output",
-})
-
-_PYPROJECT_MODEL_JSON_CONFIG_FIELDS = frozenset({
-    "aliases",
-    "base_class_map",
-    "custom_formatters_kwargs",
-    "default_values",
-    "duplicate_name_suffix",
-    "enum_field_as_literal_map",
-    "extra_template_data",
-    "import_overrides",
-    "model_name_map",
-    "serialization_aliases",
-    "type_overrides",
-    "validators",
-})
-
-_PYPROJECT_TARGET_JSON_CONFIG_FIELDS = frozenset({
-    "client_operations",
-    "client_protocols",
-    "client_resource_names",
-    "server_body_modes",
-    "server_handler_modes",
-    "server_operation_names",
-    "server_parameter_names",
-    "server_primary_responses",
-    "server_router_names",
-})
-
-_PYPROJECT_JSON_CONFIG_FIELDS = _PYPROJECT_MODEL_JSON_CONFIG_FIELDS | _PYPROJECT_TARGET_JSON_CONFIG_FIELDS
-
-_PYPROJECT_PATH_FIELDS = _PYPROJECT_RELATIVE_PATH_FIELDS | _PYPROJECT_TARGET_JSON_CONFIG_FIELDS
-
-_PYPROJECT_API_PATH_FIELDS = _PYPROJECT_PATH_FIELDS | _PYPROJECT_MODEL_JSON_CONFIG_FIELDS
-
-
 def _resolve_pyproject_relative_paths(
-    config: dict[str, Any], pyproject_path: Path | None, fields: frozenset[str] = _PYPROJECT_PATH_FIELDS
+    config: dict[str, Any], pyproject_path: Path | None, fields: frozenset[str] = PYPROJECT_PATH_FIELDS
 ) -> dict[str, Any]:
     """Resolve the relative paths of the given fields from the pyproject directory.
 
@@ -180,19 +142,12 @@ def _resolve_pyproject_relative_paths(
         field_name: config_directory / resolved_path
         for field_name in fields
         if isinstance(path := config.get(field_name), str | Path)
-        and not (field_name in _PYPROJECT_JSON_CONFIG_FIELDS and str(path).lstrip().startswith(("{", "[")))
+        and not (field_name in JSON_FIELDS and str(path).lstrip().startswith(("{", "[")))
         and not (resolved_path := Path(path).expanduser()).is_absolute()
     }
     if not updates:
         return config
     return {**config, **updates}
-
-
-_GENERATE_FIELD_NAMES = {
-    "use_default": "apply_default_values_for_required_fields",
-    "force_optional": "force_optional_for_required_fields",
-    "default_values": "default_value_overrides",
-}
 
 
 def load_pyproject_config(
@@ -210,7 +165,7 @@ def load_pyproject_config(
     paths; only explicitly set fields of a GenerateConfig override are merged.
     Without project settings, return the API defaults with any overrides applied.
     """
-    source = Path.cwd() if path is None else Path(path).expanduser().resolve()
+    source = Path.cwd() if path is None else resolved(Path(path))
     if path is not None and source.is_file():
         source = source.parent
     options, pyproject_path = _get_pyproject_toml_config_with_path(source, profile)
@@ -235,7 +190,7 @@ def load_pyproject_config(
     options = {
         key: value
         for key, value in options.items()
-        if (field := _GENERATE_FIELD_NAMES.get(key, key)) in fields
+        if (field := GENERATE_FIELD_NAMES.get(key, key)) in fields
         and field not in explicit
         and (field != "parent_scoped_naming" or "naming_strategy" not in explicit)
     }
@@ -249,7 +204,7 @@ def load_pyproject_config(
         _template_data,
     )
 
-    options = _resolve_pyproject_relative_paths(options, pyproject_path, _PYPROJECT_API_PATH_FIELDS)
+    options = _resolve_pyproject_relative_paths(options, pyproject_path, PYPROJECT_API_PATH_FIELDS)
     config = _get_config_class().model_validate(options)
     if "output_model_type" in explicit:
         from datamodel_code_generator.enums import DataModelType  # noqa: PLC0415
@@ -265,28 +220,17 @@ def load_pyproject_config(
     values = {
         name: getattr(config, field)
         for field in config.model_fields_set
-        if (name := _GENERATE_FIELD_NAMES.get(field, field)) in fields
+        if (name := GENERATE_FIELD_NAMES.get(field, field)) in fields
     }
     values.update(explicit)
     loaded = GenerateConfig.model_validate(values)
+    from datamodel_code_generator.json_config import document_base  # noqa: PLC0415
+
+    directory = cast("Path", pyproject_path).parent
     if bases := {
-        field: _document_base(value, cast("Path", pyproject_path).parent)
+        field: document_base(value, directory, directory)
         for field, value in options.items()
-        if field in _PYPROJECT_TARGET_JSON_CONFIG_FIELDS
+        if field in TARGET_JSON_FIELDS
     }:
         loaded._target_document_bases = bases  # noqa: SLF001
     return loaded
-
-
-def _document_base(value: Any, directory: Path) -> Path:
-    """Return the directory the documents a target setting names resolve against, as on the command line.
-
-    A setting read from a JSON file resolves against that file's directory, inline JSON and tables against the
-    pyproject.toml directory.
-    """
-    if isinstance(value, str | Path):
-        from datamodel_code_generator.json_config import _json_file  # noqa: PLC0415  # pyright: ignore[reportPrivateUsage]
-
-        if (file := _json_file(value)) is not None:
-            return (directory / file).parent
-    return directory

@@ -3,29 +3,36 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import os
 import pkgutil
 import secrets
-import subprocess  # ruff:ignore[suspicious-subprocess-import]
 import sys
 import tempfile
+from codecs import getincrementaldecoder
 from collections import OrderedDict
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
+from dataclasses import dataclass
 from functools import lru_cache
+from io import DEFAULT_BUFFER_SIZE, IncrementalNewlineDecoder
 from pathlib import Path
+from select import select
 from shlex import quote
-from subprocess import Popen, TimeoutExpired  # ruff:ignore[suspicious-subprocess-import]
+from subprocess import DEVNULL, PIPE, Popen, TimeoutExpired, list2cmdline  # ruff:ignore[suspicious-subprocess-import]
+from threading import Event, Thread
+from time import monotonic
 from typing import TYPE_CHECKING, Final
 
 from ._cache import NoOpCache
 from ._py_info import PythonInfo
 from ._py_info_collect import MIN_INTERROGATE_VERSION, UNSUPPORTED_EXIT_CODE, UNSUPPORTED_MARKER
 
+if sys.platform == "win32":  # pragma: win32 cover
+    from ._windows._cancel_io import stop_query_reader
+
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
-    from typing import TypedDict
+    from typing import IO, TypedDict
 
     from ._cache import ContentStore, PyInfoCache
 
@@ -45,10 +52,15 @@ _PY_INFO_SCRIPT: Final[Path] = Path(__file__).resolve().parent / "_py_info_colle
 _DEFAULT_QUERY_TIMEOUT: Final[float] = 15.0
 # poll(2) limits milliseconds to a signed C int.
 _MAX_QUERY_TIMEOUT: Final[float] = (2**31 - 1) / 1000
+_MAX_QUERY_OUTPUT: Final[int] = 1 << 20
 
 
 class _UnsupportedInterpreterError(RuntimeError):
     """The interpreter is older than the interrogation script supports; retrying cannot help."""
+
+    def __init__(self, message: str, executable: str | None = None) -> None:
+        super().__init__(message)
+        self.executable = executable
 
 
 def from_exe(  # ruff:ignore[too-many-arguments]
@@ -62,7 +74,14 @@ def from_exe(  # ruff:ignore[too-many-arguments]
     executable_args: str | None = None,
 ) -> PythonInfo | None:
     env = os.environ if env is None else env
-    result = _get_from_cache(cls, cache, exe, env, ignore_cache=ignore_cache, executable_args=executable_args)
+    if cache is None:
+        result = _get_from_cache(cls, cache, exe, env, ignore_cache=ignore_cache, executable_args=executable_args)
+    else:
+        try:
+            result = _get_from_cache(cls, cache, exe, env, ignore_cache=ignore_cache, executable_args=executable_args)
+        except OSError:
+            _LOGGER.debug("failed to use cache for %s", exe, exc_info=True)
+            result = _get_from_cache(cls, None, exe, env, ignore_cache=True, executable_args=executable_args)
     if isinstance(result, Exception):
         if raise_on_error:
             raise result
@@ -84,11 +103,30 @@ def _get_from_cache(  # ruff:ignore[too-many-arguments]
     if not ignore_cache and key in _CACHE:
         result = _CACHE[key]
     else:
-        result = _CACHE[key] = _get_via_file_cache(cls, cache, key[0], exe, env, executable_args=executable_args)
+        result = _get_via_file_cache(cls, cache, key[0], exe, env, executable_args=executable_args)
+        if _cacheable_result(key[0], result):
+            _CACHE[key] = result
+        else:
+            _CACHE.pop(key, None)
     # with launcher arguments the queried binary is not the interpreter, so keep the one the query reported
     if isinstance(result, PythonInfo) and executable_args is None:
         result.executable = exe
     return result
+
+
+def _cacheable_result(path: Path, result: PythonInfo | Exception) -> bool:
+    if isinstance(result, PythonInfo):
+        executable = result.original_executable
+    elif isinstance(result, _UnsupportedInterpreterError):
+        executable = result.executable
+    else:
+        return False
+    if executable is None:
+        return False
+    try:
+        return path.samefile(executable)
+    except (OSError, TypeError, ValueError):
+        return False
 
 
 def _get_via_file_cache(  # ruff:ignore[too-many-arguments]
@@ -120,26 +158,25 @@ def _get_via_file_cache(  # ruff:ignore[too-many-arguments]
     }
     with py_info_store.locked():
         cached = _read_cache_entry(cls, py_info_store, entry_meta)
-        if isinstance(cached, _UnsupportedInterpreterError):
+        if cached is not None:
             return cached
-        py_info = cached
-        if py_info is None:
+        failure, py_info = _run_subprocess(cls, exe, env, executable_args)
+        if failure is not None and not isinstance(failure, _UnsupportedInterpreterError):
+            _LOGGER.debug("first subprocess attempt failed for %s (%s), retrying", exe, failure)
             failure, py_info = _run_subprocess(cls, exe, env, executable_args)
-            if failure is not None and not isinstance(failure, _UnsupportedInterpreterError):
-                _LOGGER.debug("first subprocess attempt failed for %s (%s), retrying", exe, failure)
-                failure, py_info = _run_subprocess(cls, exe, env, executable_args)
-            if isinstance(failure, _UnsupportedInterpreterError):
-                _LOGGER.warning("%s", failure)  # the verdict is permanent, warn once and remember it
+        if isinstance(failure, _UnsupportedInterpreterError):
+            _LOGGER.warning("%s", failure)
+            if _cacheable_result(path, failure):
                 py_info_store.write({**entry_meta, "unsupported": str(failure)})
-                return failure
-            if failure is not None:
-                return failure
-            if py_info is not None:
-                py_info_store.write({**entry_meta, "content": py_info.to_dict()})
-    if py_info is None:
-        msg = f"{exe} failed to produce interpreter info"
-        return RuntimeError(msg)
-    return py_info
+            return failure
+        if failure is not None:
+            return failure
+        if py_info is None:
+            msg = f"{exe} failed to produce interpreter info"
+            return RuntimeError(msg)
+        if _cacheable_result(path, py_info):
+            py_info_store.write({**entry_meta, "content": py_info.to_dict()})
+        return py_info
 
 
 def _read_cache_entry(
@@ -151,7 +188,7 @@ def _read_cache_entry(
         return None
     if isinstance(data, dict) and all(data.get(key) == value for key, value in entry_meta.items()):
         if isinstance(unsupported := data.get("unsupported"), str):
-            return _UnsupportedInterpreterError(unsupported)
+            return _UnsupportedInterpreterError(unsupported, entry_meta["path"])
         if isinstance(content := data.get("content"), dict):
             return _load_cached_py_info(cls, py_info_store, content)
     py_info_store.remove()
@@ -166,7 +203,7 @@ def _load_cached_py_info(
     try:
         py_info = cls.from_dict(content.copy())
         stale = (sys_exe := py_info.system_executable) is not None and not Path(sys_exe).is_file()
-    except (AttributeError, KeyError, OSError, TypeError):
+    except (AttributeError, KeyError, OSError, TypeError, ValueError):
         stale = True
     if stale:
         py_info_store.remove()
@@ -195,13 +232,11 @@ def _resolve_py_info_script() -> Generator[Path]:
         if data is None:
             msg = f"cannot locate {_PY_INFO_SCRIPT.name} for subprocess interrogation"
             raise FileNotFoundError(msg)
-        fd, tmp = tempfile.mkstemp(suffix=".py")
-        try:
-            os.write(fd, data)
-            os.close(fd)
-            yield Path(tmp)
-        finally:
-            Path(tmp).unlink()
+        # Python prepends the probe script's directory to sys.path, so keep that directory private.
+        with tempfile.TemporaryDirectory() as private_dir:
+            script: Final[Path] = Path(private_dir) / _PY_INFO_SCRIPT.name
+            script.write_bytes(data)
+            yield script
 
 
 def _extract_between_cookies(out: str, start_cookie: str, end_cookie: str) -> tuple[str, str, int, int]:
@@ -233,7 +268,7 @@ def _run_subprocess(
         cmd: list[str] | str = [exe, str(py_info_script), start_cookie, end_cookie]
         if executable_args is not None:
             # PEP 514 ExecutableArguments is raw command line text, placed before the script per the PEP
-            cmd = f"{subprocess.list2cmdline(cmd[:1])} {executable_args} {subprocess.list2cmdline(cmd[1:])}"
+            cmd = f"{list2cmdline(cmd[:1])} {executable_args} {list2cmdline(cmd[1:])}"
         env = dict(env)
         env.pop("__PYVENV_LAUNCHER__", None)
         env["PYTHONUTF8"] = "1"
@@ -242,31 +277,31 @@ def _run_subprocess(
             process = Popen(  # ruff:ignore[subprocess-without-shell-equals-true]
                 cmd,
                 universal_newlines=True,
-                stdin=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
+                stdin=DEVNULL,
+                stderr=PIPE,
+                stdout=PIPE,
                 env=env,
                 encoding="utf-8",
                 errors="backslashreplace",
             )
-            out, err = process.communicate(timeout=timeout)
-            code = process.returncode
-        except TimeoutExpired:
-            process.kill()
-            process.communicate()
-            out, err, code = "", "timed out", -1
+            out, err, code = _collect_query_output(process, timeout)
         except OSError as os_error:
             out, err, code = "", os_error.strerror, os_error.errno
     if code != 0:
         return _query_failure(exe, out, err, code), None
     out, raw_out, out_starts, out_ends = _extract_between_cookies(out, start_cookie, end_cookie)
+    if out_starts < 0 or out_ends < 0:
+        _LOGGER.warning("subprocess %s omitted query markers; stdout %d chars", exe, len(raw_out))
+        msg = f"{exe} returned output without query markers"
+        return RuntimeError(msg), None
     try:
         result = cls.from_json(out)
         if executable_args is None:
             result.executable = exe
-    except json.JSONDecodeError as exc:
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
         _LOGGER.warning(
-            "subprocess %s returned invalid JSON; raw stdout %d chars, start cookie %s, end cookie %s, "
+            "subprocess %s returned invalid interpreter information; "
+            "raw stdout %d chars, start cookie %s, end cookie %s, "
             "parsed output %d chars: %r",
             exe,
             len(raw_out),
@@ -275,11 +310,100 @@ def _run_subprocess(
             len(out),
             out[:200] if out else "<empty>",
         )
-        msg = f"{exe} returned invalid JSON (exit code {code}){f', stderr: {err!r}' if err else ''}"
+        msg = f"{exe} returned invalid interpreter information (exit code {code}){f', stderr: {err!r}' if err else ''}"
         failure = RuntimeError(msg)
         failure.__cause__ = exc
         return failure, None
     return None, result
+
+
+def _collect_query_output(process: Popen[str], timeout: float | None) -> tuple[str, str, int]:
+    stdout, stderr = process.stdout, process.stderr
+    if stdout is None or stderr is None:
+        msg = "query output pipes are required"
+        raise ValueError(msg)
+    out_chunks: list[str] = []
+    err_chunks: list[str] = []
+    state = _QueryReadState(process=process, overflow=Event(), stop=Event(), read_errors=[])
+
+    readers = (
+        Thread(target=_drain_query_stream, args=(state, stdout, out_chunks), daemon=True),
+        Thread(target=_drain_query_stream, args=(state, stderr, err_chunks), daemon=True),
+    )
+    for reader in readers:
+        reader.start()
+    if not _query_completed(process, readers, timeout):
+        state.stop.set()
+        with suppress(OSError):
+            process.kill()
+        # A descendant may keep the pipes open after the candidate exits.
+        process.wait()
+        _stop_query_readers(readers)
+        return "", "timed out", -1
+    if state.read_errors:
+        raise state.read_errors[0]
+    if state.overflow.is_set():
+        return "", f"produced more than {_MAX_QUERY_OUTPUT} characters of output", -1
+    return "".join(out_chunks), "".join(err_chunks), process.wait()
+
+
+@dataclass(frozen=True)
+class _QueryReadState:
+    process: Popen[str]
+    overflow: Event
+    stop: Event
+    read_errors: list[OSError]
+
+
+def _stop_query_readers(readers: tuple[Thread, Thread]) -> None:
+    for reader in readers:
+        if sys.platform == "win32":  # pragma: win32 cover
+            stop_query_reader(reader)
+        else:
+            reader.join()
+
+
+def _query_completed(process: Popen[str], readers: tuple[Thread, Thread], timeout: float | None) -> bool:
+    deadline = None if timeout is None else monotonic() + timeout
+    for reader in readers:
+        reader.join(None if deadline is None else max(deadline - monotonic(), 0))
+    if any(reader.is_alive() for reader in readers):
+        return False
+    try:
+        process.wait(timeout=None if deadline is None else max(deadline - monotonic(), 0))
+    except TimeoutExpired:
+        return False
+    return True
+
+
+def _drain_query_stream(state: _QueryReadState, stream: IO[str], chunks: list[str]) -> None:
+    size = 0
+    failed = False
+    decoder = IncrementalNewlineDecoder(getincrementaldecoder("utf-8")("backslashreplace"), translate=True)
+    with stream:
+        while not state.stop.is_set():
+            try:
+                if sys.platform != "win32" and not select([stream], [], [], 0.05)[0]:  # pragma: win32 cover
+                    continue
+                data = os.read(stream.fileno(), DEFAULT_BUFFER_SIZE)
+            except OSError as error:
+                if not state.stop.is_set():  # pragma: win32 cover  # canceled ReadFile raises on Windows
+                    state.read_errors.append(error)
+                    failed = True
+                break
+            chunk = decoder.decode(data, final=not data)
+            if chunk:
+                chunks.append(chunk[: _MAX_QUERY_OUTPUT + 1 - size])
+                size += len(chunk)
+                if size > _MAX_QUERY_OUTPUT:
+                    state.overflow.set()
+                    failed = True
+                    break
+            if not data:
+                break
+    if failed:
+        with suppress(OSError):
+            state.process.kill()
 
 
 @lru_cache(maxsize=128)
@@ -302,10 +426,12 @@ def _query_failure(exe: str, out: str, err: str | None, code: int | None) -> Run
     # the gate's exit code and stderr marker must both be present: either alone can collide, an errno of 79 from a
     # failed exec or a shim that echoes the marker phrase, but only the gate produces the combination
     if code == UNSUPPORTED_EXIT_CODE and err is not None and (at := err.find(UNSUPPORTED_MARKER)) != -1:
-        version = err[at + len(UNSUPPORTED_MARKER) :].split() or ["unknown"]
+        details = err[at + len(UNSUPPORTED_MARKER) :].splitlines()
+        version = details[0].split() if details else []
         floor = ".".join(str(i) for i in MIN_INTERROGATE_VERSION)
-        msg = f"{exe} is Python {version[0]}, older than the minimum {floor} python-discovery can query"
-        return _UnsupportedInterpreterError(msg)
+        found = version[0] if version else "unknown"
+        msg = f"{exe} is Python {found}, older than the minimum {floor} python-discovery can query"
+        return _UnsupportedInterpreterError(msg, details[1].strip() if len(details) > 1 else None)
     msg = f"{exe} with code {code}{f' out: {out!r}' if out else ''}{f' err: {err!r}' if err else ''}"
     return RuntimeError(f"failed to query {msg}")
 

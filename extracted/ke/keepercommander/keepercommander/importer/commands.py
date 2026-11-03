@@ -131,6 +131,10 @@ import_parser.add_argument(
     'name', type=str,
     help='file name (json, csv , keepass, 1password), account name (lastpass), or URL (ManageEngine, Thycotic). '
 )
+import_parser.add_argument('-kp', '--keepass-password', dest='kdbx_password', action='store',
+                           help='Password for the import file. Setting "none" will execute an import with no password.')
+import_parser.add_argument('-kkf', '--keepass-key-file', dest='kdbx_key_file', action='store',
+                           help='Keepass key file for the import file. Setting "none" will execute an import with no key file.')
 import_parser.error = raise_parse_exception
 import_parser.exit = suppress_exit
 
@@ -142,9 +146,9 @@ export_parser.add_argument('--format', dest='format', choices=['json', 'csv', 'k
 export_parser.add_argument('--max-size', dest='max_size',
                            help='Maximum file attachment file. Example: 100K, 50M, 2G. Default: 10M')
 export_parser.add_argument('-kp', '--keepass-file-password', dest='file_password', action='store',
-                           help='Password for the exported file')
+                           help='Password for the exported file. Setting "none" will execute an export with no password.')
 export_parser.add_argument('-kkf', '--keepass-key-file', dest='kbdx_key_file', action='store',
-                           help='Keepass key file for the exported file')
+                           help='Keepass key file for the exported file. Setting "none" will execute an export with no key file.')
 export_parser.add_argument('--zip', dest='zip_archive', action='store_true',
                            help='Create ZIP archive for file attachments. JSON only')
 export_parser.add_argument('--owned-only', dest='owned_only', action='store_true',
@@ -169,6 +173,8 @@ download_membership_parser.add_argument('--new-domain', '-nd', dest='new_domain'
 download_membership_parser.add_argument('--sub-folder', '-sf', dest='sub_folder', action='store', choices=['ignore', 'flatten'],
                                         help='shared sub-folder handling')
 download_membership_parser.add_argument('name', type=str, nargs='?', help='Output file name. "shared_folder_membership.json" if omitted.')
+download_membership_parser.add_argument('--timeout', dest='timeout', action='store', type=int, default=10, help='Timeout in seconds for network requests. Currently, supported for cyberark. Default: 10')
+download_membership_parser.add_argument('--api-page-size-limit', dest='api_page_size_limit', action='store', type=int, default=200, help='Page size limit for API requests. Currently, supported for cyberark. Default: 200')
 download_membership_parser.error = raise_parse_exception
 download_membership_parser.exit = suppress_exit
 
@@ -506,7 +512,9 @@ class DownloadMembershipCommand(Command):
             logging.warning('Error loading membership plugin: %s', source)
             return
 
-        for obj in plugin.download_membership(params, folders_only=folders_only):
+        download_membership = plugin.download_membership(params, folders_only=folders_only,timeout=kwargs.get('timeout'), api_page_size_limit=kwargs.get('api_page_size_limit'))
+
+        for obj in download_membership:
             if isinstance(obj, SharedFolder):
                 obj.path = obj.path.strip()
                 if import_into:

@@ -21,6 +21,7 @@ class BlockBuilder:
         self._idx = idx
 
     def _insert(self, block: Block) -> Self:
+        self._idx = self._container._ensure_newline_before(self._idx)
         self._container.structure.insert(self._idx, block)
         self._idx += 1
         return self

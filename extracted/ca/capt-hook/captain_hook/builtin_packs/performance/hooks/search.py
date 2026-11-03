@@ -218,7 +218,15 @@ rg_searches_broadly = partial(search_policy.rg_searches_broadly, pack_roots=regi
 searches_broadly = partial(search_policy.searches_broadly, pack_roots=registered_pack_roots)
 ugrep_searches_broadly = partial(search_policy.ugrep_searches_broadly, pack_roots=registered_pack_roots)
 
-SEARCH_RULE, FILES_RULE, FIND_RULE = search_policy.shell_search_rules(pack_roots=registered_pack_roots)
+SEARCH_RULE, FILES_RULE, FIND_RULE, EMPTY_ROOT_RULE, PROTECTED_ROOT_RULE = search_policy.shell_search_rules(
+    pack_roots=registered_pack_roots
+)
+LAYOUT = {
+    "HOOKS_LAYOUT_PROTECTED_ROOTS": '["~/.local/share/jobs", "~/src"]',
+    "HOOKS_LAYOUT_SEARCHABLE_UNITS": '["~/.local/share/jobs/*/payload"]',
+    "HOOKS_LAYOUT_CHECKOUT_COLLECTIONS": '["~/src"]',
+    "HOOKS_LAYOUT_WORKTREE_POOLS": '{"~/lanes": 1}',
+}
 
 
 class BroadMCPGrep(CustomCondition):
@@ -298,12 +306,9 @@ hook(
         Input(command="rg --type-add 'mine:*' -tmine needle ~"): Block(),
         Input(command="rg -e needle -e other ~"): Block(),
         Input(command="rg needle ~/.claude/worktrees/captain-hook"): Block(),
-        Input(command="rg needle ~/repos/claude/worktrees"): Block(),
-        Input(command="rg needle ~/repos/claude/worktrees/captain-hook"): Block(),
-        Input(command="rg needle ~/repos/orca/workspaces"): Block(),
-        Input(command="rg needle ~/repos/orca/workspaces/7f3c2a10-5d4e-4b8a-9c61-2e0f8a9b4d17"): Block(),
-        Input(command="rg needle ~/repos/orca/workspaces/7f3c2a10-5d4e-4b8a-9c61-2e0f8a9b4d17/captain-hook"): Block(),
-        Input(command="ugrep -rn needle ~/.orca/workspaces/captain-hook"): Block(),
+        Input(command="rg needle ~/lanes/captain-hook", env=LAYOUT): Block(),
+        Input(command="rg needle ~/lanes/captain-hook"): Allow(),
+        Input(command="rg needle ~/lanes/captain-hook/lane", env=LAYOUT): Allow(),
         Input(command="rg needle src; rg needle /", cwd="/repo"): Block(),
         Input(command='rg needle "$ROOT"'): Block(),
         Input(command="rg needle"): Block(),
@@ -420,7 +425,6 @@ hook(
         Input(command="rg --files -g AGENTS.md /Users/yasyf/.claude/worktrees/captain-hook"): Block(),
         Input(command="rg --files /Users/yasyf/.claude/worktrees"): Block(),
         Input(command="rg --files --glob=CLAUDE.md /Users/yasyf/.claude/worktrees"): Block(),
-        Input(command="rg --files -gAGENTS.md ~/.orca/workspaces/captain-hook"): Block(),
         Input(command="rg --files ~"): Block(),
         Input(command="rg --files -g '*.py' ~"): Block(),
         Input(command="rg --files --iglob=agents.md -tmd ~"): Block(),
@@ -439,30 +443,18 @@ hook(
         Input(command="rg --files ~/.."): Block(),
         Input(command="rg --files ~/.claude"): Block(),
         Input(command="rg --files -g AGENTS.md ~/.claude"): Block(),
-        Input(command="rg --files ~/.orca"): Block(),
         Input(command="cd ~/.claude && rg --files"): Block(),
         Input(command="rg --files .claude/worktrees", cwd="/repo"): Block(),
         Input(command="rg --files -g AGENTS.md .claude/worktrees/stale", cwd="/repo"): Block(),
-        Input(command="rg --files ~/repos/claude/worktrees"): Block(),
-        Input(command="rg --files -g AGENTS.md ~/repos/claude/worktrees/captain-hook"): Block(),
-        Input(command="rg --files ~/repos/claude/worktrees/captain-hook/lane"): Allow(),
-        Input(command="rg --files ~/repos/orca/workspaces"): Block(),
-        Input(command="rg --files ~/repos/orca/workspaces/7f3c2a10-5d4e-4b8a-9c61-2e0f8a9b4d17"): Block(),
-        Input(
-            command="rg --files -g AGENTS.md ~/repos/orca/workspaces/7f3c2a10-5d4e-4b8a-9c61-2e0f8a9b4d17/captain-hook"
-        ): Block(),
-        Input(command="rg --files ~/repos/orca"): Block(),
-        Input(command="rg --files ~/repos"): Block(),
         Input(
             command="rg --files -g AGENTS.md /Users/yasyf/.claude/worktrees/captain-hook/language-shared-cache"
         ): Allow(),
         Input(command="rg --files ~/.claude/worktrees/captain-hook/lane"): Allow(),
+        Input(command="rg --files -g AGENTS.md ~/lanes", env=LAYOUT): Block(),
+        Input(command="rg --files ~/lanes/captain-hook/lane", env=LAYOUT): Allow(),
         Input(command="rg --files ~/.claude/worktrees/captain-hook/lane/src"): Allow(),
         Input(command="rg --files ~/.claude/scratch"): Allow(),
         Input(command="rg --files ~/.config"): Allow(),
-        Input(
-            command="rg --files ~/repos/orca/workspaces/7f3c2a10-5d4e-4b8a-9c61-2e0f8a9b4d17/captain-hook/lane"
-        ): Allow(),
         Input(command="rg --files .", cwd="/repo"): Allow(),
         Input(command="rg --files", cwd="/repo"): Allow(),
         Input(command="rg --files -g AGENTS.md src/internal", cwd="/repo"): Allow(),
@@ -505,6 +497,8 @@ hook(
         Input(command="find /Users/alice -name daemonkit"): Block(),
         Input(command="find /home/alice -name daemonkit"): Block(),
         Input(command="find ~/.claude/worktrees -name daemonkit"): Block(),
+        Input(command="find ~/src -name daemonkit", env=LAYOUT): Block(),
+        Input(command="find ~/lanes/captain-hook -name daemonkit", env=LAYOUT): Block(),
         Input(command="find $HOME/.claude/worktrees -name daemonkit"): Block(),
         Input(command="find /System/Volumes/Data -name daemonkit"): Block(),
         Input(command="find -H / -name daemonkit"): Block(),
@@ -565,6 +559,9 @@ hook(
         Input(command="find . -type d -name daemonkit", cwd="/repo"): Allow(),
         Input(command="find ~/Code/captain-hook -type d -name daemonkit"): Allow(),
         Input(command="find ~/.claude/worktrees/captain-hook/dispatch-stall -name daemonkit"): Allow(),
+        Input(command="find ~/src -name daemonkit"): Allow(),
+        Input(command="find ~/src/captain-hook -name daemonkit", env=LAYOUT): Allow(),
+        Input(command="find ~/lanes/captain-hook/lane -name daemonkit", env=LAYOUT): Allow(),
         Input(
             command=(
                 "R=/Users/yasyf/.claude/worktrees/monorepo/parity-audit-dev; ls $R/go/ci; "
@@ -596,5 +593,113 @@ hook(
         Input(command="echo 'find / -name daemonkit'"): Allow(),
         Input(command="cat <<'EOF'\nfind / -name daemonkit\nEOF"): Allow(),
         Input(command="ccx repo locate daemonkit"): Allow(),
+    },
+)
+
+
+hook(
+    Event.PreToolUse,
+    only_if=[
+        Tool("Bash"),
+        Or(
+            *(
+                CommandMatches(pattern.schema, only_if=pattern.only_if, skip_if=pattern.skip_if)
+                for pattern in EMPTY_ROOT_RULE.patterns
+            )
+        ),
+    ],
+    message=(EMPTY_ROOT_RULE.message),
+    block=True,
+    max_fires=None,
+    tests={
+        Input(command="grep -rn --include='*.py' needle $site", cwd="/Users/alice"): Block(
+            pattern="walks the working directory"
+        ),
+        Input(command="site=; grep -rn --include='*.py' needle $site", cwd="/Users/alice"): Block(),
+        Input(command="grep -r --include='*.py' needle $(git rev-parse --show-toplevel)"): Block(),
+        Input(command="rg -tpy needle $root"): Block(),
+        Input(command='rg -g "*.py" needle "${files[@]}"'): Block(),
+        Input(command="ugrep -r -tpy needle ${root}"): Block(),
+        Input(command="find $root -maxdepth 4 -name '*.py'"): Block(),
+        Input(command="fd -e py needle $dir"): Block(),
+        Input(command="du -sh $dir"): Block(),
+        Input(command="du -sh $(dirname $0)"): Block(),
+        Input(command="du -sh ${dir:-$fallback}"): Block(),
+        Input(command="du -hd 3 $dir"): Block(),
+        Input(command="fd -HIe py needle $dir"): Block(),
+        Input(command="grep -rn --include='*.py' needle ~/Code/captain-hook/captain_hook"): Allow(),
+        Input(command="grep -rn --include='*.py' needle ${site:?}"): Allow(),
+        Input(command="grep -rn --include='*.py' needle ${site:-src}"): Allow(),
+        Input(command="site=src; grep -rn --include='*.py' needle $site"): Allow(),
+        Input(command="grep -rn --include='*.py' needle src $extra", cwd="/repo"): Allow(),
+        Input(command="grep -n needle $file"): Allow(),
+        Input(command='rg -tpy needle "$root"'): Allow(),
+        Input(command="rg -tpy needle $root/src"): Allow(),
+        Input(command="for d in $(git ls-files); do rg -tpy needle $d; done"): Allow(),
+        Input(command="cat notes.txt | rg needle $file"): Allow(),
+        Input(command="find $root -maxdepth 1 -name '*.py'"): Allow(),
+        Input(command="fd needle", cwd="/repo"): Allow(),
+        Input(command="fd -e py needle src", cwd="/repo"): Allow(),
+        Input(command="du -sh", cwd="/repo"): Allow(),
+        Input(command="du -sh node_modules", cwd="/repo"): Allow(),
+        Input(command="rg -tpy $(printf needle) src", cwd="/repo"): Allow(),
+        Input(command='du -sh "${dirs[*]}"'): Allow(),
+        Input(command="root=src; du -sh $root$extra"): Allow(),
+        Input(command="for dir; do du -sh $dir; done"): Allow(),
+        Input(command="echo 'du -sh $dir'"): Allow(),
+    },
+)
+
+
+hook(
+    Event.PreToolUse,
+    only_if=[
+        Tool("Bash"),
+        Or(
+            *(
+                CommandMatches(pattern.schema, only_if=pattern.only_if, skip_if=pattern.skip_if)
+                for pattern in PROTECTED_ROOT_RULE.patterns
+            )
+        ),
+    ],
+    message=(PROTECTED_ROOT_RULE.message),
+    block=True,
+    max_fires=None,
+    tests={
+        Input(command="find ~/.claude/plugins -iname SKILL.md -path '*slack*'"): Block(pattern="walks gigabytes"),
+        Input(command="rg -g '*.md' needle ~/.claude/plugins/cache"): Block(),
+        Input(command="grep -rn --include='*.py' needle ~/.claude/plugins/cache/skills/long-running"): Block(),
+        Input(command="rg --files ~/.claude/plugins/marketplaces"): Block(),
+        Input(command="fd SKILL.md ~/.claude"): Block(),
+        Input(command="du -sh ~/.claude/projects/-Users-alice/subagents"): Block(),
+        Input(command="rg needle ~/.claude/projects/-Users-alice/0b9e2f4c"): Block(),
+        Input(command="ugrep -r -tpy needle ~/.claude/worktrees/captain-hook"): Block(),
+        Input(command="grep -rn --include='*.py' needle ~"): Block(),
+        Input(command="find /tmp -name '*.log'"): Block(),
+        Input(command="rg -l needle /Users/alice/.cache/captain-hook -g job.json"): Block(pattern="known depth"),
+        Input(command="find ~/.cache/tool -name job.json"): Block(),
+        Input(command="rg --iglob '*.log' needle ~/.cache/captain-hook"): Block(),
+        Input(command="grep -rn --include='*.plist' needle ~/Library"): Block(),
+        Input(command="fd -e json needle /private/var/folders/ab/xyz"): Block(),
+        Input(command="rg -l watcher-poll ~/.local/share/jobs/a/cleanup -g job.json", env=LAYOUT): Block(
+            pattern="known depth"
+        ),
+        Input(command="rg -n needle ~/src -g '*.go'", env=LAYOUT): Block(),
+        Input(command="rg -l watcher-poll ~/.local/share/jobs/a/cleanup -g job.json"): Allow(),
+        Input(command="rg -n needle ~/.local/share/jobs/7f3c/payload", env=LAYOUT): Allow(),
+        Input(command="rg -n needle ~/src/cc-context -g '*.go'", env=LAYOUT): Allow(),
+        Input(command="rg -n foo internal/cli", cwd="/Users/alice/src/cc-context"): Allow(),
+        Input(command="rg needle ~/.cache/tool/*/job.json"): Allow(),
+        Input(command="find ~/.cache/tool -maxdepth 2 -name job.json"): Allow(),
+        Input(command="rg needle ~/.claude/plugins/cache/skills/long-running/0.7.861"): Allow(),
+        Input(command="find ~/.claude/plugins/marketplaces/skills -name SKILL.md"): Allow(),
+        Input(command="rg needle ~/.claude/projects/-Users-alice/memory"): Allow(),
+        Input(command="grep -rn needle ~/.claude/worktrees/captain-hook/lane"): Allow(),
+        Input(command="find ~/.claude/plugins -maxdepth 2 -name '*.json'"): Allow(),
+        Input(command="rg needle ~/.claude/skills"): Allow(),
+        Input(command="grep -n needle ~/.claude/settings.json"): Allow(),
+        Input(command="cat ~/.claude/plugins/installed_plugins.json | rg needle"): Allow(),
+        Input(command="rg needle src", cwd="/repo"): Allow(),
+        Input(command="echo 'find ~/.claude/plugins -name x'"): Allow(),
     },
 )

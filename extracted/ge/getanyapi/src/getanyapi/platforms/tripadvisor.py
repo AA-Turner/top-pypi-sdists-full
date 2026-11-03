@@ -9,6 +9,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import NotRequired, Required, TypedDict, Unpack
 
 from ..types import RequestOptions, RunResult
+from .._pagination import (
+    AsyncPaginator,
+    Paginator,
+    apaginate,
+    paginate,
+)
 
 if TYPE_CHECKING:
     from .._async_client import AsyncAnyAPI
@@ -20,16 +26,20 @@ class TripadvisorReviewsInput(TypedDict, total=False):
 
     allowFallbacks: NotRequired[bool]
     """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    cursor: NotRequired[str]
+    """Pagination cursor from a previous response's nextCursor. Omit for the first page."""
     ignoreSources: NotRequired[list[str]]
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     languages: NotRequired[list[str]]
-    """Only return reviews in these ISO 639-1 languages (e.g. ["en", "es"]); omit for all languages."""
+    """Only return reviews originally written in these ISO 639-1 languages (e.g. ["en", "es"]); omit for all languages. Reviews are never translated. Each page is filtered after it is fetched, so a page can hold fewer than `limit` reviews, or none, while nextCursor still leads to more."""
     limit: NotRequired[int]
-    """Maximum number of results to return (1-20, default 20). Range: 1 to 20."""
+    """Reviews per page (1-20, default 20). Sources that page return one page of up to `limit` reviews, newest first, with a nextCursor for the next page; sources that cannot page return up to `limit` reviews in one call with no nextCursor. Range: 1 to 20."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     ratings: NotRequired[list[Literal["1", "2", "3", "4", "5"]]]
     """Only return reviews whose bubble rating is in this set (e.g. ["5", "4"] for 4 and 5 star reviews); omit for all ratings."""
+    requireFields: NotRequired[list[Literal["nextCursor"]]]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `nextCursor`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. nextCursor is null on the last page. Naming a combination that no single source returns together is refused as invalid input, with no charge. On a paginated walk it applies to the first page only; later pages stay with the source that page chose, at the price it was quoted."""
     since: NotRequired[str]
     """Only return reviews newer than this date, YYYY-MM-DD or a relative window like '3 months' (e.g. 2026-01-01)."""
     source: NotRequired[list[str]]
@@ -84,8 +94,15 @@ class TripadvisorSearchInput(TypedDict, total=False):
 
 
 class TripadvisorReviewsData(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     items: list[TripadvisorReviewsItem] = Field(
         description="Review records for the place: rating, title, review text, publish date, trip type, and reviewer details. Populated whenever the provider has data for the entity."
+    )
+    next_cursor: str | None = Field(
+        default=None,
+        alias="nextCursor",
+        description="Opaque cursor for the next page of reviews, or null when there are no more. Pass it back as cursor to continue. Absent on sources that cannot page.",
     )
 
 
@@ -123,7 +140,8 @@ class TripadvisorReviewsItem(BaseModel):
     )
     id: str | None = Field(default=None, description="Tripadvisor review identifier.")
     language: str | None = Field(
-        default=None, description="Language code the review was written in."
+        default=None,
+        description="ISO 639-1 code of the language the review was originally written in (e.g. en, es). On some requests `title` and `text` are Tripadvisor's English machine translation of a review written in another language; this code still names the original language. A request with `languages` always returns the original text.",
     )
     owner_response_text: str | None = Field(
         default=None,
@@ -181,7 +199,7 @@ class TripadvisorSearchItem(BaseModel):
     )
     category: str | None = Field(
         default=None,
-        description="High-level category (e.g. hotel, restaurant, attraction).",
+        description="High-level category: hotel, restaurant, attraction, or geo for a destination such as a city.",
     )
     city: str | None = Field(default=None, description="City the place is in.")
     country: str | None = Field(default=None, description="Country the place is in.")
@@ -238,7 +256,7 @@ class TripadvisorSearchItem(BaseModel):
     type_: str | None = Field(
         default=None,
         alias="type",
-        description="Tripadvisor place type (e.g. HOTEL, RESTAURANT, ATTRACTION).",
+        description="Tripadvisor place type: HOTEL, RESTAURANT, ATTRACTION, or GEO for a destination such as a city.",
     )
     url: str = Field(
         description="Canonical Tripadvisor listing page URL. Populated whenever the provider has data for the entity."
@@ -275,6 +293,29 @@ class TripadvisorNamespace:
             "tripadvisor.reviews", dict(input), options
         )
         return RunResult[TripadvisorReviewsData].model_validate(raw)
+
+    def iter_reviews(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[TripadvisorReviewsInput],
+    ) -> Paginator[TripadvisorReviewsItem, TripadvisorReviewsData]:
+        """Iterate Tripadvisor Reviews results, following pagination cursors.
+
+        Yields validated `TripadvisorReviewsItem` items from the `items` field of
+        each page. Use `.pages()` on the returned paginator to walk whole
+        `RunResult` pages.
+        """
+        return paginate(
+            self._client,
+            "tripadvisor.reviews",
+            dict(input),
+            "items",
+            item_model=TripadvisorReviewsItem,
+            data_model=TripadvisorReviewsData,
+            bare=False,
+            options=options,
+        )
 
     def search(
         self,
@@ -326,6 +367,29 @@ class AsyncTripadvisorNamespace:
             "tripadvisor.reviews", dict(input), options
         )
         return RunResult[TripadvisorReviewsData].model_validate(raw)
+
+    def iter_reviews(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[TripadvisorReviewsInput],
+    ) -> AsyncPaginator[TripadvisorReviewsItem, TripadvisorReviewsData]:
+        """Iterate Tripadvisor Reviews results, following pagination cursors.
+
+        Yields validated `TripadvisorReviewsItem` items from the `items` field of
+        each page. Use `.pages()` on the returned paginator to walk whole
+        `RunResult` pages.
+        """
+        return apaginate(
+            self._client,
+            "tripadvisor.reviews",
+            dict(input),
+            "items",
+            item_model=TripadvisorReviewsItem,
+            data_model=TripadvisorReviewsData,
+            bare=False,
+            options=options,
+        )
 
     async def search(
         self,

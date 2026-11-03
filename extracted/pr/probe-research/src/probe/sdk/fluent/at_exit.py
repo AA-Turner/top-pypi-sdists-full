@@ -77,6 +77,12 @@ def _finish_at_exit() -> None:
 def _warn_not_closed_at_exit(run: "Run", exc: BaseException) -> None:
     """One line on stderr through the SDK's non-raising warning channel."""
     from ...foundation.safe_warn import safe_warn
+    from ..delivery.outbox.waiter import DeliveryIncomplete
+
+    if isinstance(exc, DeliveryIncomplete):
+        # The run was closed (queued); what is missing is said, the exit code left alone (R8).
+        safe_warn.warn(f"probe: {exc}", stacklevel=2)
+        return
 
     try:
         detail = f"{type(exc).__name__}: {exc}"

@@ -34,8 +34,6 @@
 %include "reg_sizes.asm"
 %include "gf_vect_gfni.inc"
 
-%if AS_FEATURE_LEVEL >= 10
-
 %ifidn __OUTPUT_FORMAT__, elf64
  %define arg0  rdi
  %define arg1  rsi
@@ -135,8 +133,8 @@ section .text
 %endif
 	add	vec_i, 8
 
-        vbroadcastf32x2 xgft1, [tmp]
-	add	tmp, 8
+        vpbroadcastq xgft1, [tmp]
+	add	tmp, 32
 
         GF_MUL_XOR EVEX, x0, xgft1, xgft1, xp1
 
@@ -187,4 +185,3 @@ func(gf_vect_dot_prod_avx512_gfni)
 	ret
 
 endproc_frame
-%endif  ; if AS_FEATURE_LEVEL >= 10

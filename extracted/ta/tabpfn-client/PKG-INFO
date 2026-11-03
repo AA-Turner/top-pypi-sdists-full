@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tabpfn-client
-Version: 0.7.0
+Version: 0.7.1
 Summary: API access for TabPFN: Foundation model for tabular data
 Project-URL: documentation, https://priorlabs.ai/docs
 Project-URL: source, https://github.com/priorlabs/tabpfn-client

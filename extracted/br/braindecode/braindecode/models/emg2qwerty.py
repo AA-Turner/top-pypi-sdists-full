@@ -13,9 +13,11 @@ from collections.abc import Sequence
 
 import torch
 import torch.nn.functional as F
+import torchaudio.functional as ta_functional
 import torchaudio.transforms as ta_transforms
 from torch import nn
 
+from braindecode.functional import spectral_input
 from braindecode.models.base import EEGModuleMixin
 from braindecode.modules import TDSConvEncoder
 
@@ -108,7 +110,9 @@ class EMG2QwertyNet(EEGModuleMixin, nn.Module, license="cc-by-nc-sa-4.0"):
         Number of EMG channels. Must equal
         ``num_bands * electrodes_per_band`` (default ``32`` = ``2 * 16``).
     sfreq : float
-        Sampling frequency in Hz. Defaults to ``2000``. ``n_fft`` and
+        Sampling frequency in Hz. Defaults to ``2000``, unless
+        ``n_times`` and ``input_window_seconds`` are both given, in which
+        case it is inferred from them. ``n_fft`` and
         ``hop_length`` defaults are calibrated for this rate; pass
         matching values when changing ``sfreq``.
     num_bands : int
@@ -241,7 +245,7 @@ class EMG2QwertyNet(EEGModuleMixin, nn.Module, license="cc-by-nc-sa-4.0"):
         self,
         n_outputs: int = 99,
         n_chans: int = 32,
-        sfreq: float = 2000.0,
+        sfreq: float | None = None,
         num_bands: int = 2,
         electrodes_per_band: int = 16,
         n_fft: int = 64,
@@ -267,6 +271,8 @@ class EMG2QwertyNet(EEGModuleMixin, nn.Module, license="cc-by-nc-sa-4.0"):
         input_window_seconds: float | None = None,
         chs_info: list | None = None,
     ) -> None:
+        if sfreq is None and (n_times is None or input_window_seconds is None):
+            sfreq = 2000.0
         super().__init__(
             n_outputs=n_outputs,
             n_chans=n_chans,
@@ -572,9 +578,22 @@ class _LogSpectrogram(nn.Module):
             )
         # ``torchaudio.transforms.Spectrogram`` returns ``(..., freq, time)``
         # for power=2 (the default).
-        power_spec = self.spectrogram(x)
+        # The Spectrogram module's forward, with the window on the input's
+        # device and dtype (spectral_input: float32 at least, CPU for HPU).
+        x_in = spectral_input(x)
+        power_spec = ta_functional.spectrogram(
+            x_in,
+            pad=0,
+            window=self.spectrogram.window.to(x_in),
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.n_fft,
+            power=2.0,
+            normalized=True,
+            center=False,
+        )
         n_freq_bins, n_frames = power_spec.shape[-2], power_spec.shape[-1]
-        log_power = torch.log10(power_spec + self.log_eps)
+        log_power = torch.log10(power_spec + self.log_eps).to(x)
         return log_power.reshape(
             batch_size,
             self.num_bands,
@@ -731,6 +750,8 @@ class _RotationInvariantMLP(nn.Module):
         self.offsets = tuple(offsets) if len(offsets) > 0 else (0,)
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        # Gaudi eager mode rolls a non-contiguous tensor wrongly.
+        inputs = inputs.contiguous()
         rolled = torch.stack(
             [inputs.roll(offset, dims=2) for offset in self.offsets], dim=2
         )

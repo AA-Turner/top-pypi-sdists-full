@@ -51,6 +51,7 @@ class Message(BaseModel):
     content: str | list[MessageContentChunk] | None = None
     tool_calls: list[ToolCall] | None = None
     tool_call_id: str | None = None
+    reasoning_content: str | None = None
 
 
 def text_content_for_provider(

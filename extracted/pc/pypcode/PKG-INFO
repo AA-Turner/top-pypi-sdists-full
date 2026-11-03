@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypcode
-Version: 4.0.1
+Version: 4.1.0
 Summary: Machine code disassembly and IR translation library
 License-Expression: BSD-2-Clause AND Apache-2.0 AND Zlib
 Project-URL: Homepage, https://api.angr.io/projects/pypcode/en/latest/
@@ -19,7 +19,7 @@ Requires-Dist: furo; extra == "docs"
 Requires-Dist: ipython; extra == "docs"
 Requires-Dist: myst-parser; extra == "docs"
 Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints<=3.13.9; extra == "docs"
 Provides-Extra: testing
 Requires-Dist: pytest; extra == "testing"
 Requires-Dist: pytest-cov; extra == "testing"

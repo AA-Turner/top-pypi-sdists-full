@@ -775,7 +775,7 @@ def register_generated_tools(mcp, _get_client):
                 platform: Filter accounts by platform (e.g. "instagram", "twitter").
                 status: Filter accounts by connection status. `connected` returns healthy accounts; `disconnected` returns accounts that need reconnection (per the same reconnection check surfaced in the dashboard). Omit to return accounts in any status. When combined with page/limit, pagination totals reflect the filtered result set.
                 search: Case-insensitive match on the account username, display name or platform user id, or an exact account id. Combine with page/limit to paginate the matches.
-                category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, crm = HubSpot, analytics = Google Analytics, social = every other platform.
+                category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit, Microsoft), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, crm = HubSpot, analytics = Google Analytics, social = every other platform.
                 sort: Sort an offset-paginated listing (page and limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.
                 order: Direction for `sort`.
                 include_over_limit: When true, includes accounts from over-limit profiles.
@@ -1007,6 +1007,7 @@ def register_generated_tools(mcp, _get_client):
             "googleads",
             "openaiads",
             "redditads",
+            "microsoftads",
             "whopads",
             "hubspot",
             "webflow",
@@ -5089,14 +5090,18 @@ def register_generated_tools(mcp, _get_client):
         - the Page's Lead Ads terms
         - the newest pixel event
         - the WhatsApp number linked to the Page
+        - the last refusal Meta gave a create or boost for a reason only the account owner can fix (`last_refusal`, see below)
 
         Each check reads on its own: one this connection cannot see comes back `unknown` instead of failing the request.
 
-        ### Reading the result
+        ### Remembered refusals
 
-        - `status` is `blocked` when any check is `error` (ads will be refused), `attention` when one is `warning`, else `ok`.
-        - `missing` marks an optional asset that is not set up (a pixel, a WhatsApp number): only the ads that need it are affected.
-        - A `fix.url` is either a Meta page or a Zernio dashboard path (starting with `/`).
+        Meta cannot be asked about a code 31 security check up front. So `last_refusal` reports the last refusal of this kind that a create or boost met:
+
+        - a code 31 security check or a temporary block, remembered for the connection (`accountId`)
+        - a payment method, the non-discrimination policy or a disabled account, remembered for the ad account
+
+        It stays until a later create succeeds, or for 7 days (1 day for a ...
 
         Platforms: meta
 
@@ -5251,7 +5256,7 @@ def register_generated_tools(mcp, _get_client):
 
             Responds `429` when Google's API quota is ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
             Args:
                 account_id: Account ID (required)
@@ -6104,6 +6109,7 @@ def register_generated_tools(mcp, _get_client):
             "twitter",
             "openai",
             "reddit",
+            "microsoft",
         ]
         | None = None,
         account_id: str | None = None,
@@ -6140,7 +6146,7 @@ def register_generated_tools(mcp, _get_client):
 
         1. Filter by platformAdId (the Meta ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
         Args:
             page: Page number (1-based)
@@ -6763,6 +6769,7 @@ def register_generated_tools(mcp, _get_client):
             "twitter",
             "openai",
             "reddit",
+            "microsoft",
         ]
         | None = None,
         status: Literal[
@@ -6802,7 +6809,7 @@ def register_generated_tools(mcp, _get_client):
 
             Zernio's own status writes re-read the switches they change. A change made in the ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
             Args:
                 include_empty: Meta only. Set true to also list campaigns with ZERO ads, with `adCount: 0` and zeroed metrics.
@@ -7037,6 +7044,7 @@ def register_generated_tools(mcp, _get_client):
             "twitter",
             "openai",
             "reddit",
+            "microsoft",
         ],
     ) -> str:
         """Pause or resume a campaign
@@ -7059,7 +7067,7 @@ def register_generated_tools(mcp, _get_client):
         - **Already in the requested state:** nothing is written (`updated: 0`, `skipped: 1`, with the reason).
         - **Otherwise:** the switch is written (`updated: 1`), read back and stored. The delivery status of the ads under it (up to 20) is re-read and stored, so an immediate GET returns what the platform now ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft
 
         Args:
             campaign_id: Platform campaign ID (required)
@@ -7297,6 +7305,7 @@ def register_generated_tools(mcp, _get_client):
             "twitter",
             "openai",
             "reddit",
+            "microsoft",
         ],
         account_id: str | None = None,
         bid_strategy: Literal[
@@ -7340,7 +7349,7 @@ def register_generated_tools(mcp, _get_client):
             | `name` | Yes | 501 | Reddit: Yes; others 501 |
             | ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft
 
             Args:
                 campaign_id: Platform campaign ID (required)
@@ -7409,6 +7418,7 @@ def register_generated_tools(mcp, _get_client):
             "twitter",
             "openai",
             "reddit",
+            "microsoft",
         ],
         account_id: str | None = None,
         ad_account_id: str | None = None,
@@ -7434,7 +7444,7 @@ def register_generated_tools(mcp, _get_client):
 
         Google, TikTok, LinkedIn, Pinterest and Reddit take the ad account from the synced ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft
 
         Args:
             campaign_id: Platform campaign ID (required)
@@ -7578,11 +7588,11 @@ def register_generated_tools(mcp, _get_client):
 
         `updated` / `skipped` count campaigns.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
         Args:
             status: (required)
-            campaigns: Each item is an object with keys: platformCampaignId (string, required) - The campaign id on the ad platform (e.g. the numeric Google campaign id), not a Zernio id.; platform (one of: facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, googleads, tiktokads, linkedinads, pinterestads, xads, openaiads, redditads; required) - The ad platform, e.g. `google` for Google Ads. The ads connection slug (`googleads`, `tiktokads`, ...) is accepted as an alias. `metaads` is not: send ... (required)"""
+            campaigns: Each item is an object with keys: platformCampaignId (string, required) - The campaign id on the ad platform (e.g. the numeric Google campaign id), not a Zernio id.; platform (one of: facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft, googleads, tiktokads, linkedinads, pinterestads, xads, openaiads, redditads, microsoftads; required) - The ad platform, e.g. `google` for Google Ads. The ads connection slug (`googleads`, `tiktokads`, ...) is accepted as an alias. `metaads` is not: send ... (required)"""
         client = _get_client()
         try:
             response = client.ad_campaigns.bulk_update_ad_campaign_status(
@@ -7822,7 +7832,7 @@ def register_generated_tools(mcp, _get_client):
 
             So ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft
 
             Args:
                 account_id: Account ID
@@ -8421,6 +8431,7 @@ def register_generated_tools(mcp, _get_client):
             "twitter",
             "openai",
             "reddit",
+            "microsoft",
         ],
     ) -> str:
         """Pause or resume a single ad set
@@ -8452,7 +8463,7 @@ def register_generated_tools(mcp, _get_client):
 
         - When that live read ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft
 
         Args:
             ad_set_id: Platform ad set ID (required)
@@ -8489,6 +8500,7 @@ def register_generated_tools(mcp, _get_client):
             "twitter",
             "openai",
             "reddit",
+            "microsoft",
         ]
         | None = None,
         status: Literal[
@@ -8538,7 +8550,7 @@ def register_generated_tools(mcp, _get_client):
 
             The older days (up to 730 days back) are imported in the background; repeat the request until it returns 200. A request scoped to no Meta ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
             Args:
                 page: Page number (1-based)
@@ -8638,6 +8650,7 @@ def register_generated_tools(mcp, _get_client):
             "twitter",
             "openai",
             "reddit",
+            "microsoft",
         ]
         | None = None,
         compare: Literal["previous"] | None = None,
@@ -8660,7 +8673,7 @@ def register_generated_tools(mcp, _get_client):
 
         When an ad account connects, Zernio ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
         Args:
             account_id: Account ID. Sibling-expanded to its linked posting↔ads pair. An id that does not exist or sits on a profile the API key cannot reach answers 404 (code: account_not_found). (required)
@@ -8714,7 +8727,7 @@ def register_generated_tools(mcp, _get_client):
             - the creative's `effective_instagram_media_id` (Instagram side)
             - an Instagram media id an ad ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
             Args:
                 ad_id: Zernio `_id` (hex), Meta `platformAdId` (numeric), or one of the creative's effective story/media IDs. See description for details.
@@ -8792,7 +8805,7 @@ def register_generated_tools(mcp, _get_client):
 
         - KEYWORD ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
         Args:
             ad_id: (required)
@@ -8855,7 +8868,7 @@ def register_generated_tools(mcp, _get_client):
 
         ### LinkedIn ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
         Args:
             ad_id: (required)"""
@@ -8905,7 +8918,7 @@ def register_generated_tools(mcp, _get_client):
 
         After the write the switch is read back from ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
         Args:
             ad_id: Zernio `_id` (hex), Meta `platformAdId` (numeric), or one of the creative's effective story/media IDs. (required)
@@ -9705,7 +9718,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 creative_features
-                post_id: Zernio post ID (provide this or platformPostId)
+                post_id: The Zernio post id (24 hex characters) returned when the post was created through Zernio. Send this or platformPostId. A value that is not a Zernio id is boosted as the platform post id, the same as platformPostId; a Zernio id that matches no post is a 404 on postId.
                 platform_post_id: Platform post ID (alternative to postId).
 
         - Reddit: the post id, with or without the `t3_` prefix.
@@ -9713,7 +9726,7 @@ def register_generated_tools(mcp, _get_client):
         - Meta Ads business-login connection (platform metaads): the id is resolved live. An Instagram media id is boosted as that media, running as the Instagram account that owns it.
                 account_id: Zernio account id. Normally the connected posting account (facebook, instagram, tiktok, linkedin, pinterest, twitter), a googleads account or a redditads account.
 
-        TikTok: the TikTok Ads connection (platform tiktokads) is also accepted when the post brings its own authorization (sparkAuthCode or sparkPosts), so Spark ads need no organic TikTok account connected. Such a call must use platformPostId, not postId. (required)
+        TikTok: the TikTok Ads connection (platform tiktokads) is also accepted when the post brings its own authorization (sparkAuthCode or sparkPosts), so Spark ads need no organic TikTok account connected. Such a call cannot use a Zernio postId: send the TikTok item id (as platformPostId, or in postId). (required)
                 ad_account_id: Platform ad account ID (required)
                 name: (required)
                 campaign_name: Exact name for the campaign this boost provisions. Omitted keeps the default `<name> - Campaign`. Every platform: on LinkedIn it names the campaign group. Ignored on the Meta attach shape (`adSetId`), which creates no campaign.
@@ -9920,6 +9933,7 @@ def register_generated_tools(mcp, _get_client):
 
         - Idempotency-Key storage and the duplicate-boost guard are bypassed.
         - Counts toward the 30 Meta writes per ad account per 5 minutes.
+        - Runs the account status and payment checks of GET /v1/ads/accounts/health first: an ad account that is not ready answers its blocker `code` (`ad_account_unusable`, `ad_account_payment_required`) with `details.hint` and `details.fix`, and Meta is not called.
         - With `adSetId`, only the ad is dry-run.
         - An Instagram video Meta refuses as a direct reference (subcode 1815279) comes back as `unverified` nodes, because the copy a real boost makes cannot be dry-run.
 
@@ -10613,7 +10627,7 @@ def register_generated_tools(mcp, _get_client):
 
             Creates a paid ad with your own creative, building the campaign and ad set it needs or adding it to existing ones.
 
-            Works across Meta, Google Ads, Pinterest, TikTok, X, LinkedIn, OpenAI Ads (ChatGPT Ads) and Reddit Ads. Per-platform required fields, budget minimums, and video-ad rules are documented on each property below.
+            Works across Meta, Google Ads, Pinterest, TikTok, X, LinkedIn, OpenAI Ads (ChatGPT Ads), Reddit Ads and Microsoft Ads. Per-platform required fields, budget minimums, and video-ad rules are documented on each property below.
 
             ### Request shapes
 
@@ -10623,9 +10637,9 @@ def register_generated_tools(mcp, _get_client):
             - Meta-only multi-creative shape via the creatives array: one ad set with N ads sharing budget and targeting.
             - Attach shape via adSetId: adds one new ad to an existing ad set, inheriting its budget, targeting, and schedule (Meta, Google Ads, TikTok, and LinkedIn).
 
-            On LinkedIn, adSetId in the attach shape is the existing Campaign id, and the budget, schedule, targeting and bidding fields must be omitted. `goal` may be omitted too (taken from the Campaign's objective), and the created ad's `targeting` echoes the Campaign's ...
+            On LinkedIn, adSetId in the attach shape is the existing Campaign id, and the budget, schedule, targeting and bidding fields must be omitted. `goal` may be omitted too (taken from the Campaign's objective), and the created ad's `targeting` echoes the ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft
 
             Args:
                 account_id: (required)
@@ -10725,6 +10739,8 @@ def register_generated_tools(mcp, _get_client):
         **Google Performance Max**: validates the complete atomic campaign and asset group, with no resource creation or local persistence. Validation still downloads image URLs and consumes quota.
 
         **Meta**: validates the inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created; validation bypasses Idempotency-Key storage. Success returns 200 with per-node results; a Meta rejection returns an error.
+
+        Before the dry run, Meta validateOnly runs the account status and payment checks of GET /v1/ads/accounts/health: an ad account that is not ready answers its blocker `code` (`ad_account_unusable`, `ad_account_payment_required`) with `details.hint` and `details.fix`, and Meta is not called.
 
         - Supported: a single image or existing video.id (each also with bodies[] / headlines[] Multiple Text Options), all-image placementAssets with per-rule copy and text pools, or existingCreativeId.
         - Return 400: dynamicCreative, translations, carouselCards, placement videos, new video uploads, creatives[], adSetId, RESERVED buying.
@@ -12380,7 +12396,7 @@ def register_generated_tools(mcp, _get_client):
 
             Breakdowns and Google's impression ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
             Args:
                 campaign_id: Platform campaign id (platformCampaignId). (required)
@@ -12799,7 +12815,7 @@ def register_generated_tools(mcp, _get_client):
 
             Other platforms never return `202`.
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
             Args:
                 ad_id: (required)
@@ -14175,10 +14191,12 @@ def register_generated_tools(mcp, _get_client):
             - Up to 100 points (elapsedVideoTimeRatio 0.01-1.0), aggregated over the whole date range. YouTube does not support per-day retention breakdowns.
             - audienceWatchRatio: the absolute share of viewers watching at that point in the video. It can exceed 1 (rewinds and looping, common on Shorts).
             - relativeRetentionPerformance: compares against videos of similar length (0 = worst, 0.5 = median, 1 = best).
+            - Zernio returns exactly the buckets YouTube reports for the requested range and fills none in. A curve that ends before 1.0, or skips a position, means YouTube returned no row there for that range.
+            - The range ends at toDate (default 3 days ago), so recent views are included only with a later toDate.
 
             ### Empty curves
 
-            YouTube returns an empty curve for videos with very few views or before analytics processing completes (2-3 day delay).
+            YouTube returns an empty curve for videos with very few ...
 
             Args:
                 video_id: The YouTube video ID (e.g., "dQw4w9WgXcQ") (required)
@@ -14223,7 +14241,7 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get Facebook Page insights
 
-            Returns page-level Facebook insights (media views, views, post engagements, video metrics, follower counts). The response shape matches /v1/analytics/instagram/account-insights, so the same client handling works across platforms.
+            Returns page-level Facebook insights (media views, reach, views, post engagements, reaction counts, video metrics, follower counts). The response shape matches /v1/analytics/instagram/account-insights, so the same client handling works across platforms.
 
             Max 89 days, defaults to last 30 days.
 
@@ -14236,7 +14254,9 @@ def register_generated_tools(mcp, _get_client):
             - page_fan_adds
             - page_fan_removes
 
-            Use the replacements below. Because Meta did not provide direct adds/removes replacements, Zernio synthesizes followers_gained / followers_lost from the daily follower snapshotter.
+            page_impressions_unique is deprecated above Graph API v25 and is not accepted; use page_total_media_view_unique. Meta's Page Insights reference (https://developers.facebook.com/docs/graph-api/reference/insights) also deprecates a number of Page Insights metrics for all API versions by June 15, 2026.
+
+            Use the replacements below. Because Meta did not provide direct adds/removes replacements, Zernio synthesizes followers_gained / ...
 
             Args:
                 account_id: The Zernio SocialAccount ID for the connected Facebook Page. (required)
@@ -14245,11 +14265,13 @@ def register_generated_tools(mcp, _get_client):
         **Live Meta metrics** (current names, post-Nov-2025):
 
         - page_media_view (replaces deprecated page_impressions)
+        - page_total_media_view_unique (reach: unique viewers, replaces deprecated page_impressions_unique). The reach total sums daily unique viewers, not unique people over the range: a viewer seen on several days counts once per day. For a range of exactly 28 days it is Meta's 28-day unique viewers when Meta returns them.
         - page_views_total
-        - page_post_engagements
+        - page_post_engagements (content interactions: reactions, comments, shares and more)
         - page_video_views
         - page_video_view_time
         - page_follows (replaces deprecated page_fans)
+        - page_actions_post_reactions_like_total, page_actions_post_reactions_love_total, page_actions_post_reactions_wow_total, page_actions_post_reactions_haha_total, page_actions_post_reactions_sorry_total, page_actions_post_reactions_anger_total (reactions by type; like includes care)
 
         **Zernio-synthesized** from daily follower snapshots (filling the Nov-2025 gap left by the page_fan_adds / page_fan_removes deprecation):
 
@@ -14373,7 +14395,7 @@ def register_generated_tools(mcp, _get_client):
             These metrics reflect the entire account's performance across all content surfaces (feed, stories, explore, profile), and are fundamentally different from post-level metrics.
 
             - Data may be delayed up to 48 hours.
-            - Max 90 days, defaults to last 30 days.
+            - Max 90 days (30 for accounts connected through Facebook Login), defaults to last 30 days.
 
             Args:
                 account_id: The Zernio SocialAccount ID for the Instagram account (required)
@@ -14688,6 +14710,8 @@ def register_generated_tools(mcp, _get_client):
             Returns daily aggregated analytics metrics and a per-platform breakdown.
             Each day includes post count, platform distribution, and summed metrics (impressions, reach, likes, comments, shares, saves, clicks, views).
             Defaults to the last 180 days.
+
+            `totals` sums the whole range for the applied filters (pass `accountId` for one account). With attribution \"publish\" they are the lifetime metrics of posts published in the range, with \"received\" the engagement that arrived in the range.
 
             Args:
                 platform: Filter by platform (e.g. "instagram", "tiktok"). Omit for all platforms.
@@ -23312,12 +23336,13 @@ def register_generated_tools(mcp, _get_client):
         - TikTok Ads (platform=tiktokads): `tiktok_ads_auth_failed`, `tiktok_ads_invalid_state`, `tiktok_ads_access_denied`, `tiktok_ads_config_error`, `tiktok_ads_token_failed`, `tiktok_ads_account_not_found`, `tiktok_ads_callback_error`.
         - X Ads (platform=xads): `x_ads_denied`, `x_ads_auth_failed`, `x_ads_config_error`, `x_ads_account_not_found`, `x_ads_state_error`, `x_ads_token_failed`, `x_ads_token_missing`, `x_ads_callback_error`.
         - Reddit Ads (platform=redditads): `reddit_ads_auth_failed`, `reddit_ads_invalid_state`, `reddit_ads_access_denied`, `reddit_ads_scope_not_granted`, `reddit_ads_no_ad_accounts`, `reddit_ads_callback_error`.
+        - Microsoft Ads (platform=microsoftads): `microsoft_ads_auth_failed`, `microsoft_ads_invalid_state`, `microsoft_ads_access_denied`, `microsoft_ads_scope_not_granted`, `microsoft_ads_unknown_user`, `microsoft_ads_no_ad_accounts`, `microsoft_ads_callback_error`.
         - Shopify (platform=shopify): `shopify_auth_failed`, `shopify_config_error`, `shopify_invalid_state`, `shopify_invalid_hmac`, `shopify_invalid_shop`, `shopify_missing_scopes`, `shopify_callback_error`.
 
         Notes:
 
         1. On this endpoint every upstream OAuth error collapses into `oauth_denied`, with the provider's values in the `platform_error*` params. The dedicated ads flows differ: they use their own denial slugs, and `google_ads_auth_failed` and `tiktok_ads_auth_failed` may carry the provider's raw error string in `error_message`.
-        2. On the tiktok and twitter ads flows `platform` carries the ads platform id (`tiktokads`, `xads`), not the value in the request path. The googleads, redditads and shopify flows report `googleads`, `redditads` and `shopify`.
+        2. On the tiktok and twitter ads flows `platform` carries the ads platform id (`tiktokads`, `xads`), not the value in the request path. The googleads, redditads, microsoftads and shopify flows report `googleads`, `redditads`, `microsoftads` and `shopify`.
         3. `missing_tiktok_permissions`: the TikTok authorization left out a permission the already-connected account needs, so nothing changed and it keeps working as before. User-fixable: connect again and accept every permission on TikTok's screen.
         4. `instagram_login_method_mismatch`: an Instagram Login authorization landed on a profile whose Instagram account is connected through Facebook Login, so nothing changed. To refresh it, connect again with `loginMethod=facebook_login`. To move it to Instagram Login, disconnect it first.
                 scopes: Comma-separated permission areas to request instead of the platform's full permission set.
@@ -23544,8 +23569,10 @@ def register_generated_tools(mcp, _get_client):
             "pinterest",
             "googleads",
             "redditads",
+            "microsoftads",
         ],
         profile_id: str,
+        identity_provider: Literal["microsoft", "google"] = "microsoft",
         login_mode: Literal["classic", "business"] = "classic",
         permission_level: Literal["full", "advertise"] = "full",
         page_id: str | None = None,
@@ -23582,6 +23609,7 @@ def register_generated_tools(mcp, _get_client):
             Platforms: meta, linkedin, tiktok, twitter, pinterest, google, reddit
 
             Args:
+                identity_provider: Microsoft Ads only. How the user signs in to Microsoft Advertising: `google` for a Microsoft Advertising login that is a Google account. `google` on any other platform returns 400 `invalid_field_value`.
                 login_mode: Meta ads authorization mode. Business login is opt-in for Facebook and Instagram; classic preserves the posting-account flow.
                 permission_level: Business login only. Ad-account permission the connection's system user will hold.
 
@@ -23602,24 +23630,24 @@ def register_generated_tools(mcp, _get_client):
         - `twitter` (X Ads): required.
         - `tiktok`: optional. Omit it for ads-only mode (no TikTok posting account linked; ad creation uses a Brand Identity instead of a TT_USER).
         - Same-token platforms (`facebook`, `instagram`, `linkedin`, `pinterest`): picks which posting account the ads connection uses when the profile holds several of that platform. With one, it can be omitted.
-        - Standalone platforms (`googleads`, `redditads`): ignored.
+        - Standalone platforms (`googleads`, `redditads`, `microsoftads`): ignored.
 
         On same-token platforms, an id that names no active account of the platform on the profile is ignored. Exception: with `force=true`, when it names the posting account the profile's ads connection hangs off, that account is no longer connected.
 
         In that case the call returns 409 `reconnect_required` instead of reconnecting another account. Reconnect it via GET /v1/connect/{platform} first.
-                redirect_url: Custom URL the browser is sent to once the OAuth flow finishes. When omitted, the browser lands on the Zernio dashboard. Honored on every ads platform, including the separate-token (`tiktok`, `twitter`) and standalone (`googleads`, `redditads`) flows.
+                redirect_url: Custom URL the browser is sent to once the OAuth flow finishes. When omitted, the browser lands on the Zernio dashboard. Honored on every ads platform, including the separate-token (`tiktok`, `twitter`) and standalone (`googleads`, `redditads`, `microsoftads`) flows.
 
         MUST be an absolute http(s) URL or a custom app scheme for mobile deeplinks (e.g. myapp://callback). A relative path is rejected with 400 INVALID_REDIRECT_URL.
 
         On success:
 
         - `tiktok`: lands on the URL unchanged.
-        - `twitter`, `googleads` and `redditads`: append `connected` (the ads platform id: `xads`, `googleads` or `redditads`), `profileId`, `accountId` (the ads connection) and `username`.
+        - `twitter`, `googleads`, `redditads` and `microsoftads`: append `connected` (the ads platform id: `xads`, `googleads`, `redditads` or `microsoftads`), `profileId`, `accountId` (the ads connection) and `username`.
         - Same-token platforms (`facebook`, `instagram`, `linkedin`, `pinterest`): append `connected`, `profileId`, `accountId`, `username` and, on API-key calls, `connect_token`.
 
         On failure the same error contract applies as on GET /v1/connect/{platform}: `error` and `platform` are always appended, other params are optional, and the value list there is not exhaustive.
 
-        On the tiktok, twitter, googleads and redditads flows, `platform` carries the ads platform id (`tiktokads`, `xads`, `googleads`, `redditads`), not the value used in the request path.
+        On the tiktok, twitter, googleads, redditads and microsoftads flows, `platform` carries the ads platform id (`tiktokads`, `xads`, `googleads`, `redditads`, `microsoftads`), not the value used in the request path.
                 headless: Enable headless mode (same-token platforms only)
                 force: Force a fresh OAuth even when an account already exists.
 
@@ -23636,6 +23664,7 @@ def register_generated_tools(mcp, _get_client):
         - `linkedin`: bare numeric sponsored-account id.
         - `googleads`: bare customer id digits.
         - `redditads`: Reddit ad account id, `a2_<id>` or `t2_<id>`.
+        - `microsoftads`: bare numeric account id (the Id, not the account number).
         - `twitter` (X Ads): base36 account id.
 
         `tiktok` scopes advertisers at OAuth and `pinterest` has no ads discovery, so both ignore it.
@@ -23650,7 +23679,7 @@ def register_generated_tools(mcp, _get_client):
 
         **Through OAuth**: on Meta the scope is kept when this call returns an `authUrl`, so the Meta Ads account created after OAuth is scoped (only its scoped ad accounts synced and subscribed) from the start.
 
-        On `googleads` and `redditads` it is kept through OAuth when `redirect_url` is set, so the new connection syncs only scoped ad accounts from the first sync.
+        On `googleads`, `redditads` and `microsoftads` it is kept through OAuth when `redirect_url` is set, so the new connection syncs only scoped ad accounts from the first sync.
 
         **Reconnects**: business-login reconnects preserve the existing scope; supplied IDs are checked against the new grant. To change the scope after migration, call this endpoint with the IDs and omit loginMode.
                 ad_account_ids: Scope ad sync to multiple platform ad accounts (same platform support and id shapes as `adAccountId`). Repeat the param (`?adAccountIds=act_1&adAccountIds=act_2`) or comma-separate (`?adAccountIds=act_1,act_2`).
@@ -23673,6 +23702,7 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.connect.connect_ads(
+                identity_provider=identity_provider,
                 login_mode=login_mode,
                 permission_level=permission_level,
                 page_id=page_id,
@@ -28481,6 +28511,47 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Move participant to another campaign",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def creator_campaigns_move_campaign_participant(
+        campaign_id: str, participant_id: str, target_campaign_id: str
+    ) -> str:
+        """Move participant to another campaign
+
+        Moves a creator invited or joined into the wrong campaign to another campaign of the same
+        owner. The participant keeps its id, status and portal link, which now opens the target.
+
+        Posts that fit the target (platform accepted, published after it started) move with it.
+        Undecided posts that do not fit are rejected in this campaign with the reason; decided ones stay.
+
+        Answers 409 when the target is closed or full, the creator is already in it, the participant
+        was removed, or any money touched the participation (ledger entries, a payout batch or a
+        transfer). Money never moves between campaigns.
+
+        Fires `campaign_participant.removed` here and, for a creator who joined,
+        `campaign_participant.joined` on the target.
+
+        Args:
+            campaign_id: Campaign the participant is in now. (required)
+            participant_id: Participant ID. (required)
+            target_campaign_id: Campaign to move the participant to. Same owner, not closed. (required)"""
+        client = _get_client()
+        try:
+            response = client.creator_campaigns.move_campaign_participant(
+                campaign_id=campaign_id,
+                participant_id=participant_id,
+                target_campaign_id=target_campaign_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Resend campaign participant invite",
             readOnlyHint=False,
             destructiveHint=True,
@@ -29180,6 +29251,31 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Remove a connected account",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def creator_portal_remove_creator_account() -> str:
+        """Remove a connected account
+
+        Disconnects one of the creator's accounts. The account belongs to the creator, not to one campaign, so it stops
+        counting in every campaign of this brand they joined.
+
+        What its posts already earned stays: accrued, approved and paid amounts are not touched.
+
+        Refused while a post from the account is still counting views, because those views are read through the
+        account. It can be removed once their tracking ends."""
+        client = _get_client()
+        try:
+            response = client.creator_portal.remove_creator_account()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List a creator's earnings history",
             readOnlyHint=True,
             destructiveHint=False,
@@ -29487,7 +29583,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: (required)
             webhook_username: Custom display name for the webhook (1-80 chars). Empty string resets to default ("Zernio"). Cannot contain "clyde" or "discord".
-            webhook_avatar_url: Custom avatar URL. Empty string resets to default bot avatar.
+            webhook_avatar_url: Custom avatar URL. Empty string resets to default bot avatar. Zernio upload URLs (temp/) are copied to permanent storage; an expired one returns 400.
             channel_id: Switch to a different channel in the same guild. Must be a text (0), announcement (5), or forum (15) channel."""
         client = _get_client()
         try:
@@ -41375,40 +41471,6 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
 
-    # TOOLS
-
-    @mcp.tool(
-        annotations=ToolAnnotations(
-            title="Download a TikTok video",
-            readOnlyHint=True,
-            destructiveHint=False,
-            openWorldHint=False,
-        )
-    )
-    def tools_download_tik_tok_video(
-        url: str,
-        action: Literal["download", "formats"] = "download",
-        format_id: str | None = None,
-    ) -> str:
-        """Download a TikTok video
-
-        Get a download URL or list available formats for a TikTok video. Requires Tools API access and uses the Tools API rate limit. Provider gateway failures and provider-side access blocks return 503; an unavailable video returns 404.
-
-        Platforms: tiktok
-
-        Args:
-            url: TikTok video URL or numeric video ID. (required)
-            action: Return a download URL or the available formats.
-            format_id: Format ID from the formats response. Omit to select the first available format."""
-        client = _get_client()
-        try:
-            response = client.tools.download_tik_tok_video(
-                url=url, action=action, format_id=format_id
-            )
-            return _format_response(response)
-        except Exception as e:
-            raise ToolError(f"Error: {e}") from e
-
     # TRACKING_TAGS
 
     @mcp.tool(
@@ -42669,21 +42731,19 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create a top-up
 
-        Charges the billing owner's saved card (the default one, or `paymentMethodId`) for `amountCents` while the payer is present.
+        Charges the billing owner's saved card (the default one, or `paymentMethodId`) `amountCents` plus the card fee, while the payer is present, and credits your balance what Stripe delivers.
 
-        - `status: succeeded`: the card was charged. The top-up is credited to `availableCents` within seconds, net of Stripe's processing fee. Transfers to payees can use it from 7 days after the charge.
-        - `status: requires_action`: the bank asked for 3D Secure. Complete it with Stripe.js `handleNextAction({ clientSecret })`, then call `POST /v1/balance/top-ups/{topupId}/confirm`. One left unconfirmed is cancelled after 30 minutes.
+        The card fee is Stripe's own rate for the card, learned from its past charges (`GET /v1/balance/top-ups/card-fee` answers it).
 
-        ### Errors
+        - When `feeIsExact` is true you receive exactly `amountCents`.
+        - When it is false (the first top-up on a card issued in the EEA, or Link, where Stripe prices by card product) the fee is the highest rate for the card's region.
+        - You then receive at least `amountCents`: if Stripe charges less, the difference is added to your balance.
 
-        - 402 `payment_required`: no saved card.
-        - 402 `card_declined`: the bank's reason.
-        - 400: `method: bank_transfer` (bank transfers are not available yet).
-
-        Needs an owner, admin or billing admin, signed in or through a full-access key they created.
+        - `status: succeeded`: the card was charged. What Stripe delivered is credited to `availableCents` within seconds. Transfers to payees can use it from 7 days after the charge.
+        - `status: requires_action`: the bank asked for 3D Secure. Complete it with Stripe.js `handleNextAction({ clientSecret })`, then call `POST ...
 
         Args:
-            amount_cents: Amount in cents, minimum $10 (required)
+            amount_cents: Amount to credit to your balance, in cents: $10 to $100,000. The card fee is charged on top. (required)
             method: Only card is available. bank_transfer returns 400 "Bank transfers are not available yet." (required)
             payment_method_id: A saved card of the billing owner's (`pm_...`). Defaults to the default payment method."""
         client = _get_client()
@@ -42714,6 +42774,36 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.treasury.list_topups(limit=limit, skip=skip)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get the card fee for a top-up",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def treasury_get_topup_card_fee(payment_method_id: str | None = None) -> str:
+        """Get the card fee for a top-up
+
+        The card fee a top-up on the billing owner's saved card pays: `feeBps` of the charge plus `fixedCents`. The card is charged the smallest amount that leaves `amountCents` once Stripe takes `round_half_up(charge * feeBps / 10000) + fixedCents`.
+
+        The rate is Stripe's own for the card, learned from its past charges.
+
+        `feeIsExact` is false for a card Zernio has not charged yet whose region Stripe prices by card product (EEA) or whose country is unknown (Link). The rate is then that region's highest, and the top-up credits at least the amount.
+
+        Needs an owner, admin or billing admin, signed in or through a full-access key they created.
+
+        Args:
+            payment_method_id: A saved card of the billing owner's (`pm_...`). Defaults to the default payment method."""
+        client = _get_client()
+        try:
+            response = client.treasury.get_topup_card_fee(
+                payment_method_id=payment_method_id
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -44031,6 +44121,7 @@ def register_generated_tools(mcp, _get_client):
     def voice_get_voice_call_estimate(
         to: str,
         from_: str | None = None,
+        forward_to: str | None = None,
         minutes: int = 1,
         recording: bool | None = None,
         transcription: bool | None = None,
@@ -44039,13 +44130,14 @@ def register_generated_tools(mcp, _get_client):
 
         Pre-call cost estimate for a PSTN call: the carrier leg plus optional recording and transcription add-ons.
 
-        It uses the same billing formula as the post-call invoice, so the quote and the final charge can't disagree. The per-minute figure is deliberately conservative (the real cost comes from the settled carrier record after the call), so estimates trend slightly over the actual invoice.
+        It uses the same billing formula as the post-call invoice, so the quote and the final charge can't disagree. The carrier figure follows the carrier's per-destination rate card: a call dialed from a number in the destination country uses the local mobile rate, and a `tel:` forward destination is quoted as a second carrier leg billed from the same number. The real cost comes from the settled carrier record after the call.
 
         Parity endpoint of `GET /v1/whatsapp/calls/estimate`, minus the Meta line. PSTN calls have no separate Meta bill, so `totalCostUSD` equals `billableCostUSD`.
 
         Args:
             to: Destination number, E.164 (leading + optional). (required)
             from_: The number the call would dial from, E.164. When it is verified on a Branded Calling identity and `to` is a US number, the estimate includes the per-call Branded Calling surcharge.
+            forward_to: Destination the call bridges to: `tel:+E164`, `sip:...` or `wss://...`. Defaults to the dialing number's configured forward. A `tel:` destination adds a second carrier leg to the quote. Encode the `+` as `%2B`.
             minutes
             recording
             transcription"""
@@ -44054,6 +44146,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.voice.get_voice_call_estimate(
                 to=to,
                 from_=from_,
+                forward_to=forward_to,
                 minutes=minutes,
                 recording=recording,
                 transcription=transcription,

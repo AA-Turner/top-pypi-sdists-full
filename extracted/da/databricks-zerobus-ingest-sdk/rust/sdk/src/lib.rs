@@ -34,11 +34,24 @@
 #[cfg(feature = "avro")]
 use std::sync::Arc;
 
-pub mod databricks {
-    pub mod zerobus {
-        include!(concat!(env!("OUT_DIR"), "/databricks.zerobus.rs"));
+#[allow(dead_code, clippy::enum_variant_names)]
+mod proto {
+    pub mod databricks {
+        pub mod zerobus {
+            include!(concat!(env!("OUT_DIR"), "/databricks.zerobus.rs"));
+        }
     }
 }
+use proto::databricks;
+
+/// The generated wire-protocol module is private. Stable rustdoc doesn't check
+/// the pinned error code; nightly does.
+///
+/// ```compile_fail,E0603
+/// use databricks_zerobus_ingest_sdk::databricks;
+/// ```
+#[cfg(doctest)]
+struct GeneratedProtoIsPrivate;
 
 mod builder;
 mod callbacks;
@@ -46,6 +59,7 @@ mod client_warnings;
 mod default_token_factory;
 mod dynamic_proto;
 mod errors;
+mod grpc_status;
 mod headers_provider;
 mod landing_zone;
 mod multiplexed_stream;
@@ -76,12 +90,15 @@ pub use dynamic_proto::{
     MessageDescriptor, Value,
 };
 pub use errors::{SchemaValidationCause, ZerobusError};
+pub use grpc_status::{GrpcCode, GrpcStatus};
 #[cfg(feature = "testing")]
 pub use headers_provider::NoAuthHeadersProvider;
 pub use headers_provider::{
     FederatedTokenProvider, HeadersProvider, IdpTokenCallback, IdpTokenSupplier,
     OAuthHeadersProvider,
 };
+#[cfg(feature = "arrow-flight")]
+pub use multiplexed_stream::MultiplexedArrowStream;
 pub use multiplexed_stream::{MessageId, MultiplexedStream};
 pub use offset_generator::{OffsetId, OffsetIdGenerator};
 #[cfg(feature = "eos")]
@@ -92,8 +109,8 @@ pub use record_types::PreparedInput;
 #[cfg(feature = "avro")]
 pub use record_types::{AvroBytes, AvroEncodedRecord, AvroRecord};
 pub use record_types::{
-    EncodedBatch, EncodedBatchIter, EncodedRecord, JsonEncodedRecord, JsonString, JsonValue,
-    ProtoBytes, ProtoEncodedRecord, ProtoMessage,
+    BatchRecords, BatchRecordsIntoIter, EncodedBatch, EncodedBatchIter, EncodedRecord,
+    JsonEncodedRecord, JsonString, JsonValue, ProtoBytes, ProtoEncodedRecord, ProtoMessage,
 };
 pub use sdk::{ZerobusSdk, DEFAULT_SDK_IDENTIFIER};
 #[cfg(feature = "arrow-flight")]
@@ -105,13 +122,13 @@ pub use stream::CallbackHandlerHarness;
 pub use stream::ZerobusStream;
 #[cfg(feature = "arrow-flight")]
 pub use stream::{
-    ArrowSchema, ArrowStreamConfigurationOptions, DataType, Field, RecordBatch, TimeUnit,
-    ZerobusArrowStream,
+    ArrowCompression, ArrowSchema, ArrowStreamConfigurationOptions, DataType, Field, RecordBatch,
+    TimeUnit, ZerobusArrowStream,
 };
-pub use stream_configuration::StreamConfigurationOptions;
+pub use stream_configuration::{RecordType, StreamConfigurationOptions};
 #[cfg(feature = "testing")]
 pub use tls_config::NoTlsConfig;
-pub use tls_config::{SecureTlsConfig, TlsConfig};
+pub use tls_config::{SecureTlsConfig, TlsConfig, TlsSettings};
 
 #[cfg(feature = "zeroparser")]
 pub mod zeroparser;
@@ -129,8 +146,9 @@ pub enum StreamType {
     Ephemeral,
     /// Persistent (Eos) streams are durable and recoverable: the server records
     /// the stream identity and its committed offset, so a client can reconnect
-    /// after a crash and resume with exactly-once delivery into Delta. Created
-    /// via `ZerobusSdk::persistent_stream_builder` behind the `eos` feature.
+    /// after a crash and continue from that offset. Created via
+    /// `ZerobusSdk::persistent_stream_builder` behind the `eos` feature. In
+    /// development: this API can change.
     Persistent,
 }
 

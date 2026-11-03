@@ -237,8 +237,10 @@ class _Waits:
                     status=exc.status, code=exc.code, body=exc.body, details=exc.details,
                     retry_after_s=exc.retry_after_s, request_id=exc.request_id, hint=exc.hint,
                 )) from exc
+
+
             self._say_queued(exc.queue_position, _queue_eta(exc), time.monotonic() - t_wait0,
-                             exc.details.get("reason"))
+                             exc.details.get("reason"), exc.hint)
 
             warn(f"queued for a seat (position {exc.queue_position}); waiting {wait:.0f}s before asking "
                  f"again ({wait_for.until() if wait_for.bounds_a_line else 'the line ends at the deployment' + chr(39) + 's queue_timeout_s'})")

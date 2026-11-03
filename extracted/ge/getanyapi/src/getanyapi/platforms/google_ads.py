@@ -129,12 +129,22 @@ class GoogleAdsAdDetailsData(BaseModel):
         description="Lower bound of the impressions range. Null when Google does not publish one for this creative.",
     )
     last_shown: str = Field(alias="lastShown", description="ISO 8601 date.")
+    regions: list[GoogleAdsAdDetailsRegion] = Field(
+        description="Regions where Google shows this creative. Empty when Google lists none."
+    )
     url: str | None = Field(
         default=None, description="Google Ads Transparency Center URL for the creative."
     )
     variations: list[GoogleAdsAdDetailsVariation] = Field(
         description="Populated whenever the provider has data for the entity."
     )
+
+
+class GoogleAdsAdDetailsRegion(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    code: str = Field(description="Two-letter region code, e.g. US.")
+    name: str = Field(description="Region name, e.g. United States.")
 
 
 class GoogleAdsAdDetailsVariation(BaseModel):
@@ -303,7 +313,7 @@ class GoogleAdsNamespace:
         Price: $0.0012 per request.
 
         Example:
-            res = client.google_ads.ad_details(url="https://adstransparency.google.com/advertiser/AR01614014350098432001/creative/CR10449491775734153217")
+            res = client.google_ads.ad_details(url="https://adstransparency.google.com/advertiser/AR13309761427309854721/creative/CR00826878176251609089")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "google_ads.ad_details", dict(input), options
@@ -384,9 +394,11 @@ class GoogleAdsNamespace:
     ) -> RunResult[GoogleAdsSearchData]:
         """Google Ads Transparency
 
-        Pull the ads an advertiser is currently running from the Google Ads
-        Transparency Center (creative details, formats, and run dates) as clean
-        JSON.
+        Pull the ads an advertiser is running from the Google Ads Transparency
+        Center (creative details, formats, run dates, and headline and text where
+        Google publishes them) as clean JSON. Each ad's detail page is read, so a
+        20-ad call can take a minute or more; many text ads come back only as an
+        image of the ad.
 
         Price: $0.00006 per request plus $0.00143 per result (maximum $0.0287).
 
@@ -420,7 +432,7 @@ class AsyncGoogleAdsNamespace:
         Price: $0.0012 per request.
 
         Example:
-            res = client.google_ads.ad_details(url="https://adstransparency.google.com/advertiser/AR01614014350098432001/creative/CR10449491775734153217")
+            res = client.google_ads.ad_details(url="https://adstransparency.google.com/advertiser/AR13309761427309854721/creative/CR00826878176251609089")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "google_ads.ad_details", dict(input), options
@@ -501,9 +513,11 @@ class AsyncGoogleAdsNamespace:
     ) -> RunResult[GoogleAdsSearchData]:
         """Google Ads Transparency
 
-        Pull the ads an advertiser is currently running from the Google Ads
-        Transparency Center (creative details, formats, and run dates) as clean
-        JSON.
+        Pull the ads an advertiser is running from the Google Ads Transparency
+        Center (creative details, formats, run dates, and headline and text where
+        Google publishes them) as clean JSON. Each ad's detail page is read, so a
+        20-ad call can take a minute or more; many text ads come back only as an
+        image of the ad.
 
         Price: $0.00006 per request plus $0.00143 per result (maximum $0.0287).
 

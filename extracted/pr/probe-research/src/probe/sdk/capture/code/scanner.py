@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from ....foundation.compat.compat import StrEnum
-from ....tap_core.secrets import Finding
+from ....foundation.transcripts.credential_scan.credential_scan import Finding
 from .scanners.patterns import PatternScanner
 from .scanners.quick import QuickScanner
 

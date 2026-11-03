@@ -268,7 +268,8 @@ def reference(m: Any) -> dict[str, np.ndarray]:
     for kind, n in (("body", m.nbody), ("joint", m.njnt), ("geom", m.ngeom), ("actuator", m.nu), ("camera", m.ncam),
                     ("light", m.nlight)):
         obj = getattr(mujoco.mjtObj, f"mjOBJ_{kind.upper()}")
-        ref[f"names.{kind}"] = np.array([mujoco.mj_id2name(m, obj, i) or f"#{i}" for i in range(n)], dtype=object)
+
+        ref[f"names.{kind}"] = np.array([mujoco.mj_id2name(m, obj, i) or f"#{i}" for i in range(n)], dtype=str)
     return ref
 
 
@@ -290,8 +291,34 @@ def flag_states(m: Any) -> dict[str, np.ndarray]:
     return out
 
 
-def model_diff(a: Any, b: Any, ignore: frozenset[str] | set[str] = frozenset()) -> list[str]:
-    """Every MjModel array / scalar and option that differs between two compiles in the same MuJoCo (exactly)."""
+
+
+SAVED_DIGITS = 6
+
+
+
+
+
+SAVED_RTOL = 10 * 0.5 * 10.0 ** (1 - SAVED_DIGITS)
+
+
+COMPILE_NOISE = 1e-12
+
+
+def _same(x: Any, y: Any, rtol: float) -> bool:
+    """Two arrays alike: exactly, or - `rtol`, a float field of a save compiled again - each element within rtol of
+    itself and COMPILE_NOISE of the field's largest value."""
+    x, y = np.asarray(x), np.asarray(y)
+    if rtol <= 0 or not (np.issubdtype(x.dtype, np.floating) and np.issubdtype(y.dtype, np.floating)):
+        return bool(np.array_equal(x, y, equal_nan=True))
+    finite = np.abs(x[np.isfinite(x)])
+    scale = float(finite.max()) if finite.size else 0.0
+    return bool(np.allclose(x, y, rtol=rtol, atol=COMPILE_NOISE * scale, equal_nan=True))
+
+
+def model_diff(a: Any, b: Any, ignore: frozenset[str] | set[str] = frozenset(), rtol: float = 0.0) -> list[str]:
+    """Every MjModel array / scalar and option that differs between two compiles in the same MuJoCo: exactly, or with
+    `rtol` - a model compiled again from its 6-digit save (SAVED_RTOL) - a float field within that of itself."""
     bad = []
     for f in dir(a):
         if f.startswith("_") or f in PATH_FIELDS or f in ignore:
@@ -301,13 +328,14 @@ def model_diff(a: Any, b: Any, ignore: frozenset[str] | set[str] = frozenset()) 
         except Exception:
             continue
         if isinstance(x, np.ndarray):
-            if not isinstance(y, np.ndarray) or x.shape != y.shape or not np.array_equal(x, y, equal_nan=True):
+            if not isinstance(y, np.ndarray) or x.shape != y.shape or not _same(x, y, rtol):
                 bad.append(f)
-        elif isinstance(x, (int, float, bytes)) and x != y:
+        elif isinstance(x, (int, float, bytes)) and not (x == y or isinstance(x, float) and isinstance(y, float)
+                                                         and _same(x, y, rtol)):
             bad.append(f)
     for f in dir(a.opt):
         if not f.startswith("_") and isinstance(getattr(a.opt, f), (int, float, np.ndarray)):
-            if not np.array_equal(getattr(a.opt, f), getattr(b.opt, f)):
+            if not _same(getattr(a.opt, f), getattr(b.opt, f), rtol):
                 bad.append(f"opt.{f}")
     return bad
 

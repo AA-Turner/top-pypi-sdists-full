@@ -9,9 +9,11 @@ import pydantic
 
 from inngest._internal import (
     client_lib,
+    deferred,
     errors,
     execution_lib,
     middleware_lib,
+    run_context,
     server_lib,
     types,
 )
@@ -169,7 +171,11 @@ class Function(typing.Generic[types.T]):
         if not execution_lib.is_function_handler_async(handler):
             raise errors.UnreachableError("handler is not async")
 
-        with execution_lib.set_step_context(ctx.step):
+        with (
+            execution_lib.set_step_context(ctx.step),
+            # Bind for execution and its hooks, but not the response hooks below.
+            run_context.use_run(ctx, client),
+        ):
             call_res = await ctx.step._execution.run(
                 client,
                 ctx,
@@ -180,13 +186,13 @@ class Function(typing.Generic[types.T]):
 
         err = await middleware.transform_output(call_res)
         if isinstance(err, Exception):
-            return execution_lib.CallResult(err)
+            return deferred.attach(ctx, execution_lib.CallResult(err))
 
         err = await middleware.before_response()
         if isinstance(err, Exception):
-            return execution_lib.CallResult(err)
+            return deferred.attach(ctx, execution_lib.CallResult(err))
 
-        return call_res
+        return deferred.attach(ctx, call_res)
 
     def call_sync(
         self,
@@ -220,7 +226,11 @@ class Function(typing.Generic[types.T]):
         if not execution_lib.is_function_handler_sync(handler):
             raise errors.UnreachableError("handler is not sync")
 
-        with execution_lib.set_step_context(ctx.step):
+        with (
+            execution_lib.set_step_context(ctx.step),
+            # Bind for execution and its hooks, but not the response hooks below.
+            run_context.use_run(ctx, client),
+        ):
             # We don't need to pass a thread pool here because the sync handler
             # is not used by Connect.
             call_res = ctx.step._execution.run(
@@ -233,13 +243,13 @@ class Function(typing.Generic[types.T]):
 
         err = middleware.transform_output_sync(call_res)
         if isinstance(err, Exception):
-            return execution_lib.CallResult(err)
+            return deferred.attach(ctx, execution_lib.CallResult(err))
 
         err = middleware.before_response_sync()
         if isinstance(err, Exception):
-            return execution_lib.CallResult(err)
+            return deferred.attach(ctx, execution_lib.CallResult(err))
 
-        return call_res
+        return deferred.attach(ctx, call_res)
 
     def get_config(self, app_url: str) -> _Config:
         fn_id = self._opts.fully_qualified_id

@@ -167,6 +167,15 @@ class WorkspaceSource(StrEnum):
     PIN = "pin"  # the context's saved pin (`probe workspace use`, the setup wizard)
 
 
+class ProjectSource(StrEnum):
+    """Where `Settings.project` came from (`resolve`): a run opens in this session's
+    project ahead of a CONTEXT one, never ahead of the other two (`runs/home.py`)."""
+
+    EXPLICIT = "explicit"  # resolve(project=...)
+    ENV = "env"  # PROBE_PROJECT
+    CONTEXT = "context"  # the context's saved project (`probe project use`)
+
+
 #: Config path for the daemon's shell: never exists, so its `probe` has no key (`probe.daemon.shell.runner.minimal_env`).
 DAEMON_SHELL_CONFIG = "/nonexistent/probe-daemon-shell/config.json"
 
@@ -570,6 +579,8 @@ class Settings:
     workspace_limit: "WorkspaceLimit | None" = None
     #: Where `workspace` came from; only `resolve()` fills it (None: hand-built, never dropped).
     workspace_source: WorkspaceSource | None = None
+    #: Where `project` came from; only `resolve()` fills it (None: hand-built, read as explicit).
+    project_source: ProjectSource | None = None
 
 
 def resolve(
@@ -607,6 +618,12 @@ def resolve(
         (anchor.get(ID_KEY), WorkspaceSource.PIN),
     )
     workspace_source = next((source for value, source in sources if value), None)
+    projects = (
+        (project, ProjectSource.EXPLICIT),
+        (env.get(PROJECT_ENV), ProjectSource.ENV),
+        (anchor.get(PROJECT_KEY), ProjectSource.CONTEXT),
+    )
+    project, project_source = next(((value, source) for value, source in projects if value), (None, None))
     return Settings(
         # PROBE_BASE_URL must outrank the context file: hosted MCP pods set it
         # (deploy/mcp/k8s.yaml) to the in-cluster service, and a context outranking it would
@@ -627,9 +644,10 @@ def resolve(
         hmac_secret=(hmac_secret or env.get(HMAC_SECRET_ENV) or file.get(HMAC_SECRET_KEY)),
         # Ambient anchors are a convenience: an explicit flag or env var wins, so CI never depends on a developer's context.
         workspace=workspace or env.get(WORKSPACE_ENV) or env_limited or anchor.get(ID_KEY),
-        project=project or env.get(PROJECT_ENV) or anchor.get(PROJECT_KEY),
+        project=project,
         workspace_limit=limit,
         workspace_source=workspace_source,
+        project_source=project_source,
     )
 
 

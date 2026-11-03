@@ -9,6 +9,7 @@ DOCUMENTATION = """
     short_description: read vaulted file(s) contents
     description:
         - This lookup returns the contents from vaulted (or not) file(s) on the Ansible controller's file system.
+    positional: _terms
     options:
       _terms:
         description: path(s) of files to read
@@ -33,6 +34,7 @@ RETURN = """
 """
 
 from ansible.errors import AnsibleParserError
+from ansible.module_utils.secrets import register_secrets
 from ansible.plugins.lookup import LookupBase
 from ansible.utils.display import Display
 
@@ -57,5 +59,7 @@ class LookupModule(LookupBase):
                 ret.append(self._loader.get_text_file_contents(lookupfile))
             else:
                 raise AnsibleParserError('Unable to find file matching "%s" ' % term)
+
+        register_secrets(ret)
 
         return ret

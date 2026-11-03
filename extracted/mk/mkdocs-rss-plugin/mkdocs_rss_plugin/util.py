@@ -1,4 +1,4 @@
-#! python3  # noqa: E265
+#! python3
 
 # ############################################################################
 # ########## Libraries #############
@@ -15,7 +15,6 @@ from urllib.parse import urlencode, urlparse, urlunparse
 
 # 3rd party
 import markdown
-import urllib3
 from cachecontrol import CacheControl
 from cachecontrol.caches.file_cache import SeparateBodyFileCache
 from git import (
@@ -30,7 +29,11 @@ from mkdocs.plugins import get_plugin_logger
 from mkdocs.structure.pages import Page
 from mkdocs.utils import get_build_datetime
 from requests import Session
-from requests.exceptions import ConnectionError, HTTPError
+from requests.exceptions import (
+    ConnectionError as RequestsConnectionError,
+    HTTPError,
+    SSLError,
+)
 
 # package
 from mkdocs_rss_plugin.constants import (
@@ -48,12 +51,12 @@ from mkdocs_rss_plugin.integrations.theme_material_social_plugin import (
 from mkdocs_rss_plugin.models import MkdocsPageSubset, PageInformation, RssFeedBase
 from mkdocs_rss_plugin.timezoner import set_datetime_zoneinfo
 
+
 # ############################################################################
 # ########## Globals #############
 # ################################
 
 logger = get_plugin_logger(MKDOCS_LOGGER_NAME)
-urllib3.disable_warnings()  # disable warnings for unverified requests
 
 # ############################################################################
 # ########## Classes #############
@@ -401,10 +404,10 @@ class Util:
                     return tuple(in_page.meta.get("authors"))
             else:
                 logger.warning(
-                    "Type of authors value in page.meta (%s) is not valid. "
-                    "It should be str, list or tuple, not: %s."
-                    % in_page.file.abs_src_path,
-                    type(in_page.meta.get("authors")),
+                    "Type of authors value in page.meta "
+                    f"({in_page.file.abs_src_path}) is not valid. "
+                    "It should be str, list or tuple, "
+                    f"not: {type(in_page.meta.get('authors'))}."
                 )
                 return None
 
@@ -620,13 +623,19 @@ class Util:
             img_url = self.social_cards.get_social_card_url_for_page(
                 mkdocs_page=in_page
             )
-            if img_local_cache_path := self.social_cards.get_social_card_cache_path_for_page(
-                mkdocs_page=in_page
+            if (
+                img_local_cache_path
+                := self.social_cards.get_social_card_cache_path_for_page(
+                    mkdocs_page=in_page
+                )
             ):
                 img_length = img_local_cache_path.stat().st_size
                 img_type = guess_type(url=img_local_cache_path, strict=False)[0]
-            elif img_local_build_path := self.social_cards.get_social_card_build_path_for_page(
-                mkdocs_page=in_page
+            elif (
+                img_local_build_path
+                := self.social_cards.get_social_card_build_path_for_page(
+                    mkdocs_page=in_page
+                )
             ):
                 img_length = img_local_build_path.stat().st_size
                 img_type = guess_type(url=img_local_build_path, strict=False)[0]
@@ -690,12 +699,12 @@ class Util:
         http_method: str = "HEAD",
         attempt: int = 0,
         req_timeout: tuple[float, float] = (5, 30),
-        ssl_verify: bool = True,
     ) -> Optional[int]:
         """Retrieve length for remote images (starting with 'http').
 
         Firstly, it tries to perform a HEAD request and get the length from the headers. \
-        If it fails, it tries again with a GET and disabling SSL verification.
+        If it fails, it tries again with a GET. TLS certificate verification is always \
+        enforced: a TLS error is never retried.
 
         Args:
             image_url (str): image URL
@@ -704,8 +713,6 @@ class Util:
             attempt (int, optional): request tries counter. Defaults to 0.
             req_timeout (tuple[float, float], optional): (connect, read) timeout in \
                 secondes. Defaults to (5, 30).
-            ssl_verify (bool, optional): option to perform SSL verification or not.
-                Defaults to True.
 
         Returns:
             int | None: image length as int or None
@@ -724,19 +731,25 @@ class Util:
                 method=http_method,
                 timeout=req_timeout,
                 url=image_url,
-                verify=ssl_verify,
             )
             req_response.raise_for_status()
             img_length = req_response.headers.get("content-length")
-        except (ConnectionError, HTTPError) as err:
+        except SSLError as err:
+            # SSLError subclasses RequestsConnectionError: catch it first and never
+            # retry, a failed certificate check must not be worked around.
+            logger.info(
+                f"Remote image skipped: TLS verification failed for {image_url}. "
+                f"Trace: {err}"
+            )
+            return None
+        except (RequestsConnectionError, HTTPError) as err:
             logger.debug(
                 f"Remote image could not been reached: {image_url}. "
-                f"Trying again with {http_method} and disabling SSL verification. "
-                f"Attempt: {attempt}/2. Trace: {err}"
+                f"Trying again with GET. Attempt: {attempt}/2. Trace: {err}"
             )
             if attempt < 2:
                 return self.get_remote_image_length(
-                    image_url, http_method="GET", attempt=attempt, ssl_verify=False
+                    image_url, http_method="GET", attempt=attempt
                 )
             else:
                 logger.info(

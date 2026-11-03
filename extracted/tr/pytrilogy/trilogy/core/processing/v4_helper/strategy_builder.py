@@ -2676,8 +2676,8 @@ def _carry_planned_keys(
     environment: BuildEnvironment,
 ) -> None:
     """Widen each FINAL parent with the keys its own side of its planned
-    pairings holds, then with the expression relation members two parents
-    reach and none projects."""
+    pairings holds. An expression relation member two parents pair on is a
+    planned key, so it is carried with them."""
     if len(parents) <= 1:
         return
     for parent in parents:
@@ -2704,11 +2704,6 @@ def _carry_planned_keys(
                 and not parent.force_group
             ):
                 _widen_scan_chain(parent, concept)
-    mates = _unprojected_expression_mates(parents, environment)
-    if mates:
-        _carry_join_keys(
-            parents, _join_key_concepts(parents, environment, mates), environment
-        )
 
 
 def _project_planned_keys(
@@ -5242,7 +5237,10 @@ def _push_row_condition_before_group(
     node: StrategyNode,
     where: BuildWhereClause,
     environment: BuildEnvironment,
-) -> None:
+) -> bool:
+    """Filter the input rows of the aggregate `node` builds, when they carry
+    every row arg of `where`; a gate fed beside the rows (`count(x) by * > 1`
+    over a nested aggregate) is left to the FINAL WHERE."""
     current = node
     while isinstance(current, SelectNode) and len(current.parents) == 1:
         current = current.parents[0]
@@ -5257,16 +5255,10 @@ def _push_row_condition_before_group(
         for parent in current.parents
         for output in parent.output_concepts
     }
-    missing = [
-        arg.address
-        for arg in condition_row_args(where)
-        if arg.address not in parent_output_by_addr
-    ]
-    if missing:
-        raise ValueError(
-            f"[v4] planned to apply {where.conditional} before an aggregate, "
-            f"but its input rows do not carry {missing}. This is a planner bug."
-        )
+    if any(
+        arg.address not in parent_output_by_addr for arg in condition_row_args(where)
+    ):
+        return False
     parent_outputs = list(parent_output_by_addr.values())
     current.parents = [
         SelectNode(
@@ -5278,6 +5270,7 @@ def _push_row_condition_before_group(
         )
     ]
     current.rebuild_cache()
+    return True
 
 
 def _clear_groupmate_completed_partials(
@@ -5507,8 +5500,9 @@ def _assemble_sole_contributor(
             group_graph, attrs, gid, final_conditions, environment
         )
     ):
-        _push_row_condition_before_group(sole_node, final_conditions, environment)
-        final_already_applied = True
+        final_already_applied = _push_row_condition_before_group(
+            sole_node, final_conditions, environment
+        )
     # Same again for a feeder joining a region holder on its span (`select
     # name where status is null`: the condition scan carries `customer_id`,
     # the domain hides it), or on a column the holder carries beside its
@@ -5516,8 +5510,18 @@ def _assemble_sole_contributor(
     # strip. A feeder pairs on what its rows hold or can be widened to.
     relation_paired_feeders = False
     region_paired_feeders = False
+    gate_paired_feeders = False
     if final_conditions is not None and not final_already_applied:
         sole_avail = cover.holds(gid)
+        # a gate's producer pairs on its grain, which the dedup would strip
+        missing = [
+            c
+            for addr in filter_only_addrs - sole_avail
+            if (c := _concept_at(environment, addr)) is not None
+        ]
+        gate_paired_feeders = bool(
+            _gate_grain_keys(missing) & {o.address for o in sole_node.output_concepts}
+        )
         feeder_outs = [
             carries(attrs[feeder], frozenset(), frozenset(), environment)
             for feeder in _filter_arg_producers(
@@ -5530,7 +5534,12 @@ def _assemble_sole_contributor(
         region_paired_feeders = bool(spans) and any(
             outs & (spans | sole_avail) - mandatory_addresses for outs in feeder_outs
         )
-    if final_probe_args or relation_paired_feeders or region_paired_feeders:
+    if (
+        final_probe_args
+        or relation_paired_feeders
+        or region_paired_feeders
+        or gate_paired_feeders
+    ):
         conditioned = apply_final_conditions(sole_node, gid, cover.holds(gid))
         # The feeder join reads the probe at ITS OWN row grain (the fact
         # side of the relation), fanning the contributor out; the merge's

@@ -191,3 +191,36 @@ class ImportJobStall(StrEnum):
 
     WAITING_FOR_CONNECTION = "waiting_for_connection"
     WORKER_VANISHED = "worker_vanished"
+
+
+class PrivateUvOutcome(StrEnum):
+    """`updates.private_uv`'s `outcome`: an update found no `uv`, or only an older copy of Probe's
+    own, and tried to install the pinned one."""
+
+    INSTALLED = "installed"
+    FAILED = "failed"
+
+
+class PrivateUvReason(StrEnum):
+    """`updates.private_uv`'s `reason` when it failed: a closed set, never a host, path or URL
+    (an index URL can hold a token in its path). The detail stays in the machine's update.log."""
+
+    UNSUPPORTED_MACHINE = "unsupported_machine"
+    NO_WHEEL = "no_wheel"
+    NO_HASH = "no_hash"
+    UNPINNED = "unpinned"
+    #: The index lists a sha256 that is not pypi.org's (a mirror that rebuilt the wheel).
+    INDEX_HASH_NOT_PINNED = "index_hash_not_pinned"
+    #: The bytes downloaded are not the ones the index and pypi.org promised.
+    DOWNLOAD_HASH_MISMATCH = "download_hash_mismatch"
+    #: The index URL, a file URL it lists, or a redirect is not an https URL with a valid host
+    #: (plain http only to this machine).
+    BAD_INDEX_URL = "bad_index_url"
+    TOO_LARGE = "too_large"
+    HTTP_4XX = "http_4xx"
+    HTTP_5XX = "http_5xx"
+    NETWORK = "network"
+    EXTRACT_FAILED = "extract_failed"
+    BAD_VERSION = "bad_version"
+    TOML_UNREADABLE = "toml_unreadable"
+    OTHER = "other"

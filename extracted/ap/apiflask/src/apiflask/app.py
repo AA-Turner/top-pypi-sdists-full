@@ -6,17 +6,18 @@ import typing as t
 import warnings
 from functools import wraps
 
-from apispec import APISpec
-from apispec import BasePlugin
+from apispec import APISpec, BasePlugin
 from apispec.ext.marshmallow import MarshmallowPlugin
-from flask import Blueprint
-from flask import Flask
-from flask import has_request_context
-from flask import json
-from flask import jsonify
-from flask import render_template_string
-from flask import request
-from flask import url_for
+from flask import (
+    Blueprint,
+    Flask,
+    has_request_context,
+    json,
+    jsonify,
+    render_template_string,
+    request,
+    url_for,
+)
 from flask.config import ConfigAttribute
 from flask.wrappers import Response
 
@@ -31,39 +32,37 @@ with warnings.catch_warnings():
 
 from werkzeug.exceptions import HTTPException as WerkzeugHTTPException
 
-from .exceptions import HTTPError
-from .exceptions import _bad_schema_message
+from .exceptions import HTTPError, _bad_schema_message
 from .fields import Field
 from .helpers import get_reason_phrase
+from .openapi import (
+    default_bypassed_endpoints,
+    get_argument,
+    get_default_response,
+    get_operation_tags,
+    get_path_summary,
+    get_security_and_security_schemes,
+    get_tag,
+)
+from .openapi_adapters import OpenAPIHelper, extract_pydantic_defs, get_unique_schema_name
 from .route import route_patch
-from .schemas import Schema
-from .schemas import FileSchema
-from .schemas import EmptySchema
-from .schema_adapters import registry
-from .security import MultiAuth
-from .security import _AuthBase
-from .types import SecurityScheme
-from .types import ResponseReturnValueType, ResponsesType
-from .types import ViewFuncType
-from .types import ErrorCallbackType
-from .types import SpecCallbackType
-from .types import SchemaType
-from .types import HTTPAuthType
-from .types import TagsType
-from .types import OpenAPISchemaType
-from .openapi import default_bypassed_endpoints
-from .openapi import get_default_response
-from .openapi import get_tag
-from .openapi import get_operation_tags
-from .openapi import get_path_summary
-from .openapi import get_argument
-from .openapi import get_security_and_security_schemes
-from .openapi_adapters import get_unique_schema_name
-from .openapi_adapters import openapi_helper
-from .openapi_adapters import extract_pydantic_defs
-from .ui_templates import ui_templates
-from .ui_templates import swagger_ui_oauth2_redirect_template
 from .scaffold import APIScaffold
+from .schema_adapters import registry
+from .schemas import EmptySchema, FileSchema, Schema
+from .security import MultiAuth, _AuthBase
+from .types import (
+    ErrorCallbackType,
+    HTTPAuthType,
+    OpenAPISchemaType,
+    ResponseReturnValueType,
+    ResponsesType,
+    SchemaType,
+    SecurityScheme,
+    SpecCallbackType,
+    TagsType,
+    ViewFuncType,
+)
+from .ui_templates import swagger_ui_oauth2_redirect_template, ui_templates
 
 
 def _is_headers_schema_dict(headers: dict) -> bool:
@@ -105,7 +104,7 @@ class APIFlask(APIScaffold, Flask):
     Attributes:
         openapi_version: The version of OpenAPI Specification (openapi.openapi).
             This attribute can also be configured from the config with the
-            `OPENAPI_VERSION` configuration key. Defaults to `'3.0.3'`.
+            `OPENAPI_VERSION` configuration key. Defaults to `'3.1.0'`.
         servers: The servers information of the API (openapi.servers), accepts
             multiple server dicts. Example value:
 
@@ -823,7 +822,8 @@ class APIFlask(APIScaffold, Flask):
                     if auth is not None and auth not in self._auths:
                         _update_auth_info(auth)
 
-        # only base authentications have a schema, multiple authentication consists of base authentications # noqa: E501
+        # only base authentications have a schema, multiple authentication consists of base
+        # authentications
         base_auths = [auth for auth in self._auths if isinstance(auth, _AuthBase)]
         return [security_schema.name for security_schema in base_auths], [
             security_schema for security_schema in base_auths
@@ -866,6 +866,12 @@ class APIFlask(APIScaffold, Flask):
         if self.external_docs:
             kwargs['externalDocs'] = self.external_docs
 
+        # Use a version-aware OpenAPI helper for spec generation
+        openapi_helper = OpenAPIHelper(openapi_version=self.openapi_version)
+        # Ensure the Marshmallow plugin is initialized, to avoid a potential race condition
+        openapi_helper.get_marshmallow_plugin()
+        self._openapi_helper = openapi_helper
+
         # Keep marshmallow plugin for backwards compatibility
         try:
             self._ma_plugin: MarshmallowPlugin = MarshmallowPlugin(
@@ -880,7 +886,7 @@ class APIFlask(APIScaffold, Flask):
         spec: APISpec = APISpec(
             title=self.title,
             version=self.version,
-            openapi_version=self.config['OPENAPI_VERSION'],
+            openapi_version=self.openapi_version,
             plugins=spec_plugins,
             info=self._make_info(),
             tags=self._make_tags(),
@@ -904,8 +910,8 @@ class APIFlask(APIScaffold, Flask):
         auth_names, auth_schemes = self._collect_security_info()
         security, security_schemes = get_security_and_security_schemes(auth_names, auth_schemes)
 
-        if self.config['SECURITY_SCHEMES'] is not None:
-            security_schemes.update(self.config['SECURITY_SCHEMES'])
+        if self.security_schemes is not None:
+            security_schemes.update(self.security_schemes)
 
         for name, scheme in security_schemes.items():
             spec.components.security_scheme(name, scheme)
@@ -1007,7 +1013,7 @@ class APIFlask(APIScaffold, Flask):
                 for schema, location in view_func._spec.get('args', []):
                     try:
                         # Use schema_to_parameters for proper handling of different schema types
-                        schema_params = openapi_helper.schema_to_parameters(
+                        schema_params = self._openapi_helper.schema_to_parameters(
                             schema, location=location, spec=spec
                         )
                         parameters.extend(schema_params)
@@ -1403,7 +1409,7 @@ class APIFlask(APIScaffold, Flask):
                     spec.components.schema(schema_name, schema=schema_obj)
                 else:
                     # For other schema types (Pydantic, etc), convert to dict first
-                    schema_dict = openapi_helper.schema_to_json_schema(schema_obj)
+                    schema_dict = self._openapi_helper.schema_to_json_schema(schema_obj)
 
                     # Extract and register nested $defs (for Pydantic)
                     nested_defs = extract_pydantic_defs(schema_dict, schema_name)
@@ -1477,7 +1483,7 @@ class APIFlask(APIScaffold, Flask):
             if isinstance(base_schema, type):
                 # Convert schema class to instance, then to full JSON schema
                 # Use schema_to_json_schema to get complete schema with properties
-                base_schema_spec = openapi_helper.schema_to_json_schema(base_schema)
+                base_schema_spec = self._openapi_helper.schema_to_json_schema(base_schema)
             elif isinstance(base_schema, dict):
                 base_schema_spec = base_schema
             else:
@@ -1523,7 +1529,7 @@ class APIFlask(APIScaffold, Flask):
         *Version added: 3.1.2*
         """
         # Use openapi_helper to convert headers schema to parameters
-        header_params = openapi_helper.schema_to_parameters(
+        header_params = self._openapi_helper.schema_to_parameters(
             headers_schema, location='headers', spec=spec
         )
         headers = {header['name']: header for header in header_params}

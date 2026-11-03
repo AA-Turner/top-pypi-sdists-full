@@ -31,7 +31,7 @@ import json
 import os
 import subprocess
 import sys
-from contextlib import AbstractContextManager, ExitStack, contextmanager
+from contextlib import AbstractContextManager, ExitStack, contextmanager, suppress
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -41,6 +41,7 @@ from captain_hook.review.repo import resolve_repo_key
 from captain_hook.settings import resolve_state_dir
 from captain_hook.types import Event
 from captain_hook.util import reqenv
+from captain_hook.util.paths import resolve_claude_config_dir
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -52,6 +53,7 @@ if TYPE_CHECKING:
     from captain_hook.review.store import ReviewStore
 
 SPAWNED_ENV = "CAPT_HOOK_SPAWNED"
+PLUGIN_ROOT_ENV = "CLAUDE_CODE_PLUGIN_CACHE_DIR"
 BRAIN_TIER: TModel = "medium"
 BRAIN_ALLOWED_TOOLS = ("Read", "Grep", "Glob", "Write", "Edit", "Bash", "Skill", "Agent")
 DISPATCH_EVENTS = frozenset({Event.SessionStart, Event.SessionEnd, Event.Stop})
@@ -143,8 +145,18 @@ def sweep_dir() -> Path:
     return resolve_state_dir() / "review" / "sweeps"
 
 
-def sweep_key(cwd: str) -> str:
-    return hashlib.sha256(cwd.encode()).hexdigest()[:12]
+def sweep_key(directory: str) -> str:
+    return hashlib.sha256(directory.encode()).hexdigest()[:12]
+
+
+def directory_stamps(transcript: str) -> tuple[Path, Path]:
+    (stamps := sweep_dir()).mkdir(parents=True, exist_ok=True)
+    key = sweep_key(str(Path(transcript).parent))
+    return stamps / f"{key}.trigger", stamps / f"{key}.sweep"
+
+
+def fresh(stamp: Path, interval: timedelta) -> bool:
+    return stamp.exists() and datetime.now(UTC) - datetime.fromtimestamp(stamp.stat().st_mtime, tz=UTC) < interval
 
 
 def spawn_argv(transcript: str, cwd: str | None, *, sweep: bool = False, pending_fd: int | None = None) -> list[str]:
@@ -196,7 +208,7 @@ def payload_transcript(raw: bytes, *, label: str) -> tuple[str, str | None] | No
     return transcript, cwd if isinstance(cwd, str) else None
 
 
-def detach(argv: list[str], *, spawned: str, pass_fds: tuple[int, ...] = ()) -> None:
+def detach(argv: list[str], *, spawned: str, pass_fds: tuple[int, ...] = ()) -> bool:
     try:
         (log_path := review_log_path()).parent.mkdir(parents=True, exist_ok=True)
         with log_path.open("ab") as log:
@@ -212,12 +224,13 @@ def detach(argv: list[str], *, spawned: str, pass_fds: tuple[int, ...] = ()) -> 
             )
     except OSError:
         breadcrumb(f"detach failed: {spawned}")
-        return
+        return False
     breadcrumb(spawned)
     if _ADOPTER is not None:
         from captain_hook.review.settings import ReviewSettings
 
         _ADOPTER(child.pid, (ReviewSettings().spawn_deadline_seconds + LIFETIME_GRACE_SECONDS) * 1000)
+    return True
 
 
 def enrolled(cwd: str | None) -> bool:
@@ -272,7 +285,7 @@ def _claim_stamp(stamp: Path, window: timedelta) -> bool:
     return False
 
 
-def guard_and_spawn(raw: bytes, *, gate_enrollment: bool = False) -> None:
+def guard_and_spawn(raw: bytes, *, gate_enrollment: bool = False, session_start: bool = False) -> None:
     """Parses the SessionStart/SessionEnd hook payload and detaches the reviewer child.
 
     Every path returns normally so the wired hook always exits 0: a set
@@ -294,11 +307,18 @@ def guard_and_spawn(raw: bytes, *, gate_enrollment: bool = False) -> None:
     for that directory spawns nothing; while a pass runs, the next event queues
     exactly one follow-up child behind it.
 
+    A ``session_start`` pass also shares the ``Stop`` sweep's per-directory stamp: it spawns
+    only when no ``SessionStart`` pass or sweep started on that transcript directory
+    within ``sweep_interval_minutes``, and stamps the directory once its child is up.
+    A ``SessionEnd`` always spawns.
+
     Args:
         raw: The hook's stdin bytes, holding the SessionStart/SessionEnd JSON payload.
         gate_enrollment: Skip the spawn for a non-watched repo (native dispatch only).
+        session_start: Whether native dispatch is answering a ``SessionStart``, which shares the
+            per-directory sweep interval.
     """
-    from captain_hook.review.settings import ReviewPaths
+    from captain_hook.review.settings import ReviewAdmission
 
     if reqenv.getenv(SPAWNED_ENV):
         breadcrumb("review-run skip: CAPT_HOOK_SPAWNED set")
@@ -310,23 +330,37 @@ def guard_and_spawn(raw: bytes, *, gate_enrollment: bool = False) -> None:
     if (parsed := payload_transcript(raw, label="review-run")) is None:
         return
     transcript, cwd = parsed
+    admission = ReviewAdmission()
+    interval = timedelta(minutes=admission.sweep_interval_minutes)
     with ExitStack() as claim:
         try:
-            pending_fd = claim.enter_context(pending_claim(ReviewPaths().db_path, Path(transcript)))
+            pending_fd = claim.enter_context(pending_claim(admission.db_path, Path(transcript)))
         except OSError:
             breadcrumb("review-run skip: pending lock OSError")
             return
         if pending_fd is None:
             breadcrumb("review-run skip: a queued pass already covers this transcript directory")
             return
+        try:
+            stamp = directory_stamps(transcript)[1]
+            throttled = session_start and fresh(stamp, interval)
+        except OSError:
+            breadcrumb("review-run skip: stamp OSError")
+            return
+        if throttled:
+            breadcrumb("review-run skip: throttled")
+            return
         if gate_enrollment and not enrolled(cwd):
             breadcrumb("review-run skip: not watching")
             return
-        detach(
+        spawned = detach(
             spawn_argv(transcript, cwd, pending_fd=pending_fd),
             spawned=f"spawned {transcript}",
             pass_fds=(pending_fd,),
         )
+        if spawned and session_start:
+            with suppress(OSError):
+                stamp.touch()
 
 
 def guard_and_sweep(raw: bytes, *, gate_enrollment: bool = False) -> None:
@@ -334,12 +368,13 @@ def guard_and_sweep(raw: bytes, *, gate_enrollment: bool = False) -> None:
 
     Mirrors :func:`guard_and_spawn`'s skips (each breadcrumbed) and detach, plus a
     file-based, database-free throttle: every invocation that passes the skips
-    touches ``<key>.trigger`` under :func:`sweep_dir`, keyed by the payload cwd's
-    sha256, and a sweep spawns only when the matching ``<key>.sweep`` stamp is
-    older than ``sweep_interval_minutes`` (or absent). The stamp is claimed
-    atomically (:func:`_claim_stamp`) just before the detach, so a burst of Stop
-    events yields at most one sweep per interval, and native ``run Stop`` dispatch
-    collapses with a stale plugin's raw ``review sweep`` entry. The child runs
+    touches ``<key>.trigger`` under :func:`sweep_dir`, keyed by the sha256 of the
+    transcript's directory (the directory the sweep scans), and a sweep spawns only
+    when the matching ``<key>.sweep`` stamp is older than ``sweep_interval_minutes``
+    (or absent). The stamp is claimed atomically (:func:`_claim_stamp`) just before
+    the detach, so a burst of Stop events across every cwd sharing that directory
+    yields at most one sweep per interval, and native ``run Stop`` dispatch collapses
+    with a stale plugin's raw ``review sweep`` entry. The child runs
     ``review spawn --sweep``: scan, triage, and judge, but never PR sync or the
     working-copy-editing brain.
 
@@ -353,7 +388,7 @@ def guard_and_sweep(raw: bytes, *, gate_enrollment: bool = False) -> None:
         raw: The hook's stdin bytes, holding the Stop JSON payload.
         gate_enrollment: Skip the spawn for a non-watched repo (native dispatch only).
     """
-    from captain_hook.review.settings import ReviewSettings
+    from captain_hook.review.settings import ReviewAdmission
 
     if reqenv.getenv(SPAWNED_ENV):
         breadcrumb("sweep skip: CAPT_HOOK_SPAWNED set")
@@ -364,13 +399,11 @@ def guard_and_sweep(raw: bytes, *, gate_enrollment: bool = False) -> None:
     if (parsed := payload_transcript(raw, label="sweep")) is None:
         return
     transcript, cwd = parsed
-    interval = timedelta(minutes=ReviewSettings().sweep_interval_minutes)
-    key = sweep_key(cwd or "")
+    interval = timedelta(minutes=ReviewAdmission().sweep_interval_minutes)
     try:
-        (stamps := sweep_dir()).mkdir(parents=True, exist_ok=True)
-        (stamps / f"{key}.trigger").touch()
-        stamp = stamps / f"{key}.sweep"
-        if stamp.exists() and datetime.now(UTC) - datetime.fromtimestamp(stamp.stat().st_mtime, tz=UTC) < interval:
+        trigger, stamp = directory_stamps(transcript)
+        trigger.touch()
+        if fresh(stamp, interval):
             breadcrumb("sweep skip: throttled")
             return
     except OSError:
@@ -401,7 +434,7 @@ def dispatch_review(event_name: str, payload: dict[str, object]) -> None:
     if event_name == "Stop":
         guard_and_sweep(raw, gate_enrollment=True)
     else:
-        guard_and_spawn(raw, gate_enrollment=True)
+        guard_and_spawn(raw, gate_enrollment=True, session_start=event_name == "SessionStart")
 
 
 def brain_prompt(transcript: Path) -> str:
@@ -441,6 +474,10 @@ def brain_argv(*, max_turns: int, max_budget_usd: float) -> list[str]:
     ]
 
 
+def brain_plugin_root() -> Path:
+    return resolve_claude_config_dir() / "captain-hook" / "headless-plugins"
+
+
 def spawn_brain(transcript: Path, *, repo_root: Path, settings: ReviewSettings) -> BrainOutcome:
     """Runs the headless PR-drafting brain over the repo's eligible candidates.
 
@@ -452,7 +489,10 @@ def spawn_brain(transcript: Path, *, repo_root: Path, settings: ReviewSettings) 
     cannot interrupt this blocking call, so the brain carries its own wall-clock
     bound. The prompt carries the reviewer marker so the brain's own SessionEnd
     self-skips, and ``CAPT_HOOK_SPAWNED=1`` keeps its SessionEnd hook from
-    re-spawning the reviewer.
+    re-spawning the reviewer. The brain loads its one plugin through ``--plugin-dir``,
+    so ``CLAUDE_CODE_PLUGIN_CACHE_DIR`` points it at a private plugin root, and its
+    startup neither sweeps the shared plugin cache for orphans nor re-clones every
+    known marketplace.
 
     Args:
         transcript: The just-ended session's transcript, named in the prompt.
@@ -471,7 +511,7 @@ def spawn_brain(transcript: Path, *, repo_root: Path, settings: ReviewSettings) 
                 brain_argv(max_turns=settings.brain_max_turns, max_budget_usd=settings.brain_max_budget_usd),
                 input=brain_prompt(transcript).encode(),
                 cwd=repo_root,
-                env=reqenv.env_map() | {SPAWNED_ENV: "1"},
+                env=reqenv.env_map() | {SPAWNED_ENV: "1", PLUGIN_ROOT_ENV: str(brain_plugin_root())},
                 stdout=log,
                 stderr=log,
                 check=False,

@@ -1,7 +1,7 @@
 import asyncio
 import time
 from collections.abc import Callable
-from contextlib import AbstractContextManager, nullcontext
+from contextlib import AbstractContextManager, nullcontext, suppress
 from typing import Any
 
 from . import background_tasks, core, helpers
@@ -92,8 +92,17 @@ class Timer:
                     try:
                         start = time.time()
                         if self.active:
-                            self._current_invocation = asyncio.create_task(self._invoke_callback())
-                            await self._current_invocation
+                            # DEPRECATED: await the invocation directly in NiceGUI 4.0,
+                            # where run.io_bound and run.cpu_bound no longer swallow the cancellation
+                            invocation = self._current_invocation = asyncio.create_task(self._invoke_callback())
+                            try:
+                                await asyncio.shield(invocation)
+                            except asyncio.CancelledError:
+                                # the callback may swallow the cancellation, so re-raise it here
+                                invocation.cancel()
+                                with suppress(asyncio.CancelledError):
+                                    await invocation
+                                raise
                         dt = time.time() - start
                         await asyncio.sleep(self.interval - dt)
                     except asyncio.CancelledError:
@@ -110,7 +119,16 @@ class Timer:
                 assert self.callback is not None
                 result = self.callback()
                 if helpers.should_await(result):
-                    await result
+                    if isinstance(result, background_tasks._AwaitOnShutdown):  # pylint: disable=protected-access
+                        # NOTE: run protected work as a background task so teardown() awaits it instead of cancelling it
+                        # together with this timer, and shield it so that cancelling this invocation does not propagate;
+                        # the context is passed again because slot stacks are per task
+                        task = background_tasks.create(result, name=str(self.callback), context=self._get_context())
+                        self._current_invocation = task  # so that cancel(with_current_invocation=True) still reaches it
+                        with suppress(Exception):  # already handled in-context by the task
+                            await asyncio.shield(task)
+                    else:
+                        await result
             except Exception as e:
                 core.app.handle_exception(e)
 
@@ -126,3 +144,6 @@ class Timer:
 
     def _cleanup(self) -> None:
         self.callback = None
+        # NOTE: the element's deletion cancels the current invocation;
+        # a protected task that teardown() detached from this timer must survive that
+        self._current_invocation = None

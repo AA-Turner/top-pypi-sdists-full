@@ -1,9 +1,8 @@
 """Enum class kind and literal value kind: which class an enum is written as, and which values a ``Literal`` holds.
 
 Every input is an immutable fact passed by keyword, so the functions read nothing else. The adapters read the facts
-from the live objects and build the class through ``model/enum.py:_enum_class``:
-``parser/jsonschema.py:JsonSchemaParser._get_enum_model_class``,
-``parser/graphql.py:GraphQLParser.parse_enum_as_enum_class`` and ``parser/_passes/modules.py:extract_inherited_enum``.
+from the live objects and build the class through ``model/enum.py:_enum_class``; they are listed in
+``docs/architecture.md``.
 
 The rows named ``legacy-*`` keep today's output where the kind does not follow from the member values; a fix of that
 output deletes its row.
@@ -15,6 +14,7 @@ that enum a class.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from math import isnan
 from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, final
 
@@ -36,6 +36,7 @@ __all__ = [
     "holds_member_value",
     "is_literal_kind",
     "is_tag_kind",
+    "json_type",
     "keeps_member_value",
     "literal_value_kind",
 ]
@@ -288,6 +289,28 @@ def literal_value_kind(value: object, /) -> LiteralValueKind:
     if isinstance(value, str):
         return "str"
     return "other"
+
+
+_JSON_TYPES: Final[dict[LiteralValueKind, str]] = {
+    "none": "null",
+    "bool": "boolean",
+    "int": "integer",
+    "float": "number",
+    "str": "string",
+}
+
+
+def json_type(value: object, other: str | None = None) -> str:
+    """Return the JSON type of an enum or const value by its literal kind.
+
+    Any other value is ``other``, or by default a number when it is a Decimal, an object when it is a dict, and an
+    array otherwise.
+    """
+    if (found := _JSON_TYPES.get(literal_value_kind(value))) is not None:
+        return found
+    if other is not None:
+        return other
+    return "number" if isinstance(value, Decimal) else "object" if isinstance(value, dict) else "array"
 
 
 def is_literal_kind(kind: LiteralValueKind, /, *, bool_literals: bool = True) -> bool:

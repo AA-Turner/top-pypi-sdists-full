@@ -20,8 +20,12 @@ from inngest._internal import (
     function,
     middleware_lib,
     net,
+    run_context,
+    sandbox_lib,
+    scores,
     serializer_lib,
     server_lib,
+    sessions,
     types,
 )
 
@@ -40,6 +44,8 @@ RETRY_BASE_DELAY = 0.1  # 100ms in seconds
 
 class Inngest:
     middleware: list[middleware_lib.UninitializedMiddleware]
+    _sandboxes: sandbox_lib.Sandboxes | None
+    _sandboxes_sync: sandbox_lib.SandboxesSync | None
 
     @property
     def api_origin(self) -> str:
@@ -68,6 +74,32 @@ class Inngest:
     @property
     def app_version(self) -> str | None:
         return self._app_version
+
+    @property
+    def sandboxes(self) -> sandbox_lib.Sandboxes:
+        """
+        EXPERIMENTAL: Direct, non-durable access to sandboxes. Use
+        ctx.step.sandbox inside a function to run each operation as a durable
+        step.
+        """
+
+        if self._sandboxes is None:
+            self._sandboxes = sandbox_lib.Sandboxes(
+                sandbox_lib.SandboxTransport(self)
+            )
+        return self._sandboxes
+
+    @property
+    def sandboxes_sync(self) -> sandbox_lib.SandboxesSync:
+        """
+        EXPERIMENTAL: Synchronous version of sandboxes.
+        """
+
+        if self._sandboxes_sync is None:
+            self._sandboxes_sync = sandbox_lib.SandboxesSync(
+                sandbox_lib.SandboxTransportSync(self)
+            )
+        return self._sandboxes_sync
 
     def __init__(
         self,
@@ -149,6 +181,8 @@ class Inngest:
         self._event_api_origin = maybe_str
 
         self._serializer = serializer
+        self._sandboxes = None
+        self._sandboxes_sync = None
         self._http_client = net.AuthenticatedHTTPClient(
             env=self._env,
             signing_key=self._signing_key,
@@ -186,10 +220,19 @@ class Inngest:
 
         body = []
         for event in events:
-            d = event.to_dict()
+            # Send middleware may mutate metadata after Event validation. Check
+            # it before JSON serialization (which can turn non-finite IDs into
+            # null), using a shallow copy so payloads and callers are untouched.
+            try:
+                meta = sessions.normalize_meta(event.meta)
+            except ValueError as err:
+                return err
+            d = event.model_copy(update={"meta": meta}).to_dict()
             if isinstance(d, Exception):
                 return d
 
+            if meta is None:
+                d.pop("meta", None)
             if d.get("id") == "":
                 del d["id"]
             if d.get("ts") == 0:
@@ -385,6 +428,108 @@ class Inngest:
 
         return data
 
+    async def score(
+        self,
+        *,
+        name: str,
+        value: scores.ScoreValue,
+        run_id: str,
+        step_id: str | None = None,
+    ) -> None:
+        """
+        EXPERIMENTAL: Merge a score onto a run or step.
+
+        Provide run_id explicitly, including when scoring from a function.
+        Omit step_id to score the run itself.
+        """
+        scores.validate_score(name, value, run_id, step_id)
+        await scores.write(
+            self,
+            kind=f"inngest.score.{name}",
+            values={"value": value},
+            run_id=run_id,
+            step_id=step_id,
+        )
+
+    def score_sync(
+        self,
+        *,
+        name: str,
+        value: scores.ScoreValue,
+        run_id: str,
+        step_id: str | None = None,
+    ) -> None:
+        """EXPERIMENTAL: Synchronous version of score()."""
+        scores.validate_score(name, value, run_id, step_id)
+        scores.write_sync(
+            self,
+            kind=f"inngest.score.{name}",
+            values={"value": value},
+            run_id=run_id,
+            step_id=step_id,
+        )
+
+    async def score_experiment(
+        self,
+        *,
+        experiment: scores.ExperimentRef,
+        name: str,
+        value: scores.ScoreValue,
+        run_id: str,
+        step_id: str | None = None,
+    ) -> None:
+        """
+        EXPERIMENTAL: Attach attribution before a score on the same target.
+
+        Pass the original run_id for delayed scores and inside step callbacks.
+        The current experiment detail view surfaces run-scoped scores only.
+        Attribution and scoring are two non-atomic, retryable merge writes.
+        Each target supports one experiment assignment. A different assignment
+        can silently reattribute existing scores; conflicts are not detected.
+        """
+        scores.validate_score(name, value, run_id, step_id)
+        experiment = scores.ExperimentRef.model_validate(experiment)
+        await scores.write(
+            self,
+            kind="inngest.experiment",
+            values={
+                "name": experiment.experiment_name,
+                "variant": experiment.variant,
+            },
+            run_id=run_id,
+            step_id=step_id,
+        )
+        await self.score(name=name, value=value, run_id=run_id, step_id=step_id)
+
+    def score_experiment_sync(
+        self,
+        *,
+        experiment: scores.ExperimentRef,
+        name: str,
+        value: scores.ScoreValue,
+        run_id: str,
+        step_id: str | None = None,
+    ) -> None:
+        """
+        EXPERIMENTAL: Synchronous version of score_experiment().
+
+        Each target supports one experiment assignment. A different assignment
+        can silently reattribute existing scores; conflicts are not detected.
+        """
+        scores.validate_score(name, value, run_id, step_id)
+        experiment = scores.ExperimentRef.model_validate(experiment)
+        scores.write_sync(
+            self,
+            kind="inngest.experiment",
+            values={
+                "name": experiment.experiment_name,
+                "variant": experiment.variant,
+            },
+            run_id=run_id,
+            step_id=step_id,
+        )
+        self.score_sync(name=name, value=value, run_id=run_id, step_id=step_id)
+
     async def send(
         self,
         events: server_lib.Event | list[server_lib.Event],
@@ -397,14 +542,19 @@ class Inngest:
         Args:
         ----
             events: An event or list of events to send.
-            skip_middleware: Whether to skip middleware.
+            skip_middleware: Skip send middleware and automatic session inheritance. Step sends use this after preparing events and running middleware.
         """
 
-        if not isinstance(events, list):
-            events = [events]
-
+        events = events if isinstance(events, list) else [events]
         middleware = None
         if not skip_middleware:
+            # Step sends already stamped sessions and ran middleware. Stamping
+            # again could restore sessions that their middleware removed.
+            events = sessions.stamp_events(
+                events,
+                inherited_sessions=run_context.get_sessions(client=self),
+                preserve_existing_propagation=True,
+            )
             middleware = middleware_lib.MiddlewareManager.from_client(
                 self,
                 raw_request=None,
@@ -469,14 +619,19 @@ class Inngest:
         Args:
         ----
             events: An event or list of events to send.
-            skip_middleware: Whether to skip middleware.
+            skip_middleware: Skip send middleware and automatic session inheritance. Step sends use this after preparing events and running middleware.
         """
 
-        if not isinstance(events, list):
-            events = [events]
-
+        events = events if isinstance(events, list) else [events]
         middleware = None
         if not skip_middleware:
+            # Step sends already stamped sessions and ran middleware. Stamping
+            # again could restore sessions that their middleware removed.
+            events = sessions.stamp_events(
+                events,
+                inherited_sessions=run_context.get_sessions(client=self),
+                preserve_existing_propagation=True,
+            )
             middleware = middleware_lib.MiddlewareManager.from_client(
                 self,
                 raw_request=None,

@@ -6,7 +6,7 @@ import ssl
 import struct
 import time
 from collections.abc import Callable
-from typing import Any, Optional, TypeVar, Union, cast
+from typing import Any, TypeVar, cast
 
 from . import stun
 from .utils import random_transaction_id
@@ -68,8 +68,8 @@ class TurnClientMixin:
     def __init__(
         self,
         server: tuple[str, int],
-        username: Optional[str],
-        password: Optional[str],
+        username: str | None,
+        password: str | None,
         lifetime: int,
         channel_refresh_time: int,
     ) -> None:
@@ -83,14 +83,15 @@ class TurnClientMixin:
 
         self.channel_number = 0x4000
         self.channel_refresh_time = channel_refresh_time
-        self.integrity_key: Optional[bytes] = None
+        self.integrity_key: bytes | None = None
         self.lifetime = lifetime
-        self.nonce: Optional[bytes] = None
+        self.mapped_address: tuple[str, int] | None = None
+        self.nonce: bytes | None = None
         self.password = password
-        self.receiver: Optional[asyncio.DatagramProtocol] = None
-        self.realm: Optional[str] = None
-        self.refresh_task: Optional[asyncio.Task] = None
-        self.relayed_address: Optional[tuple[str, int]] = None
+        self.receiver: asyncio.DatagramProtocol | None = None
+        self.realm: str | None = None
+        self.refresh_task: asyncio.Task[None] | None = None
+        self.relayed_address: tuple[str, int] | None = None
         self.server = server
         self.transactions: dict[bytes, stun.Transaction] = {}
         self.username = username
@@ -117,18 +118,21 @@ class TurnClientMixin:
 
         time_to_expiry = response.attributes["LIFETIME"]
         self.relayed_address = response.attributes["XOR-RELAYED-ADDRESS"]
+
+        # The related address of the relayed candidate (RFC 8839 section 5.1).
+        self.mapped_address = response.attributes["XOR-MAPPED-ADDRESS"]
         logger.info(
             "TURN allocation created %s (expires in %d seconds)",
             self.relayed_address,
             time_to_expiry,
         )
 
-        # periodically refresh allocation
+        # Periodically refresh the allocation.
         self.refresh_task = asyncio.create_task(self.refresh(time_to_expiry))
 
         return self.relayed_address
 
-    def connection_lost(self, exc: Exception) -> None:
+    def connection_lost(self, exc: Exception | None) -> None:
         logger.debug("%s connection_lost(%s)", self, exc)
         if self.receiver is not None:
             self.receiver.connection_lost(exc)
@@ -137,7 +141,7 @@ class TurnClientMixin:
         logger.debug("%s connection_made(%s)", self, transport)
         self.transport = transport
 
-    def datagram_received(self, data: Union[bytes, str], addr: tuple[str, int]) -> None:
+    def datagram_received(self, data: bytes | str, addr: tuple[str, int]) -> None:
         data = cast(bytes, data)
 
         # demultiplex channel data
@@ -192,12 +196,18 @@ class TurnClientMixin:
         request.attributes["LIFETIME"] = 0
         try:
             await self.request_with_retry(request)
-        except stun.TransactionError:
-            # we do not care, we need to shutdown
-            pass
-
-        logger.info("TURN allocation deleted %s", self.relayed_address)
-        self.transport.close()
+        except stun.TransactionError as exc:
+            # Shut down anyway, the server frees the allocation once it expires
+            # (RFC 8656 section 6).
+            logger.info(
+                "TURN allocation deletion failed %s: %s", self.relayed_address, exc
+            )
+        else:
+            logger.info("TURN allocation deleted %s", self.relayed_address)
+        finally:
+            # Close the transport even if the deletion is cancelled, for instance
+            # when the event loop shuts down, otherwise its socket leaks.
+            self.transport.close()
 
     async def refresh(self, time_to_expiry: int) -> None:
         """
@@ -262,6 +272,8 @@ class TurnClientMixin:
                 self.nonce = e.response.attributes["NONCE"]
                 if error_code == 401:
                     self.realm = e.response.attributes["REALM"]
+                # The realm was either just received or is already known.
+                assert self.realm is not None
                 self.integrity_key = make_integrity_key(
                     self.username, self.realm, self.password
                 )
@@ -280,7 +292,7 @@ class TurnClientMixin:
         """
         # if a channel is being bound for the peer, wait
         if addr in self.peer_connect_waiters:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             waiter = loop.create_future()
             self.peer_connect_waiters[addr].append(waiter)
             await waiter
@@ -334,6 +346,8 @@ class TurnClientMixin:
         self._send(bytes(message))
 
     def __add_authentication(self, request: stun.Message) -> None:
+        # Authentication is only added once credentials are known.
+        assert self.integrity_key is not None
         request.attributes["USERNAME"] = self.username
         request.attributes["NONCE"] = self.nonce
         request.attributes["REALM"] = self.realm
@@ -368,7 +382,7 @@ class TurnClientUdpProtocol(TurnClientMixin, asyncio.DatagramProtocol):
         return "turn/udp"
 
 
-TurnClientProtocol = Union[TurnClientTcpProtocol, TurnClientUdpProtocol]
+TurnClientProtocol = TurnClientTcpProtocol | TurnClientUdpProtocol
 
 
 class TurnTransport:
@@ -377,9 +391,9 @@ class TurnTransport:
     """
 
     def __init__(self, inner_protocol: TurnClientProtocol) -> None:
-        self.__close_task: Optional[asyncio.Task[None]] = None
+        self.__close_task: asyncio.Task[None] | None = None
         self.__inner_protocol = inner_protocol
-        self.__relayed_address: Optional[tuple[str, int]] = None
+        self.__relayed_address: tuple[str, int] | None = None
         self.__send_tasks: set[asyncio.Task[None]] = set()
 
     def close(self) -> None:
@@ -399,11 +413,11 @@ class TurnTransport:
         """
         Return optional transport information.
 
-        - `'related_address'`: the related address
+        - `'related_address'`: the mapped address in the Allocate response
         - `'sockname'`: the relayed address
         """
         if name == "related_address":
-            return self.__inner_protocol.transport.get_extra_info("sockname")
+            return self.__inner_protocol.mapped_address
         elif name == "sockname":
             return self.__relayed_address
         return default
@@ -449,17 +463,17 @@ class TurnTransport:
 async def create_turn_endpoint(
     protocol_factory: Callable[[], _ProtocolT],
     server_addr: tuple[str, int],
-    username: Optional[str],
-    password: Optional[str],
+    username: str | None,
+    password: str | None,
     lifetime: int = DEFAULT_ALLOCATION_LIFETIME,
     channel_refresh_time: int = DEFAULT_CHANNEL_REFRESH_TIME,
-    ssl: Optional[Union[bool, ssl.SSLContext]] = None,
+    ssl: bool | ssl.SSLContext | None = None,
     transport: str = "udp",
 ) -> tuple[TurnTransport, _ProtocolT]:
     """
     Create datagram connection relayed over TURN.
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     inner_protocol: TurnClientProtocol
     inner_transport: asyncio.BaseTransport
     if transport == "tcp":

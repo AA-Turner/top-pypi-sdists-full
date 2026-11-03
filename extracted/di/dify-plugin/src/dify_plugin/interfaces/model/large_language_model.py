@@ -1,9 +1,9 @@
 import inspect
 import logging
-import re
 import time
 from abc import abstractmethod
 from collections.abc import Generator, Mapping
+from contextlib import closing
 from typing import Literal
 
 from pydantic import ConfigDict, JsonValue
@@ -32,6 +32,7 @@ from dify_plugin.entities.model.message import (
     SystemPromptMessage,
     UserPromptMessage,
 )
+from dify_plugin.errors.model import InvokeError
 from dify_plugin.interfaces.model.ai_model import AIModel
 
 logger = logging.getLogger(__name__)
@@ -139,8 +140,13 @@ class LargeLanguageModel(AIModel):
     ############################################################
 
     def enforce_stop_tokens(self, text: str, stop: list[str]) -> str:
-        """Cut off the text as soon as any stop words occur."""
-        return re.split("|".join(stop), text, maxsplit=1)[0]
+        """Cut off text at the earliest literal stop sequence."""
+        stop_at = len(text)
+        for token in stop:
+            position = text.find(token)
+            if 0 <= position < stop_at:
+                stop_at = position
+        return text[:stop_at]
 
     def get_parameter_rules(self, model: str, credentials: dict) -> list[ParameterRule]:
         """Get parameter rules
@@ -549,21 +555,32 @@ class LargeLanguageModel(AIModel):
                 yield first_chunk
                 yield from response
 
+            processor = self._code_block_mode_stream_processor
             if (
                 first_chunk.delta.message.content
                 and isinstance(first_chunk.delta.message.content, str)
                 and first_chunk.delta.message.content.startswith("`")
             ):
-                return self._code_block_mode_stream_processor_with_backtick(
+                processor = self._code_block_mode_stream_processor_with_backtick
+            try:
+                processed_response = processor(
                     model=model,
                     prompt_messages=prompt_messages,
                     input_generator=new_generator(),
                 )
-            return self._code_block_mode_stream_processor(
-                model=model,
-                prompt_messages=prompt_messages,
-                input_generator=new_generator(),
-            )
+            except BaseException:
+                response.close()
+                raise
+
+            def process_response() -> Generator[LLMResultChunk, None, None]:
+                with closing(response):
+                    yield first_chunk
+                    yield from processed_response
+
+            result = process_response()
+            # Activate cleanup without consuming another provider chunk.
+            next(result)
+            return result
 
         return response
 
@@ -841,6 +858,9 @@ class LargeLanguageModel(AIModel):
 
         Yields:
             Generated values.
+
+        Raises:
+            InvokeError: If invoking the model or reading its response fails.
         """
         # validate and filter model parameters
         if model_parameters is None:
@@ -853,39 +873,30 @@ class LargeLanguageModel(AIModel):
         )
 
         with self.timing_context():
+            invoke = (
+                self._code_block_mode_wrapper
+                if "response_format" in model_parameters
+                and model_parameters["response_format"] in STRUCTURED_RESPONSE_FORMATS
+                else self._invoke
+            )
             try:
-                if (
-                    "response_format" in model_parameters
-                    and model_parameters["response_format"]
-                    in STRUCTURED_RESPONSE_FORMATS
-                ):
-                    result = self._code_block_mode_wrapper(
-                        model=model,
-                        credentials=credentials,
-                        prompt_messages=prompt_messages,
-                        model_parameters=model_parameters,
-                        tools=tools,
-                        stop=stop,
-                        stream=stream,
-                        user=user,
-                    )
+                result = invoke(
+                    model=model,
+                    credentials=credentials,
+                    prompt_messages=prompt_messages,
+                    model_parameters=model_parameters,
+                    tools=tools,
+                    stop=stop,
+                    stream=stream,
+                    user=user,
+                )
+                if isinstance(result, LLMResult):
+                    yield result.to_llm_result_chunk()
                 else:
-                    result = self._invoke(
-                        model,
-                        credentials,
-                        prompt_messages,
-                        model_parameters,
-                        tools,
-                        stop,
-                        stream,
-                        user,
-                    )
+                    # NOTE: `yield from` cannot been replaced by `return`
+                    # because of `timing_context`
+                    yield from result
+            except InvokeError:
+                raise
             except Exception as e:
                 raise self._transform_invoke_error(e) from e
-
-            if isinstance(result, LLMResult):
-                yield result.to_llm_result_chunk()
-            else:
-                # NOTE: `yield from` cannot been replaced by `return`
-                # because of `timing_context`
-                yield from result

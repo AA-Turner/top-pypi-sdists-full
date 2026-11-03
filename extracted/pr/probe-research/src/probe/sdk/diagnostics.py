@@ -126,11 +126,27 @@ def _clip(value: Any, limit: int = MAX_TEXT_CHARS) -> str:
     return text[:limit] + f"...<+{len(text) - limit} chars>"
 
 
-def _is_ours(filename: str) -> bool:
+def _to_package_path(filename: str) -> str | None:
+    """`filename` inside the probe package (`cli/main.py`), or None for a frame not ours. A
+    compiled module (probe-research-cli) names its frames by build path, relative
+    (`probe/cli/main.py`): ours only when that module is compiled here, so a caller's own
+    relative `probe/` frames stay theirs."""
     try:
-        return os.path.abspath(filename).startswith(_PKG_ROOT + os.sep)
+        if not os.path.isabs(filename):
+            head, _, rest = filename.replace("\\", "/").partition("/")
+            return rest if head == "probe" and rest.endswith(".py") and _is_compiled_here(rest) else None
+        path = os.path.abspath(filename)
+        return os.path.relpath(path, _PKG_ROOT) if path.startswith(_PKG_ROOT + os.sep) else None
     except Exception:
-        return False
+        return None
+
+
+def _is_compiled_here(rest: str) -> bool:
+    """Does the package hold an extension module for `rest` (`cli/main.py`: `cli/main.*.so`)?"""
+    folder, _, name = rest.rpartition("/")
+    stem = name[: -len(".py")] + "."
+    return any(other.startswith(stem) and other.endswith((".so", ".pyd"))
+               for other in os.listdir(os.path.join(_PKG_ROOT, *folder.split("/"))))
 
 
 def _frames(tb: Any) -> tuple[list[dict], int]:
@@ -161,24 +177,25 @@ def _frames(tb: Any) -> tuple[list[dict], int]:
         chosen = list(extracted)
         elided = 0
 
-    frames: list[dict] = []
-    for f in chosen:
-        if _is_ours(f.filename or ""):
-            frames.append(
-                {
-                    "probe": True,
-                    # Package-relative: the absolute path leaks the customer's
-                    # filesystem layout (usernames, cluster mount points) and
-                    # tells us nothing the relative path does not.
-                    "file": os.path.relpath(os.path.abspath(f.filename), _PKG_ROOT),
-                    "line": f.lineno,
-                    "func": f.name,
-                    "code": _clip(f.line or ""),
-                }
-            )
-        else:
-            frames.append({"probe": False})
-    return frames, elided
+    return [_to_frame(f) for f in chosen], elided
+
+
+def _to_frame(f: traceback.FrameSummary) -> dict:
+    """One frame: ours in full, a caller's as a placeholder."""
+    path = _to_package_path(f.filename or "")
+    if path is None:
+        return {"probe": False}
+    return {
+        "probe": True,
+        # Package-relative: the absolute path leaks the customer's filesystem layout
+        # (usernames, cluster mount points) and tells us nothing the relative path does not.
+        "file": path,
+        "line": f.lineno,
+        "func": f.name,
+        # A compiled frame has no source: a line linecache found for its relative name is
+        # some other file's (whatever `probe/...` sits on sys.path), never ours.
+        "code": _clip(f.line or "") if os.path.isabs(f.filename or "") else "",
+    }
 
 
 #: Exception types whose message is, by construction, a value out of the
@@ -477,6 +494,19 @@ def _swallow_budget(site: str) -> bool:
     return True
 
 
+def report_crash(exc: BaseException, **crash: Any) -> None:
+    """Emit one `$exception` for `exc` through `probe.analytics.report_crash` (`crash`: its surface,
+    base_url, handled, site) with this module's report; nothing while diagnostics are off. Never raises."""
+    try:
+        if disabled():
+            return
+        from probe import analytics as telemetry_mod
+
+        telemetry_mod.report_crash(exc, report=build_report(exc), **crash)
+    except Exception:
+        pass  # observability must never become observable
+
+
 def capture_swallowed(
     exc: BaseException,
     *,
@@ -530,7 +560,7 @@ def capture_swallowed(
         ):
             return False
         telemetry_mod.report_crash(
-            exc, surface=surface, base_url=base_url, handled=True, site=site
+            exc, surface=surface, report=build_report(exc), base_url=base_url, handled=True, site=site
         )
         return True
     except Exception:

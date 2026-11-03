@@ -133,6 +133,35 @@ class TestIntegrationHealthDto(unittest.TestCase):
                         availability = null, 
                         reason = '', )
                     ],
+                coverage = legit_api_client.models.integration_health_coverage_dto.IntegrationHealthCoverageDto(
+                    availability = null, 
+                    reason = '', 
+                    catalog_version = 56, 
+                    capabilities = [
+                        legit_api_client.models.integration_capability_coverage_dto.IntegrationCapabilityCoverageDto(
+                            capability = null, 
+                            group = null, 
+                            supported = True, 
+                            enabled = True, 
+                            in_scope = True, 
+                            access = null, 
+                            progress = null, 
+                            gaps = [
+                                legit_api_client.models.integration_coverage_gap_dto.IntegrationCoverageGapDto(
+                                    reason = null, 
+                                    evidence = '', 
+                                    verified_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                                    next_action = '', )
+                                ], )
+                        ], 
+                    permission_impact = [
+                        legit_api_client.models.integration_permission_impact_dto.IntegrationPermissionImpactDto(
+                            permission = '', 
+                            required_access = '', 
+                            affected_capabilities = [
+                                'Repositories'
+                                ], )
+                        ], ),
                 blockers = [
                     legit_api_client.models.integration_health_blocker_dto.IntegrationHealthBlockerDto(
                         code = null, 

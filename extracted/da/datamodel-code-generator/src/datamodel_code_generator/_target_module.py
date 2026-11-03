@@ -9,15 +9,22 @@ with the model generator's configured type class, so its union and collection op
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Final, TypeAlias
+from itertools import starmap
+from typing import TYPE_CHECKING, Any, Final, TypeAlias, get_args
 
+from datamodel_code_generator._free_names import first_free
 from datamodel_code_generator._openapi_codec_plan import artifact_module
+from datamodel_code_generator._python_syntax import aliased, from_import, module_import
 from datamodel_code_generator._target_contract import (
+    BuiltinName,
     BuiltinType,
     GeneratedSymbolType,
+    ImportedExpression,
     ImportedType,
+    LiteralScalar,
     ModelHint,
     NoneType,
+    SourceExpression,
     UnionType,
 )
 from datamodel_code_generator.imports import Import
@@ -25,25 +32,21 @@ from datamodel_code_generator.imports import Import
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from datamodel_code_generator._target_contract import GeneratedTypeContractBatch, HintText, SymbolId, TypeView
+    from typing_extensions import Self
+
+    from datamodel_code_generator._target_contract import (
+        GeneratedTypeContractBatch,
+        HintText,
+        SymbolId,
+        TypeArgument,
+        TypeView,
+    )
+    from datamodel_code_generator.config import GenerateConfig
     from datamodel_code_generator.types import DataType
 
 __all__ = ("TargetModule", "TypeComposer", "TypeNames")
 
-_BUILTINS: Final = (
-    "bool",
-    "bytes",
-    "complex",
-    "dict",
-    "float",
-    "frozenset",
-    "int",
-    "list",
-    "object",
-    "set",
-    "str",
-    "tuple",
-)
+_BUILTINS: Final = get_args(BuiltinName)
 _LOCAL: Final = (None, "")
 _FLAGS: Final[tuple[dict[str, Any], ...]] = tuple({flag: True} for flag in ("is_list", "is_set", "is_frozen_set"))
 _PART: Final = "\x01"
@@ -178,6 +181,11 @@ class TypeNames:
             dict.fromkeys(self.identity(item) for item in (*batch.hint_imports, *_written(batch.hint_type)))
         )
 
+    @classmethod
+    def of(cls, batch: GeneratedTypeContractBatch, model_config: GenerateConfig) -> Self:
+        """Return where a batch's models are imported from by `--use-exact-imports` and `--import-overrides`."""
+        return cls(batch, exact=bool(model_config.use_exact_imports), overrides=model_config.import_overrides)
+
     def identity(self, import_: Import) -> _Identity:
         """Return the module and name an import binds, after the import overrides."""
         return self.resolve(import_.from_, import_.import_)
@@ -241,10 +249,7 @@ class TargetModule:
     def _claim(self, identity: _Identity, preferred: str) -> str:
         if (bound := self.bound.get(identity)) is not None:
             return bound
-        name, count = preferred, 0
-        while self.taken.get(name, identity) != identity:
-            count += 1
-            name = f"{preferred}_{count}"
+        name, _ = first_free(preferred, lambda name: self.taken.get(name, identity) != identity, "underscore")
         self.taken[name] = identity
         self.bound[identity] = name
         return name
@@ -281,6 +286,20 @@ class TargetModule:
             if self.qualified
             else self._claim(identity, name)
         )
+
+    def argument(self, value: TypeArgument) -> str:
+        """Return the Python expression of a recorded literal or source expression."""
+        match value:
+            case LiteralScalar(kind="decimal"):
+                return f"{self.name('decimal', 'Decimal')}({str(value.value)!r})"
+            case LiteralScalar():
+                return repr(value.value)
+            case SourceExpression():
+                return value.text
+            case _:
+                pass
+        assert isinstance(value, ImportedExpression), "constraints and defaults hold scalars and expressions"
+        return f"{value.prefix}{self.imported(value.import_)}{value.suffix}"
 
     def symbol(self, symbol: SymbolId) -> str:
         """Return the spelling of a generated model: an attribute of its module, or its own name with exact imports.
@@ -374,8 +393,9 @@ class TargetModule:
         modules: list[str] = []
         grouped: dict[str, list[str]] = {}
         for (module, name), alias in sorted(self.bound.items(), key=lambda item: (item[0][0] or "", item[0][1])):
+            listed = name if alias == name else aliased(name, alias)
             if module is None:
-                modules.append(f"import {name}" if alias == name else f"import {name} as {alias}")
+                modules.append(module_import(listed))
             else:
-                grouped.setdefault(module, []).append(name if alias == name else f"{name} as {alias}")
-        return "\n".join((*modules, *(f"from {module} import {', '.join(names)}" for module, names in grouped.items())))
+                grouped.setdefault(module, []).append(listed)
+        return "\n".join((*modules, *starmap(from_import, grouped.items())))

@@ -1,7 +1,9 @@
 """
 `seq login`'s sign-in on this machine: the session the platform signed in for you, kept per
-platform address in the config directory's sequences/login.json (0600), refreshed through the platform when it is
-about to lapse, never printed.
+profile and platform address in the config directory's sequences/login.json (0600), refreshed through the platform
+when it is about to lapse, never printed. A profile is a name a sign-in is kept under: "default" unless `seq login
+--profile NAME` or `seq profile activate NAME` chose another, and SEQUENCES_PROFILE chooses for one process.
+
 
 In one sentence: `seq login` saves {access token, refresh token, when it lapses, your email} under the platform's
 address → a command with no key finds it (seq/_account.credential) → each request asks it for its token (`token()`),
@@ -17,6 +19,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Iterator
@@ -29,6 +32,9 @@ from sequence_ai.errors import AuthError, Unavailable, from_response
 PERSON_REFUSAL = "this needs you signed in: seq login - a key cannot make keys, pay or change the account"
 ENDED = "this sign-in has ended - run seq login"
 EARLY_S = 120
+PROFILE_ENV = "SEQUENCES_PROFILE"
+DEFAULT = "default"
+_NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
 
 
 def path() -> Path:
@@ -60,41 +66,107 @@ def _locked() -> Iterator[None]:
         os.close(fd)
 
 
-def _read() -> dict:
+def _load() -> dict:
+    """The whole file: {"version", "logins" (the default profile's), "profiles": {name: logins}, "active"}."""
     try:
         data = json.loads(path().read_text())
     except (OSError, ValueError):
         return {}
-    logins = data.get("logins") if isinstance(data, dict) else None
-    return logins if isinstance(logins, dict) else {}
+    return data if isinstance(data, dict) else {}
 
 
-def _write(logins: dict) -> None:
+def _store(data: dict) -> None:
     p = path()
     tmp = p.with_name(p.name + ".tmp")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as f:
-        json.dump({"version": 1, "logins": logins}, f)
+        json.dump({**data, "version": 1}, f)
     os.replace(tmp, p)
     with contextlib.suppress(OSError):
         os.chmod(p, 0o600)
+
+
+def _named(name: str) -> str:
+    if not isinstance(name, str) or not _NAME.match(name):
+        raise ValueError(f"{name!r} is no profile name: a lowercase letter or digit, then up to 39 of them, - or _")
+    return name
+
+
+def profile() -> str:
+    """The profile seq signs in as now: SEQUENCES_PROFILE for this process, else the one `seq profile activate` chose,
+    else "default"."""
+    env = (os.environ.get(PROFILE_ENV) or "").strip()
+    if env:
+        return _named(env)
+    active = _load().get("active")
+    return active if isinstance(active, str) and _NAME.match(active) else DEFAULT
+
+
+_current = profile
+
+
+def _read(name: str | None = None) -> dict:
+    """A profile's sign-ins by platform address (the current profile's by default)."""
+    data, name = _load(), name or profile()
+    got = data.get("logins") if name == DEFAULT else (data.get("profiles") or {}).get(name)
+    return got if isinstance(got, dict) else {}
+
+
+def _write(logins: dict, name: str | None = None) -> None:
+    data, name = _load(), name or profile()
+    if name == DEFAULT:
+        data["logins"] = logins
+    else:
+        profiles = dict(data.get("profiles") or {})
+        profiles[name] = logins
+        data["profiles"] = profiles
+    _store(data)
+
+
+def activate(name: str) -> None:
+    """`name` the profile every later seq signs in as (`seq profile activate`, `seq login --profile`)."""
+    name = _named(name)
+    with _locked():
+        _store({**_load(), "active": name})
+
+
+def profiles() -> list[tuple[str, dict]]:
+    """Every profile with its sign-ins by address, the default first, then the others by name - and the active one
+    among them, even signed in nowhere yet."""
+    data, active = _load(), profile()
+    names = [DEFAULT, *sorted(n for n in (data.get("profiles") or {}) if n != DEFAULT)]
+    if active not in names:
+        names.append(active)
+    return [(n, _read(n)) for n in names]
 
 
 def _key(base: str) -> str:
     return base.rstrip("/")
 
 
-def saved(base: str) -> dict | None:
-    """The sign-in kept for the platform at `base`, or None."""
-    entry = _read().get(_key(base))
+def saved(base: str, *, profile: str | None = None) -> dict | None:
+    """The sign-in kept for the platform at `base` in `profile` (the current one by default), or None."""
+    entry = _read(profile).get(_key(base))
     return entry if isinstance(entry, dict) and entry.get("refresh_token") else None
 
 
-def save(base: str, entry: dict) -> None:
+def save(base: str, entry: dict, *, profile: str | None = None) -> None:
+    name = _named(profile) if profile else _current()
     with _locked():
-        logins = _read()
+        logins = _read(name)
         logins[_key(base)] = entry
-        _write(logins)
+        _write(logins, name)
+
+
+def console(base: str) -> str | None:
+    """Where the console's pages are for the platform at `base` (its root, ending in /): as the page its sign-in was
+    confirmed on said (`seq login` keeps it), else production's console for production; None when neither says."""
+    root = (saved(base) or {}).get("console")
+    if isinstance(root, str) and root.startswith("https://"):
+        return root if root.endswith("/") else root + "/"
+    from sequence_ai._core.transport import DEFAULT_BASE_URL
+
+    return "https://app.generalsequences.com/" if _key(base) == _key(DEFAULT_BASE_URL) else None
 
 
 def keep(base: str, **fields: Any) -> None:
@@ -109,13 +181,15 @@ def keep(base: str, **fields: Any) -> None:
             _write(logins)
 
 
-def drop(base: str) -> dict | None:
-    """The sign-in kept for `base` removed from this machine; what it was, or None."""
+def drop(base: str, *, profile: str | None = None) -> dict | None:
+    """The sign-in kept for `base` in `profile` (the current one by default) removed from this machine; what it was, or
+    None."""
+    name = _named(profile) if profile else _current()
     with _locked():
-        logins = _read()
+        logins = _read(name)
         gone = logins.pop(_key(base), None)
         if gone is not None:
-            _write(logins)
+            _write(logins, name)
         return gone
 
 
@@ -154,36 +228,37 @@ def _fresh(entry: dict) -> bool:
 class Login:
     """You, signed in on this machine to the platform at `base`."""
 
-    def __init__(self, base: str) -> None:
+    def __init__(self, base: str, profile: str | None = None) -> None:
         self.base = _key(base)
+        self.profile = _named(profile) if profile else _current()
 
     @property
     def entry(self) -> dict:
-        return saved(self.base) or {}
+        return saved(self.base, profile=self.profile) or {}
 
     def token(self, *, force: bool = False) -> str:
         """The access token to send now - refreshed first when it has under EARLY_S left (or `force`). AuthError(ENDED)
         once the platform says the sign-in has ended; it is removed from this machine then."""
-        entry = saved(self.base)
+        entry = saved(self.base, profile=self.profile)
         if entry is None:
             raise AuthError(ENDED)
         if not force and _fresh(entry):
             return entry["access_token"]
         with _locked():
-            entry = _read().get(self.base)
+            entry = _read(self.profile).get(self.base)
             if not isinstance(entry, dict) or not entry.get("refresh_token"):
                 raise AuthError(ENDED)
             if not force and _fresh(entry):
                 return entry["access_token"]
             fresh = _refresh(self.base, entry["refresh_token"])
-            logins = _read()
+            logins = _read(self.profile)
             if fresh is None:
                 logins.pop(self.base, None)
-                _write(logins)
+                _write(logins, self.profile)
                 raise AuthError(ENDED)
             entry = {**entry, **fresh}
             logins[self.base] = entry
-            _write(logins)
+            _write(logins, self.profile)
             return entry["access_token"]
 
 

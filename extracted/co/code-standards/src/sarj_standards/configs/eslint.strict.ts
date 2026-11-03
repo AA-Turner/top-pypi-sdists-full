@@ -1534,6 +1534,7 @@ export function createConfig(options: ConfigOptions = {}): Linter.Config[] {
       "@sarj/no-redundant-local-alias": "warn",
       "@sarj/no-return-disposed-resource": "warn",
       "@sarj/no-test-comments": "warn",
+      "@sarj/no-frontend-comments": "warn",
       "@sarj/prefer-dependency-interface": "warn",
       "@sarj/prefer-test-fixture-reuse": "warn",
       "@sarj/production-derived-test-cases": "warn",
@@ -1572,7 +1573,7 @@ export function createConfig(options: ConfigOptions = {}): Linter.Config[] {
       "@sarj/prefer-immutable-module-constant": "error",
       "@sarj/require-fetch-timeout": "error",
       "@sarj/no-silent-promise-catch": "error",
-      "@sarj/no-server-file-uploads": "warn",
+      "@sarj/no-server-file-uploads": "error",
       "@sarj/enforce-file-structure": "error",
       "@sarj/prefer-semantic-colors": [
         "error",
@@ -2155,5 +2156,5 @@ export function createConfig(options: ConfigOptions = {}): Linter.Config[] {
   ] as unknown as Linter.Config[];
 }
 
-const config = createConfig();
+const config: Linter.Config[] = createConfig();
 export default config;

@@ -6,8 +6,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from meilisearch_python_sdk._utils import decode_jwt, encode_jwt
-from meilisearch_python_sdk.errors import (
+from meilisearch_python_sdk._utils import encode_jwt, process_params
+from meilisearch_python_sdk.json_handler import BuiltinHandler, OrjsonHandler
+from tests.conftest import (
     DecodeError,
     ExpiredSignatureError,
     ImmatureSignatureError,
@@ -15,8 +16,8 @@ from meilisearch_python_sdk.errors import (
     InvalidJTIError,
     InvalidSignatureError,
     InvalidSubjectError,
+    decode_jwt,
 )
-from meilisearch_python_sdk.json_handler import BuiltinHandler, OrjsonHandler
 
 
 def raw_token(payload_bytes, key, json_handler):
@@ -258,3 +259,18 @@ def test_jti_claim_with_invalid_int_value(json_handler):
     token = encode_jwt(payload=payload, key=secret, json_handler=json_handler)
     with pytest.raises(InvalidJTIError):
         decode_jwt(token=token, key=secret, json_handler=json_handler)
+
+
+@pytest.mark.parametrize(
+    "arg, key",
+    (
+        ("uids", "uids"),
+        ("batch_uids", "batchUids"),
+        ("index_uids", "indexUids"),
+        ("canceled_by", "canceledBy"),
+        ("statuses", "statuses"),
+        ("types", "types"),
+    ),
+)
+def test_process_params_empty_list_is_kept(arg, key):
+    assert process_params(**{arg: []}) == {key: ""}

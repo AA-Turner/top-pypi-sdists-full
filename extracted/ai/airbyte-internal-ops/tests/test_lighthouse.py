@@ -18,6 +18,21 @@ ORG_ID = "11111111-1111-1111-1111-111111111111"
 WORKSPACE_ID = "22222222-2222-2222-2222-222222222222"
 
 
+@pytest.mark.parametrize(
+    ("today", "expected"),
+    [
+        (
+            date(2026, 10, 26),
+            [date(2026, 10, 23), date(2026, 10, 24), date(2026, 10, 25)],
+        ),
+        (date(2026, 10, 27), [date(2026, 10, 26)]),
+        (date(2026, 10, 30), [date(2026, 10, 29)]),
+    ],
+)
+def test_default_fire_dates(today: date, expected: list[date]) -> None:
+    assert job.default_fire_dates(today) == expected
+
+
 def _connection(**overrides: Any) -> dict[str, Any]:
     return {
         "connection_id": "connection-1",
@@ -49,6 +64,44 @@ def _fire(trigger_type: str, **overrides: Any) -> dict[str, Any]:
         "connections": [_connection()],
         **overrides,
     }
+
+
+@pytest.mark.parametrize(
+    ("fire", "no_contact", "expected"),
+    [
+        (
+            _fire("biggest_off"),
+            False,
+            ["outreach", "lighthouse", "advance-to-layer2", "lighthouse_biggest_off"],
+        ),
+        (
+            _fire("top3_failing", is_personal_email=True),
+            False,
+            [
+                "outreach",
+                "lighthouse",
+                "advance-to-layer2",
+                "lighthouse_top3_failing",
+                "lighthouse_personal",
+            ],
+        ),
+        (
+            _fire("half_failing"),
+            True,
+            [
+                "outreach",
+                "lighthouse",
+                "advance-to-layer2",
+                "lighthouse_half_failing",
+                "lighthouse_no_contact",
+            ],
+        ),
+    ],
+)
+def test_ticket_tags_are_ordered(
+    fire: dict[str, Any], no_contact: bool, expected: list[str]
+) -> None:
+    assert job._ticket_tags(fire, no_contact=no_contact) == expected
 
 
 def test_prod_db_credentials_unavailable_without_default_credentials(
@@ -355,11 +408,18 @@ def test_dry_run_writes_plan_without_any_external_writes(
     )
     plan_path = tmp_path / "lighthouse_plan.json"
 
-    result = job.run_lighthouse(RUN_DATE, plan_path=plan_path)
+    result = job.run_lighthouse([RUN_DATE], plan_path=plan_path)
 
     assert not result.failed
     assert result.actions[0]["action"] == "create"
     assert result.actions[0]["status"] == "dry_run"
+    assert result.actions[0]["ticket_payload"]["tags"] == [
+        "outreach",
+        "lighthouse",
+        "advance-to-layer2",
+        "lighthouse_biggest_off",
+        "lighthouse_no_contact",
+    ]
     assert plan_path.exists()
     assert json.loads(plan_path.read_text())["actions"][0]["action"] == "create"
 
@@ -388,7 +448,7 @@ def test_plan_and_markdown_redact_admin_pii_only_when_serialized(
         ),
     )
 
-    result = job.run_lighthouse(RUN_DATE, plan_path=plan_path)
+    result = job.run_lighthouse([RUN_DATE], plan_path=plan_path)
 
     assert result.failed
     assert result.errors == ["Zendesk credentials unavailable (ZendeskAPIError)."]
@@ -409,7 +469,7 @@ def test_plan_and_markdown_redact_admin_pii_only_when_serialized(
         if row.startswith("| ") and "| biggest_off |" in row
     )
     requester_cells = [cell.strip() for cell in requester_row.split("|")]
-    assert requester_cells[7] == "example.com"
+    assert requester_cells[8] == "example.com"
     assert serialized_action["requester_email"] == "example.com"
     assert serialized_action["other_admin_emails"] == ["example.net"]
     assert "requester_name" not in serialized_action
@@ -433,9 +493,12 @@ def test_bigquery_failure_includes_exception_text(
     plan_path = tmp_path / "lighthouse_plan.json"
     monkeypatch.setattr(job, "query_fires", fail_query)
 
-    result = job.run_lighthouse(RUN_DATE, plan_path=plan_path)
+    result = job.run_lighthouse([RUN_DATE], plan_path=plan_path)
 
-    message = "BigQuery trigger query failed (Exception: Access Denied: Table x)."
+    message = (
+        f"BigQuery trigger query failed for {RUN_DATE.isoformat()} "
+        "(Exception: Access Denied: Table x)."
+    )
     assert result.errors == [message]
     assert message in caplog.text
     assert "Access Denied" in plan_path.read_text()
@@ -455,11 +518,61 @@ def test_bigquery_failure_truncates_exception_text(
         fail_query,
     )
 
-    result = job.run_lighthouse(RUN_DATE, plan_path=tmp_path / "plan.json")
+    result = job.run_lighthouse([RUN_DATE], plan_path=tmp_path / "plan.json")
 
     assert result.errors == [
-        f"BigQuery trigger query failed (Exception: {exception_text[:500]})."
+        f"BigQuery trigger query failed for {RUN_DATE.isoformat()} "
+        f"(Exception: {exception_text[:500]})."
     ]
+
+
+def test_bigquery_failure_keeps_fires_from_other_dates(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    friday = date(2026, 10, 30)
+    saturday = date(2026, 10, 31)
+    sunday = date(2026, 11, 1)
+    fires_by_date = {
+        friday: [_fire("biggest_off", fire_date=friday)],
+        sunday: [_fire("top3_failing", fire_date=sunday)],
+    }
+    queried_dates: list[date] = []
+    credentials = object()
+
+    def query_fires(fire_date: date) -> list[dict[str, Any]]:
+        queried_dates.append(fire_date)
+        if fire_date == saturday:
+            raise RuntimeError("temporary query error")
+        return fires_by_date[fire_date]
+
+    monkeypatch.setattr(job, "_prod_db_credentials_available", lambda: False)
+    monkeypatch.setattr(job, "query_fires", query_fires)
+    monkeypatch.setattr(job, "resolve_zendesk_credentials", lambda: credentials)
+    monkeypatch.setattr(job, "search", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        job, "find_organizations_by_airbyte_org_id", lambda *_args, **_kwargs: []
+    )
+    monkeypatch.setattr(
+        job, "list_tickets_by_external_id", lambda *_args, **_kwargs: []
+    )
+    monkeypatch.setattr(job, "get_current_user", lambda **_kwargs: {"name": "MoonBot"})
+    monkeypatch.setattr(job, "find_ticket_form_id", lambda *_args, **_kwargs: 1)
+
+    plan_path = tmp_path / "lighthouse_plan.json"
+    result = job.run_lighthouse(
+        [friday, saturday, sunday],
+        plan_path=plan_path,
+    )
+
+    assert queried_dates == [friday, saturday, sunday]
+    assert [action["fire_date"] for action in result.actions] == [friday, sunday]
+    assert [action["action"] for action in result.actions] == ["create", "create"]
+    assert result.failed
+    assert result.errors == [
+        "BigQuery trigger query failed for 2026-10-31 "
+        "(RuntimeError: temporary query error)."
+    ]
+    assert len(json.loads(plan_path.read_text())["actions"]) == 2
 
 
 def test_live_run_without_slack_token_does_not_change_tickets(
@@ -499,7 +612,7 @@ def test_live_run_without_slack_token_does_not_change_tickets(
         lambda *_args, **_kwargs: pytest.fail("ticket tagging must not run"),
     )
 
-    result = job.run_lighthouse(RUN_DATE, live=True, plan_path=tmp_path / "plan.json")
+    result = job.run_lighthouse([RUN_DATE], live=True, plan_path=tmp_path / "plan.json")
 
     assert result.failed
     assert result.actions[0]["action"] == "error"
@@ -566,7 +679,7 @@ def test_search_indexes_older_open_tickets_and_deduplicates_by_id(
         job, "find_organizations_by_airbyte_org_id", lambda *_args, **_kwargs: []
     )
 
-    result = job.run_lighthouse(RUN_DATE, plan_path=tmp_path / "plan.json")
+    result = job.run_lighthouse([RUN_DATE], plan_path=tmp_path / "plan.json")
 
     assert len(search_queries) == 2
     assert search_queries[1] == "type:ticket tags:lighthouse status<solved"
@@ -644,7 +757,7 @@ def test_second_trigger_notes_on_ticket_created_earlier_in_same_run(
         lambda _channel, text, *, token: posted.append((text, token)),
     )
 
-    result = job.run_lighthouse(RUN_DATE, live=True, plan_path=tmp_path / "plan.json")
+    result = job.run_lighthouse([RUN_DATE], live=True, plan_path=tmp_path / "plan.json")
 
     assert not result.failed
     assert [action["action"] for action in result.actions] == ["create", "note"]
@@ -652,10 +765,147 @@ def test_second_trigger_notes_on_ticket_created_earlier_in_same_run(
     assert len(notes) == 1
     assert notes[0][0] == 100
     assert "top3_failing" in notes[0][1]
-    assert tagged == [(100, ["lighthouse_top3_failing"])]
+    assert tagged == [(100, ["lighthouse_top3_failing", "advance-to-layer2"])]
+    assert tickets[0]["tags"] == [
+        "outreach",
+        "lighthouse",
+        "advance-to-layer2",
+        "lighthouse_biggest_off",
+        "lighthouse_no_contact",
+    ]
     assert len(posted) == 2
     assert [token for _, token in posted] == ["xoxb-test-hydra"] * 2
     assert "(added to open ticket)" in posted[1][0]
+
+
+def test_multi_date_run_shares_ticket_index_and_orders_fire_dates(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    friday = date(2026, 10, 23)
+    saturday = date(2026, 10, 24)
+    sunday = date(2026, 10, 25)
+    fire_friday = _fire("top3_failing", fire_date=friday)
+    fire_sunday = _fire("half_failing", fire_date=sunday)
+    fires_by_date = {
+        friday: [fire_friday],
+        saturday: [],
+        sunday: [fire_sunday],
+    }
+    queried_dates: list[date] = []
+    search_queries: list[str] = []
+    choose_dates: list[tuple[str, date]] = []
+    tickets: list[dict[str, Any]] = []
+    notes: list[tuple[Any, str]] = []
+    tagged: list[tuple[Any, list[str]]] = []
+    posted: list[tuple[str, str | None]] = []
+    credentials = type("Credentials", (), {"subdomain": "example"})()
+    original_choose_action = job.choose_action
+
+    def query_fires(fire_date: date) -> list[dict[str, Any]]:
+        queried_dates.append(fire_date)
+        return fires_by_date[fire_date]
+
+    def fake_search(query: str, **_kwargs: Any) -> list[dict[str, Any]]:
+        search_queries.append(query)
+        return []
+
+    def find_by_key(key: str, **_kwargs: Any) -> list[dict[str, Any]]:
+        return [ticket for ticket in tickets if ticket["external_id"] == key]
+
+    def create(payload: dict[str, Any], **_kwargs: Any) -> dict[str, Any]:
+        ticket = {**payload, "id": 100, "status": "new"}
+        tickets.append(ticket)
+        return ticket
+
+    def capture_choose(
+        fire: dict[str, Any],
+        *,
+        existing_for_key: list[dict[str, Any]],
+        indexed_tickets: list[dict[str, Any]],
+        run_date: date,
+    ) -> tuple[str, dict[str, Any] | None]:
+        choose_dates.append((fire["trigger_type"], run_date))
+        return original_choose_action(
+            fire,
+            existing_for_key=existing_for_key,
+            indexed_tickets=indexed_tickets,
+            run_date=run_date,
+        )
+
+    monkeypatch.setattr(job, "_prod_db_credentials_available", lambda: False)
+    monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("SLACK_BOT_TOKEN_HITL", raising=False)
+    monkeypatch.delenv("SLACK_BOT_TOKEN_AIRBYTE_TEAM", raising=False)
+    monkeypatch.setenv("SLACK_HYDRA_BOT_TOKEN", "xoxb-test-hydra")
+    monkeypatch.setattr(job, "query_fires", query_fires)
+    monkeypatch.setattr(job, "resolve_zendesk_credentials", lambda: credentials)
+    monkeypatch.setattr(job, "search", fake_search)
+    monkeypatch.setattr(job, "choose_action", capture_choose)
+    monkeypatch.setattr(
+        job,
+        "find_organizations_by_airbyte_org_id",
+        lambda *_args, **_kwargs: [{"id": 23, "name": "Zendesk Org"}],
+    )
+    monkeypatch.setattr(
+        job,
+        "get_current_user",
+        lambda **_kwargs: {"id": 99, "name": "MoonBot", "email": "moonbot@example.com"},
+    )
+    monkeypatch.setattr(job, "find_ticket_form_id", lambda *_args, **_kwargs: 45)
+    monkeypatch.setattr(job, "list_tickets_by_external_id", find_by_key)
+    monkeypatch.setattr(job, "create_ticket", create)
+    monkeypatch.setattr(
+        job,
+        "get_ticket_comments",
+        lambda *_args, **_kwargs: [
+            {"body": ticket["comment"]["html_body"]}
+            for ticket in tickets
+            if ticket["id"] == 100
+        ],
+    )
+    monkeypatch.setattr(
+        job,
+        "add_internal_note",
+        lambda ticket_id, note, **_kwargs: notes.append((ticket_id, note)),
+    )
+    monkeypatch.setattr(
+        job,
+        "add_ticket_tags",
+        lambda ticket_id, tags, **_kwargs: tagged.append((ticket_id, tags)),
+    )
+    monkeypatch.setattr(
+        job.slack_posting,
+        "post_channel_message",
+        lambda _channel, text, *, token: posted.append((text, token)),
+    )
+
+    result = job.run_lighthouse(
+        [sunday, friday, saturday],
+        live=True,
+        plan_path=tmp_path / "plan.json",
+    )
+
+    assert not result.failed
+    assert queried_dates == [friday, saturday, sunday]
+    assert search_queries == [
+        "type:ticket tags:lighthouse created>2026-06-25",
+        "type:ticket tags:lighthouse status<solved",
+    ]
+    assert choose_dates == [("top3_failing", friday), ("half_failing", sunday)]
+    assert [action["fire_date"] for action in result.actions] == [friday, sunday]
+    assert [action["action"] for action in result.actions] == ["create", "note"]
+    assert len(tickets) == 1
+    assert len(notes) == 1
+    assert notes[0][0] == 100
+    assert "half_failing" in notes[0][1]
+    assert tagged == [(100, ["lighthouse_half_failing", "advance-to-layer2"])]
+    assert len(search_queries) == 2
+    assert len(posted) == 2
+
+
+def test_run_lighthouse_rejects_empty_fire_dates(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="At least one Lighthouse fire date"):
+        job.run_lighthouse([], plan_path=tmp_path / "plan.json")
 
 
 def test_resource_sql_loads_and_has_date_parameter() -> None:

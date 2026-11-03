@@ -293,7 +293,7 @@ class DrainSendersMixin:
         try:
             self._deliver(path, op, lane)
         except OpInProgress as progress:
-            self._record_in_progress(progress, lane)
+            self._record_in_progress(progress, lane, op)
             return True
         except OpHeldHere as held:
             self.hold(lane, [(path, op)], held)

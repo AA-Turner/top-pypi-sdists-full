@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sigstore-models
-Version: 0.0.6
+Version: 0.0.7
 Summary: Pydantic based models for Sigstore's protobuf specifications
 Author: William Woodruff
 Author-email: William Woodruff <william@astral.sh>
@@ -10,9 +10,9 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Typed
 Classifier: Framework :: Pydantic :: 2
-Requires-Dist: pydantic>=2.12
+Requires-Dist: pydantic>=2.14
 Requires-Dist: typing-extensions>=4.14.1
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Project-URL: Repository, https://github.com/astral-sh/sigstore-models
 Description-Content-Type: text/markdown
 
@@ -37,5 +37,14 @@ are used by the [sigstore-python] library.
 * Doing anything besides mirroring a subset of the types in
   [protobuf-specs].
 
+## Releasing
+
+1. Run [Prepare release] from `main` with the exact package version, such as
+   `0.1.0` or `0.1.0rc1`.
+2. Review and merge the release PR.
+3. Run [Release] from `main` with the same version.
+
 [protobuf-specs]: https://github.com/sigstore/protobuf-specs
 [sigstore-python]: https://github.com/sigstore/sigstore-python
+[Prepare release]: https://github.com/astral-sh/sigstore-models/actions/workflows/release-prepare.yml
+[Release]: https://github.com/astral-sh/sigstore-models/actions/workflows/publish.yml

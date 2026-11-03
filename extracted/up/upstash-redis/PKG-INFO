@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: upstash-redis
-Version: 1.8.0
+Version: 1.9.0
 Summary: Serverless Redis SDK from Upstash
 Home-page: https://github.com/upstash/redis-python
 License: MIT
@@ -196,6 +196,43 @@ async def stream_example():
     # Consumer group operations
     await redis.xgroup_create("mystream", "processors", "$")
     messages = await redis.xreadgroup("processors", "worker1", {"mystream": ">"})
+```
+
+### Vector indexes
+
+Store embeddings under IDs and run nearest-neighbour queries inside Redis ([docs](https://upstash.com/docs/redis/commands/vector/overview)):
+
+```python
+index = redis.vector.create_index(name="docs", dimension=3, metric="COSINE")
+# or, for an existing index: index = redis.vector.index("docs")
+
+index.add("doc-1", [0.1, 0.2, 0.3])  # a list of numbers, raw FP32 bytes or a base64 FP32 string
+
+for match in index.query(vector=[0.1, 0.2, 0.3], top_k=5):
+    print(match.id, match.score)  # scores are normalized to 0..1, higher is closer
+
+index.get("doc-1")    # [0.1..., 0.2..., 0.3...] or None
+index.count()         # 1
+index.info()          # VectorIndexInfo(dimension=3, metric=<VectorMetric.COSINE: 'COSINE'>)
+index.delete("doc-1")
+index.drop()
+```
+
+Vector commands also work in pipelines and transactions through `pipeline.vector`.
+
+### Arrays
+
+Sparse, index-addressed arrays ([docs](https://upstash.com/docs/redis/commands/array/overview)):
+
+```python
+redis.arset("readings", 0, "21.5", "21.7")     # positional write, returns newly occupied slots
+redis.arinsert("log", "boot", "ready")         # append, returns the index of the last value
+redis.armget("readings", 0, 1)                 # ['21.5', '21.7']
+redis.arscan("readings", 0, 1000)              # [(0, '21.5'), (1, '21.7')]
+redis.argrep("log", "-", "+", match="boot")    # [0]
+redis.arop("readings", 0, 1000, "SUM")         # 43.2
+redis.arring("last-10", 10, "event")           # fixed-size ring buffer
+redis.arlastitems("last-10", 10)               # most recent values, oldest first
 ```
 
 ### Custom commands

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Callable
 
@@ -21,18 +20,16 @@ _FAVICON = _STATIC / "assets" / "branding" / "favicon.png"
 
 def create_app(*, db_url: str | None = None, search_url: str | None = None) -> FastAPI:
     settings = load_ingest_settings(db_url=db_url, search_url=search_url)
-    reader = IngestReader(settings)
 
-    @asynccontextmanager
-    async def lifespan(app: FastAPI):
-        yield
-        reader.close()
+    def get_reader():
+        reader = IngestReader(settings)
+        try:
+            yield reader
+        finally:
+            reader.close()
 
-    app = FastAPI(title="scrapy-ingest Dashboard", lifespan=lifespan)
+    app = FastAPI(title="scrapy-ingest Dashboard")
     register_exception_handlers(app)
-
-    def get_reader() -> IngestReader:
-        return reader
 
     def ensure_job(job_id: str, ingest: IngestReader) -> None:
         if invoke_reader(ingest.get_job, job_id) is None:
@@ -53,23 +50,23 @@ def create_app(*, db_url: str | None = None, search_url: str | None = None) -> F
 
     @app.get("/api/health")
     def health():
-        return build_connection_info(reader.settings, uses_sql=reader.uses_sql)
+        return build_connection_info(settings, uses_sql=settings.ingest_to_database)
 
     @app.get("/api/dashboard")
     def jobs_dashboard(
+        ingest: IngestReader = Depends(get_reader),
         status: str | None = None,
         spider: str | None = None,
-        ingest: IngestReader = Depends(get_reader),
     ):
         return invoke_reader(ingest.jobs_dashboard, status=status, spider=spider)
 
     @app.get("/api/jobs")
     def list_jobs(
+        ingest: IngestReader = Depends(get_reader),
         page: int = Query(1, ge=1),
         page_size: int = Query(25, ge=1, le=200),
         status: str | None = None,
         spider: str | None = None,
-        ingest: IngestReader = Depends(get_reader),
     ):
         return invoke_reader(
             ingest.list_jobs,
@@ -79,30 +76,23 @@ def create_app(*, db_url: str | None = None, search_url: str | None = None) -> F
             spider=spider,
         )
 
-    @app.get("/api/jobs/{job_id}")
-    def get_job(job_id: str, ingest: IngestReader = Depends(get_reader)):
-        job = invoke_reader(ingest.get_job, job_id)
-        if job is None:
-            raise HTTPException(status_code=404, detail="job not found")
-        return job
-
-    @app.get("/api/jobs/{job_id}/items")
+    @app.get("/api/jobs/{job_id:path}/items")
     def list_items(
         job_id: str,
+        ingest: IngestReader = Depends(get_reader),
         page: int = Query(1, ge=1),
         page_size: int = Query(50, ge=1, le=200),
-        ingest: IngestReader = Depends(get_reader),
     ):
         return job_page(ingest.list_items, job_id, page, page_size, ingest)
 
-    @app.get("/api/jobs/{job_id}/requests")
+    @app.get("/api/jobs/{job_id:path}/requests")
     def list_requests(
         job_id: str,
+        ingest: IngestReader = Depends(get_reader),
         page: int = Query(1, ge=1),
         page_size: int = Query(50, ge=1, le=200),
         success: bool | None = None,
         request_id: int | None = None,
-        ingest: IngestReader = Depends(get_reader),
     ):
         return job_page(
             ingest.list_requests,
@@ -114,15 +104,22 @@ def create_app(*, db_url: str | None = None, search_url: str | None = None) -> F
             request_id=request_id,
         )
 
-    @app.get("/api/jobs/{job_id}/logs")
+    @app.get("/api/jobs/{job_id:path}/logs")
     def list_logs(
         job_id: str,
-        page: int = Query(1, ge=1),
-        page_size: int = Query(100, ge=1, le=500),
-        level: str | None = None,
         ingest: IngestReader = Depends(get_reader),
+        page: int = Query(1, ge=1),
+        page_size: int = Query(25, ge=1, le=500),
+        level: str | None = None,
     ):
         return job_page(ingest.list_logs, job_id, page, page_size, ingest, level=level)
+
+    @app.get("/api/jobs/{job_id:path}")
+    def get_job(job_id: str, ingest: IngestReader = Depends(get_reader)):
+        job = invoke_reader(ingest.get_job, job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="job not found")
+        return job
 
     app.mount("/assets", StaticFiles(directory=_STATIC / "assets"), name="assets")
 

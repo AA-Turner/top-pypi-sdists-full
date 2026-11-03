@@ -14,7 +14,8 @@ WHY: an eval's machines and a benchmark's check printed only where the owner cou
 did my sim get" or "why did episode 12 fail" had no answer outside the report's one-line errors.
 
 
-Lines are kept 7 days.
+Lines are kept by their kind - acts and prints 7 days, refused requests 14, the rest 30 - as each page the platform
+answers says (its retention_days_by_kind).
 """
 from __future__ import annotations
 
@@ -112,6 +113,15 @@ def _lines_back(client, eval_id: str, *, before=None, since: Optional[float] = N
     return list(page.get("lines") or []), page.get("older"), page
 
 
+def _kept(page: dict) -> Optional[str]:
+    """How long the platform keeps an eval's lines, kind by kind, as its page says (retention_days_by_kind): "kept: acts
+    and prints 7 days, refused requests 14 days, everything else 30 days". Before, "lines are kept 7 days", where an
+    error, a machine's start and its setup are kept 30."""
+    from seq.logs_cli import _kept_said
+
+    return _kept_said(page.get("retention_days_by_kind") or {})
+
+
 
 RUNS = 5
 _ASKED = 50
@@ -155,11 +165,13 @@ def benchmark_runs_logs(name: str, *, worker: str | None = None, since: str | fl
 
 
     on: Optional[int] = None
+    kept: Optional[str] = None
     for e in runs:
         run = f"{e.get('policy') or '?'}@v{e.get('model_version') if e.get('model_version') is not None else '?'}"
         echo(f"{str(e.get('eval_id'))[:8]}  {run:<24} {status_said(e.get('status')) or '—':<10} "
              f"{clock.stamp(e.get('created_at'), unit='minute')}")
-        got, older, _ = _lines_back(client, str(e["eval_id"]), before=before, since=after, limit=limit or RUN_LINES)
+        got, older, page = _lines_back(client, str(e["eval_id"]), before=before, since=after, limit=limit or RUN_LINES)
+        kept = _kept(page) or kept
         if older is not None:
             on = max(on or 0, int(older))
         for ln in got:
@@ -175,7 +187,7 @@ def benchmark_runs_logs(name: str, *, worker: str | None = None, since: str | fl
         echo(f"{clock.stamp(ln.get('ts'), unit='second', day='never', zone=False)}  {ln['run']:<24} "
              f"{ln.get('side', ''):<9} {where:<10} {ln.get('line', '')}")
     if not lines:
-        echo("no lines from these runs" + (" since then" if after is not None else "") + " (lines are kept 7 days)")
+        echo("no lines from these runs" + (" since then" if after is not None else "") + (f" ({kept})" if kept else ""))
     if on is not None:
         echo(f"older lines are kept: seq benchmark logs {name}" + (f" --worker {worker}" if worker else "")
              + f" --before {on}")
@@ -211,7 +223,9 @@ def benchmark_build_log(name: str, *, version: int | None = None, base_url: str 
     state = f": {out['status']}" if out.get("status") else ""
     echo(f"{out['benchmark']} v{out['version']} (latest v{out.get('latest')}){state}"
          + (f" — {out['error']}" if out.get("error") else ""))
-    if out.get("phases"):
+    if out.get("stages"):
+        _steps(out["stages"], echo)
+    elif out.get("phases"):
         echo(f"phases ({clock.zone_name(out['phases'][0].get('at'))}): " + " → ".join(_phases(out["phases"])))
     check = out.get("check") or {}
     if check:
@@ -223,6 +237,24 @@ def benchmark_build_log(name: str, *, version: int | None = None, base_url: str 
     log = (out.get("log") or "").strip("\n")
     echo(log if log else "no build log was kept for this version (it was built before builds reported one)")
     return out
+
+
+def _steps(stages: list, echo: Echo) -> None:
+    """Its build step by step, as `seq policy logs --build` says a policy's (deploy_cli._print_steps): each with its
+    state, its time - a running one's so far - and what it did; a step it never reached, or passed by with nothing to
+    say, left out.
+"""
+    from seq.deploy_cli import _MARKS, _STAGE_SHORT, elapsed
+
+    for s in stages:
+        if not isinstance(s, dict):
+            continue
+        name, state = s.get("stage"), s.get("state")
+        if state == "pending" or (state == "skipped" and not s.get("summary")):
+            continue
+        took = elapsed(s["duration_s"]) if isinstance(s.get("duration_s"), (int, float)) else ""
+        echo(f"  {_MARKS.get(state, '?')} {_STAGE_SHORT.get(name, name):<12}{took:>10}  {s.get('summary') or ''}"
+             .rstrip())
 
 
 def _phases(phases: list[dict]) -> list[str]:
@@ -263,7 +295,8 @@ def eval_logs(eval_id: str, *, side: str | None = None, arm: int | None = None, 
     days = clock.Days()
     _print_lines(lines, echo, days)
     if not lines and not follow:
-        echo(f"no lines yet from eval {eval_id}" + (" (lines are kept 7 days)" if page.get("status") in ENDED else ""))
+        kept = _kept(page) if page.get("status") in ENDED else None
+        echo(f"no lines yet from eval {eval_id}" + (f" ({kept})" if kept else ""))
     if older is not None and not follow:
         echo(f"older lines are kept: seq eval logs {eval_id}"
              + "".join(f" --{k} {v}" for k, v in filters.items() if v is not None) + f" --before {older}")

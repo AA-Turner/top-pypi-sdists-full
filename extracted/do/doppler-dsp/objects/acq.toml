@@ -6,6 +6,10 @@ no_state = "true"
 no_step = "true"
 class_name = "Acquisition"
 serializable = "true"
+# A refused create is a caller's argument, not a memory failure: a caller
+# still passing the retired spc positionally lands it in sample_rate.
+create_error = "ValueError"
+create_error_message = "Acquisition: invalid parameter (need chip_rate > 0 and a sample_rate whose code period, sample_rate * len(code) / chip_rate, is a whole number of samples, at least len(code); a finite cn0_dbhz; 0 < pfa < 1 and 0 < pd < 1; a finite doppler_uncertainty >= 0 and doppler_rate >= 0; code_only_epochs >= 1)"
 # The continuous front door is a second constructor over the shared engine,
 # not the default acq_create() (gh-509).
 create_fn = "dp_acq_create_continuous"
@@ -34,7 +38,8 @@ depends_on = [
     # not.
     { name = "cvt" },
 ]
-# dp_parallel.h's persistent pool is pthreads (the roll per thread, §2.3).
+# dp_parallel.h's persistent pool is pthreads (the roll per thread,
+# docs/design/acq-surface.md §13).
 extra_link_libs = ["Threads::Threads"]
 fragment = "generated"
 
@@ -53,10 +58,15 @@ fragment = "generated"
 name = "code"
 type = "uint8_t[]"
 
+# The rate of the samples pushed. One code period is then
+# sample_rate * len(code) / chip_rate samples, which must be a whole number
+# of at least len(code): the search's transforms are that long, and a smooth
+# one (acq_period_samples) is what makes them fast. The placeholder is four
+# samples a chip at the default chip rate.
 [[acq.init_params]]
-name = "spc"
-type = "size_t"
-default = "4"
+name = "sample_rate"
+type = "double"
+default = "4000000.0"
 
 [[acq.init_params]]
 name = "chip_rate"
@@ -99,14 +109,15 @@ type = "string_enum:mean,median,min,max"
 default = "mean"
 doc = 'The CFAR reference: the statistic the noise floor is estimated with, which the detection threshold scales.'
 
-# The block-coherent depth (design §2.1/§2.3): D = min((code_only_epochs+1)/2,
+# The block-coherent depth (docs/design/async-dsss-receiver.md §2.1,
+# docs/design/acq-surface.md §4): D = min((code_only_epochs+1)/2,
 # f_epoch/sqrt(2*doppler_rate)), at least 1. The defaults are D = 1 and the
 # engine exactly as it ran without them.
 [[acq.init_params]]
 name = "code_only_epochs"
 type = "size_t"
 default = "1"
-doc = "Whole code-only epochs a waveform's code-only window holds at any chip phase (floor(W_symbols * chips_per_symbol / sf) - 1; design §2.1) -- the engine allows a coherent depth to accommodate such waveforms. 1 = no window: a coherent depth of 1."
+doc = "Whole code-only epochs a waveform's code-only window holds at any chip phase (floor(W_symbols * chips_per_symbol / sf) - 1; docs/design/async-dsss-receiver.md §2.1) -- the engine allows a coherent depth to accommodate such waveforms. 1 = no window: a coherent depth of 1."
 
 [[acq.init_params]]
 name = "doppler_rate"
@@ -163,7 +174,7 @@ doc = "The peak list's capacity per dwell (1 = the classic gated maximum); set w
 
 [[acq.methods]]
 name = "set_carrier_freq_hz"
-doc = "Couple the code clock to the carrier: the chip rate dilates by doppler_hz / carrier_freq_hz, and the engine accounts for it -- every window tile's epochs are shifted along the code axis by the drift the tile's own frequency implies before the slow-time transform (inside a coherent block of D epochs), and the hand-off advances the hit's code phase by the drift over half the dwell (design section 12.11, 12.12). Config, not running state: not in the state blob, so a resumed engine wants it set again. 0.0 (the default) = uncoupled, the engine as it ran without it. Raises ValueError for a carrier that is neither 0 nor finite and above half the sample rate (fs / 2): every Doppler the engine can report is below fs / 2, so above it |doppler / carrier| < 1 and the dilation stays finite."
+doc = "Couple the code clock to the carrier: the chip rate dilates by doppler_hz / carrier_freq_hz, and the engine accounts for it -- every window tile's epochs are shifted along the code axis by the drift the tile's own frequency implies before the slow-time transform (inside a coherent block of D epochs), and the hand-off advances the hit's code phase by the drift over half the dwell (docs/design/async-dsss-receiver-measurements.md §12.11, §12.12). Config, not running state: not in the state blob, so a resumed engine wants it set again. 0.0 (the default) = uncoupled, the engine as it ran without it. Raises ValueError for a carrier that is neither 0 nor finite and above half the sample rate (fs / 2): every Doppler the engine can report is below fs / 2, so above it |doppler / carrier| < 1 and the dilation stays finite."
 arg_type = "void"
 return_type = "int"
 status_return = true
@@ -183,7 +194,13 @@ doc = "RF carrier the Doppler is physically coupled to, Hz (0.0 = uncoupled); se
 name = "code_bins"
 type = "size_t"
 field = true
-doc = "Code-phase hypotheses searched (= sf*spc, one code period)."
+doc = "One code period in samples, sample_rate * sf / chip_rate: the length of every forward transform and of a raw epoch."
+
+[[acq.properties]]
+name = "lag_bins"
+type = "size_t"
+field = true
+doc = "Code-phase columns of the surface. Equal to code_bins unless code_bins is not 7-smooth; then the correlation is read on the next power of two, an exact interpolation that keeps the inverse transforms fast. Column c is a lag of c * code_bins / lag_bins samples; surface_chip_phase() gives each column in chips."
 
 # Unified property: whichever mechanism is active. Always window_bins for this
 # (continuous) engine -- coherent_bins is pinned to 1 -- but written with the
@@ -200,19 +217,13 @@ doc = "Native Doppler bins this engine searches: the window-tile count times the
 name = "coherent_bins"
 type = "size_t"
 field = true
-doc = "The block-coherent depth D inside every window tile (design §2.3): epochs per block and Doppler rows per tile. 1 without a code-only window."
+doc = "The block-coherent depth D inside every window tile (docs/design/acq-surface.md §4): epochs per block and Doppler rows per tile. 1 without a code-only window."
 
 [[acq.properties]]
 name = "sf"
 type = "size_t"
 field = true
 doc = "Chips per PN segment, inferred from len(code)."
-
-[[acq.properties]]
-name = "spc"
-type = "size_t"
-field = true
-doc = "Samples per chip (chip-rate oversample factor)."
 
 [[acq.properties]]
 name = "n_noncoh"
@@ -278,7 +289,7 @@ doc = "Mean amplitude derating of the correlation peak from grid straddle (slow-
 name = "fs"
 type = "double"
 field = true
-doc = "Sample rate (Hz) = chip_rate * spc."
+doc = "Sample rate (Hz) the engine searches at: chip_rate * code_bins / sf."
 
 [[acq.properties]]
 name = "chip_rate"
@@ -328,7 +339,8 @@ type = "double"
 field = true
 doc = "(chip_rate/sf)/symbol_rate -- code epochs per data symbol; 0 when symbol_rate is 0."
 
-# ── Observability (design §2.4): telemetry probes and the surface tap ────────
+# ── Observability (docs/design/async-dsss-receiver.md §2.4): telemetry probes
+# and the surface tap ──
 # Attach-on-demand, like Dll/SymSync: detached, every probe site is one
 # predicted-not-taken branch per dwell and the surface costs nothing.
 
@@ -343,7 +355,7 @@ params = [{ name = "n", type = "int" }]
 name = "threads"
 type = "int"
 field = true
-doc = "Workers the searcher fans its tiles across, the calling thread included (design §2.3); 1 = serial. Set with set_threads(); a continuous engine with more than one tile starts at the machine's online core count."
+doc = "Workers the searcher fans its tiles across, the calling thread included (docs/design/acq-surface.md §13); 1 = serial. Set with set_threads(); a continuous engine with more than one tile starts at the machine's online core count."
 
 [[acq.methods]]
 name = "set_telemetry"
@@ -357,7 +369,7 @@ params = [
 ]
 
 # The last decided dwell's surface in the gate's own units (the per-cell
-# test statistic), row-major `surface_rows` x `code_bins`, into a caller
+# test statistic), row-major `surface_rows` x `lag_bins`, into a caller
 # buffer; returns the cells written, 0 until a dwell has been decided.
 # The explicit buffer is the rs_codec.generator shape, not the self-sizing
 # `variable_output` one: the surface has exactly one size, so a `count`
@@ -383,13 +395,14 @@ arg_type = "void"
 return_type = "size_t"
 params = [{ name = "out", type = "double[]", out = true }]
 
-# The complex intermediates behind the surface (design §12.21): what the
+# The complex intermediates behind the surface
+# (docs/design/async-dsss-receiver-measurements.md §12.21): what the
 # engine already holds per cell before a magnitude is taken, exposed so a
 # tracker can read them. Copies, like `surface`; the sizes are the
 # engine's own, so no `count` parameter (just-makeit#1042).
 #
 # The last decided dwell's COMPLEX surface, row-major `surface_rows` x
-# `code_bins` in the correlation's own units: the coherent sum's amplitude
+# `lag_bins` in the correlation's own units: the coherent sum's amplitude
 # and carrier phase per cell. Coherent path only (`n_noncoh == 1`: a
 # non-coherent dwell is a power sum and has no phase); 0 until a dwell has
 # been decided.
@@ -433,8 +446,8 @@ doc = "1 keeps every decided dwell's surface for `surface()` (normalised into th
 [[acq.properties]]
 name = "surface_rows"
 type = "size_t"
-expr = "(self->handle->n_surf / self->handle->code_bins)"
-doc = "Rows of the surface `surface()` returns: the Doppler axis in surface units (tiles x interpolated slow-time rows); its columns are `code_bins`."
+expr = "(self->handle->n_surf / self->handle->lag_bins)"
+doc = "Rows of the surface `surface()` returns: the Doppler axis in surface units (tiles x interpolated slow-time rows); its columns are `lag_bins`."
 
 [[acq.properties]]
 name = "surface_at"
@@ -452,10 +465,10 @@ doc = "Picks in the last decided dwell, held twins included."
 name = "n_held"
 type = "size_t"
 field = true
-doc = "Picks of the last decided dwell held as same-code-phase twins rather than listed (design §7.1)."
+doc = "Picks of the last decided dwell held as same-code-phase twins rather than listed (docs/design/async-dsss-receiver.md §7.1)."
 
 [[acq.properties]]
 name = "peak_conc"
 type = "float"
 field = true
-doc = "Concentration of the last dwell's strongest peak: the power of its main lobe (its row and one either side, the exclusion zone's width) over the total power of its code-phase column across every Doppler row and tile. Near 1 for a clean single emitter, even one straddling two tiles; about 0.5 when a data transition splits it into twins two or more tiles away; lower when a coherent block straddles data (design §2.4)."
+doc = "Concentration of the last dwell's strongest peak: the power of its main lobe (its row and one either side, the exclusion zone's width) over the total power of its code-phase column across every Doppler row and tile. Near 1 for a clean single emitter, even one straddling two tiles; about 0.5 when a data transition splits it into twins two or more tiles away; lower when a coherent block straddles data (docs/design/async-dsss-receiver.md §2.4)."

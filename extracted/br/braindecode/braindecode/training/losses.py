@@ -30,10 +30,15 @@ class CroppedLoss(nn.Module):
         preds: torch.Tensor
             Model's prediction with shape (batch_size, n_classes, n_times).
         targets: torch.Tensor
-            Target labels with shape (batch_size, n_classes, n_times).
+            Targets with shape (batch_size,), or (batch_size, n_classes) for
+            regression. Mixup's ``(y_a, y_b, lam)`` is passed to
+            ``loss_function`` as is.
         """
         avg_preds = torch.mean(preds, dim=2)
-        avg_preds = avg_preds.squeeze(dim=1)
+        # 2-D targets already match the (batch_size, n_outputs) predictions.
+        # Everything else is squeezed as before, including Mixup's list target.
+        if not (isinstance(targets, torch.Tensor) and targets.ndim == 2):
+            avg_preds = avg_preds.squeeze(dim=1)
         return self.loss_function(avg_preds, targets)
 
 
@@ -79,7 +84,8 @@ def mixup_criterion(preds, target):
     Parameters
     ----------
     preds : torch.Tensor
-        Predictions from the model.
+        Predictions from the model: logits, as braindecode models output, or
+        log-probabilities of each window, which give the same loss.
     target : torch.Tensor | tuple of torch.Tensor | list of torch.Tensor
         For predictions without mixup, the targets as a tensor. If mixup has
         been applied, a tuple or list containing the targets of the two mixed
@@ -103,13 +109,13 @@ def mixup_criterion(preds, target):
         # unpack target
         y_a, y_b, lam = target
         # compute loss per sample
-        loss_a = torch.nn.functional.nll_loss(preds, y_a, reduction="none")
-        loss_b = torch.nn.functional.nll_loss(preds, y_b, reduction="none")
+        loss_a = torch.nn.functional.cross_entropy(preds, y_a, reduction="none")
+        loss_b = torch.nn.functional.cross_entropy(preds, y_b, reduction="none")
         # compute weighted mean
         ret = torch.mul(lam, loss_a) + torch.mul(1 - lam, loss_b)
         return ret.mean()
     else:
-        return torch.nn.functional.nll_loss(preds, target)
+        return torch.nn.functional.cross_entropy(preds, target)
 
 
 class HungarianMatcher(nn.Module):

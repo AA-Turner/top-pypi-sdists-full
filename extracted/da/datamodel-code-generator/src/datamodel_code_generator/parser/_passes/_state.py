@@ -15,19 +15,21 @@ from weakref import WeakKeyDictionary
 
 from typing_extensions import Protocol, ReadOnly, Self, TypedDict, TypeVar, final
 
-from datamodel_code_generator._model_keys import ModelKey, model_key_of
+from datamodel_code_generator._context_scope import context_values
+from datamodel_code_generator._model_keys import ModelKey, keyed_or_path, model_key_of
 from datamodel_code_generator._records import record
-from datamodel_code_generator.model.base import DataModel, _keyed_answer
+from datamodel_code_generator.model.base import DataModel
 from datamodel_code_generator.parser._phases import DecisionOutcome
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
+    from collections.abc import Callable, Collection, Generator, Iterable, Mapping, Sequence
     from pathlib import Path
 
     from datamodel_code_generator import AllExportsCollisionStrategy, AllExportsScope, ModuleSplitMode
     from datamodel_code_generator._requirements import PydanticFloor
     from datamodel_code_generator.format import CodeFormatter
     from datamodel_code_generator.imports import Import, Imports
+    from datamodel_code_generator.model._decisions.collapse_eligibility import LaterHolderFacts
     from datamodel_code_generator.reference import ModelResolver, Reference
     from datamodel_code_generator.types import DataType
 
@@ -37,7 +39,6 @@ __all__ = [
     "FinishRun",
     "Forwarder",
     "ForwarderMap",
-    "ModuleContextFields",
     "ModuleContextView",
     "ModuleModels",
     "ModulePath",
@@ -76,8 +77,6 @@ class Forwarder:
 
 
 ForwarderMap: TypeAlias = dict[ModulePath, Forwarder]
-ModuleContextFields: TypeAlias = "tuple[ModulePath, ModulePath, list[DataModel], bool, Imports, ModelResolver]"
-"""The fields of ``parser/base.py:ModuleContext`` in order, for the passes that unpack it."""
 
 
 class ModuleContextView(Protocol):
@@ -132,8 +131,7 @@ class _ModuleNames(dict[str, str]):  # noqa: FURB189
     ``legacy-keyless-reference-by-path``: a model with no entry by key, as for an entry a subclass wrote by path, and
     a reference that no model was built with are looked up by path. Row ``legacy-module-follows-path``: the entries
     were paths, so a model that moves to another path leaves its entry behind (`forget`), and a root model whose
-    inner model takes its path takes the inner model's entry. Under the ``MODEL_GRAPH`` check, an entry by key that
-    differs from the entry at the model's path is a violation.
+    inner model takes its path takes the inner model's entry.
     """
 
     __slots__ = ("assigned", "by_key")
@@ -147,13 +145,10 @@ class _ModuleNames(dict[str, str]):  # noqa: FURB189
     def assign(self, model: DataModel, module_name: str, *, keep: bool = False) -> None:
         """Give ``model`` the module name, or with ``keep`` only when it has none yet."""
         path = model.path
-        if keep:
-            if path not in self:
-                self[path] = self.assigned[path] = module_name
-            self.by_key.setdefault(model_key_of(model.reference), module_name)
-            return
-        self[path] = self.assigned[path] = module_name
-        self.by_key[model_key_of(model.reference)] = module_name
+        if not keep or path not in self:
+            self[path] = self.assigned[path] = module_name
+        if (key := model_key_of(model.reference)) not in self.by_key or not keep:
+            self.by_key[key] = module_name
 
     def forget(self, models: Iterable[DataModel]) -> None:
         """Drop the entries by key of models that moved to another path, whose entries by path name them no more.
@@ -166,18 +161,12 @@ class _ModuleNames(dict[str, str]):  # noqa: FURB189
     def of(self, reference: Reference) -> str | None:
         """Return the module name of the model ``reference`` names, or None when it has none.
 
-        An entry that a subclass wrote by path, before or after the parser gave the name, wins over the one by key;
-        under the ``MODEL_GRAPH`` check, the two differing is a violation.
+        An entry that a subclass wrote by path, before or after the parser gave the name, wins over the one by key.
         """
         path = reference.path
-        by_path = self.get(path)
-        written = by_path != self.assigned.get(path)
-        by_key = None if reference.source is None else self.by_key.get(model_key_of(reference))
-        if written:
-            return by_path if by_key is None else _keyed_answer("module names", by_path, lambda: by_key)
-        if by_key is None:
+        if (by_path := self.get(path)) != self.assigned.get(path):
             return by_path
-        return _keyed_answer("module names", by_key, lambda: by_path)
+        return by_path if (kept := keyed_or_path(reference, self.by_key, self)) is None else kept
 
 
 SortedDataModels = dict[ModelKey, DataModel]
@@ -209,6 +198,8 @@ class _KeptParentRoot:
     root: DataModel
     inner: DataModel
     holders: list[_KeptHolder]
+    facts: LaterHolderFacts
+    """The facts its first holder decided on, which ``settle_kept_parent_roots`` completes with the final names."""
 
 
 @record
@@ -340,11 +331,8 @@ def pydantic_floors_recorded() -> Generator[PydanticFloors]:
     A parse a generation discards, such as a compatibility retry it does not take, is never read.
     """
     record = PydanticFloors()
-    token = _PYDANTIC_FLOORS.set(record)
-    try:
+    with context_values({_PYDANTIC_FLOORS: record}):
         yield record
-    finally:
-        _PYDANTIC_FLOORS.reset(token)
 
 
 _NO_DECISIONS: Final = DecisionOutcome(())
@@ -375,7 +363,6 @@ class _PipelineRun(Generic[ConfigT, ContextT, ResultT]):
     unused_models: list[DataModel] = dataclasses.field(default_factory=list)
     module_to_import: dict[ModulePath, Imports] = dataclasses.field(default_factory=dict)
     contexts: list[ContextT] = dataclasses.field(default_factory=list)
-    opted_out: list[DataModel] = dataclasses.field(default_factory=list)
     decisions: DecisionOutcome = _NO_DECISIONS
     output: str | dict[tuple[str, ...], ResultT] = dataclasses.field(init=False)
 
@@ -392,7 +379,6 @@ class ProcessingRun(StructuredRun[ConfigT], Protocol[ConfigT, ContextT, ResultT]
 class FinishRun(ProcessingRun[ConfigT, ContextT, ResultT], Protocol[ConfigT, ContextT, ResultT]):
     """What the passes after the output modules are processed read and write."""
 
-    opted_out: list[DataModel]
     decisions: DecisionOutcome
     """What the decision phase changed."""
     output: str | dict[tuple[str, ...], ResultT]
@@ -424,7 +410,6 @@ class _ModuleState(Generic[ConfigT]):
     unused_models_start: int = dataclasses.field(init=False)
     model_list_before_override_removal: list[DataModel] = dataclasses.field(init=False)
     current_unused_models: Sequence[DataModel] = ()
-    live_models: list[DataModel] = dataclasses.field(init=False)
 
 
 @final
@@ -466,6 +451,8 @@ class _FinalizeState(Generic[ContextT]):
     unused_models: list[DataModel]
     model_to_module_models: dict[DataModel, tuple[ModulePath, list[DataModel]]]
     module_to_import: dict[ModulePath, Imports]
+    forwarder_modules: Collection[ModulePath]
+    with_import: bool
     all_models: list[DataModel] = dataclasses.field(init=False)
     model_imports: dict[DataModel, tuple[Import, ...]] = dataclasses.field(init=False)
     renamed_models: bool = False

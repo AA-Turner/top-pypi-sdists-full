@@ -1,8 +1,10 @@
 import json
+import math
 import time
 from contextlib import suppress
 from decimal import Decimal
 from http import HTTPStatus
+from operator import itemgetter
 
 import requests
 
@@ -25,6 +27,48 @@ from dify_plugin.errors.model import (
 )
 from dify_plugin.interfaces.model.openai_compatible.common import _CommonOaiApiCompat
 from dify_plugin.interfaces.model.text_embedding_model import TextEmbeddingModel
+
+
+def _validate_embedding_batch(
+    data: object, count: int, dimension: int | None
+) -> list[list[float]]:
+    if not isinstance(data, list) or len(data) != count:
+        msg = "Embedding response must contain one vector per input"
+        raise ValueError(msg)
+    if any(not isinstance(row, dict) for row in data):
+        msg = "Embedding response entries must be objects"
+        raise ValueError(msg)
+
+    if any("index" in row for row in data):
+        indices = [row.get("index") for row in data]
+        if any(type(index) is not int for index in indices) or sorted(indices) != list(
+            range(count)
+        ):
+            msg = "Embedding indices must cover every input exactly once"
+            raise ValueError(msg)
+        data = sorted(data, key=itemgetter("index"))
+
+    vectors = []
+    for row in data:
+        vector = row.get("embedding")
+        if not isinstance(vector, list) or not vector:
+            msg = "Embedding vectors must be nonempty arrays"
+            raise ValueError(msg)
+        if dimension is None:
+            dimension = len(vector)
+        if len(vector) != dimension:
+            msg = "Embedding vectors must have consistent dimensions across batches"
+            raise ValueError(msg)
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            for value in vector
+        ):
+            msg = "Embedding vectors must contain finite numeric values"
+            raise ValueError(msg)
+        vectors.append(vector)
+    return vectors
 
 
 def _validate_credentials_response(response: requests.Response) -> None:
@@ -96,23 +140,35 @@ class OAICompatEmbeddingModel(_CommonOaiApiCompat, TextEmbeddingModel):
         max_chunks = self._get_max_chunks(model, credentials)
 
         inputs = []
-        indices = []
         used_tokens = 0
 
-        for i, text in enumerate(texts):
-            # Here token count is only an approximation based on the GPT2 tokenizer
-            # Better token estimation would make chunking more precise.
+        for text in texts:
             num_tokens = self._get_num_tokens_by_gpt2(text)
-
-            if num_tokens >= context_size:
-                cutoff = int((len(text) * context_size) // num_tokens)
-                # if num tokens is larger than context length, only use the start
-                inputs.append(text[0:cutoff])
+            if num_tokens > context_size:
+                lower, upper = 0, len(text)
+                # Keep fitting estimates: token merges can make prefix counts decrease.
+                for estimate in (
+                    min(context_size, len(text)),
+                    len(text) * context_size // num_tokens,
+                ):
+                    if (
+                        lower < estimate < upper
+                        and self._get_num_tokens_by_gpt2(text[:estimate])
+                        <= context_size
+                    ):
+                        lower = estimate
+                while lower + 1 < upper:
+                    middle = (lower + upper) // 2
+                    if self._get_num_tokens_by_gpt2(text[:middle]) <= context_size:
+                        lower = middle
+                    else:
+                        upper = middle
+                inputs.append(text[:lower])
             else:
                 inputs.append(text)
-            indices += [i]
 
         batched_embeddings = []
+        dimension = None
         iter_ = range(0, len(inputs), max_chunks)
 
         for i in iter_:
@@ -131,13 +187,18 @@ class OAICompatEmbeddingModel(_CommonOaiApiCompat, TextEmbeddingModel):
                 timeout=(10, 300),
             )
 
-            response.raise_for_status()  # Raise an exception for HTTP errors
-            response_data = response.json()
+            try:
+                response.raise_for_status()
+                response_data = response.json()
+                embeddings_batch = _validate_embedding_batch(
+                    response_data["data"], len(payload["input"]), dimension
+                )
+                embedding_used_tokens = response_data["usage"]["total_tokens"]
+            finally:
+                with suppress(Exception):
+                    response.close()
 
-            # Extract embeddings and used tokens from the response
-            embeddings_batch = [data["embedding"] for data in response_data["data"]]
-            embedding_used_tokens = response_data["usage"]["total_tokens"]
-
+            dimension = len(embeddings_batch[0])
             used_tokens += embedding_used_tokens
             batched_embeddings += embeddings_batch
 

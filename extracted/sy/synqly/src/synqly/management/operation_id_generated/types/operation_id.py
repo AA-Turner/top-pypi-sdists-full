@@ -130,6 +130,7 @@ class OperationId(enum.StrEnum):
     SIEM_QUERY_EVENTS = "siem_query_events"
     SIEM_QUERY_INVESTIGATIONS = "siem_query_investigations"
     SIEM_QUERY_LOG_PROVIDERS = "siem_query_log_providers"
+    SIEM_UPDATE_ALERT = "siem_update_alert"
     SINK_POST_EVENTS = "sink_post_events"
     STORAGE_DELETE_FILE = "storage_delete_file"
     STORAGE_DOWNLOAD_FILE = "storage_download_file"
@@ -150,6 +151,8 @@ class OperationId(enum.StrEnum):
     TICKETING_GET_TICKET = "ticketing_get_ticket"
     TICKETING_LIST_ATTACHMENTS_METADATA = "ticketing_list_attachments_metadata"
     TICKETING_LIST_COMMENTS = "ticketing_list_comments"
+    TICKETING_LIST_ISSUE_TYPE_REMOTE_FIELDS = "ticketing_list_issue_type_remote_fields"
+    TICKETING_LIST_ISSUE_TYPES = "ticketing_list_issue_types"
     TICKETING_LIST_NOTES = "ticketing_list_notes"
     TICKETING_LIST_ON_CALL = "ticketing_list_on_call"
     TICKETING_LIST_PROJECTS = "ticketing_list_projects"
@@ -306,6 +309,7 @@ class OperationId(enum.StrEnum):
         siem_query_events: typing.Callable[[], T_Result],
         siem_query_investigations: typing.Callable[[], T_Result],
         siem_query_log_providers: typing.Callable[[], T_Result],
+        siem_update_alert: typing.Callable[[], T_Result],
         sink_post_events: typing.Callable[[], T_Result],
         storage_delete_file: typing.Callable[[], T_Result],
         storage_download_file: typing.Callable[[], T_Result],
@@ -326,6 +330,8 @@ class OperationId(enum.StrEnum):
         ticketing_get_ticket: typing.Callable[[], T_Result],
         ticketing_list_attachments_metadata: typing.Callable[[], T_Result],
         ticketing_list_comments: typing.Callable[[], T_Result],
+        ticketing_list_issue_type_remote_fields: typing.Callable[[], T_Result],
+        ticketing_list_issue_types: typing.Callable[[], T_Result],
         ticketing_list_notes: typing.Callable[[], T_Result],
         ticketing_list_on_call: typing.Callable[[], T_Result],
         ticketing_list_projects: typing.Callable[[], T_Result],
@@ -593,6 +599,8 @@ class OperationId(enum.StrEnum):
             return siem_query_investigations()
         if self is OperationId.SIEM_QUERY_LOG_PROVIDERS:
             return siem_query_log_providers()
+        if self is OperationId.SIEM_UPDATE_ALERT:
+            return siem_update_alert()
         if self is OperationId.SINK_POST_EVENTS:
             return sink_post_events()
         if self is OperationId.STORAGE_DELETE_FILE:
@@ -633,6 +641,10 @@ class OperationId(enum.StrEnum):
             return ticketing_list_attachments_metadata()
         if self is OperationId.TICKETING_LIST_COMMENTS:
             return ticketing_list_comments()
+        if self is OperationId.TICKETING_LIST_ISSUE_TYPE_REMOTE_FIELDS:
+            return ticketing_list_issue_type_remote_fields()
+        if self is OperationId.TICKETING_LIST_ISSUE_TYPES:
+            return ticketing_list_issue_types()
         if self is OperationId.TICKETING_LIST_NOTES:
             return ticketing_list_notes()
         if self is OperationId.TICKETING_LIST_ON_CALL:

@@ -1325,7 +1325,7 @@ def test_remote_lock_transaction_attempts_all_cleanup_after_one_staged_source_un
     for plan in plans:
         collector = transaction.collector_for(plan)
         assert collector is not None
-        collector.record_response("https://schemas.example/schema.json", None, None, plan.path.name.encode())
+        collector.record_response("https://schemas.example/schema.json", None, None, plan.canonical_path.name.encode())
     transaction.staged_files()
     contexts = tuple(transaction._staging_contexts.values())
     original_unlink = publication_module._unlink
@@ -1913,7 +1913,7 @@ def test_generate_atomic_remote_update_omits_absent_generated_artifacts(
     output_path = tmp_path / "output.py"
     metadata_path = tmp_path / "metadata.json"
     lockfile = tmp_path / "remote.lock"
-    mocker.patch("datamodel_code_generator._generate", return_value=None)
+    mocker.patch("datamodel_code_generator._run_generation", return_value=None)
 
     generate(
         JSON_SCHEMA_DATA_PATH / "person.json",

@@ -54,3 +54,22 @@ fwd_viewer/org_id:
     - r:workspace_case/org_id,ws_id
     - r:workspace_case_template/org_id,ws_id
     - r:audit_logs/org_id
+staff_member:
+    - staff_member_org/*
+staff_member_org/org_id: []
+staff_access_approver:
+    - staff_member
+    - staff_access_approver_org/*
+staff_access_approver_org/org_id: []
+staff_release_manager:
+    - staff_member
+    - staff_release_manager_org/*
+staff_release_manager_org/org_id: []
+staff_support:
+    - staff_member
+    - staff_support_org/*
+staff_support_org/org_id: []
+staff_config_manager:
+    - staff_member
+    - staff_config_manager_org/*
+staff_config_manager_org/org_id: []

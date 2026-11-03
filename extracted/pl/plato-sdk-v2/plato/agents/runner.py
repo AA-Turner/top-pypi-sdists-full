@@ -23,12 +23,8 @@ def discover_agents() -> None:
     discover_plugins("plato.agents")
 
 
-async def _run_agent_cli(instruction: str, agent_name: str | None = None, compact: bool = False) -> None:
-    """Run an agent with config from environment.
-
-    When ``compact`` is set, dispatch to ``agent.compact(instruction)`` (a
-    first-class session-compaction op) instead of ``agent.run(instruction)``.
-    """
+async def _run_agent_cli(instruction: str, agent_name: str | None = None) -> None:
+    """Run an agent with config from environment."""
     from plato.agents.base import get_registered_agents
     from plato.otel import instrument, shutdown_tracing
 
@@ -64,10 +60,7 @@ async def _run_agent_cli(instruction: str, agent_name: str | None = None, compac
     config_class = agent_cls.get_config_class()
     agent.config = config_class(**config_dict)
     try:
-        if compact:
-            await agent.compact(instruction)
-        else:
-            await agent.run(instruction)
+        await agent.run(instruction)
     finally:
         from plato.vm_metrics import shutdown_metrics
 
@@ -91,15 +84,6 @@ def _load_registered_agent_cls(
         return agent_cls
 
     if len(registered_agents) != 1:
-        # A package may register variants beside its default agent (computer-use
-        # ships `exploration-agent` from computer_use_agent.exploration). Without
-        # a name, the default is the one defined at the package's top level, so
-        # a runner invoked the old way -- no --agent-package -- still gets the
-        # same agent it always did. Variants live in sub-packages and are only
-        # reachable by name.
-        top_level = [n for n, c in registered_agents.items() if "." not in c.__module__]
-        if len(top_level) == 1:
-            return registered_agents[top_level[0]]
         available = ", ".join(sorted(registered_agents))
         raise ValueError(
             f"Multiple agents registered but no agent package was specified. Registered agents: {available}"
@@ -129,16 +113,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run Plato agents")
     subparsers = parser.add_subparsers(dest="command")
 
-    for _name, _help in (
-        ("run", "Run an agent"),
-        ("compact", "Compact the agent's live session (see BaseAgent.compact)"),
-    ):
-        p = subparsers.add_parser(_name, help=_help)
-        p.add_argument("--agent-package", help="Registered agent package/name to run")
-        p.add_argument("--instruction", "-i", help="Task instruction")
-        p.add_argument("--instruction-b64", help="Base64 encoded instruction")
-        p.add_argument("--instruction-file", help="Path to file containing base64 encoded instruction")
-        p.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
+    run_parser = subparsers.add_parser("run", help="Run an agent")
+    run_parser.add_argument("--agent-package", help="Registered agent package/name to run")
+    run_parser.add_argument("--instruction", "-i", help="Task instruction")
+    run_parser.add_argument("--instruction-b64", help="Base64 encoded instruction")
+    run_parser.add_argument("--instruction-file", help="Path to file containing base64 encoded instruction")
+    run_parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
 
     reset_parser = subparsers.add_parser("reset-commands", help="Print pooled VM reset commands as JSON")
     reset_parser.add_argument("--agent-package", help="Registered agent package/name to inspect")
@@ -151,7 +131,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.command in ("run", "compact"):
+    if args.command == "run":
         log_level = logging.DEBUG if args.verbose else logging.INFO
         logging.basicConfig(
             level=log_level,
@@ -172,7 +152,7 @@ def main() -> None:
         else:
             parser.error("--instruction, --instruction-b64, or --instruction-file required")
 
-        asyncio.run(_run_agent_cli(instruction, args.agent_package, compact=args.command == "compact"))
+        asyncio.run(_run_agent_cli(instruction, args.agent_package))
     elif args.command == "reset-commands":
         try:
             _reset_commands_cli(args.workspace_paths, args.agent_package)

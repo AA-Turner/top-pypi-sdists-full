@@ -91,6 +91,7 @@ from .errors import (
     Gone,
     InternalError,
     InvalidRequest,
+    MissingPackage,
     NotFound,
     OutOfCredit,
     PermissionDenied,
@@ -157,6 +158,7 @@ __all__ = [
     "InternalError",
     "CertPinError",
     "StreamRefused",
+    "MissingPackage",
     "from_response",
     "DEFAULT_BASE_URL",
 ]
@@ -455,17 +457,21 @@ def models(
 
 def account(*, api_key: str | None = None, base_url: str | None = None) -> dict[str, Any]:
     """
-    With a full key, your whole account: its money left, current usage and limits, and its GPUs — what
-    `seq account` prints. With a robot key, only the one deployment it is for (below).
+    With a full key, your whole account: what this month has spent, current usage and limits, and its GPUs —
+    what `seq account` prints. With a robot key, only the one deployment it is for (below).
 
-    The platform is prepaid (balance = paid credit − usage), so a CI job or control loop can check this
-    before a big run instead of discovering an empty balance as an `OutOfCredit` mid-way. Returns
-    `{"balance": {"balance", "currency", ...}, "usage": {"policies", "benchmarks"}, "limits": {...},
+    Billing is postpaid: usage is billed at the month's end, the plan's monthly credit spent first, up to the
+    plan's monthly limit - and past the credit only with a payment method on the account. So a CI job or control
+    loop can check this before a big run instead of meeting the limit as an `OutOfCredit` mid-way: `balance`
+    holds `period_spent_usd` (this month so far), `credit_usd` and `credit_left_usd`, `month_limit_usd` and
+    `month_left_usd`, and `payment_method` ({"brand", "last4", "exp_month", "exp_year"}, or None). Returns
+    `{"balance": {"period_spent_usd", "month_left_usd", ...}, "usage": {"policies", "benchmarks"}, "limits": {...},
     "gpus": {"limit", "in_use": {"serving", "eval", "total"}, "available", "waiting_evals": [...]}}` —
     `limits` only carries the per-account knobs that are configured; in `gpus`, a count the platform
     could not read is None (unknown — never read it as "full"), and `waiting_evals` lists the evals in
-    line for GPUs ({eval_id, cards, waited_s, gives_up_at}). Read-only: creating keys and topping up stay
-    in the console.
+    line for GPUs ({eval_id, cards, waited_s, gives_up_at}). Read-only: creating keys and adding a payment
+    method stay in the console.
+
 
     With a robot key the answer is that deployment's alone - `{"scope": "deployment", "deployment": name,
     "usage": {window_days, gpu_card_s, gpu_usd, cpu_core_s, cpu_usd, memory_gib_s, memory_usd, total_usd, calls,

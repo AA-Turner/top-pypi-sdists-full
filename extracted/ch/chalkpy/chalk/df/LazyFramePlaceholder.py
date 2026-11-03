@@ -35,6 +35,18 @@ if TYPE_CHECKING:
 MaterializedTable: TypeAlias = pyarrow.RecordBatch | pyarrow.Table
 
 
+def _as_key_list(keys: Any) -> Any:
+    """Wrap a single join key in a one-element list; pass anything else through unchanged.
+
+    chalkdf's ``join``/``join_asof`` accept a single column name or underscore as a key,
+    but engines whose chalkdf predates that iterate a bare ``str`` as its characters. A
+    one-element list replays correctly on both, so the recorded plan never holds a bare key.
+    """
+    if isinstance(keys, (str, Underscore)):
+        return [keys]
+    return keys
+
+
 @dataclass
 class _LazyFrameGroupBy:
     """
@@ -1353,13 +1365,99 @@ class LazyFramePlaceholder:
             column=column,
         )
 
+    def unpivot(
+        self,
+        on: str | typing.Sequence[str],
+        *,
+        index: str | typing.Sequence[str] | None = None,
+        variable_name: str = "variable",
+        value_name: str = "value",
+    ) -> "LazyFramePlaceholder":
+        """Reshape from wide to long format (also known as *melt*).
+
+        Each input row produces one output row per column in ``on``. The output
+        has the ``index`` columns, then a string ``variable_name`` column holding
+        the source column name, then a ``value_name`` column holding that
+        column's value.
+
+        Parameters
+        ----------
+        on
+            Column name(s) to unpivot into rows.
+        index
+            Column name(s) carried through unchanged as identifiers. Defaults to
+            every column not listed in ``on``, in schema order.
+        variable_name
+            Name of the output column holding the source column names.
+        value_name
+            Name of the output column holding the values.
+
+        Returns
+        -------
+        DataFrame with ``len(on)`` times as many rows as this one.
+
+        Notes
+        -----
+        The value column takes the common supertype of the ``on`` columns, using
+        pyarrow's permissive type promotion (for example ``int32`` and
+        ``float64`` become ``float64``). The rows for each ``on`` column are
+        combined with :meth:`union_all`, so row order **is not** preserved; sort
+        the result if a specific order is needed.
+
+        Raises
+        ------
+        ValueError
+            If ``on`` is empty, a named column does not exist, a column is in
+            both ``on`` and ``index``, an output name collides with an index
+            column, or the ``on`` columns have no common supertype.
+
+        Examples
+        --------
+        >>> from chalkdf import DataFrame
+        >>> sales = DataFrame.from_dict({"store": ["north", "south"], "q1": [10, 20], "q2": [30, 40]})
+        >>> long = sales.unpivot(["q1", "q2"], index="store", variable_name="quarter", value_name="revenue")
+
+        ``long`` has one row per ``q1``/``q2`` cell: ``quarter`` holds the column the
+        value came from and ``revenue`` holds the value. Row order is not guaranteed.
+
+        ===== ======= =======
+        store quarter revenue
+        ===== ======= =======
+        north q1      10
+        south q1      20
+        north q2      30
+        south q2      40
+        ===== ======= =======
+        """
+        # Record only non-default keyword arguments, so the default call's recorded
+        # kwargs stay fixed if chalkdf's signature later grows (see AGENTS.md).
+        optional_kwargs: dict[str, Any] = {}
+        if index is not None:
+            optional_kwargs["index"] = index if isinstance(index, str) else list(index)
+        if variable_name != "variable":
+            optional_kwargs["variable_name"] = variable_name
+        if value_name != "value":
+            optional_kwargs["value_name"] = value_name
+        return self._construct(
+            self_dataframe=self,
+            function_name="unpivot",
+            on=on if isinstance(on, str) else list(on),
+            **optional_kwargs,
+        )
+
     def join(
         self,
         other: "LazyFramePlaceholder",
         *,
-        on: typing.Mapping[str | Underscore, str | Underscore] | typing.Sequence[str | Underscore] | None = None,
-        left_on: typing.Sequence[str | Underscore] | None = None,
-        right_on: typing.Sequence[str | Underscore] | None = None,
+        on: (
+            str
+            | Underscore
+            | typing.Mapping[str | Underscore, str | Underscore]
+            | typing.Sequence[str | Underscore]
+            | None
+        ) = None,
+        left_on: str | Underscore | typing.Sequence[str | Underscore] | None = None,
+        right_on: str | Underscore | typing.Sequence[str | Underscore] | None = None,
         how: str = "inner",
         right_suffix: str | None = None,
         probe_with_right_side: bool = False,
@@ -1373,15 +1471,16 @@ class LazyFramePlaceholder:
             Right-hand ``DataFrame``.
         on
             Join keys. Can be specified in multiple ways:
+            - A single column name (same name on both sides): ``on="col1"``
             - A sequence of column names (same names on both sides): ``on=["col1", "col2"]``
             - A mapping of left->right column names: ``on={"left_col": "right_col"}``
             - If `None`, must specify ``left_on`` and ``right_on`` separately.
         left_on
-            Column names for left DataFrame join keys. Only used when ``on`` is None.
-            Must be paired with ``right_on``.
+            Column name, or sequence of column names, for left DataFrame join keys.
+            Only used when ``on`` is None. Must be paired with ``right_on``.
         right_on
-            Column names for right DataFrame join keys. Only used when ``on`` is None.
-            Must be paired with ``left_on``.
+            Column name, or sequence of column names, for right DataFrame join keys.
+            Only used when ``on`` is None. Must be paired with ``left_on``.
         how
             Join type. Supported values:
             - ``"inner"``: Keep only rows that match in both DataFrames (default)
@@ -1408,9 +1507,9 @@ class LazyFramePlaceholder:
             self_dataframe=self,
             function_name="join",
             other=other,
-            on=on,
-            left_on=left_on,
-            right_on=right_on,
+            on=_as_key_list(on),
+            left_on=_as_key_list(left_on),
+            right_on=_as_key_list(right_on),
             how=how,
             right_suffix=right_suffix,
         )
@@ -1422,9 +1521,15 @@ class LazyFramePlaceholder:
         on: str | Underscore | None = None,
         left_on: str | Underscore | None = None,
         right_on: str | Underscore | None = None,
-        by: typing.Mapping[str | Underscore, str | Underscore] | typing.Sequence[str | Underscore] | None = None,
-        left_by: typing.Sequence[str | Underscore] | None = None,
-        right_by: typing.Sequence[str | Underscore] | None = None,
+        by: (
+            str
+            | Underscore
+            | typing.Mapping[str | Underscore, str | Underscore]
+            | typing.Sequence[str | Underscore]
+            | None
+        ) = None,
+        left_by: str | Underscore | typing.Sequence[str | Underscore] | None = None,
+        right_by: str | Underscore | typing.Sequence[str | Underscore] | None = None,
         strategy: typing.Literal["forward", "backward"] = "backward",
         right_suffix: str | None = None,
         coalesce: bool = True,
@@ -1456,15 +1561,16 @@ class LazyFramePlaceholder:
         by
             Additional exact-match columns (optional). These columns must match exactly
             before performing the as-of match on the ``on`` column. Can be specified as:
+            - A single column name (same name on both sides): ``by="col1"``
             - A sequence of column names (same names on both sides): ``by=["col1", "col2"]``
             - A mapping of left->right column names: ``by={"left_col": "right_col"}``
             - If `None`, can specify ``left_by`` and ``right_by`` separately.
         left_by
-            Column names in left DataFrame for exact-match conditions. Only used when
-            ``by`` is None. Must be paired with ``right_by``.
+            Column name, or sequence of column names, in left DataFrame for exact-match
+            conditions. Only used when ``by`` is None. Must be paired with ``right_by``.
         right_by
-            Column names in right DataFrame for exact-match conditions. Only used when
-            ``by`` is None. Must be paired with ``left_by``.
+            Column name, or sequence of column names, in right DataFrame for exact-match
+            conditions. Only used when ``by`` is None. Must be paired with ``left_by``.
         strategy
             Join strategy controlling which match to select:
             - ``"backward"`` (default): Match with the most recent past value
@@ -1488,9 +1594,9 @@ class LazyFramePlaceholder:
             on=on,
             left_on=left_on,
             right_on=right_on,
-            by=by,
-            left_by=left_by,
-            right_by=right_by,
+            by=_as_key_list(by),
+            left_by=_as_key_list(left_by),
+            right_by=_as_key_list(right_by),
             strategy=strategy,
             right_suffix=right_suffix,
             coalesce=coalesce,

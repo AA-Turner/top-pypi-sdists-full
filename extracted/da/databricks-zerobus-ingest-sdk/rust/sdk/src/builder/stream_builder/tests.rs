@@ -525,3 +525,154 @@ fn shared_setters_write_to_arrow_config() {
         Some(5_000)
     );
 }
+
+#[cfg(feature = "arrow-flight")]
+fn arrow_test_builder(sdk: &ZerobusSdk) -> StreamBuilder<'_> {
+    use arrow_schema::{DataType, Field, Schema as ArrowSchema};
+
+    let schema = Arc::new(ArrowSchema::new(vec![Field::new(
+        "id",
+        DataType::Int32,
+        false,
+    )]));
+    sdk.stream_builder()
+        .table("t")
+        .oauth("a", "b")
+        .arrow(schema)
+}
+
+#[cfg(feature = "arrow-flight")]
+#[test]
+#[allow(deprecated)]
+fn compression_defaults_to_deprecated_ipc_zstd() {
+    let sdk = test_sdk();
+    let config = arrow_test_builder(&sdk).arrow_config;
+    assert_eq!(
+        config.compression,
+        crate::ArrowCompression::FallbackToLegacy
+    );
+    assert_eq!(
+        config.ipc_compression,
+        Some(arrow_ipc::CompressionType::ZSTD)
+    );
+}
+
+#[cfg(feature = "arrow-flight")]
+#[test]
+#[allow(deprecated)]
+fn last_compression_setter_wins() {
+    let sdk = test_sdk();
+    let new_last = arrow_test_builder(&sdk)
+        .ipc_compression(Some(arrow_ipc::CompressionType::LZ4_FRAME))
+        .compression(crate::ArrowCompression::GrpcZstd)
+        .arrow_config;
+    assert_eq!(new_last.compression, crate::ArrowCompression::GrpcZstd);
+
+    let deprecated_last = arrow_test_builder(&sdk)
+        .compression(crate::ArrowCompression::GrpcZstd)
+        .ipc_compression(Some(arrow_ipc::CompressionType::LZ4_FRAME))
+        .arrow_config;
+    assert_eq!(
+        deprecated_last.compression,
+        crate::ArrowCompression::FallbackToLegacy
+    );
+    assert_eq!(
+        deprecated_last.ipc_compression,
+        Some(arrow_ipc::CompressionType::LZ4_FRAME)
+    );
+}
+
+#[cfg(feature = "arrow-flight")]
+#[tokio::test]
+async fn arrow_mux_validates_format_callbacks_and_mux_wide_capacity() {
+    let sdk = test_sdk();
+    let builder = || {
+        sdk.stream_builder()
+            .table("t")
+            .oauth("a", "b")
+            .arrow(Arc::new(arrow_schema::Schema::empty()))
+    };
+    for (lanes, capacity, valid) in [
+        (0, 100, false),
+        (65, 100, false),
+        (2, 0, false),
+        (2, 1, false),
+        (1, 1, true),
+        (2, 5, true),
+        (64, 64, true),
+    ] {
+        // A gRPC-specific bound has no effect on an Arrow mux.
+        let mux = builder()
+            .max_inflight_requests(0)
+            .max_inflight_batches(capacity)
+            .multiplexed(lanes);
+        assert_eq!(mux.validate().is_ok(), valid);
+        if valid {
+            assert_eq!(
+                mux.max_inflight_batches_per_stream(),
+                Some(capacity / lanes)
+            );
+        } else {
+            assert!(matches!(
+                mux.build_arrow().await,
+                Err(ZerobusError::InvalidArgument(_))
+            ));
+        }
+    }
+    assert!(
+        matches!(builder().multiplexed(2).build().await, Err(ZerobusError::InvalidArgument(msg)) if msg.contains("build_arrow"))
+    );
+    assert!(
+        matches!(sdk.stream_builder().table("t").oauth("a", "b").json().multiplexed(2).build_arrow().await,
+        Err(ZerobusError::InvalidArgument(msg)) if msg.contains(".build()"))
+    );
+    assert!(matches!(
+        sdk.stream_builder()
+            .table("t")
+            .oauth("a", "b")
+            .json()
+            .max_inflight_requests(1)
+            .multiplexed(2)
+            .build_arrow()
+            .await,
+        Err(ZerobusError::InvalidArgument(msg))
+            if msg == "non-Arrow format requires .build() instead of .build_arrow()"
+    ));
+    for mux in [
+        builder()
+            .ack_callback(Arc::new(NoopAckCallback))
+            .multiplexed(2),
+        builder()
+            .multiplexed_ack_callback(Arc::new(NoopAckCallback))
+            .multiplexed(2),
+    ] {
+        assert!(mux.validate().is_err());
+        assert!(
+            matches!(mux.build_arrow().await, Err(ZerobusError::InvalidArgument(msg)) if msg.contains("not supported for Arrow"))
+        );
+    }
+}
+
+#[cfg(feature = "arrow-flight")]
+#[tokio::test]
+async fn arrow_mux_rejects_stats_exporter() {
+    let sdk = test_sdk();
+    let (exporter, _rx) = crate::stats::channel_exporter(std::num::NonZeroUsize::new(4).unwrap());
+    let mux = sdk
+        .stream_builder()
+        .table("t")
+        .oauth("a", "b")
+        .arrow(Arc::new(arrow_schema::Schema::empty()))
+        .stats_exporter(exporter)
+        .multiplexed(2);
+    let expected = "stats_exporter is not supported for multiplexed Arrow Flight streams";
+
+    assert!(matches!(
+        mux.validate(),
+        Err(ZerobusError::InvalidArgument(message)) if message == expected
+    ));
+    assert!(matches!(
+        mux.build_arrow().await,
+        Err(ZerobusError::InvalidArgument(message)) if message == expected
+    ));
+}

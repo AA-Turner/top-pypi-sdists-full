@@ -11,8 +11,9 @@ import re
 import time
 from typing import Any, TYPE_CHECKING
 
-from probe._shared import oscompat
+from probe.foundation.os_backend import os_backend as oscompat
 from probe.foundation.durable.durable import file_lock, write_text_atomic
+from probe.sdk.delivery.status_fields import StatusField
 
 from .... import errors
 from .....foundation.durable.durable import fsync_directory
@@ -396,7 +397,7 @@ class DiscardsMixin:
         if not self.ops_dir.exists():
             return counts
         status = Journal.read_status(self.dir, include_receipts=False) or {}
-        refused = status.get("refused_fingerprints") or {}
+        refused = status.get(StatusField.REFUSED_FINGERPRINTS) or {}
         handle = self.drain_lock.open("a+")
         try:
             if not _take_drain_lock(handle, wait_for_lock=True, timeout=30.0):
@@ -474,7 +475,8 @@ class DiscardsMixin:
                 emptied = {op_credential(op)[0] for path, op in queued if path in gone and isinstance(op, dict)}
                 emptied -= {op_credential(op)[0] for path, op in queued if path not in gone and isinstance(op, dict)}
                 try:
-                    written = json.loads(self.status_file.read_text()).get("refused_fingerprints") or {}
+                    on_disk = json.loads(self.status_file.read_text())
+                    written = on_disk.get(StatusField.REFUSED_FINGERPRINTS) or {}
                 except (OSError, ValueError, AttributeError):
                     written = {}
                 self._write_status_locked(

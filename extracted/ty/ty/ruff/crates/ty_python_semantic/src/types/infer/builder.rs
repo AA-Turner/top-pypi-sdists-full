@@ -96,9 +96,7 @@ use crate::types::function::{
     FunctionDecorators, FunctionType, KnownFunction, OverloadLiteral, report_revealed_type,
     same_module_uncached_raw_signature,
 };
-use crate::types::generics::{
-    GenericContext, Specialization, SpecializationBuilder, bind_typevar, enclosing_binding_contexts,
-};
+use crate::types::generics::{GenericContext, Specialization, SpecializationBuilder, bind_typevar};
 use crate::types::infer::builder::binary_expressions::BinaryInferenceState;
 use crate::types::infer::builder::named_tuple::NamedTupleKind;
 use crate::types::infer::builder::paramspec_validation::validate_paramspec_components;
@@ -113,7 +111,9 @@ use crate::types::narrow::NarrowingEvaluatorExtension;
 use crate::types::narrow::pattern_success_types;
 use crate::types::newtype::NewType;
 use crate::types::set_theoretic::RecursivelyDefined;
-use crate::types::signatures::{CallableSignature, ReturnCallableTypeVarScope};
+use crate::types::signatures::{
+    CallableSignature, ReturnCallableTypeVarScope, lexical_return_type,
+};
 use crate::types::special_form::TypeQualifier;
 use crate::types::subclass_of::SubclassOfInner;
 use crate::types::tuple::promotion::TupleSizePromotionConstraints;
@@ -898,18 +898,12 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
         self.scope
     }
 
-    /// Returns call bindings annotated with the call site's enclosing binding contexts.
-    ///
-    /// Call binding uses this as an optimization hint to avoid freshening generic callable
-    /// signatures when the callable's generic context cannot collide with a containing scope.
+    /// Attaches the call site's scope so generic argument matching can detect recursive calls.
     fn bindings_for_call(&self, callable_type: Type<'db>) -> Bindings<'db> {
         let db = self.db();
         callable_type
             .bindings(db, self.program_environment())
-            .with_enclosing_binding_contexts(enclosing_binding_contexts(
-                self.index,
-                self.scope().file_scope_id(db),
-            ))
+            .with_call_site_scope(self.scope())
     }
 
     fn settings(&self) -> &AnalysisSettings {
@@ -5506,12 +5500,11 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                     // the expected type passed should be the "raw" type,
                     // i.e. type variables in the return type are non-inferable,
                     // and the return types of async functions are not wrapped in `CoroutineType[...]`.
-                    let return_ty = same_module_uncached_raw_signature(
+                    let return_ty = lexical_return_type(
                         db,
-                        func,
-                        ReturnCallableTypeVarScope::Lexical,
-                    )
-                    .return_ty;
+                        func.definition(db),
+                        func.node(db, self.file(), self.module()),
+                    );
 
                     // For generator functions, the declared return type is e.g.
                     // `Generator[YieldType, SendType, ReturnType]`. The type context
@@ -6709,6 +6702,10 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
         fallback_tcx: TypeContext<'db>,
         mut infer_expression: impl FnMut(&mut Self, TypeContext<'db>) -> Type<'db>,
     ) -> Type<'db> {
+        if tcx == fallback_tcx {
+            return infer_expression(self, tcx);
+        }
+
         // Cache nested expressions so retries do not lead to exponential inference work.
         let teardown_expression_cache = self.setup_expression_cache();
         let mut speculative_builder = self.speculate();
@@ -9885,8 +9882,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             &bindings,
         );
 
-        let cast_value = if call_expression_tcx.annotation.is_some()
-            && let Type::FunctionLiteral(function) = callable_type
+        let cast_value = if let Type::FunctionLiteral(function) = callable_type
             && function.is_known(db, KnownFunction::Cast)
         {
             arguments.find_argument_value("val", 1)
@@ -9906,7 +9902,10 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                     // Redundant casts inside the value are also an intended result of propagation.
                     return builder.infer_with_type_context_fallback(
                         call_expression_tcx,
-                        tcx,
+                        // The value parameter of `cast` is declared as `Any`. If provided as
+                        // type context to a nested generic call, it can incorrectly make the
+                        // cast appear redundant.
+                        TypeContext::default(),
                         |builder, tcx| builder.infer_expression(value, tcx),
                     );
                 }

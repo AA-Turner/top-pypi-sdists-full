@@ -1,12 +1,12 @@
 """Stable public alias for the generated wire models.
 
 Import request/response types from here, never from ``probe.generated.models``
-directly. The generated module is a build artifact (see ``scripts/gen_models.py``);
+directly. The generated module is a build artifact (see ``tools/codegen/gen_models.py``);
 this seam means a change to how it is generated is a one-line update, not a
 sweep across the SDK.
 
 When the backend contract moves: refresh ``schema/openapi.json``
-(``scripts/dump_openapi.py``) and run ``make gen-models``. If a field the SDK
+(``tools/codegen/dump_openapi.py``) and run ``make gen-models``. If a field the SDK
 references was renamed or removed, the import or attribute use below fails fast,
 that is the drift signal working as intended.
 

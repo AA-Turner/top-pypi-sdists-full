@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-auth0-python
-Version: 4.10.0.20260712
+Version: 4.10.0.20261102
 Summary: Typing stubs for auth0-python
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -13,8 +13,8 @@ Classifier: Typing :: Stubs Only
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: types-requests
 Requires-Dist: cryptography
+Requires-Dist: requests>=2.34.0
 Dynamic: license-file
 
 ## Typing stubs for auth0-python
@@ -38,8 +38,10 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.2.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.411
+* [mypy](https://www.mypy-lang.org/) 2.4.0
+* [pyrefly](https://pyrefly.org/) 1.4.0
+* [pyright](https://microsoft.github.io/pyright/) 1.1.414
+* [ty](https://docs.astral.sh/ty/) 0.0.91
 
 It was generated from typeshed commit
-[`8e3110c4d3cf2828734b119863c6853529bb3034`](https://github.com/python/typeshed/commit/8e3110c4d3cf2828734b119863c6853529bb3034).
+[`272d38680771baf39c7ea503ae5d042c3295e47c`](https://github.com/python/typeshed/commit/272d38680771baf39c7ea503ae5d042c3295e47c).

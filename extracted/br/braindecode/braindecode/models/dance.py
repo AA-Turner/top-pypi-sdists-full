@@ -12,6 +12,7 @@ import warnings
 import torch
 from torch import nn
 
+from braindecode.functional import init_weights_
 from braindecode.models.base import EEGModuleMixin
 from braindecode.models.util import (
     _disable_batch_norm_training_if_batch_size_one,  # decorates ``forward``
@@ -29,14 +30,14 @@ class DANCE(EEGModuleMixin, nn.Module, license="mit"):
 
     DANCE frames EEG decoding as event *set prediction*: a long, unaligned
     window is mapped to a set of events ``(t_start, t_end, class)`` with
-    normalized ``[0, 1]`` spans -- DETR for 1-D EEG.
+    normalized ``[0, 1]`` spans -- DETR [detr2020]_ for 1-D EEG.
 
     .. rubric:: Architecture Overview
 
-    ``ChannelMerger`` (spatial Fourier attention over electrode positions) ->
-    ``SimpleConv`` (dilated conv stack) -> ``Perceiver`` (cross-attention to a
-    fixed 256-latent grid) -> a dense head (``forward`` output) and a DETR
-    cross-attention decoder (``detect`` output).
+    ``ChannelMerger`` (spatial Fourier attention over electrode positions, from
+    [defossez2023]_) -> ``SimpleConv`` (dilated conv stack) -> ``Perceiver``
+    [perceiver2021]_ (cross-attention to a fixed 256-latent grid) -> a dense head
+    (``forward`` output) and a DETR cross-attention decoder (``detect`` output).
 
     .. rubric:: Macro Components
 
@@ -301,22 +302,16 @@ class DANCE(EEGModuleMixin, nn.Module, license="mit"):
         # final_layer LAST so it lands in the last two named_children(); init
         # weights AFTER it exists so the dense head gets the custom init too.
         self.final_layer = nn.Linear(embed_dim, self.n_outputs)
-        self.apply(self._init_weights)
+        self._init_parameters()
 
-    @staticmethod
-    def _init_weights(module: nn.Module) -> None:
-        if isinstance(module, nn.Linear):
-            nn.init.trunc_normal_(module.weight, std=0.02)
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
-        elif isinstance(module, nn.LayerNorm):
-            nn.init.ones_(module.weight)
-            nn.init.zeros_(module.bias)
+    def _init_parameters(self) -> None:
+        """Model-specific initialization (see ``reset_parameters``)."""
+        self.apply(init_weights_)
 
     def _encode(self, x: torch.Tensor) -> torch.Tensor:
         if x.ndim != 3 or x.shape[-2] != self.n_chans:
             raise ValueError(
-                f"expected (batch, {self.n_chans}, T) input; got {tuple(x.shape)}."
+                f"expected (batch, {self.n_chans}, T) input; got {list(x.shape)}."
             )
         if x.shape[-1] < self._min_n_times:
             raise ValueError(

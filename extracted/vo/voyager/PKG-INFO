@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: voyager
-Version: 2.2.2
+Version: 2.2.3
 Summary: Easy-to-use, fast, simple multi-platform approximate nearest-neighbor search library.
 Author-Email: Peter Sobot <psobot@spotify.com>
 Classifier: Development Status :: 5 - Production/Stable
@@ -15,6 +15,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Project-URL: Homepage, https://github.com/spotify/voyager
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
@@ -55,7 +58,7 @@ Add the following artifact to your `pom.xml`:
 <dependency>
   <groupId>com.spotify</groupId>
   <artifactId>voyager</artifactId>
-  <version>2.2.2</version>
+  <version>2.2.3</version>
 </dependency>
 ```
 You can find the latest version on [Voyager's Releases page](https://github.com/spotify/voyager/releases).
@@ -64,7 +67,7 @@ You can find the latest version on [Voyager's Releases page](https://github.com/
 
 Add the following artifact to your `build.sbt`:
 ```sbt
-"com.spotify" % "voyager" % "2.2.2"
+"com.spotify" % "voyager" % "2.2.3"
 ```
 You can find the latest version on [Voyager's Releases page](https://github.com/spotify/voyager/releases).
 
@@ -78,19 +81,36 @@ You can find the latest version on [Voyager's Releases page](https://github.com/
 | Linux     | Python   | 3.11    | ✅       | ✅       |
 | Linux     | Python   | 3.12    | ✅       | ✅       |
 | Linux     | Python   | 3.13    | ✅       | ✅       |
+| Linux     | Python   | 3.14    | ✅       | ✅       |
+| Linux     | Python   | 3.15    | ✅       | ✅       |
 | Linux     | Java     | 8-16+   | ✅       | ✅      |
 | macOS     | Python   | 3.9     | ✅       | ✅       |
 | macOS     | Python   | 3.10    | ✅       | ✅       |
 | macOS     | Python   | 3.11    | ✅       | ✅       |
 | macOS     | Python   | 3.12    | ✅       | ✅       |
 | macOS     | Python   | 3.13    | ✅       | ✅       |
+| macOS     | Python   | 3.14    | ✅       | ✅       |
+| macOS     | Python   | 3.15    | ✅       | ✅       |
 | macOS     | Java     | 8-16+   | ✅       | ✅       |
 | Windows   | Python   | 3.9     | ✅       | ❌       |
 | Windows   | Python   | 3.10    | ✅       | ❌       |
 | Windows   | Python   | 3.11    | ✅       | ❌       |
 | Windows   | Python   | 3.12    | ✅       | ❌       |
 | Windows   | Python   | 3.13    | ✅       | ❌       |
+| Windows   | Python   | 3.14    | ✅       | ❌       |
+| Windows   | Python   | 3.15    | ✅       | ❌       |
 | Windows   | Java     | 8-16+   | ✅       | ❌       |
+
+#### Python support policy
+
+The Python versions and platforms listed above are officially supported. Release
+wheels are tested on each listed combination before publication.
+
+Standard CPython 3.12 and later share `cp312-abi3` wheels. These wheels may also
+install on newer Python versions that have not yet been tested; installation
+alone does not establish official support. New versions become officially
+supported when their wheel tests are added to CI and pass. Free-threaded Python
+builds are not currently supported.
 
 
 ## Contributing

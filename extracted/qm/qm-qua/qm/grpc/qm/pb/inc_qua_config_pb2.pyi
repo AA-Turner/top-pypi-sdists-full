@@ -10,6 +10,18 @@ DESCRIPTOR: _descriptor.FileDescriptor
 
 class QuaConfig(_message.Message):
     __slots__ = ["v1beta", "v2", "revision"]
+    class MwFemSubtype(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = []
+        MW_FEM_SUBTYPE_UNSPECIFIED: _ClassVar[QuaConfig.MwFemSubtype]
+        MW_FEM_SUBTYPE_A08: _ClassVar[QuaConfig.MwFemSubtype]
+        MW_FEM_SUBTYPE_B16: _ClassVar[QuaConfig.MwFemSubtype]
+        MW_FEM_SUBTYPE_B10: _ClassVar[QuaConfig.MwFemSubtype]
+        MW_FEM_SUBTYPE_C16: _ClassVar[QuaConfig.MwFemSubtype]
+    MW_FEM_SUBTYPE_UNSPECIFIED: QuaConfig.MwFemSubtype
+    MW_FEM_SUBTYPE_A08: QuaConfig.MwFemSubtype
+    MW_FEM_SUBTYPE_B16: QuaConfig.MwFemSubtype
+    MW_FEM_SUBTYPE_B10: QuaConfig.MwFemSubtype
+    MW_FEM_SUBTYPE_C16: QuaConfig.MwFemSubtype
     class VoltageLevel(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = []
         LVTTL: _ClassVar[QuaConfig.VoltageLevel]
@@ -228,16 +240,20 @@ class QuaConfig(_message.Message):
         fems: _containers.MessageMap[int, QuaConfig.FEMTypes]
         def __init__(self, fems: _Optional[_Mapping[int, QuaConfig.FEMTypes]] = ...) -> None: ...
     class FEMTypes(_message.Message):
-        __slots__ = ["opx", "octo_dac", "microwave", "bb_fem"]
+        __slots__ = ["opx", "octo_dac", "microwave", "lf_ln08_fem", "at_fem", "mw2_fem"]
         OPX_FIELD_NUMBER: _ClassVar[int]
         OCTO_DAC_FIELD_NUMBER: _ClassVar[int]
         MICROWAVE_FIELD_NUMBER: _ClassVar[int]
-        BB_FEM_FIELD_NUMBER: _ClassVar[int]
+        LF_LN08_FEM_FIELD_NUMBER: _ClassVar[int]
+        AT_FEM_FIELD_NUMBER: _ClassVar[int]
+        MW2_FEM_FIELD_NUMBER: _ClassVar[int]
         opx: QuaConfig.ControllerDec
         octo_dac: QuaConfig.OctoDacFemDec
         microwave: QuaConfig.MicrowaveFemDec
-        bb_fem: QuaConfig.BasebandFemDec
-        def __init__(self, opx: _Optional[_Union[QuaConfig.ControllerDec, _Mapping]] = ..., octo_dac: _Optional[_Union[QuaConfig.OctoDacFemDec, _Mapping]] = ..., microwave: _Optional[_Union[QuaConfig.MicrowaveFemDec, _Mapping]] = ..., bb_fem: _Optional[_Union[QuaConfig.BasebandFemDec, _Mapping]] = ...) -> None: ...
+        lf_ln08_fem: QuaConfig.LFLN08FemDec
+        at_fem: QuaConfig.AtFemDec
+        mw2_fem: QuaConfig.Mw2FemDec
+        def __init__(self, opx: _Optional[_Union[QuaConfig.ControllerDec, _Mapping]] = ..., octo_dac: _Optional[_Union[QuaConfig.OctoDacFemDec, _Mapping]] = ..., microwave: _Optional[_Union[QuaConfig.MicrowaveFemDec, _Mapping]] = ..., lf_ln08_fem: _Optional[_Union[QuaConfig.LFLN08FemDec, _Mapping]] = ..., at_fem: _Optional[_Union[QuaConfig.AtFemDec, _Mapping]] = ..., mw2_fem: _Optional[_Union[QuaConfig.Mw2FemDec, _Mapping]] = ...) -> None: ...
     class ControllerDec(_message.Message):
         __slots__ = ["type", "analogOutputs", "analogInputs", "digitalOutputs", "digitalInputs"]
         class AnalogOutputsEntry(_message.Message):
@@ -318,15 +334,15 @@ class QuaConfig(_message.Message):
         digitalOutputs: _containers.MessageMap[int, QuaConfig.DigitalOutputPortDec]
         digitalInputs: _containers.MessageMap[int, QuaConfig.DigitalInputPortDec]
         def __init__(self, analogOutputs: _Optional[_Mapping[int, QuaConfig.OctoDacAnalogOutputPortDec]] = ..., analogInputs: _Optional[_Mapping[int, QuaConfig.AnalogInputPortDec]] = ..., digitalOutputs: _Optional[_Mapping[int, QuaConfig.DigitalOutputPortDec]] = ..., digitalInputs: _Optional[_Mapping[int, QuaConfig.DigitalInputPortDec]] = ...) -> None: ...
-    class BasebandFemDec(_message.Message):
+    class LFLN08FemDec(_message.Message):
         __slots__ = ["analogOutputs", "analogInputs", "digitalOutputs", "digitalInputs"]
         class AnalogOutputsEntry(_message.Message):
             __slots__ = ["key", "value"]
             KEY_FIELD_NUMBER: _ClassVar[int]
             VALUE_FIELD_NUMBER: _ClassVar[int]
             key: int
-            value: QuaConfig.BasebandAnalogOutputPortDec
-            def __init__(self, key: _Optional[int] = ..., value: _Optional[_Union[QuaConfig.BasebandAnalogOutputPortDec, _Mapping]] = ...) -> None: ...
+            value: QuaConfig.LFLN08AnalogOutputPortDec
+            def __init__(self, key: _Optional[int] = ..., value: _Optional[_Union[QuaConfig.LFLN08AnalogOutputPortDec, _Mapping]] = ...) -> None: ...
         class AnalogInputsEntry(_message.Message):
             __slots__ = ["key", "value"]
             KEY_FIELD_NUMBER: _ClassVar[int]
@@ -352,11 +368,11 @@ class QuaConfig(_message.Message):
         ANALOGINPUTS_FIELD_NUMBER: _ClassVar[int]
         DIGITALOUTPUTS_FIELD_NUMBER: _ClassVar[int]
         DIGITALINPUTS_FIELD_NUMBER: _ClassVar[int]
-        analogOutputs: _containers.MessageMap[int, QuaConfig.BasebandAnalogOutputPortDec]
+        analogOutputs: _containers.MessageMap[int, QuaConfig.LFLN08AnalogOutputPortDec]
         analogInputs: _containers.MessageMap[int, QuaConfig.AnalogInputPortDec]
         digitalOutputs: _containers.MessageMap[int, QuaConfig.DigitalOutputPortDec]
         digitalInputs: _containers.MessageMap[int, QuaConfig.DigitalInputPortDec]
-        def __init__(self, analogOutputs: _Optional[_Mapping[int, QuaConfig.BasebandAnalogOutputPortDec]] = ..., analogInputs: _Optional[_Mapping[int, QuaConfig.AnalogInputPortDec]] = ..., digitalOutputs: _Optional[_Mapping[int, QuaConfig.DigitalOutputPortDec]] = ..., digitalInputs: _Optional[_Mapping[int, QuaConfig.DigitalInputPortDec]] = ...) -> None: ...
+        def __init__(self, analogOutputs: _Optional[_Mapping[int, QuaConfig.LFLN08AnalogOutputPortDec]] = ..., analogInputs: _Optional[_Mapping[int, QuaConfig.AnalogInputPortDec]] = ..., digitalOutputs: _Optional[_Mapping[int, QuaConfig.DigitalOutputPortDec]] = ..., digitalInputs: _Optional[_Mapping[int, QuaConfig.DigitalInputPortDec]] = ...) -> None: ...
     class MicrowaveFemDec(_message.Message):
         __slots__ = ["analogOutputs", "analogInputs", "digitalOutputs", "digitalInputs"]
         class AnalogOutputsEntry(_message.Message):
@@ -396,6 +412,76 @@ class QuaConfig(_message.Message):
         digitalOutputs: _containers.MessageMap[int, QuaConfig.DigitalOutputPortDec]
         digitalInputs: _containers.MessageMap[int, QuaConfig.DigitalInputPortDec]
         def __init__(self, analogOutputs: _Optional[_Mapping[int, QuaConfig.MicrowaveAnalogOutputPortDec]] = ..., analogInputs: _Optional[_Mapping[int, QuaConfig.MicrowaveAnalogInputPortDec]] = ..., digitalOutputs: _Optional[_Mapping[int, QuaConfig.DigitalOutputPortDec]] = ..., digitalInputs: _Optional[_Mapping[int, QuaConfig.DigitalInputPortDec]] = ...) -> None: ...
+    class AtFemDec(_message.Message):
+        __slots__ = ["analogOutputs"]
+        class AnalogOutputsEntry(_message.Message):
+            __slots__ = ["key", "value"]
+            KEY_FIELD_NUMBER: _ClassVar[int]
+            VALUE_FIELD_NUMBER: _ClassVar[int]
+            key: int
+            value: QuaConfig.AtAnalogOutputPortDec
+            def __init__(self, key: _Optional[int] = ..., value: _Optional[_Union[QuaConfig.AtAnalogOutputPortDec, _Mapping]] = ...) -> None: ...
+        ANALOGOUTPUTS_FIELD_NUMBER: _ClassVar[int]
+        analogOutputs: _containers.MessageMap[int, QuaConfig.AtAnalogOutputPortDec]
+        def __init__(self, analogOutputs: _Optional[_Mapping[int, QuaConfig.AtAnalogOutputPortDec]] = ...) -> None: ...
+    class Mw2FemDec(_message.Message):
+        __slots__ = ["subtype", "analogOutputs", "analogInputs", "digitalOutputs", "digitalInputs", "raw_adc_recording"]
+        class AnalogOutputsEntry(_message.Message):
+            __slots__ = ["key", "value"]
+            KEY_FIELD_NUMBER: _ClassVar[int]
+            VALUE_FIELD_NUMBER: _ClassVar[int]
+            key: int
+            value: QuaConfig.Mw2AnalogOutputPortDec
+            def __init__(self, key: _Optional[int] = ..., value: _Optional[_Union[QuaConfig.Mw2AnalogOutputPortDec, _Mapping]] = ...) -> None: ...
+        class AnalogInputsEntry(_message.Message):
+            __slots__ = ["key", "value"]
+            KEY_FIELD_NUMBER: _ClassVar[int]
+            VALUE_FIELD_NUMBER: _ClassVar[int]
+            key: int
+            value: QuaConfig.Mw2AnalogInputPortDec
+            def __init__(self, key: _Optional[int] = ..., value: _Optional[_Union[QuaConfig.Mw2AnalogInputPortDec, _Mapping]] = ...) -> None: ...
+        class DigitalOutputsEntry(_message.Message):
+            __slots__ = ["key", "value"]
+            KEY_FIELD_NUMBER: _ClassVar[int]
+            VALUE_FIELD_NUMBER: _ClassVar[int]
+            key: int
+            value: QuaConfig.DigitalOutputPortDec
+            def __init__(self, key: _Optional[int] = ..., value: _Optional[_Union[QuaConfig.DigitalOutputPortDec, _Mapping]] = ...) -> None: ...
+        class DigitalInputsEntry(_message.Message):
+            __slots__ = ["key", "value"]
+            KEY_FIELD_NUMBER: _ClassVar[int]
+            VALUE_FIELD_NUMBER: _ClassVar[int]
+            key: int
+            value: QuaConfig.DigitalInputPortDec
+            def __init__(self, key: _Optional[int] = ..., value: _Optional[_Union[QuaConfig.DigitalInputPortDec, _Mapping]] = ...) -> None: ...
+        SUBTYPE_FIELD_NUMBER: _ClassVar[int]
+        ANALOGOUTPUTS_FIELD_NUMBER: _ClassVar[int]
+        ANALOGINPUTS_FIELD_NUMBER: _ClassVar[int]
+        DIGITALOUTPUTS_FIELD_NUMBER: _ClassVar[int]
+        DIGITALINPUTS_FIELD_NUMBER: _ClassVar[int]
+        RAW_ADC_RECORDING_FIELD_NUMBER: _ClassVar[int]
+        subtype: QuaConfig.MwFemSubtype
+        analogOutputs: _containers.MessageMap[int, QuaConfig.Mw2AnalogOutputPortDec]
+        analogInputs: _containers.MessageMap[int, QuaConfig.Mw2AnalogInputPortDec]
+        digitalOutputs: _containers.MessageMap[int, QuaConfig.DigitalOutputPortDec]
+        digitalInputs: _containers.MessageMap[int, QuaConfig.DigitalInputPortDec]
+        raw_adc_recording: QuaConfig.RawAdcRecordingDec
+        def __init__(self, subtype: _Optional[_Union[QuaConfig.MwFemSubtype, str]] = ..., analogOutputs: _Optional[_Mapping[int, QuaConfig.Mw2AnalogOutputPortDec]] = ..., analogInputs: _Optional[_Mapping[int, QuaConfig.Mw2AnalogInputPortDec]] = ..., digitalOutputs: _Optional[_Mapping[int, QuaConfig.DigitalOutputPortDec]] = ..., digitalInputs: _Optional[_Mapping[int, QuaConfig.DigitalInputPortDec]] = ..., raw_adc_recording: _Optional[_Union[QuaConfig.RawAdcRecordingDec, _Mapping]] = ...) -> None: ...
+    class RawAdcRecordingDec(_message.Message):
+        __slots__ = ["ports", "rate"]
+        class RecordingRate(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+            __slots__ = []
+            Undefined: _ClassVar[QuaConfig.RawAdcRecordingDec.RecordingRate]
+            GSPS1: _ClassVar[QuaConfig.RawAdcRecordingDec.RecordingRate]
+            GSPS2: _ClassVar[QuaConfig.RawAdcRecordingDec.RecordingRate]
+        Undefined: QuaConfig.RawAdcRecordingDec.RecordingRate
+        GSPS1: QuaConfig.RawAdcRecordingDec.RecordingRate
+        GSPS2: QuaConfig.RawAdcRecordingDec.RecordingRate
+        PORTS_FIELD_NUMBER: _ClassVar[int]
+        RATE_FIELD_NUMBER: _ClassVar[int]
+        ports: _containers.RepeatedScalarFieldContainer[int]
+        rate: QuaConfig.RawAdcRecordingDec.RecordingRate
+        def __init__(self, ports: _Optional[_Iterable[int]] = ..., rate: _Optional[_Union[QuaConfig.RawAdcRecordingDec.RecordingRate, str]] = ...) -> None: ...
     class AnalogOutputPortDec(_message.Message):
         __slots__ = ["offset", "filter", "delay", "channelWeights", "shareable", "crosstalk", "min_voltage_limit", "max_voltage_limit"]
         class ChannelWeightsEntry(_message.Message):
@@ -496,6 +582,48 @@ class QuaConfig(_message.Message):
         FREQUENCY_FIELD_NUMBER: _ClassVar[int]
         frequency: float
         def __init__(self, frequency: _Optional[float] = ...) -> None: ...
+    class Mw2AnalogOutputPortDec(_message.Message):
+        __slots__ = ["fullScalePowerDbm", "delay", "shareable", "upconverters", "band", "samplingRate"]
+        class UpConvertersContainer(_message.Message):
+            __slots__ = ["value"]
+            class ValueEntry(_message.Message):
+                __slots__ = ["key", "value"]
+                KEY_FIELD_NUMBER: _ClassVar[int]
+                VALUE_FIELD_NUMBER: _ClassVar[int]
+                key: int
+                value: QuaConfig.UpConverterConfigDec
+                def __init__(self, key: _Optional[int] = ..., value: _Optional[_Union[QuaConfig.UpConverterConfigDec, _Mapping]] = ...) -> None: ...
+            VALUE_FIELD_NUMBER: _ClassVar[int]
+            value: _containers.MessageMap[int, QuaConfig.UpConverterConfigDec]
+            def __init__(self, value: _Optional[_Mapping[int, QuaConfig.UpConverterConfigDec]] = ...) -> None: ...
+        FULLSCALEPOWERDBM_FIELD_NUMBER: _ClassVar[int]
+        DELAY_FIELD_NUMBER: _ClassVar[int]
+        SHAREABLE_FIELD_NUMBER: _ClassVar[int]
+        UPCONVERTERS_FIELD_NUMBER: _ClassVar[int]
+        BAND_FIELD_NUMBER: _ClassVar[int]
+        SAMPLINGRATE_FIELD_NUMBER: _ClassVar[int]
+        fullScalePowerDbm: int
+        delay: int
+        shareable: bool
+        upconverters: QuaConfig.Mw2AnalogOutputPortDec.UpConvertersContainer
+        band: int
+        samplingRate: float
+        def __init__(self, fullScalePowerDbm: _Optional[int] = ..., delay: _Optional[int] = ..., shareable: bool = ..., upconverters: _Optional[_Union[QuaConfig.Mw2AnalogOutputPortDec.UpConvertersContainer, _Mapping]] = ..., band: _Optional[int] = ..., samplingRate: _Optional[float] = ...) -> None: ...
+    class Mw2AnalogInputPortDec(_message.Message):
+        __slots__ = ["gain_db", "shareable", "downconverter", "lo_mode", "band", "samplingRate"]
+        GAIN_DB_FIELD_NUMBER: _ClassVar[int]
+        SHAREABLE_FIELD_NUMBER: _ClassVar[int]
+        DOWNCONVERTER_FIELD_NUMBER: _ClassVar[int]
+        LO_MODE_FIELD_NUMBER: _ClassVar[int]
+        BAND_FIELD_NUMBER: _ClassVar[int]
+        SAMPLINGRATE_FIELD_NUMBER: _ClassVar[int]
+        gain_db: int
+        shareable: bool
+        downconverter: QuaConfig.DownConverterConfigDec
+        lo_mode: QuaConfig.MicrowaveAnalogInputPortDec.LoMode
+        band: int
+        samplingRate: float
+        def __init__(self, gain_db: _Optional[int] = ..., shareable: bool = ..., downconverter: _Optional[_Union[QuaConfig.DownConverterConfigDec, _Mapping]] = ..., lo_mode: _Optional[_Union[QuaConfig.MicrowaveAnalogInputPortDec.LoMode, str]] = ..., band: _Optional[int] = ..., samplingRate: _Optional[float] = ...) -> None: ...
     class OctoDacAnalogOutputPortDec(_message.Message):
         __slots__ = ["offset", "filter", "delay", "shareable", "crosstalk", "sampling_rate", "upsampling_mode", "output_mode", "crosstalk_v2", "min_voltage_limit", "max_voltage_limit"]
         class OutputMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -567,24 +695,24 @@ class QuaConfig(_message.Message):
         min_voltage_limit: QuaConfig.OctoDacAnalogOutputPortDec.VoltageLimitContainer
         max_voltage_limit: QuaConfig.OctoDacAnalogOutputPortDec.VoltageLimitContainer
         def __init__(self, offset: _Optional[float] = ..., filter: _Optional[_Union[QuaConfig.AnalogOutputPortFilter, _Mapping]] = ..., delay: _Optional[int] = ..., shareable: bool = ..., crosstalk: _Optional[_Mapping[int, float]] = ..., sampling_rate: _Optional[_Union[QuaConfig.OctoDacAnalogOutputPortDec.SamplingRate, str]] = ..., upsampling_mode: _Optional[_Union[QuaConfig.OctoDacAnalogOutputPortDec.SamplingRateMode, str]] = ..., output_mode: _Optional[_Union[QuaConfig.OctoDacAnalogOutputPortDec.OutputMode, str]] = ..., crosstalk_v2: _Optional[_Union[QuaConfig.OctoDacAnalogOutputPortDec.CrosstalkContainer, _Mapping]] = ..., min_voltage_limit: _Optional[_Union[QuaConfig.OctoDacAnalogOutputPortDec.VoltageLimitContainer, _Mapping]] = ..., max_voltage_limit: _Optional[_Union[QuaConfig.OctoDacAnalogOutputPortDec.VoltageLimitContainer, _Mapping]] = ...) -> None: ...
-    class BasebandAnalogOutputPortDec(_message.Message):
+    class LFLN08AnalogOutputPortDec(_message.Message):
         __slots__ = ["offset", "filter", "delay", "shareable", "sampling_rate", "upsampling_mode", "crosstalk_v2", "min_voltage_limit", "max_voltage_limit"]
         class SamplingRate(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
             __slots__ = []
-            Undefined: _ClassVar[QuaConfig.BasebandAnalogOutputPortDec.SamplingRate]
-            GSPS1: _ClassVar[QuaConfig.BasebandAnalogOutputPortDec.SamplingRate]
-            GSPS2: _ClassVar[QuaConfig.BasebandAnalogOutputPortDec.SamplingRate]
-        Undefined: QuaConfig.BasebandAnalogOutputPortDec.SamplingRate
-        GSPS1: QuaConfig.BasebandAnalogOutputPortDec.SamplingRate
-        GSPS2: QuaConfig.BasebandAnalogOutputPortDec.SamplingRate
+            Undefined: _ClassVar[QuaConfig.LFLN08AnalogOutputPortDec.SamplingRate]
+            GSPS1: _ClassVar[QuaConfig.LFLN08AnalogOutputPortDec.SamplingRate]
+            GSPS2: _ClassVar[QuaConfig.LFLN08AnalogOutputPortDec.SamplingRate]
+        Undefined: QuaConfig.LFLN08AnalogOutputPortDec.SamplingRate
+        GSPS1: QuaConfig.LFLN08AnalogOutputPortDec.SamplingRate
+        GSPS2: QuaConfig.LFLN08AnalogOutputPortDec.SamplingRate
         class SamplingRateMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
             __slots__ = []
-            unset: _ClassVar[QuaConfig.BasebandAnalogOutputPortDec.SamplingRateMode]
-            mw: _ClassVar[QuaConfig.BasebandAnalogOutputPortDec.SamplingRateMode]
-            pulse: _ClassVar[QuaConfig.BasebandAnalogOutputPortDec.SamplingRateMode]
-        unset: QuaConfig.BasebandAnalogOutputPortDec.SamplingRateMode
-        mw: QuaConfig.BasebandAnalogOutputPortDec.SamplingRateMode
-        pulse: QuaConfig.BasebandAnalogOutputPortDec.SamplingRateMode
+            unset: _ClassVar[QuaConfig.LFLN08AnalogOutputPortDec.SamplingRateMode]
+            mw: _ClassVar[QuaConfig.LFLN08AnalogOutputPortDec.SamplingRateMode]
+            pulse: _ClassVar[QuaConfig.LFLN08AnalogOutputPortDec.SamplingRateMode]
+        unset: QuaConfig.LFLN08AnalogOutputPortDec.SamplingRateMode
+        mw: QuaConfig.LFLN08AnalogOutputPortDec.SamplingRateMode
+        pulse: QuaConfig.LFLN08AnalogOutputPortDec.SamplingRateMode
         class CrosstalkContainer(_message.Message):
             __slots__ = ["value"]
             class ValueEntry(_message.Message):
@@ -615,12 +743,17 @@ class QuaConfig(_message.Message):
         filter: QuaConfig.AnalogOutputPortFilter
         delay: int
         shareable: bool
-        sampling_rate: QuaConfig.BasebandAnalogOutputPortDec.SamplingRate
-        upsampling_mode: QuaConfig.BasebandAnalogOutputPortDec.SamplingRateMode
-        crosstalk_v2: QuaConfig.BasebandAnalogOutputPortDec.CrosstalkContainer
-        min_voltage_limit: QuaConfig.BasebandAnalogOutputPortDec.VoltageLimitContainer
-        max_voltage_limit: QuaConfig.BasebandAnalogOutputPortDec.VoltageLimitContainer
-        def __init__(self, offset: _Optional[float] = ..., filter: _Optional[_Union[QuaConfig.AnalogOutputPortFilter, _Mapping]] = ..., delay: _Optional[int] = ..., shareable: bool = ..., sampling_rate: _Optional[_Union[QuaConfig.BasebandAnalogOutputPortDec.SamplingRate, str]] = ..., upsampling_mode: _Optional[_Union[QuaConfig.BasebandAnalogOutputPortDec.SamplingRateMode, str]] = ..., crosstalk_v2: _Optional[_Union[QuaConfig.BasebandAnalogOutputPortDec.CrosstalkContainer, _Mapping]] = ..., min_voltage_limit: _Optional[_Union[QuaConfig.BasebandAnalogOutputPortDec.VoltageLimitContainer, _Mapping]] = ..., max_voltage_limit: _Optional[_Union[QuaConfig.BasebandAnalogOutputPortDec.VoltageLimitContainer, _Mapping]] = ...) -> None: ...
+        sampling_rate: QuaConfig.LFLN08AnalogOutputPortDec.SamplingRate
+        upsampling_mode: QuaConfig.LFLN08AnalogOutputPortDec.SamplingRateMode
+        crosstalk_v2: QuaConfig.LFLN08AnalogOutputPortDec.CrosstalkContainer
+        min_voltage_limit: QuaConfig.LFLN08AnalogOutputPortDec.VoltageLimitContainer
+        max_voltage_limit: QuaConfig.LFLN08AnalogOutputPortDec.VoltageLimitContainer
+        def __init__(self, offset: _Optional[float] = ..., filter: _Optional[_Union[QuaConfig.AnalogOutputPortFilter, _Mapping]] = ..., delay: _Optional[int] = ..., shareable: bool = ..., sampling_rate: _Optional[_Union[QuaConfig.LFLN08AnalogOutputPortDec.SamplingRate, str]] = ..., upsampling_mode: _Optional[_Union[QuaConfig.LFLN08AnalogOutputPortDec.SamplingRateMode, str]] = ..., crosstalk_v2: _Optional[_Union[QuaConfig.LFLN08AnalogOutputPortDec.CrosstalkContainer, _Mapping]] = ..., min_voltage_limit: _Optional[_Union[QuaConfig.LFLN08AnalogOutputPortDec.VoltageLimitContainer, _Mapping]] = ..., max_voltage_limit: _Optional[_Union[QuaConfig.LFLN08AnalogOutputPortDec.VoltageLimitContainer, _Mapping]] = ...) -> None: ...
+    class AtAnalogOutputPortDec(_message.Message):
+        __slots__ = ["delay"]
+        DELAY_FIELD_NUMBER: _ClassVar[int]
+        delay: int
+        def __init__(self, delay: _Optional[int] = ...) -> None: ...
     class ExponentialParameters(_message.Message):
         __slots__ = ["amplitude", "time_constant"]
         AMPLITUDE_FIELD_NUMBER: _ClassVar[int]
@@ -791,7 +924,7 @@ class QuaConfig(_message.Message):
         port_references: _containers.MessageMap[str, QuaConfig.AdcPortReference]
         def __init__(self, port_references: _Optional[_Mapping[str, QuaConfig.AdcPortReference]] = ...) -> None: ...
     class ElementDec(_message.Message):
-        __slots__ = ["outputs", "digitalInputs", "digitalOutputs", "RFInputs", "RFOutputs", "singleInput", "mixInputs", "singleInputCollection", "multipleInputs", "microwaveInput", "microwaveOutput", "multipleOutputs", "timeOfFlight", "smearing", "intermediateFrequency", "intermediateFrequencyDouble", "intermediateFrequencyNegative", "operations", "measurementQe", "outputPulseParameters", "holdOffset", "sticky", "thread", "intermediateFrequencyOscillator", "intermediateFrequencyOscillatorDouble", "namedOscillator", "noOscillator", "persistent"]
+        __slots__ = ["outputs", "digitalInputs", "digitalOutputs", "RFInputs", "RFOutputs", "singleInput", "mixInputs", "singleInputCollection", "multipleInputs", "microwaveInput", "multiToneInput", "microwaveOutput", "multipleOutputs", "timeOfFlight", "smearing", "intermediateFrequency", "intermediateFrequencyDouble", "intermediateFrequencyNegative", "operations", "measurementQe", "outputPulseParameters", "holdOffset", "sticky", "thread", "intermediateFrequencyOscillator", "intermediateFrequencyOscillatorDouble", "namedOscillator", "noOscillator", "persistent"]
         class OutputsEntry(_message.Message):
             __slots__ = ["key", "value"]
             KEY_FIELD_NUMBER: _ClassVar[int]
@@ -844,6 +977,7 @@ class QuaConfig(_message.Message):
         SINGLEINPUTCOLLECTION_FIELD_NUMBER: _ClassVar[int]
         MULTIPLEINPUTS_FIELD_NUMBER: _ClassVar[int]
         MICROWAVEINPUT_FIELD_NUMBER: _ClassVar[int]
+        MULTITONEINPUT_FIELD_NUMBER: _ClassVar[int]
         MICROWAVEOUTPUT_FIELD_NUMBER: _ClassVar[int]
         MULTIPLEOUTPUTS_FIELD_NUMBER: _ClassVar[int]
         TIMEOFFLIGHT_FIELD_NUMBER: _ClassVar[int]
@@ -872,6 +1006,7 @@ class QuaConfig(_message.Message):
         singleInputCollection: QuaConfig.SingleInputCollection
         multipleInputs: QuaConfig.MultipleInputs
         microwaveInput: QuaConfig.MicrowaveInputPortReference
+        multiToneInput: QuaConfig.MultiToneInput
         microwaveOutput: QuaConfig.MicrowaveOutputPortReference
         multipleOutputs: QuaConfig.MultipleOutputs
         timeOfFlight: _wrappers_pb2.UInt32Value
@@ -890,7 +1025,7 @@ class QuaConfig(_message.Message):
         namedOscillator: _wrappers_pb2.StringValue
         noOscillator: _empty_pb2.Empty
         persistent: bool
-        def __init__(self, outputs: _Optional[_Mapping[str, QuaConfig.AdcPortReference]] = ..., digitalInputs: _Optional[_Mapping[str, QuaConfig.DigitalInputPortReference]] = ..., digitalOutputs: _Optional[_Mapping[str, QuaConfig.DigitalOutputPortReference]] = ..., RFInputs: _Optional[_Mapping[str, QuaConfig.GeneralPortReference]] = ..., RFOutputs: _Optional[_Mapping[str, QuaConfig.GeneralPortReference]] = ..., singleInput: _Optional[_Union[QuaConfig.SingleInput, _Mapping]] = ..., mixInputs: _Optional[_Union[QuaConfig.MixInputs, _Mapping]] = ..., singleInputCollection: _Optional[_Union[QuaConfig.SingleInputCollection, _Mapping]] = ..., multipleInputs: _Optional[_Union[QuaConfig.MultipleInputs, _Mapping]] = ..., microwaveInput: _Optional[_Union[QuaConfig.MicrowaveInputPortReference, _Mapping]] = ..., microwaveOutput: _Optional[_Union[QuaConfig.MicrowaveOutputPortReference, _Mapping]] = ..., multipleOutputs: _Optional[_Union[QuaConfig.MultipleOutputs, _Mapping]] = ..., timeOfFlight: _Optional[_Union[_wrappers_pb2.UInt32Value, _Mapping]] = ..., smearing: _Optional[_Union[_wrappers_pb2.UInt32Value, _Mapping]] = ..., intermediateFrequency: _Optional[_Union[_wrappers_pb2.UInt64Value, _Mapping]] = ..., intermediateFrequencyDouble: _Optional[float] = ..., intermediateFrequencyNegative: bool = ..., operations: _Optional[_Mapping[str, str]] = ..., measurementQe: _Optional[_Union[_wrappers_pb2.StringValue, _Mapping]] = ..., outputPulseParameters: _Optional[_Union[QuaConfig.OutputPulseParameters, _Mapping]] = ..., holdOffset: _Optional[_Union[QuaConfig.HoldOffset, _Mapping]] = ..., sticky: _Optional[_Union[QuaConfig.Sticky, _Mapping]] = ..., thread: _Optional[_Union[QuaConfig.ElementThread, _Mapping]] = ..., intermediateFrequencyOscillator: _Optional[_Union[_wrappers_pb2.Int64Value, _Mapping]] = ..., intermediateFrequencyOscillatorDouble: _Optional[float] = ..., namedOscillator: _Optional[_Union[_wrappers_pb2.StringValue, _Mapping]] = ..., noOscillator: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., persistent: bool = ...) -> None: ...
+        def __init__(self, outputs: _Optional[_Mapping[str, QuaConfig.AdcPortReference]] = ..., digitalInputs: _Optional[_Mapping[str, QuaConfig.DigitalInputPortReference]] = ..., digitalOutputs: _Optional[_Mapping[str, QuaConfig.DigitalOutputPortReference]] = ..., RFInputs: _Optional[_Mapping[str, QuaConfig.GeneralPortReference]] = ..., RFOutputs: _Optional[_Mapping[str, QuaConfig.GeneralPortReference]] = ..., singleInput: _Optional[_Union[QuaConfig.SingleInput, _Mapping]] = ..., mixInputs: _Optional[_Union[QuaConfig.MixInputs, _Mapping]] = ..., singleInputCollection: _Optional[_Union[QuaConfig.SingleInputCollection, _Mapping]] = ..., multipleInputs: _Optional[_Union[QuaConfig.MultipleInputs, _Mapping]] = ..., microwaveInput: _Optional[_Union[QuaConfig.MicrowaveInputPortReference, _Mapping]] = ..., multiToneInput: _Optional[_Union[QuaConfig.MultiToneInput, _Mapping]] = ..., microwaveOutput: _Optional[_Union[QuaConfig.MicrowaveOutputPortReference, _Mapping]] = ..., multipleOutputs: _Optional[_Union[QuaConfig.MultipleOutputs, _Mapping]] = ..., timeOfFlight: _Optional[_Union[_wrappers_pb2.UInt32Value, _Mapping]] = ..., smearing: _Optional[_Union[_wrappers_pb2.UInt32Value, _Mapping]] = ..., intermediateFrequency: _Optional[_Union[_wrappers_pb2.UInt64Value, _Mapping]] = ..., intermediateFrequencyDouble: _Optional[float] = ..., intermediateFrequencyNegative: bool = ..., operations: _Optional[_Mapping[str, str]] = ..., measurementQe: _Optional[_Union[_wrappers_pb2.StringValue, _Mapping]] = ..., outputPulseParameters: _Optional[_Union[QuaConfig.OutputPulseParameters, _Mapping]] = ..., holdOffset: _Optional[_Union[QuaConfig.HoldOffset, _Mapping]] = ..., sticky: _Optional[_Union[QuaConfig.Sticky, _Mapping]] = ..., thread: _Optional[_Union[QuaConfig.ElementThread, _Mapping]] = ..., intermediateFrequencyOscillator: _Optional[_Union[_wrappers_pb2.Int64Value, _Mapping]] = ..., intermediateFrequencyOscillatorDouble: _Optional[float] = ..., namedOscillator: _Optional[_Union[_wrappers_pb2.StringValue, _Mapping]] = ..., noOscillator: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., persistent: bool = ...) -> None: ...
     class ElementThread(_message.Message):
         __slots__ = ["threadName"]
         THREADNAME_FIELD_NUMBER: _ClassVar[int]
@@ -984,14 +1119,25 @@ class QuaConfig(_message.Message):
         PORT_FIELD_NUMBER: _ClassVar[int]
         port: QuaConfig.AdcPortReference
         def __init__(self, port: _Optional[_Union[QuaConfig.AdcPortReference, _Mapping]] = ...) -> None: ...
+    class MultiToneInput(_message.Message):
+        __slots__ = ["port", "max_n_tones", "tone_amplitude_shift"]
+        PORT_FIELD_NUMBER: _ClassVar[int]
+        MAX_N_TONES_FIELD_NUMBER: _ClassVar[int]
+        TONE_AMPLITUDE_SHIFT_FIELD_NUMBER: _ClassVar[int]
+        port: QuaConfig.DacPortReference
+        max_n_tones: int
+        tone_amplitude_shift: int
+        def __init__(self, port: _Optional[_Union[QuaConfig.DacPortReference, _Mapping]] = ..., max_n_tones: _Optional[int] = ..., tone_amplitude_shift: _Optional[int] = ...) -> None: ...
     class PulseDec(_message.Message):
         __slots__ = ["length", "operation", "waveforms", "digitalMarker", "integrationWeights"]
         class Operation(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
             __slots__ = []
             MEASUREMENT: _ClassVar[QuaConfig.PulseDec.Operation]
             CONTROL: _ClassVar[QuaConfig.PulseDec.Operation]
+            MULTITONE: _ClassVar[QuaConfig.PulseDec.Operation]
         MEASUREMENT: QuaConfig.PulseDec.Operation
         CONTROL: QuaConfig.PulseDec.Operation
+        MULTITONE: QuaConfig.PulseDec.Operation
         class WaveformsEntry(_message.Message):
             __slots__ = ["key", "value"]
             KEY_FIELD_NUMBER: _ClassVar[int]
@@ -1018,16 +1164,18 @@ class QuaConfig(_message.Message):
         integrationWeights: _containers.ScalarMap[str, str]
         def __init__(self, length: _Optional[int] = ..., operation: _Optional[int] = ..., waveforms: _Optional[_Mapping[str, str]] = ..., digitalMarker: _Optional[_Union[_wrappers_pb2.StringValue, _Mapping]] = ..., integrationWeights: _Optional[_Mapping[str, str]] = ...) -> None: ...
     class WaveformDec(_message.Message):
-        __slots__ = ["arbitrary", "constant", "compressed", "array"]
+        __slots__ = ["arbitrary", "constant", "compressed", "array", "multitone"]
         ARBITRARY_FIELD_NUMBER: _ClassVar[int]
         CONSTANT_FIELD_NUMBER: _ClassVar[int]
         COMPRESSED_FIELD_NUMBER: _ClassVar[int]
         ARRAY_FIELD_NUMBER: _ClassVar[int]
+        MULTITONE_FIELD_NUMBER: _ClassVar[int]
         arbitrary: QuaConfig.ArbitraryWaveformDec
         constant: QuaConfig.ConstantWaveformDec
         compressed: QuaConfig.CompressedWaveformDec
         array: QuaConfig.WaveformArrayDec
-        def __init__(self, arbitrary: _Optional[_Union[QuaConfig.ArbitraryWaveformDec, _Mapping]] = ..., constant: _Optional[_Union[QuaConfig.ConstantWaveformDec, _Mapping]] = ..., compressed: _Optional[_Union[QuaConfig.CompressedWaveformDec, _Mapping]] = ..., array: _Optional[_Union[QuaConfig.WaveformArrayDec, _Mapping]] = ...) -> None: ...
+        multitone: QuaConfig.MultitoneWaveformDec
+        def __init__(self, arbitrary: _Optional[_Union[QuaConfig.ArbitraryWaveformDec, _Mapping]] = ..., constant: _Optional[_Union[QuaConfig.ConstantWaveformDec, _Mapping]] = ..., compressed: _Optional[_Union[QuaConfig.CompressedWaveformDec, _Mapping]] = ..., array: _Optional[_Union[QuaConfig.WaveformArrayDec, _Mapping]] = ..., multitone: _Optional[_Union[QuaConfig.MultitoneWaveformDec, _Mapping]] = ...) -> None: ...
     class ArbitraryWaveformDec(_message.Message):
         __slots__ = ["samples", "multiplier", "deprecatedMaxAllowedError", "maxAllowedError", "samplingRate", "isOverridable"]
         SAMPLES_FIELD_NUMBER: _ClassVar[int]
@@ -1067,6 +1215,50 @@ class QuaConfig(_message.Message):
         samples: _containers.RepeatedScalarFieldContainer[float]
         sampleRate: float
         def __init__(self, samples: _Optional[_Iterable[float]] = ..., sampleRate: _Optional[float] = ...) -> None: ...
+    class MultitoneWaveformDec(_message.Message):
+        __slots__ = ["sticky", "phase_spline_order", "amp_spline_order", "segments"]
+        class Segment(_message.Message):
+            __slots__ = ["length_ns", "phase", "amp"]
+            LENGTH_NS_FIELD_NUMBER: _ClassVar[int]
+            PHASE_FIELD_NUMBER: _ClassVar[int]
+            AMP_FIELD_NUMBER: _ClassVar[int]
+            length_ns: int
+            phase: QuaConfig.MultitoneWaveformDec.PolynomialUpdate
+            amp: QuaConfig.MultitoneWaveformDec.PolynomialUpdate
+            def __init__(self, length_ns: _Optional[int] = ..., phase: _Optional[_Union[QuaConfig.MultitoneWaveformDec.PolynomialUpdate, _Mapping]] = ..., amp: _Optional[_Union[QuaConfig.MultitoneWaveformDec.PolynomialUpdate, _Mapping]] = ...) -> None: ...
+        class PolynomialUpdate(_message.Message):
+            __slots__ = ["direct", "spline", "min_order_to_clear"]
+            DIRECT_FIELD_NUMBER: _ClassVar[int]
+            SPLINE_FIELD_NUMBER: _ClassVar[int]
+            MIN_ORDER_TO_CLEAR_FIELD_NUMBER: _ClassVar[int]
+            direct: QuaConfig.MultitoneWaveformDec.DirectPolynomial
+            spline: QuaConfig.MultitoneWaveformDec.SplineUpdate
+            min_order_to_clear: int
+            def __init__(self, direct: _Optional[_Union[QuaConfig.MultitoneWaveformDec.DirectPolynomial, _Mapping]] = ..., spline: _Optional[_Union[QuaConfig.MultitoneWaveformDec.SplineUpdate, _Mapping]] = ..., min_order_to_clear: _Optional[int] = ...) -> None: ...
+        class DirectPolynomial(_message.Message):
+            __slots__ = ["tones"]
+            TONES_FIELD_NUMBER: _ClassVar[int]
+            tones: _containers.RepeatedCompositeFieldContainer[QuaConfig.MultitoneWaveformDec.TonePolynomial]
+            def __init__(self, tones: _Optional[_Iterable[_Union[QuaConfig.MultitoneWaveformDec.TonePolynomial, _Mapping]]] = ...) -> None: ...
+        class TonePolynomial(_message.Message):
+            __slots__ = ["coefficients"]
+            COEFFICIENTS_FIELD_NUMBER: _ClassVar[int]
+            coefficients: _containers.RepeatedScalarFieldContainer[float]
+            def __init__(self, coefficients: _Optional[_Iterable[float]] = ...) -> None: ...
+        class SplineUpdate(_message.Message):
+            __slots__ = ["values"]
+            VALUES_FIELD_NUMBER: _ClassVar[int]
+            values: _containers.RepeatedScalarFieldContainer[float]
+            def __init__(self, values: _Optional[_Iterable[float]] = ...) -> None: ...
+        STICKY_FIELD_NUMBER: _ClassVar[int]
+        PHASE_SPLINE_ORDER_FIELD_NUMBER: _ClassVar[int]
+        AMP_SPLINE_ORDER_FIELD_NUMBER: _ClassVar[int]
+        SEGMENTS_FIELD_NUMBER: _ClassVar[int]
+        sticky: bool
+        phase_spline_order: int
+        amp_spline_order: int
+        segments: _containers.RepeatedCompositeFieldContainer[QuaConfig.MultitoneWaveformDec.Segment]
+        def __init__(self, sticky: bool = ..., phase_spline_order: _Optional[int] = ..., amp_spline_order: _Optional[int] = ..., segments: _Optional[_Iterable[_Union[QuaConfig.MultitoneWaveformDec.Segment, _Mapping]]] = ...) -> None: ...
     class DigitalWaveformDec(_message.Message):
         __slots__ = ["samples"]
         SAMPLES_FIELD_NUMBER: _ClassVar[int]

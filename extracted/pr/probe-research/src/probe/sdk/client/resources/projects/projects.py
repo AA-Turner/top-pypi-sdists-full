@@ -73,6 +73,7 @@ class ProjectsMixin:
         kind: str,
         part_of: list[str] | None = None,
         parent_project_id: str | None = None,
+        part_of_reason: str | None = None,
         workspace_id: str | None = None,
         description: str | None = None,
         document: str | None = None,
@@ -94,7 +95,9 @@ class ProjectsMixin:
         is inherited; with no ``workspace_id`` the server files it in the
         first target's workspace. ``parent_project_id`` is the older spelling,
         kept for existing callers: the server records it as a ``part_of`` link
-        too.
+        too. ``part_of_reason`` (1-2 sentences, in the writer's own words) is
+        stored on each of those links; it needs ``part_of`` or
+        ``parent_project_id`` (the server answers 422 otherwise).
 
         ``workspace_id`` (an id, or a workspace slug) names the workspace;
         omitted (and no ``part_of``/``parent_project_id``), this computer's
@@ -129,6 +132,8 @@ class ProjectsMixin:
             body["part_of"] = list(part_of)
         if parent_project_id is not None:
             body["parent_project_id"] = parent_project_id
+        if part_of_reason is not None:
+            body["part_of_reason"] = part_of_reason
         is_computer_workspace = False
         if workspace_id is not None:
             # A slug is looked up only here, on the create itself: a caller

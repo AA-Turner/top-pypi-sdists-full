@@ -6,11 +6,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, TYPE_CHECKING
 
-from ....._shared import oscompat
+from .....foundation.os_backend import os_backend as oscompat
 from .....foundation.compose.compose import fold_parts
 from .....foundation.durable.durable import (
     file_lock,
     now_iso)
+from probe.sdk.delivery.status_fields import StatusField
 
 
 def drain(
@@ -28,6 +29,8 @@ def drain(
     long_ops: bool = True,
     only_ops: "set | frozenset | None" = None,
     window: "CollectWindow | None" = None,
+    priority_runs: "set | frozenset | None" = None,
+    set_best_effort_aside: bool = False,
     _include_receipts: bool = True,
 ) -> DrainReport:
     """Deliver queued ops, FIFO within each run and runs round-robin (plan 1.6); one pass per
@@ -38,6 +41,9 @@ def drain(
     waits (None: ``wait_for_lock`` decides / no bound). ``long_ops=False``: no multipart slice.
     ``window`` (a drainer's `CollectWindow`, plan T2): hold a run's telemetry until its
     `send_after`; other callers pass none and send what is queued now.
+    ``priority_runs``: runs a `finish()` is waiting on (R2): their lanes go first.
+    ``set_best_effort_aside``: the worker's passes only (it lets held writes out again): a failing
+    best-effort write leaves its run's line at once instead of holding it (`outbox/held`).
     ``client_factory``: tests. ``on_error`` may raise to keep the op as it was; ``on_delivered``
     runs after a delivery is durable and cannot fail it. DESIGN.md has the full contract."""
     if _include_receipts and not journal.receipt_enabled:
@@ -57,6 +63,8 @@ def drain(
                 long_ops=long_ops,
                 only_ops=only_ops,
                 window=window,
+                priority_runs=priority_runs,
+                set_best_effort_aside=set_best_effort_aside,
             )
     options = DrainOptions(
         run_ref=run_ref,
@@ -70,6 +78,8 @@ def drain(
         long_ops=long_ops,
         only_ops=only_ops,
         window=window,
+        priority_runs=priority_runs,
+        set_best_effort_aside=set_best_effort_aside,
     )
     return DrainPass(journal, options).run()
 
@@ -89,6 +99,8 @@ def _drain_namespaces(
     long_ops,
     only_ops,
     window,
+    priority_runs=None,
+    set_best_effort_aside=False,
 ) -> DrainReport:
     """One pass per namespace (the root queue and its credential queues), reports summed."""
     combined = DrainReport()
@@ -118,6 +130,8 @@ def _drain_namespaces(
             long_ops=long_ops,
             only_ops=only_ops,
             window=window,
+            priority_runs=priority_runs,
+            set_best_effort_aside=set_best_effort_aside,
             _include_receipts=False,
         )
         _add_part_report(combined, part)
@@ -169,6 +183,12 @@ def _add_part_report(combined: DrainReport, part: DrainReport) -> None:
             part.send_in if combined.send_in is None else min(combined.send_in, part.send_in)
         )
     combined.deferred_loads.update(part.deferred_loads)
+    for ref, count in part.delivered_by_run.items():
+        combined.delivered_by_run[ref] = combined.delivered_by_run.get(ref, 0) + count
+    combined.progressed_refs |= part.progressed_refs
+    combined.lane_refs.update(part.lane_refs)
+    combined.held_again += part.held_again
+    combined.lane_held += part.lane_held
 
 
 @dataclass(frozen=True)
@@ -186,6 +206,8 @@ class DrainOptions:
     long_ops: bool = True
     only_ops: "set | frozenset | None" = None
     window: "CollectWindow | None" = None
+    priority_runs: "set | frozenset | None" = None
+    set_best_effort_aside: bool = False
 
 
 if TYPE_CHECKING:
@@ -330,7 +352,11 @@ class DrainPass(_DrainPassParts):
         if self.drain_hold.busy(lane):
             self.mark_run_busy(lane)
             return True
-        if self._needs_newer_sdk(op, lane) or self._is_close_held(op, lane):
+        if (
+            self._needs_newer_sdk(op, lane)
+            or self._is_close_held(op, lane)
+            or self._is_close_behind_an_upload(op, lane)
+        ):
             return True
         self.journal._scan_forget(path.name)  # attempted: read it fresh next pass
         metric_ops, step_ops = (
@@ -400,14 +426,14 @@ class DrainPass(_DrainPassParts):
             # this pass cleared the list (clear_auth_block) and writing back the one read at
             # the start undid it (#2041 re-review).
             previous = Journal.read_status(journal.dir, include_receipts=False, keep_idle_refusals=True) or {}
-            on_disk = previous.get("refused_fingerprints") or {}
+            on_disk = previous.get(StatusField.REFUSED_FINGERPRINTS) or {}
             if not isinstance(on_disk, dict):
                 on_disk = {}
             # A held run the caller backs off is skipped next pass; not recounting its holds
             # wrote `held: 0` while they still waited and the stuck signal flickered. The last
             # count stands for the ops this pass did not look at.
-            carried = min(_status_count(previous.get("held")), report.skipped)
-            carried_close = min(_status_count(previous.get("close_held")), carried)
+            carried = min(_status_count(previous.get(StatusField.HELD)), report.skipped)
+            carried_close = min(_status_count(previous.get(StatusField.CLOSE_HELD)), carried)
             cleared = set(self.cooling) - set(on_disk)
             report.remaining = journal._write_status_locked(
                 known=self.known,

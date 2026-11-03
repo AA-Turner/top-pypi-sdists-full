@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
-import dataclasses
 import logging
 import os
 from collections.abc import Awaitable, Callable
@@ -14,20 +12,17 @@ from typing import TYPE_CHECKING, Any, Literal
 from opentelemetry import trace
 
 from plato.agents import vm_setup
+from plato.agents.audit import (
+    collect_and_store_audit_results,
+    prepare_audited_mounts,
+    write_audit_context,
+)
 from plato.agents.browser_tooling import build_agent_browser_sessions_block
-from plato.agents.computer_use_mcp import sandbox_ssh_fields
 from plato.agents.context import AgentContext
-from plato.agents.desktop import provision_agent_desktop
 from plato.agents.login_backends import resolve_login_backend
 from plato.agents.mounts import AgentWorkspaceMount
-from plato.agents.tool_context import write_tool_execution_context
-from plato.runtimes.base import Runtime, RuntimeInfo, VMMetadata
-from plato.runtimes.config import VMRuntimeConfig
-from plato.sims.ubuntu_vm.client import (
-    _api_base_url_from_environment,
-    _deployment_connect_gateway,
-)
-from plato.tools.mcp import resolve_mcp_servers, scoped_mcp_url
+from plato.runtimes.base import Runtime, RuntimeInfo
+from plato.tools.mcp import scoped_mcp_url
 from plato.tools.request_context import (
     ToolRequestContext,
     register_client_context,
@@ -37,26 +32,11 @@ from plato.utils.subprocess import run_ssh
 
 if TYPE_CHECKING:
     from plato.agents.execution import AgentExecutionManager
-    from plato.agents.warmpool import RuntimeLease, WarmPool
+    from plato.agents.warmpool import WarmPool
     from plato.v2.async_.session import Session
     from plato.worlds.config import AgentConfig
 
 logger = logging.getLogger(__name__)
-
-
-def _under_pinned_mount(path: str, mounts: list[AgentWorkspaceMount]) -> bool:
-    """Is ``path`` inside a mount the world pinned to the agent VM?
-
-    Compared as path components, so ``/w/notes`` does not match ``/w/notes2``.
-    """
-    target = Path(path)
-    for mount in mounts:
-        if not mount.on_agent_vm:
-            continue
-        root = Path(mount.agent_path)
-        if target == root or root in target.parents:
-            return True
-    return False
 
 
 def create_agent_runtime(
@@ -71,13 +51,6 @@ def create_agent_runtime(
     # Copy the runtime config with the agent's image so create_runtime gets it.
     runtime_cfg = agent.runtime.model_copy(update={"image": agent.image})
     return create_runtime(runtime_cfg, session=session, ssh_key_path=ssh_key_path)
-
-
-@dataclasses.dataclass(frozen=True)
-class _Adopted:
-    """An agent ``AgentTask.adopt`` took over: its running daemon job, or None when it was between turns."""
-
-    job_id: str | None
 
 
 class AgentTask:
@@ -120,20 +93,9 @@ class AgentTask:
         self._agent_containers = agent_containers
         self._agent_code_path = agent_code_path
         self._warm_pool = warm_pool
-        # Direct-pool runtime lease (runtime_idle_release_seconds); created
-        # lazily on the first leased run. The manager path keeps its own
-        # per-task leases — this one is only for tasks given a pool directly.
-        self._runtime_lease: RuntimeLease | None = None
-        # An adopted VM ``adopt`` couldn't remove from the session (its job id):
-        # ``release_runtime`` tries again.
-        self._unremoved_adopted_vm: str | None = None
         self._world_runtime_info = world_runtime_info
         # Set during _run_on_runtime so exit conditions / hooks can access the agent VM
         self.runtime_info: RuntimeInfo | None = None
-        # Live-VM tracking for current_runtime_info: set alongside runtime_info
-        # but cleared when the run finishes (runtime_info intentionally persists
-        # for post-run readers).
-        self._current_runtime_info: RuntimeInfo | None = None
         # Continuation loop settings (set via with_continuation())
         self._exit_condition: Callable[[], Awaitable[bool]] | None = None
         self._max_continuations: int = 2
@@ -154,17 +116,6 @@ class AgentTask:
         self._trigger_server_url: str | None = None
         # Populated after run() completes — hex span ID of the agent.execution.output span
         self.last_execution_span_id: str = ""
-        # The agent job running now on the task's VM (RPC path only), from the
-        # moment the daemon starts it until it exits; None otherwise. Keep it
-        # with the VM's RuntimeInfo to wait on the job again later, from another
-        # process too (vm_setup.attach_agent).
-        self.agent_job_id: str | None = None
-        # True while the agent is between turns: its last turn has ended and
-        # the exit condition (or the next turn's instruction) is being worked
-        # out. Like a running job, a world can hand it over then
-        # (plato.worlds.handover): the next process carries on with the exit
-        # condition, in the same conversation on the same VM.
-        self.between_turns: bool = False
         # Shared executor — set by BaseWorld.agent() when AgentConfig.max_parallel is set
         self._execution_manager: AgentExecutionManager | None = None
         # Per-task review gate settings (set by BaseWorld.agent())
@@ -176,35 +127,8 @@ class AgentTask:
         self._review_compaction_instruction: str | Callable[[], str] | None = None
         # Set to True by the execution manager after a successful merge to main
         self.merged: bool = False
-        # SHA of the resulting commit on main after that merge. Squash-merging
-        # rewrites history, so the hashes the agent saw inside its VM do not
-        # exist on shared main — this is the only authoritative post-merge ref.
-        self.merged_commit: str | None = None
-        # Salvage refs: set by the execution manager when a FAILED agent's git
-        # state (committed + dirty + untracked) was best-effort captured to a
-        # discoverable hidden ref before the VM was destroyed. Read back by the
-        # workflow backend so the failure outcome records where to recover it.
-        self.salvage_ref: str | None = None
-        self.salvage_commit: str | None = None
         # Set when a review-exhaustion policy force-merges the branch.
         self.review_exhaustion_force_merged: bool = False
-        # Set when the post-exhaustion merge-only loop still could not merge the
-        # branch within its (generous) budget. The route is quarantined
-        # (left unmerged) instead of crashing the whole session.
-        self.review_exhaustion_quarantined: bool = False
-
-    @property
-    def current_runtime_info(self) -> RuntimeInfo | None:
-        """RuntimeInfo of the VM this task is executing on right now, or None.
-
-        None until the acquired VM (warm-pooled or fresh) reaches
-        ``_run_on_runtime``, and reset to None when the run on that VM
-        finishes — just before the VM is released/stopped — so mid-run
-        observers (e.g. the workflow world's agent-state pull loop) never
-        SSH to a VM that is being torn down. Unlike ``runtime_info``, which
-        persists after the run for post-run readers, this reflects liveness.
-        """
-        return self._current_runtime_info
 
     def on_prepare(self, fn: Callable[[RuntimeInfo], Awaitable[None]]) -> AgentTask:
         """Register a hook that runs after the environment is ready but before the agent task.
@@ -293,13 +217,8 @@ class AgentTask:
             exec_ctx = AgentContext(
                 image=self._agent.image,
                 package=self._agent.package,
-                agent_name=self._agent.agent_name,
                 config={**run_agent_config, "continue_session": True},
                 instruction=compaction_text,
-                # First-class compaction op: dispatches to BaseAgent.compact
-                # (default = run the /compact instruction natively; agents like
-                # opencode override to trigger their server-side compaction).
-                command="compact",
                 display_name=current_display_name,
                 ssh_probe_timeout=self._agent.ssh_probe_timeout,
                 ssh_probe_retries=self._agent.ssh_probe_retries,
@@ -365,27 +284,10 @@ class AgentTask:
                 mcp_server_url,
                 client_id=info.runtime_id,
             )
-        mcp_servers = config.get("mcp_servers")
-        if isinstance(mcp_servers, dict) and mcp_servers:
-            env_job_ids: dict[str, str] = {}
-            if self._session is not None:
-                for env in self._session.envs:
-                    if env.alias and env.job_id:
-                        env_job_ids[env.alias] = env.job_id
-            config["mcp_servers"] = resolve_mcp_servers(
-                {str(name): server for name, server in mcp_servers.items()},
-                env_job_ids=env_job_ids,
-                gateway_host=self._connect_gateway_host(),
-                client_id=info.runtime_id,
-            )
         config["plato_mounts"] = [mount.to_payload().model_dump() for mount in mounts]
         if self._agent.browser_tooling and resolve_login_backend(self._agent.package) == "agent_browser":
             config.setdefault("browser_tooling", True)
         return config
-
-    def _connect_gateway_host(self) -> str:
-        """Connect-gateway host for env-alias MCP URLs (prod or per-deployment)."""
-        return _deployment_connect_gateway(_api_base_url_from_environment(self._session))
 
     async def _run_pre_login(self, info: RuntimeInfo) -> None:
         """Run pre-agent login against each env in ``self._session``.
@@ -445,16 +347,14 @@ class AgentTask:
         """Append the ``agent-browser`` ``--session`` map when relevant.
 
         Only fires for packages that use the ``agent_browser`` login backend
-        (claude-code / codex) — other packages don't ship the CLI
+        (claude-code / gemini-cli / codex) — other packages don't ship the CLI
         that reads those session names.
         """
         if self._session is None:
             return instruction
         if resolve_login_backend(self._agent.package) != "agent_browser":
             return instruction
-        aliases = [
-            env.alias for env in self._session.envs if env.artifact_id and not self._session.is_agent_desktop(env)
-        ]
+        aliases = [env.alias for env in self._session.envs if env.artifact_id]
         return instruction + build_agent_browser_sessions_block(aliases)
 
     def _register_tool_request_context(
@@ -477,59 +377,6 @@ class AgentTask:
             )
         )
 
-    async def adopt(self, info: RuntimeInfo, agent_job_id: str | None, display_name: str | None = None) -> str:
-        """Take over an agent that a previous world process started (``plato.worlds.handover``): ``info`` is its VM,
-        ``agent_job_id`` its running daemon job, or None when it was between turns (``between_turns``). Runs as ``run``
-        does from that point: the prepare hooks (so the world's observers attach again), then the wait on the job, or
-        for an agent between turns the exit condition, then the continuations (the next turn resumes its
-        conversation, on the same VM) and post-run hooks, and the VM is removed from the session at the end. Nothing
-        is installed, mounted or instructed again.
-
-        Returns the runtime_id (VM alias), as ``run`` does.
-        """
-        if self._agent.computer_use_artifact_id is not None:
-            raise ValueError("an agent with a provisioned desktop can't be adopted: the desktop went with its world")
-        if agent_job_id is None and self._exit_condition is None:
-            raise ValueError("an agent between turns needs an exit condition to adopt: its next turn comes from it")
-        mounts = [mount.clone_for_run() for mount in self._all_mounts()]
-        try:
-            return await self._run_on_runtime(
-                info,
-                "",
-                display_name=display_name,
-                mounts=mounts,
-                skip_vm_setup=True,
-                adopted=_Adopted(job_id=agent_job_id),
-            )
-        finally:
-            await self._remove_adopted_vm(info.metadata.job_id if isinstance(info.metadata, VMMetadata) else None)
-
-    async def _remove_adopted_vm(self, job_id: str | None, attempts: int = 3) -> bool:
-        """An adopted VM isn't in this process's runtime (another process added it): remove it from the session by
-        its job id, as ``run`` stops its own VM when it ends. Tried ``attempts`` times; if it still isn't removed,
-        ``release_runtime`` tries again later (the session's end removes it in any case). True once it's removed."""
-        if not job_id:
-            logger.error("Adopted agent VM: no job id to remove it with")
-            return False
-        for attempt in range(1, attempts + 1):
-            try:
-                removed = await asyncio.shield(self._runtime.remove_job(job_id))
-            except Exception:
-                logger.warning("Removing adopted agent VM %s failed (attempt %d)", job_id, attempt, exc_info=True)
-                removed = False
-            if removed:
-                self._unremoved_adopted_vm = None
-                return True
-            if attempt < attempts:
-                await asyncio.sleep(2.0 * attempt)
-        self._unremoved_adopted_vm = job_id
-        logger.error("Adopted agent VM %s is still in the session: release_runtime() tries again", job_id)
-        return False
-
-    def _job_started(self, agent_job_id: str) -> None:
-        self.agent_job_id = agent_job_id
-        logger.info("Agent job %s started", agent_job_id)
-
     async def run(
         self,
         instruction: str,
@@ -550,221 +397,28 @@ class AgentTask:
 
         return await self._run_impl(instruction, display_name)
 
-    async def warm(self) -> bool:
-        """Prepare this task's VM ahead of its next ``run`` (see
-        ``AgentExecutionManager.warm``). True when a VM is now leased and
-        prepared; False when this task has no pool or no idle-release lease
-        to hold the VM in. Raises when the acquire or install fails, after
-        destroying the VM."""
-        if self._execution_manager is not None:
-            return await self._execution_manager.warm(self)
-        from plato.agents.warmpool import RuntimeLease
-
-        idle_seconds = self._agent.runtime_idle_release_seconds
-        if self._warm_pool is None or idle_seconds is None:
-            return False
-        if self._runtime_lease is None:
-            self._runtime_lease = RuntimeLease(self._warm_pool, idle_seconds)
-        return await self._warm_leased(self._warm_pool, self._runtime_lease)
-
-    async def release_runtime(self) -> None:
-        """End this task's runtime lease now, destroying its bound idle VM
-        (see ``AgentExecutionManager.release``). A no-op without a lease."""
-        if self._unremoved_adopted_vm is not None:
-            await self._remove_adopted_vm(self._unremoved_adopted_vm)
-        if self._execution_manager is not None:
-            await self._execution_manager.release(self)
-            return
-        lease, self._runtime_lease = self._runtime_lease, None
-        if lease is not None:
-            async with lease.turn_lock:
-                await lease.release()
-
-    async def _warm_leased(self, pool: WarmPool, lease: RuntimeLease) -> bool:
-        """The warm itself: the pre-turn half of the leased run path.
-
-        A bound, healthy VM is kept and re-bound (restarting its idle clock);
-        otherwise a VM is acquired, the agent installed and configured on it,
-        and the lease bound with the setup fingerprint the next run compares
-        against. Workspace mounts, hooks and sign-in still happen per turn.
-        """
-        workspace_paths = [mount.agent_path for mount in self._all_mounts()]
-        # The turn lock keeps this warm and a run on the same task from
-        # overlapping (see RuntimeLease.turn_lock); a warm that lands during
-        # a turn waits for it, then re-binds the turn's VM.
-        async with lease.turn_lock:
-            held = await lease.checkout_healthy(workspace_paths)
-            if held is not None:
-                await asyncio.shield(lease.bind(held, workspace_paths, fingerprint=lease.last_fingerprint))
-                return True
-            pooled = await pool.acquire()
-            try:
-                await self._install_and_configure(
-                    pooled.runtime_info, self._agent_context(self._display_name), skip_vm_setup=False
-                )
-            except BaseException:
-                # Never leave the VM checked out: a failed or cancelled warm destroys it.
-                with contextlib.suppress(Exception):
-                    await asyncio.shield(pool.release(pooled, workspace_paths=workspace_paths, destroy=True))
-                raise
-            await asyncio.shield(lease.bind(pooled, workspace_paths, fingerprint=self._setup_fingerprint()))
-            return True
-
-    def _workspace_info(self, info: RuntimeInfo, *, sandbox_host: str | None = None) -> RuntimeInfo:
-        """The runtime whose filesystem this run's workspaces belong on.
-
-        Normally the agent VM. A ``sandbox_tools_only`` agent's file tools act
-        on the sandbox instead, so the workspaces mount there — the transports
-        only ever needed a hostname (every one of them discards ``agent_env``),
-        so this is the same mount and the same sync-back, aimed at a different
-        machine.
-
-        The key stays the world's own runner key, which the transport carries —
-        the agent is never handed it. A world that turns on ``sandbox_tools_only``
-        with mounted workspaces therefore has to authorize that key on the
-        sandbox VM, the same ``add_ssh_key`` call it already makes to reach any
-        VM it owns. ``sandbox_host`` is the per-execution alternative: the
-        desktop ``computer_use_artifact_id`` provisioned for this run, which
-        the SDK authorized that key on itself.
-        """
-        config = self._agent.config
-        if config.get("sandbox_tools_only") is not True:
-            return info
-        host = sandbox_host or config.get("computer_use_ssh_host")
-        if not host:
-            raise ValueError(
-                "sandbox_tools_only needs computer_use_ssh_host: the agent's workspaces mount on the sandbox"
-            )
-        return info.model_copy(
-            update={"hostname": str(host), "ssh_user": str(config.get("computer_use_ssh_user") or "root")}
-        )
-
-    def _mounts_by_host(
-        self, info: RuntimeInfo, mounts: list[AgentWorkspaceMount], *, sandbox_host: str | None = None
-    ) -> list[tuple[RuntimeInfo, list[AgentWorkspaceMount]]]:
-        """Group mounts by the VM each one belongs on.
-
-        Without ``sandbox_tools_only`` that is one group on the agent VM.
-        With it, the agent's file tools act on the sandbox so its workspaces
-        mount there — except the ones the world pinned with
-        :meth:`AgentWorkspaceMount.pinned_to_agent_vm`, which hold state the
-        CLI process writes directly and so have to stay where the CLI runs.
-        """
-        workspace_info = self._workspace_info(info, sandbox_host=sandbox_host)
-        if workspace_info is info:
-            return [(info, mounts)] if mounts else []
-        pinned = [m for m in mounts if m.on_agent_vm]
-        sandboxed = [m for m in mounts if not m.on_agent_vm]
-        groups: list[tuple[RuntimeInfo, list[AgentWorkspaceMount]]] = []
-        if sandboxed:
-            groups.append((workspace_info, sandboxed))
-        if pinned:
-            groups.append((info, pinned))
-        return groups
-
-    async def _setup_workspaces(
-        self, info: RuntimeInfo, mounts: list[AgentWorkspaceMount], *, sandbox_host: str | None = None
-    ) -> None:
-        for host, group in self._mounts_by_host(info, mounts, sandbox_host=sandbox_host):
-            await vm_setup.setup_workspaces(host, group)
-
-    async def _sync_back_workspaces(
-        self, info: RuntimeInfo, mounts: list[AgentWorkspaceMount], *, sandbox_host: str | None = None
-    ) -> None:
-        for host, group in self._mounts_by_host(info, mounts, sandbox_host=sandbox_host):
-            await vm_setup.sync_back_workspaces(host, group)
-
-    def _agent_context(self, display_name: str | None) -> AgentContext:
-        return AgentContext(
-            image=self._agent.image,
-            package=self._agent.package,
-            agent_name=self._agent.agent_name,
-            config=self._agent.config,
-            instruction="",
-            display_name=display_name,
-            ssh_probe_timeout=self._agent.ssh_probe_timeout,
-            ssh_probe_retries=self._agent.ssh_probe_retries,
-            runtime=self._agent.runtime.model_dump(),
-            agent_code_path=self._agent_code_path,
-        )
-
     async def _run_with_warm_pool(self, instruction: str, display_name: str | None = None) -> str:
-        from plato.agents.warmpool import RuntimeLease
-
-        assert self._warm_pool is not None
-        idle_seconds = self._agent.runtime_idle_release_seconds
-        lease: RuntimeLease | None = None
-        if idle_seconds is not None:
-            if self._runtime_lease is None:
-                self._runtime_lease = RuntimeLease(self._warm_pool, idle_seconds)
-            lease = self._runtime_lease
-        # Serialized against warm()/release_runtime() on this task — see
-        # RuntimeLease.turn_lock.
-        async with lease.turn_lock if lease is not None else contextlib.nullcontext():
-            return await self._run_with_warm_pool_leased(instruction, display_name, lease)
-
-    async def _run_with_warm_pool_leased(
-        self, instruction: str, display_name: str | None, lease: RuntimeLease | None
-    ) -> str:
         assert self._warm_pool is not None
         mounts = [mount.clone_for_run() for mount in self._all_mounts()]
-        pooled_runtime = None
-        if lease is not None:
-            pooled_runtime = await lease.checkout_healthy([mount.agent_path for mount in mounts])
-        skip_vm_setup = (
-            pooled_runtime is not None and lease is not None and lease.last_fingerprint == self._setup_fingerprint()
-        )
-        if pooled_runtime is None:
-            pooled_runtime = await self._warm_pool.acquire()
+        pooled_runtime = await self._warm_pool.acquire()
         try:
             agent_id = await self._run_on_runtime(
                 pooled_runtime.runtime_info,
                 instruction,
                 display_name=display_name,
                 mounts=mounts,
-                skip_vm_setup=skip_vm_setup,
             )
         except Exception:
-            await asyncio.shield(
-                self._warm_pool.release(
-                    pooled_runtime,
-                    workspace_paths=[mount.agent_path for mount in mounts],
-                    destroy=True,
-                )
-            )
-            raise
-        except BaseException:
-            # CancelledError (timeout/cancel) is not an Exception — without
-            # this handler the pooled VM stays checked out forever. Destroy
-            # it; shield the teardown against a second cancellation.
-            with contextlib.suppress(Exception):
-                await asyncio.shield(
-                    self._warm_pool.release(
-                        pooled_runtime,
-                        workspace_paths=[mount.agent_path for mount in mounts],
-                        destroy=True,
-                    )
-                )
-            raise
-
-        if lease is not None:
-            # Shielded: a cancellation mid-bind must not leave the VM neither
-            # bound nor released.
-            await asyncio.shield(
-                lease.bind(
-                    pooled_runtime,
-                    [mount.agent_path for mount in mounts],
-                    fingerprint=self._setup_fingerprint(),
-                )
-            )
-            return agent_id
-        # Shielded so a cancellation mid-release cannot leave the VM
-        # half-returned (neither idle nor destroyed).
-        await asyncio.shield(
-            self._warm_pool.release(
+            await self._warm_pool.release(
                 pooled_runtime,
                 workspace_paths=[mount.agent_path for mount in mounts],
+                destroy=True,
             )
+            raise
+
+        await self._warm_pool.release(
+            pooled_runtime,
+            workspace_paths=[mount.agent_path for mount in mounts],
         )
         return agent_id
 
@@ -783,13 +437,7 @@ class AgentTask:
                     mounts=mounts,
                 )
             except RuntimeError as exc:
-                # An AgentExitError quotes the agent's own output, which can
-                # contain the SSH phrase without the VM's auth being at fault.
-                if (
-                    not isinstance(exc, vm_setup.AgentExitError)
-                    and "Permission denied (publickey)" in str(exc)
-                    and attempt < _retries
-                ):
+                if "Permission denied (publickey)" in str(exc) and attempt < _retries:
                     logger.warning(
                         "SSH auth failed on %s (attempt %d/%d), retrying with fresh VM",
                         info.runtime_id,
@@ -807,40 +455,6 @@ class AgentTask:
                     logger.warning("Failed to clean up agent VM %s", info.runtime_id, exc_info=True)
         raise last_error  # type: ignore[misc]
 
-    async def _install_and_configure(
-        self,
-        info: RuntimeInfo,
-        agent_ctx: AgentContext,
-        *,
-        skip_vm_setup: bool,
-    ) -> None:
-        """Install agent code + write env on the VM, unless a leased reuse of
-        an already-prepared runtime makes both redundant (install re-runs with
-        --force-reinstall and dominated leased-turn latency: ~5-10s of a ~10s
-        follow-up). Skipped ONLY when the caller verified the runtime came
-        from an active lease binding with a matching setup fingerprint."""
-
-        if skip_vm_setup:
-            logger.info("Reusing leased runtime %s: skipping agent install/env setup", info.runtime_id)
-            return
-        # Code sync + env setup are independent SSH operations — run concurrently.
-        await asyncio.gather(
-            vm_setup.install_agent_code(info, agent_ctx),
-            vm_setup.setup_agent_env(info, self._session, self._world_runtime_info),
-        )
-
-    def _setup_fingerprint(self) -> str:
-        """Identity of the per-VM setup steps a leased reuse may skip.
-
-        Covers the inputs of ``install_agent_code`` (package/version, image,
-        dev code path) — NOT the per-run agent ``config`` dict, which is
-        consumed at execute time by the runner on the VM (and mutates every
-        turn, e.g. ``continue_session``), so it never affects what setup
-        installed.
-        """
-
-        return f"{self._agent.package}|{self._agent.image}|{self._agent_code_path}"
-
     async def _run_on_runtime(
         self,
         info: RuntimeInfo,
@@ -848,101 +462,38 @@ class AgentTask:
         *,
         display_name: str | None,
         mounts: list[AgentWorkspaceMount],
-        skip_vm_setup: bool = False,
-        adopted: _Adopted | None = None,
     ) -> str:
-        # Resource cleanup also runs if audit collection or a post-run hook
-        # raises, and finishes before the agent runtime returns to its pool.
-        async with contextlib.AsyncExitStack() as resources:
-            return await self._run_on_runtime_with_resources(
-                info,
-                instruction,
-                display_name=display_name,
-                mounts=mounts,
-                skip_vm_setup=skip_vm_setup,
-                resources=resources,
-                adopted=adopted,
-            )
-
-    async def _run_on_runtime_with_resources(
-        self,
-        info: RuntimeInfo,
-        instruction: str,
-        *,
-        display_name: str | None,
-        mounts: list[AgentWorkspaceMount],
-        skip_vm_setup: bool,
-        resources: contextlib.AsyncExitStack,
-        adopted: _Adopted | None = None,
-    ) -> str:
-        """``adopted``: the agent already runs on ``info`` (``adopt``). Nothing is installed, mounted or signed in
-        again; the prepare hooks run, and the first execution is the wait on its job, or none at all when it was
-        between turns (the exit condition comes first)."""
         self.runtime_info = info
-        self._current_runtime_info = info
         current_display_name = display_name or self._display_name
+        mounts, audited_mounts = prepare_audited_mounts(mounts)
+
         runtime_dict = self._agent.runtime.model_dump()
         run_error: Exception | None = None
         final_error: Exception | None = None
 
         try:
-            agent_ctx = self._agent_context(current_display_name)
-            await self._install_and_configure(info, agent_ctx, skip_vm_setup=skip_vm_setup)
+            # Code sync + env setup are independent SSH operations — run concurrently.
+            agent_ctx = AgentContext(
+                image=self._agent.image,
+                package=self._agent.package,
+                config=self._agent.config,
+                instruction="",
+                display_name=current_display_name,
+                ssh_probe_timeout=self._agent.ssh_probe_timeout,
+                ssh_probe_retries=self._agent.ssh_probe_retries,
+                runtime=runtime_dict,
+                agent_code_path=self._agent_code_path,
+            )
+            await asyncio.gather(
+                vm_setup.install_agent_code(info, agent_ctx),
+                vm_setup.setup_agent_env(info, self._session, self._world_runtime_info),
+            )
 
             # Resolve runner path (needs agent code installed)
             runner_path = await vm_setup.resolve_runner_path(info)
 
-            # An artifact desktop is created before anything else touches hosts:
-            # under sandbox_tools_only it IS the sandbox the workspaces mount on.
-            desktop_config: dict[str, object] = {}
-            desktop_note = ""
-            sandbox_host: str | None = None
-            if self._agent.computer_use_artifact_id is not None:
-                if self._session is None or not isinstance(self._agent.runtime, VMRuntimeConfig):
-                    raise ValueError("computer_use_artifact_id requires a VM runtime and a Plato session")
-                desktop = await resources.enter_async_context(
-                    provision_agent_desktop(
-                        self._session,
-                        self._agent.computer_use_artifact_id,
-                        gateway_host=self._connect_gateway_host(),
-                        timeout=self._agent.runtime.vm.timeout,
-                        resources=self._agent.runtime.vm,
-                    )
-                )
-                desktop_config = {"computer_use_mcp_enabled": True, "computer_use_vm_url": desktop.url}
-                if self._agent.config.get("sandbox_tools_only") is True:
-                    # The agent's own shell and file tools run on this desktop
-                    # (Codex's exec-server, the computer server's bash), so it
-                    # gets the per-run key a world-supplied sandbox would carry,
-                    # plus the world's runner key for the workspace transports.
-                    ssh_fields = await sandbox_ssh_fields(desktop.env)
-                    if info.ssh_key_path is not None:
-                        runner_public_key = Path(f"{info.ssh_key_path}.pub").read_text().strip()
-                        await desktop.env.add_ssh_key(runner_public_key, wait_for_vm=False)
-                    desktop_config.update(ssh_fields)
-                    sandbox_host = ssh_fields["computer_use_ssh_host"]
-                else:
-                    if info.env is None:
-                        raise ValueError("computer_use_artifact_id requires the agent environment's mesh IP")
-                    app_host = await info.env.get_mesh_ip()
-                    if not app_host:
-                        raise ValueError("Agent environment has no mesh IP for desktop app access")
-                    # The harness's system prompt already explains that the
-                    # `computer` MCP drives a separate desktop VM; only the agent
-                    # VM's address is run-specific, so that is all the task
-                    # instruction adds. Under sandbox_tools_only the agent's shell
-                    # already runs on the desktop, so there is nothing to add.
-                    desktop_note = (
-                        f"\n\nThe remote desktop reaches this machine at {app_host}: serve anything it "
-                        f"should open on 0.0.0.0 and browse http://{app_host}:<port> from the desktop."
-                    )
-
-            # Mount workspaces. A sandbox_tools_only agent reads and writes files
-            # with tools that run on the sandbox VM, so its workspaces mount there
-            # instead — same transports, same sync-back, just a different host.
-            # An adopted agent's workspaces are mounted already, in use by it.
-            if adopted is None:
-                await self._setup_workspaces(info, mounts, sandbox_host=sandbox_host)
+            # Mount workspaces
+            await vm_setup.setup_workspaces(info, mounts)
 
             # Prepare hooks
             for hook in self._prepare_hooks:
@@ -951,7 +502,7 @@ class AgentTask:
             # Declarative pre-agent login — runs after world-specific setup
             # (display resize, recorder) so hooks can finish any groundwork
             # the login backend depends on.
-            if self._agent.browser_tooling and adopted is None:
+            if self._agent.browser_tooling:
                 await self._run_pre_login(info)
                 # agent-browser login stores each env's cookies under
                 # --session <env.alias>. The model only knows to pass that
@@ -960,8 +511,6 @@ class AgentTask:
                 instruction = self._maybe_append_sessions_block(instruction)
 
             run_agent_config = self._build_run_agent_config(info, mounts)
-            run_agent_config.update(desktop_config)
-            instruction += desktop_note
             workdir = mounts[0].agent_path if mounts else "/workspace"
 
             self.continuation_exhausted = False
@@ -975,13 +524,14 @@ class AgentTask:
                 task_attrs["plato.task.display_name"] = current_display_name
 
             with tracer.start_as_current_span("agent.task", attributes=task_attrs) as task_span:
-                # Write tool-execution context with `agent.task` as the
+                # Write audit/tool-execution context with `agent.task` as the
                 # current span — out-of-band hooks (e.g. claude-code's
                 # PostToolUse) load this file and parent their spans to the
                 # captured span_id, so writing it inside the agent.task scope
                 # keeps those spans nested in the agent subtree.
-                await write_tool_execution_context(
+                await write_audit_context(
                     info,
+                    audited_mounts,
                     agent_image=self._agent.image,
                     default_display_name=self._display_name,
                     display_name=current_display_name,
@@ -1015,7 +565,6 @@ class AgentTask:
                     exec_ctx = AgentContext(
                         image=self._agent.image,
                         package=self._agent.package,
-                        agent_name=self._agent.agent_name,
                         config=agent_config,
                         instruction=current_instruction,
                         display_name=current_display_name,
@@ -1032,29 +581,13 @@ class AgentTask:
                             self._max_continuations,
                         )
 
-                    between_turns = attempt == 0 and adopted is not None and adopted.job_id is None
-                    if between_turns:
-                        # Adopted between turns: its last turn ended in the previous process, so the exit
-                        # condition decides first whether it gets another.
-                        logger.info("Adopted agent on VM %s between turns", info.runtime_id)
-                    else:
-                        logger.info("Executing agent on VM %s...", info.runtime_id)
-                        try:
-                            if attempt == 0 and adopted is not None and adopted.job_id is not None:
-                                # The adopted agent's turn in progress: wait for it like an execution of our own.
-                                self.agent_job_id = adopted.job_id
-                                span_id = await vm_setup.attach_agent(info, adopted.job_id)
-                            else:
-                                span_id = await vm_setup.execute_agent(
-                                    info, exec_ctx, runner_path, workdir, on_job_started=self._job_started
-                                )
-                        finally:
-                            self.agent_job_id = None
-                        self.last_execution_span_id = span_id
-                        logger.info("Agent execution completed on VM %s", info.runtime_id)
+                    logger.info("Executing agent on VM %s...", info.runtime_id)
+                    span_id = await vm_setup.execute_agent(info, exec_ctx, runner_path, workdir)
+                    self.last_execution_span_id = span_id
+                    logger.info("Agent execution completed on VM %s", info.runtime_id)
 
-                        # Sync workspaces back after execution
-                        await self._sync_back_workspaces(info, mounts, sandbox_host=sandbox_host)
+                    # Sync workspaces back after execution
+                    await vm_setup.sync_back_workspaces(info, mounts)
 
                     # If no exit condition configured, one-shot — break immediately
                     if self._exit_condition is None:
@@ -1066,8 +599,7 @@ class AgentTask:
                     # attempt and makes the compaction's own summarization call
                     # cheap (it reads cache-hot context). Best-effort — a
                     # compaction failure must not abort the build/review loop.
-                    # Adopted between turns: the previous process compacted after that turn already.
-                    if self._compaction_instruction is not None and not between_turns:
+                    if self._compaction_instruction is not None:
                         await self._run_session_compaction(
                             info=info,
                             run_agent_config=run_agent_config,
@@ -1076,50 +608,9 @@ class AgentTask:
                             workdir=workdir,
                             current_display_name=current_display_name,
                         )
-                        # Compaction writes (e.g. the post-compaction summary
-                        # file) land on the agent VM, but the sync_back above ran
-                        # BEFORE compaction — so on batched transports (git/rsync)
-                        # the host never sees the summary before a host-side exit
-                        # check, the next attempt, or VM teardown. Sync again so
-                        # the latest summary reaches its durable workspace.
-                        # Best-effort, like compaction itself: a sync failure
-                        # must NOT abort the build/review loop (the build's own
-                        # changes already synced at the pre-compaction sync_back).
-                        try:
-                            workspace_info = self._workspace_info(info, sandbox_host=sandbox_host)
-                            # The summary is written by a PostCompact hook — a
-                            # local subprocess of the agent CLI, so it writes on
-                            # the agent VM and never travels the sandbox tool
-                            # transport. When sandbox_tools_only puts the
-                            # workspaces on the sandbox, it therefore lands
-                            # outside every mount; carry it across before the
-                            # sync that is supposed to make it durable. Unless
-                            # its mount is pinned to the agent VM, in which case
-                            # it is already on the right host and copying it to
-                            # the sandbox would strand it.
-                            summary_path = self._agent.config.get("compaction_summary_path")
-                            if (
-                                workspace_info is not info
-                                and isinstance(summary_path, str)
-                                and summary_path
-                                and not _under_pinned_mount(summary_path, mounts)
-                            ):
-                                await vm_setup.relocate_compaction_summary(info, workspace_info, summary_path)
-                            await self._sync_back_workspaces(info, mounts, sandbox_host=sandbox_host)
-                        except Exception:
-                            logger.warning(
-                                "Post-compaction workspace sync-back failed; the "
-                                "compaction summary may not be durable this cycle",
-                                exc_info=True,
-                            )
 
                     # Check exit condition (workspace is synced back after execute())
-                    self.between_turns = True
-                    try:
-                        exit_now = await self._exit_condition()
-                    finally:
-                        self.between_turns = False
-                    if exit_now:
+                    if await self._exit_condition():
                         logger.info("Exit condition met after attempt %d", attempt + 1)
                         break
 
@@ -1186,6 +677,14 @@ class AgentTask:
                 except Exception:
                     logger.debug("Failed to stop file watcher sidecar", exc_info=True)
 
+            await collect_and_store_audit_results(
+                info,
+                audited_mounts,
+                agent_image=self._agent.image,
+                default_display_name=self._display_name,
+                display_name=current_display_name,
+            )
+
             try:
                 for hook in self._post_run_hooks:
                     await hook(info)
@@ -1194,9 +693,6 @@ class AgentTask:
                     final_error = exc
                 logger.exception("Post-run hook failed on VM %s", info.runtime_id)
             finally:
-                # The VM is about to be released/stopped by the caller —
-                # current_runtime_info must go dark before that happens.
-                self._current_runtime_info = None
                 unregister_client_context(info.runtime_id)
 
         if run_error is not None:

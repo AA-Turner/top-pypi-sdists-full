@@ -1089,6 +1089,24 @@ def _upload_and_build_app(
     return None
 
 
+def _app_service_exists(manager: SnowflakeAppManager, service_fqn: FQN) -> bool:
+    """Return True if an application service already uses *service_fqn*.
+
+    Setup only warns about an existing app, so a failed lookup reports none
+    instead of failing setup. The lookup fails, for example, on an App Space
+    schema that the first deploy has yet to create.
+    """
+    try:
+        return manager.app_service_exists(service_fqn)
+    except ProgrammingError:
+        log.debug(
+            "Could not check whether application service %s exists.",
+            service_fqn,
+            exc_info=True,
+        )
+        return False
+
+
 @_utf8_output
 def snowflake_app_setup(
     app_name: Optional[str],
@@ -1275,6 +1293,18 @@ def snowflake_app_setup(
             use_workspace = is_personal_database(destination_db)
             code_storage = "temporary workspace" if use_workspace else "temporary stage"
 
+            # ── Check for an app that already uses this name ─────────────────
+            # A deploy replaces a service that has the same name. Only warn:
+            # deploying over an existing app on purpose is allowed.
+            service_fqn = app_fqn(
+                database=destination_db,
+                schema=resolved_values["schema"],
+                # Must match the name _generate_app_yml writes.
+                name=resolved_app_name.upper(),
+            )
+            with metrics.span("snowflake_app.setup.check_existing_app_service"):
+                app_exists = _app_service_exists(manager, service_fqn)
+
             if not dry_run:
                 with metrics.span("snowflake_app.setup.write_manifest"):
                     project_file.write_text(
@@ -1292,6 +1322,7 @@ def snowflake_app_setup(
                     {
                         "success": not dry_run,
                         "code_storage": code_storage,
+                        "app_exists": app_exists,
                         **resolved_values,
                     }
                 )
@@ -1311,6 +1342,18 @@ def snowflake_app_setup(
                     continue
                 cli_console.step(f"  {key}: {value}  ({source})")
             cli_console.step(f"  code storage: {code_storage}")
+            if app_exists:
+                rename_hint = (
+                    "pass a different --app-name"
+                    if dry_run
+                    else f"change name in {APP_YML_FILENAME}"
+                )
+                cli_console.warning(
+                    "Application service "
+                    f"{sanitize_for_terminal(service_fqn.identifier)} already "
+                    "exists. Deploying this project will replace that app's code "
+                    f"and settings. To create a separate app, {rename_hint}."
+                )
             return EmptyResult()
 
     try:
@@ -2530,15 +2573,22 @@ def _deploy_from_app_yml(
         return result
 
     # ── Deploy phase (declarative CREATE OR ALTER + inline SPECIFICATION) ──
-    # ``url_prefix`` and ``health_check`` are serverless-only fields, so they
-    # are only emitted when ``compute_resource`` is ``SERVERLESS``.
+    # ``url_prefix``, ``health_check``, and ``postgres_instances`` are
+    # serverless-only fields, so they are only emitted when ``compute_resource``
+    # is ``SERVERLESS``. Whether the server accepts ``postgres_instances`` is
+    # decided by the account parameter ENABLE_APP_SERVICE_CNG_POSTGRES.
     is_cng = _is_cng_compute_resource(compute_resource)
+    if tgt.postgres_instances and not is_cng:
+        raise CliError(
+            "postgres_instances is only valid when compute_resource is SERVERLESS."
+        )
     specification = manager.build_service_specification(
         tgt,
         database=database,
         schema=schema,
         include_url_prefix=is_cng,
         include_health_check=is_cng,
+        include_postgres_instances=is_cng,
     )
     with metrics.span("snowflake_app.deploy_service"):
         cli_console.step(f"Applying application service {service_fqn.identifier}...")

@@ -586,7 +586,3 @@ class ChannelError(StrEnum):
     MALFORMED_RESPONSE = "malformed_response"
     PROJECT_SCOPE_UNSUPPORTED = "project_scope_unsupported"
 
-
-# Last: it loads the `probe.mcp` package, whose modules import this one, so every name above must exist
-# first (agent:12 moved this file out of `mcp/`; before, the package always loaded first).
-from probe.mcp.generated.views import VIEW_MATRIX, VIEW_PURPOSE, View  # noqa: E402, F401

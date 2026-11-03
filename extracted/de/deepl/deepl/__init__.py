@@ -6,6 +6,23 @@ from .version import VERSION as __version__  # noqa
 
 __author__ = "DeepL SE <python-api@deepl.com>"
 
+from .admin_client import DeepLAdminClient
+
+from .api_data import (  # noqa
+    AdminUsageBreakdown,
+    AppInfo,
+    AdminUsageGroupBy,
+    AdminUsageReport,
+    CustomTagUsage,
+    CustomTagUsageAggregateBy,
+    CustomTagUsageBreakdown,
+    CustomTagUsageReport,
+    DeveloperKey,
+    DeveloperKeyUsageLimits,
+    DeveloperKeyUsageLimitsUpdate,
+    KeyUsage,
+)
+
 from .deepl_client import DeepLClient
 
 from .exceptions import (  # noqa
@@ -15,11 +32,23 @@ from .exceptions import (  # noqa
     DocumentNotReadyException,
     DocumentTranslationException,
     GlossaryNotFoundException,
+    NotFoundException,
     TooManyRequestsException,
     QuotaExceededException,
 )
 
 from . import http_client  # noqa
+
+from .api_data import (  # noqa
+    MultilingualGlossaryDictionaryEntries,
+    MultilingualGlossaryDictionaryInfo,
+    MultilingualGlossaryInfo,
+    SpokenTerms,
+    SpokenTermsEntries,
+    SpokenTermsList,
+    StyleProfile,
+    TranslationMemoryJobStatus,
+)
 
 from .translator import (  # noqa
     DocumentHandle,
@@ -29,6 +58,8 @@ from .translator import (  # noqa
     Language,
     ModelType,
     SplitSentences,
+    TagHandlingMode,
+    TagHandlingVersion,
     TextResult,
     Translator,
     Usage,
@@ -37,6 +68,7 @@ from .translator import (  # noqa
 from .util import (  # noqa
     auth_key_is_free_account,
     convert_tsv_to_dict,
+    is_free_account_auth_key,
     convert_dict_to_tsv,
     validate_glossary_term,
 )
@@ -44,14 +76,37 @@ from .util import (  # noqa
 __all__ = [
     "__version__",
     "__author__",
+    "AdminUsageBreakdown",
+    "AdminUsageGroupBy",
+    "AdminUsageReport",
+    "AppInfo",
+    "CustomTagUsage",
+    "CustomTagUsageAggregateBy",
+    "CustomTagUsageBreakdown",
+    "CustomTagUsageReport",
+    "DeepLAdminClient",
     "DeepLClient",
+    "DeveloperKey",
+    "DeveloperKeyUsageLimits",
+    "DeveloperKeyUsageLimitsUpdate",
+    "KeyUsage",
     "DocumentHandle",
     "DocumentStatus",
     "Formality",
     "GlossaryInfo",
     "Language",
+    "MultilingualGlossaryDictionaryEntries",
+    "MultilingualGlossaryDictionaryInfo",
+    "MultilingualGlossaryInfo",
     "SplitSentences",
+    "SpokenTerms",
+    "SpokenTermsEntries",
+    "SpokenTermsList",
+    "StyleProfile",
+    "TagHandlingMode",
+    "TagHandlingVersion",
     "TextResult",
+    "TranslationMemoryJobStatus",
     "Translator",
     "Usage",
     "http_client",
@@ -61,10 +116,12 @@ __all__ = [
     "DocumentNotReadyException",
     "DocumentTranslationException",
     "GlossaryNotFoundException",
+    "NotFoundException",
     "TooManyRequestsException",
     "QuotaExceededException",
     "auth_key_is_free_account",
     "convert_tsv_to_dict",
     "convert_dict_to_tsv",
+    "is_free_account_auth_key",
     "validate_glossary_term",
 ]

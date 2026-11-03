@@ -5,6 +5,7 @@ This package contains all review-related infrastructure:
 - ``data``: Review model schema system (ReviewData, RenderHint, FeedbackField)
 - ``spec``: Recursive ReviewSpec model
 - ``world``: BaseReviewWorld base class
+- ``identity``: Session identity helpers
 - ``result``: ReviewSignal, ReviewFinding, ReviewResult
 """
 
@@ -27,10 +28,11 @@ from plato.worlds.review.result import (
 )
 from plato.worlds.review.spec import ReviewSpec
 
-# Note: BaseReviewWorld and ReviewWorldConfig are NOT re-exported here to avoid
-# circular imports (world.py → config.py → spec.py → __init__.py). Import them
-# directly:
+# Note: BaseReviewWorld, ReviewWorldConfig, and identity helpers are NOT
+# re-exported here to avoid circular imports (world.py → config.py → spec.py → __init__.py).
+# Import them directly:
 #   from plato.worlds.review.world import BaseReviewWorld, ReviewWorldConfig
+#   from plato.worlds.review.identity import is_review_session, ...
 
 __all__ = [
     # Data / models

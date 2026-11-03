@@ -19,6 +19,7 @@ from sklearn.neighbors import kneighbors_graph
 
 from braindecode.models.base import EEGModuleMixin
 from braindecode.models.util import extract_channel_locations_from_chs_info
+from braindecode.util import resolve_montage_name
 
 
 class _GraphConvolution(nn.Module):
@@ -141,12 +142,19 @@ def _build_initial_adjacency(chs_info, n_chans, n_neighbors=5):
     electrode_positions = extract_channel_locations_from_chs_info(
         chs_info, num_channels=n_chans
     )
+    # MNE stores NaN for a channel without a position.
+    if electrode_positions is not None and not (
+        len(electrode_positions) == n_chans and np.isfinite(electrode_positions).all()
+    ):
+        electrode_positions = None
 
     if electrode_positions is None and chs_info is not None:
         # Try to infer positions from channel names via a standard montage
         try:
             ch_names = [ch["ch_name"] for ch in chs_info[:n_chans]]
-            montage = mne.channels.make_standard_montage("standard_1005")
+            montage = mne.channels.make_standard_montage(
+                resolve_montage_name("standard_1005")
+            )
             info = mne.create_info(ch_names=ch_names, sfreq=256, ch_types="eeg")
             info.set_montage(montage, on_missing="raise")
             electrode_positions = extract_channel_locations_from_chs_info(
@@ -159,6 +167,8 @@ def _build_initial_adjacency(chs_info, n_chans, n_neighbors=5):
                 "with 3-D positions or that channel names match a standard montage."
             )
 
+    if n_chans < 2:
+        raise ValueError("DGCNN needs at least 2 channels to build its channel graph.")
     n_neighbors_capped = min(n_neighbors, n_chans - 1)
 
     # Pairwise Euclidean distances
@@ -246,7 +256,9 @@ class _LearnableAdjacency(nn.Module):
         degree_inv_sqrt = 1.0 / (torch.sqrt(degree) + 1e-5)
         degree_inv_sqrt_diag = torch.diag(degree_inv_sqrt)
 
-        identity = torch.eye(self.n_chans, device=adjacency.device)
+        identity = torch.eye(
+            self.n_chans, device=adjacency.device, dtype=adjacency.dtype
+        )
         return identity - degree_inv_sqrt_diag @ adjacency @ degree_inv_sqrt_diag
 
 

@@ -1,6 +1,8 @@
 import os
 import signal
+import sys
 import time
+from unittest.mock import Mock
 
 import pytest
 
@@ -67,6 +69,39 @@ def announce_pid_then_fail_in_cleanup(marker):
 
 
 class test_pool:
+    @pytest.mark.parametrize('method', ['imap', 'imap_unordered'])
+    @pytest.mark.parametrize('chunksize', [0, -1])
+    @pytest.mark.parametrize('items', [[], [1, 2]])
+    def test_imap_rejects_nonpositive_chunksize(self, method, chunksize, items):
+        pool = Mock(_state=billiard.pool.RUN, _cache={})
+        iterable = iter(items)
+
+        with pytest.raises(ValueError, match=r'Chunksize must be 1\+'):
+            getattr(billiard.pool.Pool, method)(
+                pool, simple_task, iterable, chunksize=chunksize,
+            )
+
+        assert list(iterable) == items
+        assert not pool._cache
+        pool._taskqueue.put.assert_not_called()
+
+    @pytest.mark.parametrize('method', ['imap', 'imap_unordered'])
+    @pytest.mark.parametrize('chunksize', [1, 2])
+    def test_imap_valid_chunksize_after_rejection(self, method, chunksize):
+        pool = Mock(_state=billiard.pool.RUN, _cache={})
+        imap = getattr(billiard.pool.Pool, method)
+        with pytest.raises(ValueError):
+            imap(pool, simple_task, [1, 2], chunksize=0)
+        result = imap(pool, simple_task, [1, 2, 3], chunksize)
+        (tasks, set_length), = pool._taskqueue.put.call_args.args
+        count = 0
+        for _, (job, index, func, args, kwargs) in tasks:
+            pool._cache[job]._set(index, (True, func(*args, **kwargs)))
+            count += 1
+        set_length(count)
+        assert sorted(result) == [2, 4, 6]
+        assert not pool._cache
+
     def test_memory_error_from_callback_propagates(self):
         def callback(value):
             raise MemoryError(value)
@@ -92,6 +127,100 @@ class test_pool:
         # If I call to handle the timeouts I expect no exception
         next(timeout_handler.handle_timeouts())
 
+    def test_timeout_handler_trywaitkill_windows(self, monkeypatch):
+        monkeypatch.setattr(sys, "platform", "win32")
+        from unittest.mock import MagicMock
+        worker = MagicMock()
+        worker._name = "MockWorker-1"
+        worker.pid = 12345
+        worker._popen.wait.return_value = True
+
+        handler = billiard.pool.TimeoutHandler([], {}, 0, 0)
+        handler._trywaitkill(worker)
+        worker.terminate.assert_called_once()
+
+    def test_timeout_handler_trywaitkill_windows_timeout_escalation(self, monkeypatch):
+        monkeypatch.setattr(sys, "platform", "win32")
+        from unittest.mock import MagicMock, patch
+        worker = MagicMock()
+        worker._name = "MockWorker-1"
+        worker.pid = 12345
+        worker._popen.wait.return_value = False
+
+        handler = billiard.pool.TimeoutHandler([], {}, 0, 0)
+        with patch("billiard.pool._kill") as mock_kill:
+            handler._trywaitkill(worker)
+            worker.terminate.assert_called_once()
+            mock_kill.assert_called_once_with(worker.pid, billiard.pool.SIGKILL)
+
+    def test_timeout_handler_trywaitkill_posix_group_leader(self, monkeypatch):
+        monkeypatch.setattr(sys, "platform", "linux")
+        monkeypatch.setattr(signal, "SIGKILL", 9, raising=False)
+        monkeypatch.setattr(os, "getpgid", lambda pid: pid, raising=False)
+        from unittest.mock import MagicMock, patch
+        mock_killpg = MagicMock()
+        monkeypatch.setattr(os, "killpg", mock_killpg, raising=False)
+        worker = MagicMock()
+        worker._name = "MockWorker-1"
+        worker.pid = 12345
+        worker._popen.wait.return_value = False
+
+        handler = billiard.pool.TimeoutHandler([], {}, 0, 0)
+        with patch("billiard.pool._kill") as mock_kill:
+            handler._trywaitkill(worker)
+            worker.terminate.assert_not_called()
+            mock_kill.assert_not_called()
+            assert mock_killpg.call_count == 2
+            mock_killpg.assert_any_call(12345, signal.SIGTERM)
+            mock_killpg.assert_any_call(12345, 9)
+
+    def test_timeout_handler_trywaitkill_posix_non_group_leader(self, monkeypatch):
+        monkeypatch.setattr(sys, "platform", "linux")
+        monkeypatch.setattr(os, "getpgid", lambda pid: pid + 100, raising=False)
+        from unittest.mock import MagicMock, patch
+        mock_killpg = MagicMock()
+        monkeypatch.setattr(os, "killpg", mock_killpg, raising=False)
+        worker = MagicMock()
+        worker._name = "MockWorker-1"
+        worker.pid = 12345
+        worker._popen.wait.return_value = False
+
+        handler = billiard.pool.TimeoutHandler([], {}, 0, 0)
+        with patch("billiard.pool._kill") as mock_kill:
+            handler._trywaitkill(worker)
+            mock_killpg.assert_not_called()
+            worker.terminate.assert_called_once()
+            mock_kill.assert_called_once_with(worker.pid, billiard.pool.SIGKILL)
+
+    def test_timeout_handler_trywaitkill_missing_posix_functions(self, monkeypatch):
+        monkeypatch.setattr(sys, "platform", "linux")
+        monkeypatch.delattr(os, "getpgid", raising=False)
+        monkeypatch.delattr(os, "killpg", raising=False)
+        from unittest.mock import MagicMock, patch
+        worker = MagicMock()
+        worker._name = "MockWorker-1"
+        worker.pid = 12345
+        worker._popen.wait.return_value = False
+
+        handler = billiard.pool.TimeoutHandler([], {}, 0, 0)
+        with patch("billiard.pool._kill") as mock_kill:
+            handler._trywaitkill(worker)
+            worker.terminate.assert_called_once()
+            mock_kill.assert_called_once_with(worker.pid, billiard.pool.SIGKILL)
+
+    def test_timeout_handler_trywaitkill_oserror_suppressed(self, monkeypatch):
+        from unittest.mock import MagicMock, patch
+        worker = MagicMock()
+        worker._name = "MockWorker-1"
+        worker.pid = 12345
+        worker.terminate.side_effect = OSError("Process already dead")
+        worker._popen.wait.return_value = False
+
+        handler = billiard.pool.TimeoutHandler([], {}, 0, 0)
+        with patch("billiard.pool._kill", side_effect=OSError("Process already dead")):
+            # Should not raise OSError
+            handler._trywaitkill(worker)
+
     def test_exception_traceback_present(self):
         pool = billiard.pool.Pool(1)
         results = [pool.apply_async(func, (i,)) for i in range(3)]
@@ -116,6 +245,22 @@ class test_pool:
         pool.close()
         pool.join()
         pool.terminate()
+
+    @pytest.mark.parametrize('method', ['imap', 'imap_unordered'])
+    def test_imap_raises_task_exception(self, method):
+        # One worker, so imap_unordered() yields in order too.
+        pool = billiard.pool.Pool(1)
+        try:
+            it = getattr(pool, method)(func, range(3))
+            assert it.next(timeout=10) == 0
+            assert it.next(timeout=10) == 1
+            # Used to raise a bare Exception wrapping the ExceptionInfo,
+            # unlike apply_async().get() and map().
+            with pytest.raises(ValueError):
+                it.next(timeout=10)
+        finally:
+            pool.terminate()
+            pool.join()
 
     def test_system_exit_from_task_replaces_worker(self):
         pool = billiard.pool.Pool(1)
@@ -232,13 +377,54 @@ class test_pool:
 
     def test_on_ready_counter_is_synchronized(self):
         for ctx in ('spawn', 'fork', 'forkserver'):
+            if ctx not in billiard.get_all_start_methods():
+                continue
             pool = billiard.pool.Pool(processes=1, context=get_context(ctx))
-            pool.apply_async(func, (1,)).get(1)
-            on_ready_counter = pool.apply_async(get_on_ready_count, ).get(1)
-            assert on_ready_counter == 1
-            pool.close()
-            pool.join()
-            pool.terminate()
+            try:
+                pool.apply_async(func, (1,)).get(timeout=10)
+                on_ready_counter = pool.apply_async(get_on_ready_count, ).get(timeout=10)
+                assert on_ready_counter == 1
+            finally:
+                pool.close()
+                pool.join()
+                pool.terminate()
+
+    def test_on_ready_counter_credits_worker_that_ran_the_task(self):
+        ctx = get_context()
+        counters = {101: ctx.Value('i'), 102: ctx.Value('i')}
+        cache = {}
+        handler = billiard.pool.ResultHandler(
+            None, None, cache, None, None, None, Mock(), None, None,
+            on_ready_counters=counters,
+        )
+        on_ack = handler.state_handlers[billiard.pool.ACK]
+        on_ready = handler.state_handlers[billiard.pool.READY]
+
+        # map() chunks of the same job run by different workers.
+        result = billiard.pool.MapResult(cache, 1, 2, None, None)
+        on_ack(result._job, 0, time.monotonic(), 101, None)
+        on_ack(result._job, 1, time.monotonic(), 102, None)
+        on_ready(result._job, 0, (True, [0]), None)
+        on_ready(result._job, 1, (True, [1]), None)
+        assert result.get(timeout=1) == [0, 1]
+        assert counters[101].value == 1
+        assert counters[102].value == 1
+
+        # A job that already left the cache, e.g. a map() that failed.
+        result = billiard.pool.ApplyResult(cache, None)
+        on_ack(result._job, None, time.monotonic(), 102, None)
+        del cache[result._job]
+        on_ready(result._job, None, (True, None), None)
+        assert counters[101].value == 1
+        assert counters[102].value == 2
+
+        # A worker killed between ACK and READY is forgotten when it exits.
+        result = billiard.pool.ApplyResult(cache, None)
+        on_ack(result._job, None, time.monotonic(), 101, None)
+        handler.on_worker_exit(101)
+        on_ready(result._job, None, (True, None), None)
+        assert counters[101].value == 1
+        assert counters[102].value == 2
 
     def test_graceful_shutdown_delivers_results(self):
         """Test that queued results are delivered during pool shutdown.
@@ -291,10 +477,19 @@ class test_pool:
             assert result.get() == i * 2
 
 
-    def test_rejects_fewer_than_one_process(self):
-        for processes in (0, -1):
-            with pytest.raises(ValueError, match="at least 1"):
-                billiard.pool.Pool(processes=processes)
+    def test_rejects_negative_processes(self):
+        with pytest.raises(ValueError, match="at least 0"):
+            billiard.pool.Pool(processes=-1)
+
+    def test_starts_with_zero_processes_and_grows(self):
+        # Celery's --autoscale N,0 starts the pool at its minimum.
+        pool = billiard.pool.Pool(processes=0)
+        try:
+            pool.grow(1)
+            assert pool.apply_async(simple_task, (21,)).get(timeout=10) == 42
+        finally:
+            pool.terminate()
+            pool.join()
 
     def test_rejects_non_positive_maxtasksperchild(self):
         # Worker only asserted this, so it failed with a bare AssertionError,
@@ -320,3 +515,41 @@ class test_pool:
         ):
             with pytest.raises(TypeError, match="bool"):
                 billiard.pool.Pool(**kwargs)
+
+    @skip.if_win32()
+    def test_worker_blocks_term_signal_while_reporting_death(self,
+                                                             monkeypatch):
+        blocked_during_put = []
+        worker = billiard.pool.Worker.__new__(billiard.pool.Worker)
+        worker.on_exit = None
+        worker.outq = Mock()
+        worker.outq.put.side_effect = lambda obj: blocked_during_put.append(
+            billiard.pool.TERM_SIGNAL in signal.pthread_sigmask(
+                signal.SIG_BLOCK, set()))
+        monkeypatch.setattr(billiard.pool.time, 'sleep', Mock())
+        monkeypatch.setattr(billiard.pool.os, '_exit', Mock())
+
+        worker._do_exit(1234, 0)
+
+        worker.outq.put.assert_called_once_with(
+            (billiard.pool.DEATH, (1234, 0)))
+        assert blocked_during_put == [True]
+        assert billiard.pool.TERM_SIGNAL not in signal.pthread_sigmask(
+            signal.SIG_BLOCK, set())
+
+    def test_terminate_pool_terminates_worker_added_during_shutdown(self):
+        pool = [Mock()]
+        replacement = Mock()
+        worker_handler = Mock()
+        worker_handler.stop.side_effect = (
+            lambda timeout=None: pool.append(replacement))
+        task_handler = Mock()
+        task_handler.is_alive.return_value = False
+
+        billiard.pool.Pool._terminate_pool(
+            Mock(), Mock(), Mock(), pool, worker_handler, task_handler,
+            Mock(), {}, None, (Mock(), task_handler, pool),
+        )
+
+        pool[0].terminate.assert_called_once_with()
+        replacement.terminate.assert_called_once_with()

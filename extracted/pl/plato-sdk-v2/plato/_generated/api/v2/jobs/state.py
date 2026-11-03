@@ -13,7 +13,6 @@ from plato._generated.models import SessionStateResult
 def _build_request_args(
     job_id: str,
     merge_mutations: bool | None = False,
-    since: str | None = None,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
@@ -23,8 +22,6 @@ def _build_request_args(
     params: dict[str, Any] = {}
     if merge_mutations is not None:
         params["merge_mutations"] = merge_mutations
-    if since is not None:
-        params["since"] = since
 
     headers: dict[str, str] = {}
     if authorization is not None:
@@ -44,22 +41,14 @@ def sync(
     client: httpx.Client,
     job_id: str,
     merge_mutations: bool | None = False,
-    since: str | None = None,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> SessionStateResult:
-    """Get the current state of a specific job.
-
-    Args:
-        job_id: The job public ID.
-        merge_mutations: If true, merge mutations and apply ignore rules.
-        since: Opaque incremental-mutations cursor (see the query param
-            description). Invalid cursors are rejected with a 400."""
+    """Get the current state of a specific job."""
 
     request_args = _build_request_args(
         job_id=job_id,
         merge_mutations=merge_mutations,
-        since=since,
         authorization=authorization,
         x_api_key=x_api_key,
     )
@@ -73,22 +62,14 @@ async def asyncio(
     client: httpx.AsyncClient,
     job_id: str,
     merge_mutations: bool | None = False,
-    since: str | None = None,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> SessionStateResult:
-    """Get the current state of a specific job.
-
-    Args:
-        job_id: The job public ID.
-        merge_mutations: If true, merge mutations and apply ignore rules.
-        since: Opaque incremental-mutations cursor (see the query param
-            description). Invalid cursors are rejected with a 400."""
+    """Get the current state of a specific job."""
 
     request_args = _build_request_args(
         job_id=job_id,
         merge_mutations=merge_mutations,
-        since=since,
         authorization=authorization,
         x_api_key=x_api_key,
     )

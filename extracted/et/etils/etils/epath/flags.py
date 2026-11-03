@@ -19,11 +19,10 @@ from __future__ import annotations
 import os
 import sys
 import typing
-from typing import Optional
+from typing import Literal, Optional
 
 from etils.epath import abstract_path
 from etils.epath import typing as epath_typing
-from typing_extensions import Literal
 
 if typing.TYPE_CHECKING:
   from absl import flags
@@ -42,7 +41,7 @@ def DEFINE_path(  # pylint: disable=invalid-name
     name: str,
     default: None,
     help: str,  # pylint: disable=redefined-builtin
-    flag_values: flags.FlagValues = ...,
+    flag_values: flags.FlagValues | None = ...,
     *,
     required: Literal[True],
     **kwargs,
@@ -56,7 +55,7 @@ def DEFINE_path(  # For consistency with other flags, pylint: disable=invalid-na
     name: str,
     default: None,
     help: str,  # pylint: disable=redefined-builtin
-    flag_values: flags.FlagValues = ...,
+    flag_values: flags.FlagValues | None = ...,
     *,
     required: Literal[False] = False,
     **kwargs,
@@ -70,7 +69,7 @@ def DEFINE_path(  # For consistency with other flags, pylint: disable=invalid-na
     name: str,
     default: epath_typing.PathLike,
     help: str,  # pylint: disable=redefined-builtin
-    flag_values: flags.FlagValues = ...,
+    flag_values: flags.FlagValues | None = ...,
     *,
     required: Literal[False] = False,
     **kwargs,
@@ -84,7 +83,7 @@ def DEFINE_path(  # pylint: disable=invalid-name
     help,  # pylint: disable=redefined-builtin
     flag_values=None,
     *,
-    required=False,
+    required: bool = False,
     **kwargs,
 ):
   """Defines a flag containing a epath.Path value."""
@@ -114,4 +113,4 @@ def DEFINE_path(  # pylint: disable=invalid-name
       _PathSerializer(),
       required=required,
       **kwargs,
-  )  # pytype: disable=bad-return-type
+  )

@@ -198,8 +198,8 @@ class Image:
         requirements-<name>.txt, which `seq deploy` refuses to pick from: requirements="requirements-05i.txt"; read
         as a requirements.txt is (a .lock as the lock), in the nearest folder that holds it.
 
-        A policy that declares neither image= nor deps= gets this image by default when its project has dependency
-        files; `seq deploy --dry-run` prints what it read."""
+        A policy that declares no image= gets this image by default when its project has dependency files;
+        `seq deploy --dry-run` prints what it read."""
         for arg, value, example in (("exclude", exclude, '["deepspeed"]'),
                                     ("extra", extra, '["causal-conv1d @ https://.../causal_conv1d-1.4.0-....whl"]')):
             if isinstance(value, str) or not isinstance(value, (list, tuple)) or \
@@ -307,8 +307,10 @@ class Image:
         positioned exactly where called relative to the other steps; never silently dropped.
 
         `secrets=[seq.Secret.from_name("gh")]` gives these commands alone the secret's variables while they run
-        (a private git repo or package index); no other step, no image layer and no worker ever holds them.
-        """
+        (a private git repo or package index); no other step, no image layer and no worker ever holds them. Not
+        available yet for a policy: a policy's build that declares one fails.
+        
+"""
         from seq.secret import Secret
 
         refs: list[SecretRef] = []

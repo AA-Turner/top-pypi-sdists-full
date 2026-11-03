@@ -19,6 +19,7 @@ import argparse
 import csv
 import io
 import json
+import math
 import operator
 import os
 import re
@@ -56,7 +57,8 @@ def add_arguments(p_eval: argparse.ArgumentParser, p_report: argparse.ArgumentPa
                         help="run the episodes that eval ran without error and did not succeed on again, as an eval "
                              "of their own; never merged into its report")
     p_eval.add_argument("--gate", action="append", default=None, metavar="METRIC>=X",
-                        help="exit 8 unless the completed eval's overall METRIC passes (repeatable)")
+                        help="exit 8 unless the completed eval's overall METRIC passes (repeatable; with --no-wait "
+                             "none is checked)")
     p_eval.add_argument("--param", action="append", default=None, metavar="[SIDE.]NAME=VALUE",
                         help="set a parameter for the whole eval (repeatable): the policy's @seq.infer, the "
                              "adapter's __init__, the benchmark's __init__, or the eval's own max_seconds (how long "
@@ -68,14 +70,16 @@ def add_arguments(p_eval: argparse.ArgumentParser, p_report: argparse.ArgumentPa
                              "(repeatable: every combination is an arm)")
 
     p_eval.add_argument("--replay", default=None, choices=("3d", "none"),
-                        help="whether the eval records its 3D replay when the benchmark declares replay= "
-                             "(default: 3d, every episode, drawn in the console after the eval; none: no replay)")
+                        help="whether the eval records its 3D replay when the benchmark declares replay= - 3d, every "
+                             "episode, drawn in the console after the eval; none, no replay (default: the platform's, "
+                             "which the report says)")
     p_report.add_argument("--csv", action="store_true",
                           help="the eval's episodes as CSV, a row per episode - the file the console downloads - "
                                "printed in place of the report, or written to -o PATH beside it")
     p_report.add_argument("-o", "--out", default=None, metavar="PATH", help="with --csv: the file to write it to")
-    p_report.add_argument("--trajectories", default=None, metavar="DIR",
-                          help="save every episode's trajectory (its states and actions, gzip JSONL) into DIR")
+    p_report.add_argument("--records", default=None, metavar="DIR",
+                          help="save every episode's record - what its policy was sent, its cameras as video, and "
+                               "each answer (.rec.zst) - into DIR")
     p_report.add_argument("--replays", default=None, metavar="DIR",
                           help="save every episode's 3D replay (.seqreplay) and the scenes they are drawn in "
                                "(scenes/<sha256>.glb) into DIR")
@@ -138,6 +142,9 @@ def eval_remote(args: argparse.Namespace) -> int:
         sweep = dict(parse_sweep(x) for x in args.sweep or []) or None
     except ValueError as exc:
         raise InvalidRequest(f"--gate / --param / --sweep: {exc}") from None
+    if gates and not args.wait:
+
+        raise InvalidRequest("--gate checks the eval once it has finished; it takes no --no-wait")
     if sweep and args.rerun_failed:
         raise InvalidRequest("--rerun-failed repeats one eval's errored episodes; it takes no --sweep")
     if args.rerun_unsuccessful and (args.rerun_failed or sweep):
@@ -160,8 +167,7 @@ def eval_remote(args: argparse.Namespace) -> int:
             "rerun_unsuccessful_of": args.rerun_unsuccessful, "replay": args.replay, "sweep": sweep,
 
 
-            "policy_machines": args.policy_machines, "policy_gpu": args.policy_gpu,
-            "benchmark_machines": args.benchmark_machines}
+            "policy_machines": args.policy_machines, "benchmark_machines": args.benchmark_machines}
     client = EvalGatewayClient(base_url=args.base_url)
     started = client.start_eval(body)
     if args.dry_run:
@@ -175,7 +181,8 @@ def eval_remote(args: argparse.Namespace) -> int:
     if not args.wait:
         print(f"read it with: seq eval report {eval_id} --wait   stop it with: seq eval cancel {eval_id}")
         return 0
-    report, details = _finished(client, eval_id, args.timeout)
+
+    report, details = _finished(client, eval_id, math.inf)
     print_report(report, details, earlier_cost=earlier_cost(client, details), eval_id=eval_id)
     rc = 0 if report.status.value == "completed" else 1
     if gates:
@@ -474,7 +481,7 @@ def print_cards(cards: dict | None) -> None:
         why = {"gpu_limit_reached": "your account's GPUs are in use", "gpu_busy": "the platform's GPUs are all busy",
                "gpu_low_stock": "the card is out of stock"}.get(reason, reason)
         print(f"  {count(cards.get('short'))} short ({why}, {reason})"
-              + (f": submitted, it would wait in line up to {wait:.0f} s for them, then be cancelled"
+              + (f": submitted, it would wait in line up to {wait:.0f} s for them, then fail (queue_timeout)"
                  if cards.get("would_queue") else ": submitted, it would be refused"))
 
 
@@ -491,8 +498,8 @@ def _say_started(eval_id: str, started: dict) -> None:
         return
     held = _held(started)
     print(f"started: eval {eval_id} ({_estimate(started)}; "
-          + (f"{money(held)} is held from your balance" if held is not None
-             else "the estimate is held from your balance")
+          + (f"{money(held)} is held against this month's limit" if held is not None
+             else "the estimate is held against this month's limit")
           + ", the time your machines actually run is what you pay)")
     print_notes(started)
     print_warnings(started)
@@ -518,7 +525,7 @@ def queue_line(queue: dict) -> str:
         parts.append(f"expected back by {_clock(queue['expected_at'])}" if queue.get("expected_at")
                      else "expected time not known yet")
     else:
-        parts = [f"needs {count(queue.get('cards'))} GPUs, {count(queue.get('available'))} free now"]
+        parts = [f"needs {count(queue.get('cards'))} GPUs, {count(queue.get('available'))} available now"]
     if isinstance(waited, (int, float)) and waited:
         parts.append(f"waited {waited:.0f} s")
     if queue.get("gives_up_at"):
@@ -639,13 +646,16 @@ def starting_said(snap: dict | None) -> str | None:
 
 
 def start_said(timing: Any) -> str | None:
-    """The report's word on its machines' start: its wait for a card and its machines' own - their boot, image and weights -
-    each as long as the longest of its machines', neither billed; None when it had neither."""
+    """The report's word on its machines' start: its wait for a card, which is not billed, and its machines' own - their
+    boot, image and weights - billed as the rest of their time, each as long as the longest of its machines'; None when it
+    had neither.
+"""
     cold = getattr(timing, "cold_start_s", None) or {}
-    parts = [(f"waited {about_time(cold['card_wait_s'])} for a card") if cold.get("card_wait_s") else None,
-             (f"its machines took {about_time(cold['machine_start_s'])} to start") if cold.get("machine_start_s") else None]
+    parts = [(f"waited {about_time(cold['card_wait_s'])} for a card (not billed)") if cold.get("card_wait_s") else None,
+             (f"its machines took {about_time(cold['machine_start_s'])} to start (billed)")
+             if cold.get("machine_start_s") else None]
     said = [p for p in parts if p]
-    return f"before its first episode: {', '.join(said)} (not billed)" if said else None
+    return f"before its first episode: {', '.join(said)}" if said else None
 
 
 def time_note(limit: dict | None, echo: Callable[[str], Any] = print) -> None:
@@ -754,7 +764,7 @@ def eval_report(eval_id: str, *, wait: bool = False, timeout_s: float | None = N
     platform sends of it} - what `seq --json eval report` prints. `wait` waits until the eval has ended (up to
     `timeout_s`; one still running then is Unavailable, as the command ends); without it, the report so far.
     Prints the report as the command does, and each state it waits through, only when given `echo`. The files the
-    command saves beside it - `--videos`, `--trajectories`, `--replays`, `--csv` - are its alone."""
+    command saves beside it - `--records`, `--replays`, `--csv` - are its alone."""
     from seq._eval_gateway import EvalGatewayClient
 
     client = EvalGatewayClient(base_url=base_url)
@@ -765,7 +775,7 @@ def eval_report(eval_id: str, *, wait: bool = False, timeout_s: float | None = N
 
 
 def report(args: argparse.Namespace) -> int:
-    """`seq eval report <id> [--wait] [--csv [-o PATH]] [--videos DIR] [--trajectories DIR] [--replays DIR]`:
+    """`seq eval report <id> [--wait] [--csv [-o PATH]] [--records DIR] [--replays DIR]`:
     eval_report, printed - or, with --json, as data - and the files saved."""
     from seq._eval_gateway import EvalGatewayClient
 
@@ -776,12 +786,10 @@ def report(args: argparse.Namespace) -> int:
         print(json.dumps(_report_data(rep, details), indent=2, default=str))
     elif not (args.csv and args.out is None):
         print_report(rep, details, earlier_cost=earlier_cost(client, details), eval_id=args.eval_id)
-    if args.videos and not save_videos(client, args.eval_id, rep, args.videos):
-        return 1
-    if details and (getattr(args, "trajectories", None) or getattr(args, "replays", None)):
+    if details and (getattr(args, "records", None) or getattr(args, "replays", None)):
 
         details = {**details, "episodes": client.all_episodes(args.eval_id, details)}
-    if getattr(args, "trajectories", None) and not save_trajectories(client, args.eval_id, details, args.trajectories):
+    if getattr(args, "records", None) and not save_records(client, args.eval_id, details, args.records):
         return 1
     if getattr(args, "replays", None) and not save_replays(client, args.eval_id, details, args.replays):
         return 1
@@ -797,47 +805,29 @@ def out_only(csv_on: bool, out: str | None) -> None:
         raise InvalidRequest("-o PATH is where --csv writes the episodes: add --csv")
 
 
-def save_videos(client: Any, eval_id: str, report: Any, dest: str) -> bool:
-    """Download every recording the report links into `dest` (eval-<id8>-<n>.mp4). False when one failed."""
-    if not report.videos:
-        print("  no recordings (the eval kept none, or has not finished)")
-        return True
-    os.makedirs(dest, exist_ok=True)
-    ok = True
-    for url in report.videos:
-        name = f"eval-{eval_id[:8]}-{url.rsplit('/', 1)[-1]}"
-        try:
-            data = client.video(url)
-        except SequencesError as exc:
-            print(f"  {name}: failed: {exc}", file=sys.stderr)
-            ok = False
-            continue
-        with open(os.path.join(dest, name), "wb") as f:
-            f.write(data)
-        print(f"  saved {os.path.join(dest, name)} ({len(data):,} bytes)")
-    return ok
-
-
-def save_trajectories(client: Any, eval_id: str, details: dict | None, dest: str) -> bool:
-    """Download every episode's trajectory the details mark into `dest` (eval-<id8>-<n>.jsonl.gz). False when one
-    failed."""
-    episodes = [e for e in ((details or {}).get("episodes") or []) if e.get("trajectory")]
+def save_records(client: Any, eval_id: str, details: dict | None, dest: str) -> bool:
+    """Download every episode's record the details mark into `dest` (eval-<id8>-<n>.rec.zst): the one copy an eval keeps
+    of what its policy was sent - its cameras as video - and what it answered, step by step, where its own recordings
+    and trajectories were before. False when one failed. Before, --videos and --trajectories
+    read what no eval has made since then and said every eval kept none.
+"""
+    episodes = [e for e in ((details or {}).get("episodes") or []) if e.get("record")]
     if not episodes:
-        print("  no trajectories (the eval recorded none, has not finished, or its benchmark hides its seeds)")
+        print("  no records (the eval kept none, has not finished, or its recordings were deleted)")
         return True
     os.makedirs(dest, exist_ok=True)
     ok = True
     for e in episodes:
-        name = f"eval-{eval_id[:8]}-{e['index']}.jsonl.gz"
+        name = f"eval-{eval_id[:8]}-{e['index']}.rec.zst"
         try:
-            data = client.trajectory(eval_id, int(e["index"]))
+            data = client.record(eval_id, int(e["index"]))
         except SequencesError as exc:
             print(f"  {name}: failed: {exc}", file=sys.stderr)
             ok = False
             continue
         with open(os.path.join(dest, name), "wb") as f:
             f.write(data)
-    print(f"  saved {len(episodes) if ok else 'some'} trajectories into {dest}")
+    print(f"  saved {len(episodes) if ok else 'some'} records into {dest}")
     return ok
 
 
@@ -862,7 +852,12 @@ def save_replays(client: Any, eval_id: str, details: dict | None, dest: str) -> 
         with open(os.path.join(dest, name), "wb") as f:
             f.write(data)
         saved += 1
-    for sha in sorted({e["scene_sha256"] for e in episodes if e.get("scene_sha256")}):
+    for sha in sorted({str(e["scene_sha256"]) for e in episodes if e.get("scene_sha256")}):
+        if not re.fullmatch(r"[0-9a-f]{64}", sha):
+
+            print(f"  scene {sha[:80]!r}: failed: not a sha256, so not written", file=sys.stderr)
+            ok = False
+            continue
         try:
             data = client.scene(eval_id, sha)
         except SequencesError as exc:
@@ -908,7 +903,10 @@ def print_report(report: Any, details: dict | None = None, *, earlier_cost: floa
 
 
         adapter = m.get("adapter")
-        echo(f"ran: benchmark {m.get('benchmark')} v{m.get('benchmark_version')} + "
+
+
+        bench = f"{m.get('benchmark')}" + (" (deleted)" if m.get("benchmark_deleted") else "")
+        echo(f"ran: benchmark {bench} v{m.get('benchmark_version')} + "
              f"{'adapter ' if isinstance(adapter, dict) else ''}{label(adapter, at=' v')} + "
              f"policy {m.get('model')} v{m.get('model_version')}  {m.get('episodes')} episode(s), seeds "
              f"{_span(seeds)}" + (f"  (reran the errors of {m['rerun_of']})" if m.get("rerun_of") else "")
@@ -951,10 +949,6 @@ def print_report(report: Any, details: dict | None = None, *, earlier_cost: floa
             echo(f"  partial results: {p['done'] - p['failed']} of {p['total']} episodes scored{progress_counts(p)}")
         else:
             echo("  incomplete: not every selected episode produced a result")
-    for v in report.videos:
-        echo(f"  video: {v}")
-    if report.videos:
-        echo("  (save them with `seq eval report <eval_id> --videos DIR` — the links need your API key)")
     for e in report.errors:
         echo(f"  error: {e}")
     arms = report.arms or []
@@ -964,7 +958,8 @@ def print_report(report: Any, details: dict | None = None, *, earlier_cost: floa
             label = a.model + ("" if not a.params else " " + ", ".join(f"{k}={v}" for k, v in a.params.items()))
             cells = [f"{k} {shown(agg.overall, units.get(k))}" for k, agg in a.metrics.items()]
 
-            ran_out = f", {stop_said(report.stop_reason) or 'its spend cap or the balance ran out'}" \
+
+            ran_out = f", {stop_said(report.stop_reason) or 'its spend cap or the monthly limit was reached'}" \
                 if a.budget_stopped else ""
             echo(f"  arm {a.arm} {label}: " + "  ".join(cells) + f"  ({a.episodes} ran, {a.failed} failed, "
                  f"{a.not_run} not run{ran_out})")
@@ -980,6 +975,10 @@ def print_report(report: Any, details: dict | None = None, *, earlier_cost: floa
         echo(started)
     _print_load(load, echo)
     _print_link(details.get("link") or [], echo)
+    _print_usage(details.get("usage") or [], echo)
+    if (place := placement_line(details.get("placement"))) is not None:
+        echo(place)
+    _print_warning(details.get("warning") or [], echo)
     if (taken := taken_line(details.get("taken"))) is not None:
         echo(taken)
 
@@ -992,7 +991,10 @@ def print_report(report: Any, details: dict | None = None, *, earlier_cost: floa
     if report.stop_reason:
         said = stop_said(report.stop_reason)
         echo(f"stopped: {said} ({report.stop_reason})" if said else f"stopped: {report.stop_reason}")
-        if report.stop_reason in RERUN_STOPS and eval_id:
+
+
+        if report.stop_reason in RERUN_STOPS and eval_id and not (details.get("policy_deleted")
+                                                                   or m.get("benchmark_deleted")):
             echo(rerun_line(eval_id, details))
 
 
@@ -1000,7 +1002,8 @@ def print_report(report: Any, details: dict | None = None, *, earlier_cost: floa
 
 
 STOP_SAID = {"canceled": "the eval was canceled", "spend_cap": "its spend cap ran out",
-             "balance": "the account's balance ran out", "deadline": "the eval reached its time limit",
+             "balance": "the account reached this month's limit, or its credit with no payment method",
+             "deadline": "the eval reached its time limit",
              "refused": "the policy refused this eval's requests",
              "mismatch": "the benchmark and the policy do not fit",
              "no_gpu_render": "the benchmark's cameras could not be drawn on its GPU",
@@ -1101,6 +1104,61 @@ def _print_link(link: list[dict], echo: Callable[[str], Any] = print) -> None:
         if parts:
             echo("link between the benchmark and policy machines" + (f" (arm {a.get('arm')})" if len(link) > 1
                                                                       else "") + ": " + "; ".join(parts))
+
+
+def _print_usage(usage: list[dict], echo: Callable[[str], Any] = print) -> None:
+    """Each side's machines' resource use (details["usage"]): the benchmark's and the policy's - the most any used and
+    the mean of their uses, against what it requested. The policy's is what it carried back with its answers (the
+    policy cannot report to the gateway itself)."""
+    multi = len({a.get("arm") for a in usage}) > 1
+    for a in usage:
+        side = "policy" if a.get("role") == "policy" else "benchmark"
+        head = f"{side} usage" + (f" (arm {a.get('arm')})" if multi else "")
+        parts = []
+        if a.get("cpu_cores_peak") is not None:
+            of = f" of {a['cpu_request']:g}" if a.get("cpu_request") else ""
+            avg = f", {a['cpu_cores_avg']:g} average" if a.get("cpu_cores_avg") is not None else ""
+            parts.append(f"CPU {a['cpu_cores_peak']:g}{of} core(s) at peak{avg}")
+        if a.get("ram_mb_peak") is not None:
+            of = f" of {a['mem_request_mb']:g}" if a.get("mem_request_mb") else ""
+            parts.append(f"RAM {a['ram_mb_peak']:g}{of} MiB")
+        if a.get("gpu_util_pct_peak") is not None:
+            avg = f", {a['gpu_util_pct_avg']:g}% average" if a.get("gpu_util_pct_avg") is not None else ""
+            parts.append(f"GPU {a['gpu_util_pct_peak']:g}% busy at peak{avg}")
+        if a.get("vram_mb") is not None:
+            parts.append(f"{a['vram_mb']:g} MiB VRAM")
+        if parts:
+            echo(f"{head}: " + "; ".join(parts))
+
+
+def placement_line(place: Any) -> str | None:
+    """Where the eval's machines ran (details["placement"]): on one machine or apart, and the region(s) - never the
+    provider's name. None when it is not known. {the user 11-02: "are these two machines just next to each other"}"""
+    if not isinstance(place, dict):
+        return None
+    region = place.get("region")
+    if place.get("same_machine"):
+        return "placement: the policy and benchmark ran on one machine" + (f" in {region}" if isinstance(region, str)
+                                                                            else "")
+    where = ""
+    if isinstance(region, str):
+        where = f" in {region}"
+    elif isinstance(region, dict) and region.get("policy") and region.get("benchmark"):
+        pol, ben = region["policy"], region["benchmark"]
+        where = f" both in {pol}" if pol == ben else f" (policy in {pol}, benchmark in {ben})"
+    return "placement: the policy and benchmark ran on separate machines" + where
+
+
+def _print_warning(warnings: list[dict], echo: Callable[[str], Any] = print) -> None:
+    """A warning per arm whose acts ran clearly slower than its policy's build check (details["warning"]), naming the
+    resource that was its bottleneck and what to change. {the user 11-02: "also send warning fro these if needed so
+    seru know"}"""
+    for w in warnings:
+        arm = f" (arm {w['arm']})" if len(warnings) > 1 else ""
+        echo(f"warning{arm}: {w.get('note')}")
+        if w.get("act_ms") is not None and w.get("check_p95_ms") is not None:
+            echo(f"  its acts took about {float(w['act_ms']):.0f} ms each against the build check's "
+                 f"{float(w['check_p95_ms']):.0f} ms ({w.get('slower_x')}x slower)")
 
 
 def _span(seeds: list) -> str:

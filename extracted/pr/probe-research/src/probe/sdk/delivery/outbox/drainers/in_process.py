@@ -6,7 +6,7 @@ from __future__ import annotations
 import threading
 import weakref
 
-from ....._shared import oscompat
+from .....foundation.os_backend import os_backend as oscompat
 from .....foundation.durable import durable
 from ...transport.deadlines import without_patience
 from ..drain.lanes import LaneBackoff
@@ -59,7 +59,8 @@ class OutboxExporter:
         # Say what this sender delivers, as a detached worker does: without a caps file a
         # producer reads the lease holder as a pre-1.11 release and asks it (in vain: only a
         # detached worker reads the request) to step aside for every new kind.
-        _write_caps(self.journal)
+        # No features: the exporter publishes no progress record, so a waiter asks it in vain.
+        _write_caps(self.journal, features=frozenset())
         return True
 
     def _loop(self) -> None:

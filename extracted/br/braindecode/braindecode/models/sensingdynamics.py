@@ -6,14 +6,26 @@
 
 from __future__ import annotations
 
+from functools import partial
+
 import torch
 from einops.layers.torch import Rearrange
 from scipy.signal import butter
 from torch import nn
 
+from braindecode.functional import init_weights_, spectral_input
 from braindecode.models.base import EEGModuleMixin
 from braindecode.models.util import _disable_batch_norm_training_if_batch_size_one
 from braindecode.modules.activation import SmoothMaximumUnit
+
+# Truncated-normal convolutions and linears, unit/zero normalization layers.
+_init_weights = partial(
+    init_weights_,
+    weights={
+        (nn.Conv1d, nn.Conv2d, nn.Linear): partial(nn.init.trunc_normal_, std=0.02)
+    },
+    norms=(nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.LayerNorm),
+)
 
 
 class SensingDynamics(EEGModuleMixin, nn.Module):
@@ -302,23 +314,11 @@ class SensingDynamics(EEGModuleMixin, nn.Module):
         self.final_layer = nn.Linear(
             in_features=mlp_hidden, out_features=self.n_outputs
         )
-        self.apply(self._init_weights)
+        self._init_parameters()
 
-    @staticmethod
-    def _init_weights(module: nn.Module) -> None:
-        """Initialize trainable layers with the Braindecode model convention."""
-        if isinstance(module, (nn.Conv1d, nn.Conv2d, nn.Linear)):
-            nn.init.trunc_normal_(module.weight, std=0.02)
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
-        elif isinstance(
-            module,
-            (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.LayerNorm),
-        ):
-            if module.weight is not None:
-                nn.init.ones_(module.weight)
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
+    def _init_parameters(self) -> None:
+        """Model-specific initialization (see ``reset_parameters``)."""
+        self.apply(_init_weights)
 
     def reset_head(self, n_outputs: int) -> None:
         """Swap the output layer for a new output dimensionality."""
@@ -327,7 +327,7 @@ class SensingDynamics(EEGModuleMixin, nn.Module):
         self.final_layer = nn.Linear(
             in_features=old.in_features, out_features=n_outputs
         ).to(device=old.weight.device, dtype=old.weight.dtype)
-        self._init_weights(self.final_layer)
+        _init_weights(self.final_layer)
 
     @_disable_batch_norm_training_if_batch_size_one
     def forward(
@@ -384,12 +384,13 @@ class _ButterworthLowpass(nn.Module):
         self.register_buffer("b_coeffs", torch.as_tensor(b_coeffs, dtype=torch.float64))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_in = spectral_input(x)
         n_times = x.shape[-1]
         n_freqs = n_times // 2 + 1
         frequency_indices = torch.arange(
             n_freqs,
-            device=x.device,
-            dtype=self.a_coeffs.dtype,
+            device=x_in.device,
+            dtype=torch.float64,
         )
         omega = 2 * torch.pi * frequency_indices / n_times
         negative_imaginary_omega = -1j * omega
@@ -397,7 +398,10 @@ class _ButterworthLowpass(nn.Module):
 
         numerator = torch.zeros_like(unit_delay)
         denominator = torch.zeros_like(unit_delay)
-        for delay, (b_coeff, a_coeff) in enumerate(zip(self.b_coeffs, self.a_coeffs)):
+        # Filter response in float64 (on the CPU for HPU inputs, via x_in).
+        b_coeffs = self.b_coeffs.to(x_in.device, torch.float64)
+        a_coeffs = self.a_coeffs.to(x_in.device, torch.float64)
+        for delay, (b_coeff, a_coeff) in enumerate(zip(b_coeffs, a_coeffs)):
             unit_delay_power = unit_delay**delay
             numerator_term = b_coeff * unit_delay_power
             denominator_term = a_coeff * unit_delay_power
@@ -408,7 +412,7 @@ class _ButterworthLowpass(nn.Module):
         magnitude_response = frequency_response.abs()
         zero_phase_response = magnitude_response.square()
 
-        spectrum = torch.fft.rfft(x, dim=-1)
+        spectrum = torch.fft.rfft(x_in, dim=-1)
         typed_response = zero_phase_response.to(dtype=spectrum.dtype)
         filtered_spectrum = spectrum * typed_response
         filtered = torch.fft.irfft(
@@ -416,7 +420,7 @@ class _ButterworthLowpass(nn.Module):
             n=n_times,
             dim=-1,
         )
-        return filtered
+        return filtered.to(x)
 
 
 class _ConvBlock(nn.Module):

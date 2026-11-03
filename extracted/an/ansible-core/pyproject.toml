@@ -1,9 +1,9 @@
 [build-system]
-requires = ["setuptools >= 77.0.3, <= 84.0.0"]  # lower bound to support license/license-files (PEP 639), upper bound for latest version tested at release
+requires = ["setuptools >= 77.0.3, <= 84.2.1"]  # lower bound to support license/license-files (PEP 639), upper bound for latest version tested at release
 build-backend = "setuptools.build_meta"
 
 [project]
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 name = "ansible-core"
 authors = [
     {name = "Ansible Project"},
@@ -24,9 +24,9 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: POSIX",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: System :: Installation/Setup",
     "Topic :: System :: Systems Administration",

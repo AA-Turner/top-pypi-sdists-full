@@ -30,8 +30,11 @@ from phonemizer.separator import Separator
 
 class EspeakBackend(BaseEspeakBackend):
     """Espeak backend for the phonemizer"""
-    # a regular expression to find phonemes stresses in espeak output
-    _ESPEAK_STRESS_RE = re.compile(r"[ˈˌ'-]+")
+    # the phonemes stresses in espeak output, removed with str.translate()
+    _ESPEAK_STRESS = str.maketrans('', '', "ˈˌ'-")
+
+    # repeated phone separators in espeak output
+    _ESPEAK_UNDERSCORES_RE = re.compile(r'_+')
 
     # pylint: disable=too-many-arguments
     def __init__(self, language: str,
@@ -46,7 +49,7 @@ class EspeakBackend(BaseEspeakBackend):
             language, punctuation_marks=punctuation_marks,
             preserve_punctuation=preserve_punctuation, logger=logger)
 
-        self._espeak.set_voice(language)
+        self._espeak.set_voice(self.language)
         self._with_stress = with_stress
         self._tie = self._init_tie(tie)
         self._lang_switch: BaseLanguageSwitch = get_language_switch_processor(
@@ -97,20 +100,6 @@ class EspeakBackend(BaseEspeakBackend):
 
         return output, lang_switches
 
-    def _process_stress(self, word):
-        if self._with_stress:
-            return word
-        # remove the stresses on phonemes
-        return re.sub(self._ESPEAK_STRESS_RE, '', word)
-
-    def _process_tie(self, word: str, separator: Separator):
-        # NOTE a bug in espeak append ties to (en) flags so as (͡e͡n).
-        # We do not correct it here.
-        if self._tie is not None and self._tie != '͡':
-            # replace default '͡' by the requested one
-            return word.replace('͡', self._tie)
-        return word.replace('_', separator.phone)
-
     def _postprocess_line(self, line: str, num: int,
                           separator: Separator, strip: bool) -> Tuple[str, bool]:
         # espeak can split an utterance into several lines because
@@ -120,31 +109,53 @@ class EspeakBackend(BaseEspeakBackend):
         # due to a bug in espeak-ng, some additional separators can be
         # added at the end of a word. Here a quick fix to solve that
         # issue. See https://github.com/espeak-ng/espeak-ng/issues/694
-        line = re.sub(r'_+', '_', line)
-        line = re.sub(r'_ ', ' ', line)
+        if '__' in line:
+            line = self._ESPEAK_UNDERSCORES_RE.sub('_', line)
+        line = line.replace('_ ', ' ')
 
         line, has_switch = self._lang_switch.process(line)
         if not line:
             return '', has_switch
 
-        out_line = ''
-        for word in line.split(' '):
-            word = self._process_stress(word.strip())
-            if not strip and self._tie is None:
-                word += '_'
-            word = self._process_tie(word, separator)
-            out_line += word + separator.word
+        # Each step runs on all the words at once, with str methods rather
+        # than regular expressions, as this is called on every line.
+        words = [word.strip() for word in line.split(' ')]
+        if not self._with_stress:
+            # remove the stresses on phonemes
+            words = [word.translate(self._ESPEAK_STRESS) for word in words]
+        if not strip and self._tie is None:
+            words = [word + '_' for word in words]
 
-        if strip and separator.word:
-            # erase the last word separator from the line
-            out_line = out_line[:-len(separator.word)]
+        # NOTE a bug in espeak append ties to (en) flags so as (͡e͡n).
+        # We do not correct it here.
+        if self._tie is not None and self._tie != '͡':
+            # replace default '͡' by the requested one
+            words = [word.replace('͡', self._tie) for word in words]
+        else:
+            words = [word.replace('_', separator.phone) for word in words]
+
+        out_line = separator.word.join(words)
+        if not strip:
+            # the last word is followed by a word separator as well
+            out_line += separator.word
 
         return out_line, has_switch
 
     def _phonemize_preprocess(self, text: List[str]) -> Tuple[Union[str, List[str]], List]:
-        text, punctuation_marks = super()._phonemize_preprocess(text)
-        self._words_mismatch.count_text(text)
-        return text, punctuation_marks
+        # When preserving the punctuation, the lines are split in chunks at
+        # each punctuation mark. Words are counted on the input lines, not on
+        # the chunks, so that the mismatched lines are the ones processed.
+        if self._preserve_punctuation:
+            chunks, punctuation_marks = self._punctuator.preserve(text)
+            lines = [
+                num for num, parts in enumerate(punctuation_marks)
+                for part in parts if isinstance(part, int)]
+        else:
+            chunks, punctuation_marks, lines = (
+                self._punctuator.remove(text), [], None)
+
+        self._words_mismatch.count_text(chunks, lines, len(text))
+        return chunks, punctuation_marks
 
     def _phonemize_postprocess(self, phonemized, punctuation_marks, separator: Separator, strip: bool):
         text = phonemized[0]
@@ -155,6 +166,21 @@ class EspeakBackend(BaseEspeakBackend):
 
         phonemized = super()._phonemize_postprocess(text, punctuation_marks, separator, strip)
         return self._words_mismatch.process(phonemized)
+
+    @staticmethod
+    def _split_context(phonemized, context):
+        """Specialization of BaseBackend._split_context for the espeak backend
+
+        The phonemized text comes with the numbers of the lines with a
+        language switch: the ones of the groups are dropped, as the switches
+        are detected in their chunks phonemized alone as well.
+
+        """
+        text, switches = phonemized
+        nchunks = len(text) - len(context)
+        return (
+            (text[:nchunks], [num for num in switches if num <= nchunks]),
+            list(zip(context, text[nchunks:])))
 
     @staticmethod
     def _flatten(phonemized) -> List:

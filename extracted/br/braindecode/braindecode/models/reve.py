@@ -8,26 +8,24 @@ import json
 import logging
 import math
 import os
-from typing import Optional, Union
+import warnings
+from typing import Dict, List, Optional, Union
 
 import pooch
 import torch
 import torch.nn.functional as F
-from einops import rearrange
 from mne.datasets.utils import _get_path
 from torch import nn
 
-# Safe import for older PyTorch versions (Support for Intel-based Macs)
-try:
-    from torch.nn.attention import SDPBackend, sdpa_kernel
-
-    HAS_SDPA = True
-except ImportError:
-    HAS_SDPA = False
-    SDPBackend = None
-    sdpa_kernel = None
-
+from braindecode.functional import (
+    pad_or_crop_to_patches,
+    patch_count,
+    scaled_dot_product_attention,
+)
+from braindecode.functional.patches import _check_on_non_divisible
 from braindecode.models.base import EEGModuleMixin
+from braindecode.modules.channels import resolve_channel_positions
+from braindecode.modules.layers import RMSNorm
 
 logger = logging.getLogger(__name__)
 
@@ -99,9 +97,13 @@ class REVE(EEGModuleMixin, nn.Module):
     - ``REVE.to_patch_embedding`` **Patch Tokenization**
 
       The EEG signal is split into overlapping patches along the time dimension, generating
-      :math:`p = \left\lceil \frac{T - w}{w - o} \right\rceil + \mathbf{1}[(T - w) \bmod (w - o) \neq 0]`
-      patches of size :math:`w` with overlap :math:`o`, where :math:`T` is the signal length.
-      Each patch is linearly projected to the embedding dimension.
+      :math:`p = \left\lceil \frac{T - w}{w - o} \right\rceil + 1` patches of size :math:`w`
+      with overlap :math:`o`, where :math:`T \geq w` is the signal length: with
+      ``on_non_divisible="pad"`` the signal is right zero-padded so the last patch ends
+      at its end (a signal shorter than :math:`w` gives one padded patch).
+      By default (``on_non_divisible="crop"``, as the reference and braindecode 1.8)
+      the trailing samples are dropped:
+      :math:`p = \left\lfloor \frac{T - w}{w - o} \right\rfloor + 1`. Each patch is linearly projected to the embedding dimension.
 
     - ``REVE.fourier4d`` + ``REVE.mlp4d`` **4D Positional Embedding (4DPE)**
 
@@ -219,6 +221,17 @@ class REVE(EEGModuleMixin, nn.Module):
         Temporal patch size in samples (200 samples = 1 second at 200 Hz).
     patch_overlap : int, default=20
         Overlap between patches in samples.
+    on_non_divisible : {"pad", "crop", "error"} or None, default=None
+        How the overlapping patches (step ``patch_size - patch_overlap``)
+        treat a window they do not tile, i.e. ``(n_times - patch_size) % step
+        != 0`` or ``n_times < patch_size``: right zero-pad to the next tiled
+        length, crop the trailing samples, or raise. ``None`` crops, as the
+        reference implementation (:meth:`torch.Tensor.unfold`) and braindecode
+        1.8 did, and warns (``FutureWarning``) when the window is not tiled;
+        pass ``"crop"`` or ``"pad"`` explicitly to choose and silence it.
+        All three give the same model and output for a tiled window. With the
+        default ``patch_size=200`` and ``patch_overlap=20``, ``n_times=1000``
+        is not tiled: ``"pad"`` gives 6 patches, ``"crop"`` 5.
     attention_pooling : bool, default=False
         Pooling strategy for aggregating transformer outputs before classification.
         If ``False`` (default), all tokens are flattened into a single vector of size
@@ -227,6 +240,14 @@ class REVE(EEGModuleMixin, nn.Module):
         learnable query token that attends to all encoder outputs, producing a single
         embedding of size ``embed_dim``. Attention pooling is more parameter-efficient
         for long sequences and variable-length inputs.
+    montage : str, optional
+        Prefix of the bank's montage-specific names: with ``"biosemi128"``,
+        ``A1`` reads ``biosemi128_A1`` (near the vertex) instead of the 10-20
+        earlobe ``A1``.
+    on_missing : {"error", "drop", "nearest"}, default="error"
+        Channels of ``chs_info`` the bank does not name; see
+        :func:`~braindecode.modules.resolve_channel_positions`. Dropped channels
+        are not read when ``forward`` gets no ``pos``.
 
     References
     ----------
@@ -247,6 +268,15 @@ class REVE(EEGModuleMixin, nn.Module):
     requiring matched layouts between pretraining and downstream tasks.
     """
 
+    # Constant, so TorchScript compiles only the head in use (``cls_query_token``
+    # exists only with attention pooling).
+    __constants__ = ["use_attention_pooling"]
+    # Typed for TorchScript: ``None`` unless on_missing="drop" removed channels.
+    channel_index: Optional[torch.Tensor]
+
+    # Configs and checkpoints saved before ``on_non_divisible`` existed cropped.
+    _legacy_on_non_divisible = "crop"
+
     def __init__(
         self,
         n_outputs=None,
@@ -266,6 +296,11 @@ class REVE(EEGModuleMixin, nn.Module):
         patch_size: int = 200,
         patch_overlap: int = 20,
         attention_pooling: bool = False,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
+        on_non_divisible: Optional[str] = None,
+        montage: Optional[str] = None,
+        on_missing: str = "error",
     ):
         super().__init__(
             n_outputs=n_outputs,
@@ -274,12 +309,50 @@ class REVE(EEGModuleMixin, nn.Module):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
 
         self.embed_dim = embed_dim
         self.freqs = freqs
         self.patch_size = patch_size
         self.patch_overlap = patch_overlap
+        if patch_overlap >= patch_size:
+            raise ValueError(
+                f"patch_overlap ({patch_overlap}) must be smaller than patch_size "
+                f"({patch_size}): the patch step would not be positive."
+            )
+        # Unset: crop, as braindecode 1.8 and the reference did, so code written
+        # for 1.8 keeps its patch count, head size and outputs.
+        default_mode = on_non_divisible is None
+        mode = "crop" if on_non_divisible is None else on_non_divisible
+        _check_on_non_divisible(mode)
+        self.on_non_divisible = mode
+        try:
+            known_n_times = self.n_times
+        except ValueError:  # unknown length: nothing to check at construction
+            known_n_times = None
+        if known_n_times is not None:
+            step = patch_size - patch_overlap
+            # Raises for "crop" below one patch and for "error" on an untiled window.
+            patch_count(known_n_times, patch_size, mode, step)
+            untiled = known_n_times < patch_size or (known_n_times - patch_size) % step
+            if default_mode and untiled:
+                warnings.warn(
+                    f"REVE's patches do not tile {known_n_times} samples: the "
+                    "trailing samples are cropped, as in braindecode 1.8. Pass "
+                    "on_non_divisible='pad' to zero-pad the window instead, or "
+                    "on_non_divisible='crop' to keep cropping without this warning.",
+                    FutureWarning,
+                    stacklevel=2,
+                )
+            if mode == "pad" and untiled:
+                warnings.warn(
+                    f"REVE's patches do not tile {known_n_times} samples: the input "
+                    "will be padded.",
+                    UserWarning,
+                    stacklevel=2,
+                )
         self.depth = depth
         self.heads = heads
         self.head_dim = head_dim
@@ -287,6 +360,25 @@ class REVE(EEGModuleMixin, nn.Module):
         self.use_geglu = use_geglu
 
         self.use_attention_pooling = attention_pooling
+        self.montage = montage
+        self.on_missing = on_missing
+
+        self._position_bank = RevePositionBank()
+        self.default_pos = None
+        self.channel_index = None  # input channels kept by on_missing (None: all)
+        self._n_pos_chans: Optional[int] = None
+        if self._chs_info is not None:
+            bank = self._position_bank
+            pos, kept = resolve_channel_positions(
+                self._chs_info,
+                dict(zip(bank.position_names, bank.embedding.numpy())),
+                montage,
+                on_missing,
+            )
+            self.default_pos = torch.as_tensor(pos, dtype=torch.float32)
+            self._n_pos_chans = len(kept)
+            if len(kept) < len(self._chs_info):
+                self.channel_index = torch.as_tensor(kept)
 
         self.to_patch_embedding = nn.Sequential(
             nn.Linear(in_features=self.patch_size, out_features=self.embed_dim)
@@ -316,28 +408,22 @@ class REVE(EEGModuleMixin, nn.Module):
         if self.use_attention_pooling:
             self.cls_query_token = nn.Parameter(torch.randn(1, 1, self.embed_dim))
 
-        self._position_bank = RevePositionBank()
-
-        self.default_pos = None
-        if chs_info is not None:
-            self.default_pos = self.get_positions([ch["ch_name"] for ch in chs_info])
-
     def _get_flattened_output_dim(self) -> int:
         """Helper function to compute the flattened output dimension after the transformer."""
 
         if self.use_attention_pooling:
             return self.embed_dim
 
-        n_patches = math.ceil(
-            (self.n_times - self.patch_size) / (self.patch_size - self.patch_overlap)
+        # The count forward produces (padded patch included with "pad").
+        n_patches = patch_count(
+            self.n_times,
+            self.patch_size,
+            self.on_non_divisible,
+            self.patch_size - self.patch_overlap,
         )
 
-        if (self.n_times - self.patch_size) % (
-            self.patch_size - self.patch_overlap
-        ) == 0:
-            n_patches += 1
-
-        flat_dim = self.n_chans * n_patches * self.embed_dim
+        n_chans = self.n_chans if self._n_pos_chans is None else self._n_pos_chans
+        flat_dim = n_chans * n_patches * self.embed_dim
         return flat_dim
 
     def _build_head(self, n_outputs):
@@ -356,6 +442,7 @@ class REVE(EEGModuleMixin, nn.Module):
 
     def reset_head(self, n_outputs):
         self._n_outputs = n_outputs
+        self._update_init_kwargs(n_outputs=n_outputs)
         self._build_head(n_outputs)
 
     def get_positions(self, channel_names: list[str]) -> torch.Tensor:
@@ -380,7 +467,7 @@ class REVE(EEGModuleMixin, nn.Module):
         pos: Optional[torch.Tensor] = None,
         return_output: bool = False,
         return_features: bool = False,
-    ) -> Union[torch.Tensor, list[torch.Tensor], dict]:
+    ) -> Union[torch.Tensor, List[torch.Tensor], Dict[str, Optional[torch.Tensor]]]:
         """
         Forward pass of the model.
 
@@ -396,6 +483,8 @@ class REVE(EEGModuleMixin, nn.Module):
             Input EEG tensor of shape (batch_size, channels, sequence_length).
         pos : torch.Tensor
             Position tensor of shape (batch_size, channels, 3) representing (x, y, z) coordinates.
+            If omitted, the positions resolved from ``chs_info`` are used (and only
+            the kept channels are read when ``on_missing="drop"`` removed some).
         return_output : bool, optional
             If True, returns the output from the transformer directly.
             If False, applies the final layer and returns the processed output. Default is False.
@@ -416,11 +505,14 @@ class REVE(EEGModuleMixin, nn.Module):
                 "return_output and return_features are mutually exclusive."
             )
 
-        patches = eeg.unfold(
-            dimension=2,
-            size=self.patch_size,
-            step=self.patch_size - self.patch_overlap,
-        )
+        channel_index = self.channel_index
+        if pos is None and channel_index is not None:
+            eeg = eeg.index_select(1, channel_index.to(eeg.device))
+        step = self.patch_size - self.patch_overlap
+        # Right zero-pad (or crop) so the overlapping patches tile the window;
+        # a tiled window is passed through untouched.
+        eeg = pad_or_crop_to_patches(eeg, self.patch_size, self.on_non_divisible, step)
+        patches = eeg.unfold(dimension=2, size=self.patch_size, step=step)
         batch_size, channel, n_patches, _ = patches.shape
 
         if pos is None:
@@ -428,10 +520,15 @@ class REVE(EEGModuleMixin, nn.Module):
                 raise ValueError(
                     "No positions provided and no default positions available. Please provide channel positions."
                 )
-            pos = self.default_pos.expand(batch_size, -1, -1).to(eeg.device)
+            # One copy for the whole batch: the embedding below broadcasts.
+            pos = self.default_pos.unsqueeze(0).to(eeg.device)
 
         pos = FourierEmb4D.add_time_patch(pos, n_patches)
-        pos_embed = self.ln(self.fourier4d(pos) + self.mlp4d(pos))
+        # Positions stay in float32 for the Fourier features; the embedding
+        # follows the signal's dtype.
+        pos_embed = self.ln(
+            self.fourier4d(pos).to(eeg.dtype) + self.mlp4d(pos.to(eeg.dtype))
+        )
 
         # Patch embedding: (batch, channels, n_patches, patch_size) -> (batch, channels, n_patches, embed_dim)
         patch_embeddings = self.to_patch_embedding(patches)
@@ -439,35 +536,20 @@ class REVE(EEGModuleMixin, nn.Module):
         # Flatten spatial and temporal dimensions into a single sequence dimension
         # (batch, channels, n_patches, embed_dim) -> (batch, channels * n_patches, embed_dim)
         # This creates a sequence of tokens where each token represents one patch from one channel
-        x = (
-            rearrange(
-                patch_embeddings,
-                "batch chan patch emb -> batch (chan patch) emb",
-                chan=channel,
-                patch=n_patches,
-                emb=self.embed_dim,
-            )
-            + pos_embed
-        )
-        x = self.transformer(x, return_output)
+        x = patch_embeddings.flatten(1, 2) + pos_embed
+        encoded = self.transformer(x, return_output)
 
-        if return_output:
-            return x
+        if not isinstance(encoded, torch.Tensor):  # return_output: one per layer
+            return encoded
 
         # Reshape back from flattened sequence to separate channel and temporal dimensions
         # (batch, channels * n_patches, embed_dim) -> (batch, channels, n_patches, embed_dim)
         # This recovers the spatio-temporal structure for downstream processing
-        x = rearrange(
-            x,
-            "batch (chan patch) emb -> batch chan patch emb",
-            batch=batch_size,
-            chan=channel,
-            patch=n_patches,
-            emb=self.embed_dim,
-        )
+        x = encoded.reshape(batch_size, channel, n_patches, self.embed_dim)
 
         if return_features:
-            return {"features": x, "cls_token": None}
+            out: Dict[str, Optional[torch.Tensor]] = {"features": x, "cls_token": None}
+            return out
 
         if self.use_attention_pooling:
             x = self._attention_pooling(x)
@@ -494,13 +576,7 @@ class REVE(EEGModuleMixin, nn.Module):
         batch_size, n_channels, seq_len, embed_dim = x.shape
         # Flatten channel and sequence dimensions for attention pooling
         # (batch, channels, seq_len, embed_dim) -> (batch, channels * seq_len, embed_dim)
-        x = rearrange(
-            x,
-            "batch chan seq emb -> batch (chan seq) emb",
-            chan=n_channels,
-            seq=seq_len,
-            emb=embed_dim,
-        )
+        x = x.flatten(1, 2)
         query_output = self.cls_query_token.expand(batch_size, -1, -1)  # (B, 1, E)
         attention_scores = torch.matmul(query_output, x.transpose(-1, -2)) / (
             self.embed_dim**0.5
@@ -521,90 +597,32 @@ class GEGLU(nn.Module):
         return F.gelu(gates) * x
 
 
-class RMSNorm(torch.nn.Module):
-    def __init__(self, dim: int, eps: float = 1e-6):
-        super().__init__()
-        self.eps = eps
-        self.weight = nn.Parameter(torch.ones(dim))
-
-    def _norm(self, x: torch.Tensor) -> torch.Tensor:
-        return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        output = self._norm(x.float()).type_as(x)
-        return output * self.weight
-
-
 class FeedForward(nn.Module):
     def __init__(self, dim: int, hidden_dim: int, geglu: bool):
         super().__init__()
+        self.geglu = geglu
         self.net = nn.Sequential(
-            RMSNorm(dim),
+            RMSNorm(dim, eps=1e-6),
             nn.Linear(dim, hidden_dim * 2 if geglu else hidden_dim, bias=False),
             GEGLU() if geglu else nn.GELU(),
             nn.Linear(hidden_dim, dim, bias=False),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x)
+        if not self.geglu:
+            return self.net(x)
+        # GEGLU halves as two matmuls on the weight's row halves: contiguous
+        # outputs instead of strided views of one output (copied on HPU).
+        x = self.net[0](x)
+        weight = self.net[1].weight
+        half = weight.shape[0] // 2
+        x, gates = F.linear(x, weight[:half]), F.linear(x, weight[half:])
+        return self.net[3](F.gelu(gates) * x)
 
 
 #################################################################################
 #                                  Attention                                    #
 #################################################################################
-
-
-class ClassicalAttention(nn.Module):
-    def __init__(self, heads: int, use_sdpa: bool | None = None):
-        super().__init__()
-        self.heads = heads
-
-        if use_sdpa is None:
-            self.use_sdpa = HAS_SDPA
-        elif use_sdpa is True and not HAS_SDPA:
-            logger.warning(
-                "SDPA (Scaled Dot Product Attention) was requested, but it is not "
-                "available in your current PyTorch version. Falling back to naive "
-                "implementation. Please upgrade to PyTorch >= 2.2 for SDPA support."
-            )
-            self.use_sdpa = False
-        else:
-            self.use_sdpa = use_sdpa
-
-    def forward(self, qkv: torch.Tensor) -> torch.Tensor:
-        # Split concatenated QKV into separate tensors
-        # qkv shape: (batch, seq_len, 3 * heads * head_dim)
-        q, k, v = qkv.chunk(3, dim=-1)
-
-        # Reshape for multi-head attention: split last dim into (heads, head_dim)
-        # (batch, seq_len, heads * head_dim) -> (batch, heads, seq_len, head_dim)
-        q, k, v = (
-            rearrange(
-                t,
-                "batch seq (heads dim) -> batch heads seq dim",
-                heads=self.heads,
-            )
-            for t in (q, k, v)
-        )
-
-        if self.use_sdpa:  # SDPA Implementation
-            with sdpa_kernel(
-                [
-                    SDPBackend.FLASH_ATTENTION,
-                    SDPBackend.EFFICIENT_ATTENTION,
-                    SDPBackend.MATH,
-                ]
-            ):
-                out = F.scaled_dot_product_attention(q, k, v)
-        else:  # Naive Implementation
-            _, _, scale = q.shape[-2], q.device, q.shape[-1] ** -0.5
-            dots = torch.matmul(q, k.transpose(-1, -2)) * scale
-            attn = nn.Softmax(dim=-1)(dots)
-            out = torch.matmul(attn, v)
-
-        # Merge heads back: (batch, heads, seq_len, head_dim) -> (batch, seq_len, heads * head_dim)
-        out = rearrange(out, "batch heads seq dim -> batch seq (heads dim)")
-        return out
 
 
 class Attention(nn.Module):
@@ -616,17 +634,20 @@ class Attention(nn.Module):
         super().__init__()
         inner_dim = head_dim * heads
         self.heads = heads
-        self.norm = RMSNorm(dim)
+        self.norm = RMSNorm(dim, eps=1e-6)
         self.to_qkv = nn.Linear(dim, inner_dim * 3, bias=False)
         self.to_out = nn.Linear(inner_dim, dim, bias=False)
 
-        self.attend = ClassicalAttention(self.heads, use_sdpa=True)
-
     def forward(self, x):
         x = self.norm(x)
-        qkv = self.to_qkv(x)
-        out = self.attend(qkv)
-        return self.to_out(out)
+        q, k, v = self.to_qkv(x).chunk(3, dim=-1)
+        # (batch, seq, heads * dim) -> (batch, heads, seq, dim), and back
+        q = q.unflatten(-1, (self.heads, -1)).transpose(1, 2)
+        k = k.unflatten(-1, (self.heads, -1)).transpose(1, 2)
+        v = v.unflatten(-1, (self.heads, -1)).transpose(1, 2)
+        # ~700-token sequences: the fused kernel also beats lazy mode's graph.
+        out = scaled_dot_product_attention(q, k, v, fused_in_lazy=True)
+        return self.to_out(out.transpose(1, 2).flatten(2))
 
 
 #################################################################################
@@ -658,15 +679,17 @@ class TransformerBackbone(nn.Module):
             )
 
     def forward(
-        self, x, return_out_layers=False
-    ) -> Union[torch.Tensor, list[torch.Tensor]]:
+        self, x, return_out_layers: bool = False
+    ) -> Union[torch.Tensor, List[torch.Tensor]]:
         out_layers = [x] if return_out_layers else []
-        for attn, ff in self.layers:
-            x = attn(x) + x
-            x = ff(x) + x
+        for layer in self.layers:  # (attention, feed-forward)
+            x = layer[0](x) + x
+            x = layer[1](x) + x
             if return_out_layers:
                 out_layers.append(x)
-        return out_layers if return_out_layers else x
+        if return_out_layers:
+            return out_layers
+        return x
 
 
 ##################################################################################
@@ -703,6 +726,16 @@ class FourierEmb4D(nn.Module):
         self.margin = margin
 
     def forward(self, positions_: torch.Tensor) -> torch.Tensor:
+        # In float32 with autocast off: Intel Gaudi (HPU) autocast also downcasts
+        # the position * frequency products to bf16 before sin/cos (~3 % off).
+        if torch.jit.is_scripting():  # TorchScript needs a constant autocast device
+            emb = self._embed(positions_.float()).to(positions_.dtype)
+        else:
+            with torch.autocast(device_type=positions_.device.type, enabled=False):
+                emb = self._embed(positions_.float()).to(positions_.dtype)
+        return emb
+
+    def _embed(self, positions_: torch.Tensor) -> torch.Tensor:
         positions = positions_.clone()
         positions[:, :, -1] *= self.increment_time
         input_shape = positions.shape
@@ -742,8 +775,8 @@ class FourierEmb4D(nn.Module):
         emb = torch.cat([torch.cos(loc), torch.sin(loc)], dim=-1)
         return emb
 
-    @classmethod
-    def add_time_patch(cls, pos: torch.Tensor, num_patches: int) -> torch.Tensor:
+    @staticmethod
+    def add_time_patch(pos: torch.Tensor, num_patches: int) -> torch.Tensor:
         """
         Expand the position tensor by adding a time dimension, handling batched data.
 
@@ -862,16 +895,24 @@ class RevePositionBank(torch.nn.Module):
                 f"Invalid position data format in the downloaded config: {e}"
             ) from e
 
-    def forward(self, channel_names: list[str]):
-        indices = [self.mapping[q] for q in channel_names if q in self.mapping]
+    @torch.jit.unused  # name lookup at construction; never part of a scripted forward
+    def forward(self, channel_names: list[str]) -> torch.Tensor:
+        """Positions ``(len(channel_names), 3)`` of bank names (exact match).
 
-        if len(indices) < len(channel_names):
-            logger.warning(
-                f"Found {len(indices)} positions out of {len(channel_names)} channels"
+        Raises a :class:`ValueError` for a name the bank does not hold, so the
+        rows always match ``channel_names``; to place other names (case,
+        aliases, ``loc``, bipolar pairs) use
+        :func:`~braindecode.modules.resolve_channel_positions`.
+        """
+        missing = [q for q in channel_names if q not in self.mapping]
+        if missing:
+            raise ValueError(
+                f"The REVE position bank has no position for {missing}; use "
+                "braindecode.modules.resolve_channel_positions to place them "
+                "(case, aliases, 'loc', bipolar pairs) or pass pos to forward."
             )
-
-        indices = torch.tensor(indices, device=self.embedding.device)
-
+        indices = [self.mapping[q] for q in channel_names]
+        indices = torch.tensor(indices, dtype=torch.long, device=self.embedding.device)
         return self.embedding[indices]
 
     def get_all_positions(self):

@@ -735,7 +735,7 @@ def _ready_path(log_path: str) -> str:
 
 #: Popen keywords for a child that outlives this process and its Ctrl-C: a new
 #: session on POSIX; Windows ignores that one, so a detached new process group
-#: there. Inline rather than `probe._shared.oscompat.DETACHED`: this module also
+#: there. Inline rather than `probe.foundation.os_backend.os_backend.DETACHED`: this module also
 #: runs as a `-I -S` script that cannot import probe.
 _DETACHED: dict = (
     {"creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}

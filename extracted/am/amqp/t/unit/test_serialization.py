@@ -98,6 +98,24 @@ class test_serialization:
         frame = b'\x00\x00\x00\x07\x03keys\x00\x80'
         assert loads(b'F', frame, 0)[0] == [{'key': 128}]
 
+    def test_table__non_utf8_key(self):
+        fields = b'\x01\xffI' + pack('>i', 42)
+        frame = pack('>I', len(fields)) + fields
+
+        actual, offset = loads(b'F', frame, 0)
+
+        assert actual == [{b'\xff': 42}]
+        assert offset == len(frame)
+
+    def test_nested_table__non_utf8_key(self):
+        fields = b'\x01\xffI' + pack('>i', 42)
+        frame = b'F' + pack('>I', len(fields)) + fields
+
+        actual, offset = _read_item(frame, 0)
+
+        assert actual == {b'\xff': 42}
+        assert offset == len(frame)
+
     @pytest.mark.parametrize('tag,fmt,value', [
         (b'b', '>b', -128), (b'b', '>b', -1),
         (b'b', '>b', 0), (b'b', '>b', 127),
@@ -162,6 +180,28 @@ class test_serialization:
         buf = dumps(format, expected)
         actual, _ = loads(format, buf, 0)
         assert actual == expected
+
+    @pytest.mark.parametrize('field,value', [
+        ('o', 32),
+        ('B', 3415),
+        ('l', 4513134),
+        ('L', 13241923419),
+        ('f', 1.5),
+        ('s', 'thequickbrownfox'),
+        ('S', 'jumpsoverthelazydog'),
+        ('x', b'thequick\xff'),
+        ('F', {'foo': 32}),
+        ('A', [1, 'bar']),
+        ('T', datetime(2015, 3, 13, 10, 23)),
+    ])
+    def test_bits_around_field(self, field, value):
+        # Any non-bit field ends the current run of bits, so the bits on
+        # each side of it must be packed into their own octet.
+        format = 'bb' + field + 'bb'
+        values = [True, False, value, False, True]
+        buf = dumps(format, values)
+        assert buf == b'\x01' + dumps(field, [value]) + b'\x02'
+        assert loads(format, buf, 0) == (values, len(buf))
 
 
 class test_GenericContent:

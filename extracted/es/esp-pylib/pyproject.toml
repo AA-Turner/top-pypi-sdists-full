@@ -4,10 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "esp-pylib"
-dynamic = ["version"]
+dynamic = ["version", "license"]
 description = "Python library for logging, utils and constants for Espressif Systems' Python projects"
 readme = "README.md"
-license = { text = "Apache-2.0" }
 requires-python = ">=3.7"
 authors = [
   { name = "Espressif Systems" }
@@ -28,7 +27,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
-  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.15",
   "Operating System :: POSIX",
   "Operating System :: Microsoft :: Windows",
   "Operating System :: MacOS :: MacOS X",
@@ -105,7 +104,7 @@ ignore_missing_imports = true
 
 [tool.commitizen]
 name = "czespressif"
-version = "1.2.0"
+version = "1.2.1"
 update_changelog_on_bump = true
 tag_format = "v$version"
 changelog_start_rev = "v0.1"

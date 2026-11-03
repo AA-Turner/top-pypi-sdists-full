@@ -50,7 +50,7 @@ def wrap_new(cls: _ClsT, descriptor_infos: list[DescriptorInfo]) -> _ClsT:
   """`__new__` decorator to replace the fields by descriptors on first usage."""
   if not descriptor_infos:
     return cls
-  cls._edc_processed = False  # pylint: disable=protected-access
+  cls._edc_processed = False  # pylint: disable=protected-access  # pyrefly: ignore[missing-attribute]
 
   old_new_fn = cls.__new__
 
@@ -128,7 +128,7 @@ def _get_type_hints(cls, *, include_extras: bool = False) -> _Hints:
     lines = [f' * {k}: {v!r}' for k, v in cls.__annotations__.items()]
     lines = '\n'.join(lines)
 
-    epy.reraise(e, prefix=msg + lines + '\n')  # pytype: disable=bad-return-type
+    epy.reraise(e, prefix=msg + lines + '\n')
 
 
 def _get_type_hints_fix(cls, *, include_extras: bool = False) -> _Hints:

@@ -7,6 +7,7 @@
 #          Bruno Aristimunha <b.aristimunha@gmail.com>
 #          Léo Burgund <leo.burgund@gmail.com>
 #          Sarthak Tayal <sarthaktayal2@gmail.com>
+#          Anton Soloviev <anton@praviel.com>
 #
 # License: BSD (3-clause)
 
@@ -15,6 +16,7 @@ from __future__ import annotations
 import platform
 import sys
 from collections.abc import Iterable
+from copy import copy
 from functools import cached_property, partial
 from importlib import import_module
 from inspect import signature
@@ -38,6 +40,7 @@ from braindecode.datasets.base import (
     RawDataset,
     RecordDataset,
     WindowsDataset,
+    _overwrite_conflicts,
 )
 from braindecode.datautil.serialization import (
     _check_save_dir_empty,
@@ -168,6 +171,7 @@ class Preprocessor(object):
         Preprocessor
             The deserialized Preprocessor object.
         """
+        data = data.copy()
         class_path = data.pop("__class_path__")
         cls_name = class_path.split(".")[-1]
         cls_module_name = ".".join(class_path.split(".")[:-1])
@@ -183,7 +187,12 @@ class Preprocessor(object):
             module = import_module(module_name)
             data["fn"] = getattr(module, fn_name)
 
-        return cls(**data, **kwargs)
+        return cls._from_serialized(**data, **kwargs)
+
+    @classmethod
+    def _from_serialized(cls, /, **kwargs):
+        """Reconstruct serialized state, allowing narrowly scoped migrations."""
+        return cls(**kwargs)
 
     def __repr__(self):
         cls_name = self.__class__.__name__
@@ -235,6 +244,9 @@ def preprocess(
         When ``save_dir`` is provided, controls whether to delete the old
         subdirectories that will be written to under ``save_dir``. If False and
         the corresponding subdirectories already exist, a ``FileExistsError`` is raised.
+        A ``ValueError`` is raised before deleting a subdirectory that a
+        recording still reads lazily: load the data first or use another
+        ``save_dir``.
     n_jobs : int | None
         Number of jobs for parallel execution. See ``joblib.Parallel`` for details.
     offset : int
@@ -262,6 +274,19 @@ def preprocess(
     """
     if save_dir is not None and not overwrite:
         _check_save_dir_empty(save_dir)
+    elif save_dir is not None:
+        # save() checks each recording's own subdirectory; joblib saves in any
+        # order, so reading another recording's subdirectory is refused here.
+        for i_ds, i_target, target_dir in _overwrite_conflicts(
+            concat_ds.datasets, save_dir, offset
+        ):
+            if i_target != i_ds:
+                raise ValueError(
+                    f"Preprocessing with overwrite=True would delete {target_dir} "
+                    f"when saving dataset {i_target}, while dataset {i_ds} still "
+                    "reads its data from it. Save to another directory or load "
+                    "the data into memory first (preload=True)."
+                )
 
     if not isinstance(preprocessors, Iterable):
         raise ValueError("preprocessors must be a list of Preprocessor objects.")
@@ -311,6 +336,8 @@ def preprocess(
             preload=False,
             target_name=None,
             ids_to_load=ids_to_load,
+            # mne Epochs cannot be read in parallel with preload=False
+            n_jobs=n_jobs if hasattr(concat_ds.datasets[0], "raw") else 1,
         )
         _replace_inplace(concat_ds, concat_ds_reloaded)
     else:
@@ -387,6 +414,14 @@ def _preprocess(
             raw_or_epochs = preproc.apply(raw_or_epochs)
         return raw_or_epochs
 
+    if save_dir is not None:
+        # preprocess() swaps in the reloaded saved copy, so work on copies: with
+        # n_jobs=1 the caller's datasets otherwise stay loaded until the end.
+        ds = copy(ds)
+        kind = "raw" if hasattr(ds, "raw") else "windows"
+        if hasattr(ds, kind):
+            setattr(ds, kind, getattr(ds, kind).copy())
+
     if hasattr(ds, "raw"):
         if isinstance(ds, EEGWindowsDataset):
             warn(
@@ -438,6 +473,31 @@ def _set_preproc_kwargs(ds, preprocessors):
     old_preproc_kwargs.extend(preproc_kwargs)
 
 
+def _exponential_moving_mean(data: NDArray, factor_new: float) -> NDArray:
+    """Exponential moving mean along the last axis, as a ratio of two filters.
+
+    y_t = N_t / D_t
+    N_t = x_t + (1-alpha) * N_{t-1}, N_0 = x_0
+    D_t = 1 + (1-alpha) * D_{t-1}, D_0 = 1
+
+    NaN samples are left out of both sums (their weight still decays), as
+    ``pandas.DataFrame.ewm(alpha=factor_new).mean()`` does, so that a NaN does
+    not turn every later value of its channel into NaN.
+    """
+    inv_alpha = 1.0 - factor_new
+    _, n_times = data.shape
+    nan_mask = np.isnan(data)
+    if not nan_mask.any():
+        # Filter a sequence of ones: [1, 1+(1-a), 1+(1-a)+(1-a)^2, ...]
+        d = lfilter([1.0], [1.0, -inv_alpha], np.ones(n_times))
+        n = lfilter([1.0], [1.0, -inv_alpha], data, axis=1)
+        return n / d
+    d = lfilter([1.0], [1.0, -inv_alpha], (~nan_mask).astype(float), axis=1)
+    n = lfilter([1.0], [1.0, -inv_alpha], np.where(nan_mask, 0.0, data), axis=1)
+    # no sample seen yet (D_t = 0): the mean is NaN, as in pandas
+    return np.divide(n, d, out=np.full_like(n, np.nan), where=d > 0)
+
+
 def exponential_moving_standardize(
     data: NDArray,
     factor_new: float = 0.001,
@@ -476,24 +536,11 @@ def exponential_moving_standardize(
     if not (0 < factor_new <= 1):
         raise ValueError(f"factor_new must be between 0 and 1, got {factor_new}")
 
-    # We use a ratio of two linear filters:
-    # y_t = N_t / D_t
-    # N_t = x_t + (1-alpha) * N_{t-1}, N_0 = x_0
-    # D_t = 1 + (1-alpha) * D_{t-1}, D_0 = 1
-    alpha = factor_new
-    _, n_times = data.shape
-    inv_alpha = 1.0 - alpha
-
-    # Filter a sequence of ones: [1, 1+(1-a), 1+(1-a)+(1-a)^2, ...]
-    d = lfilter([1.0], [1.0, -inv_alpha], np.ones(n_times))
-
-    n = lfilter([1.0], [1.0, -inv_alpha], data, axis=1)
-    meaned = n / d
+    meaned = _exponential_moving_mean(data, factor_new)
     demeaned = data - meaned
 
     squared = demeaned * demeaned
-    n_sq = lfilter([1.0], [1.0, -inv_alpha], squared, axis=1)
-    square_ewmed = n_sq / d
+    square_ewmed = _exponential_moving_mean(squared, factor_new)
 
     standardized = demeaned / np.maximum(eps, np.sqrt(square_ewmed))
 
@@ -536,14 +583,7 @@ def exponential_moving_demean(
     if not (0 < factor_new <= 1):
         raise ValueError(f"factor_new must be between 0 and 1, got {factor_new}")
 
-    alpha = factor_new
-    _, n_times = data.shape
-    inv_alpha = 1.0 - alpha
-
-    d = lfilter([1.0], [1.0, -inv_alpha], np.ones(n_times))
-
-    n = lfilter([1.0], [1.0, -inv_alpha], data, axis=1)
-    meaned = n / d
+    meaned = _exponential_moving_mean(data, factor_new)
     demeaned = data - meaned
 
     if init_block_size is not None:

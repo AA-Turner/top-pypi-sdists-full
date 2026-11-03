@@ -1,5 +1,5 @@
-"""Codegen: render every client view of the records and the event catalog, then write it or check
-it is current.
+"""Codegen: render every client view of the records, the event catalog, the client-message and
+transcript-switch vocabularies, then write it or check it is current.
 
     python -m probe_contracts.codegen           # write every target
     python -m probe_contracts.codegen --check   # exit 1 naming each stale target
@@ -13,8 +13,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..probe_contracts import CONTRACTS, Contracts
+from .client_messages import render_client_messages_stdlib, render_client_messages_typescript
 from .events import render_agent_events, render_dashboard_events, render_server_events
 from .python import render_python
+from .transcript_switch import render_transcript_switch_stdlib
 from .typescript import render_typescript
 
 #: The research-os checkout this file sits in (contracts/probe_contracts/codegen/).
@@ -35,6 +37,13 @@ TARGETS = (
     Target("app/external/analytics/generated/events.py", render_server_events),
     Target("agent/src/probe/analytics/generated/events.py", render_agent_events),
     Target("packages/analytics/src/generated/events.ts", render_dashboard_events),
+    Target("agent/src/probe/generated/client_messages.py", render_client_messages_stdlib),
+    # The tap's own copy, beside its copy of `probe.foundation.server_messages` (it cannot import
+    # probe). The hooks (Python 3.9) cannot load it: they mirror the two words they need.
+    Target("agent/plugins/probe-research-tap/tap/server_messages/client_messages.py",
+           render_client_messages_stdlib),
+    Target("packages/core/src/generated/client-messages.ts", render_client_messages_typescript),
+    Target("agent/src/probe/generated/transcript_switch.py", render_transcript_switch_stdlib),
 )
 
 

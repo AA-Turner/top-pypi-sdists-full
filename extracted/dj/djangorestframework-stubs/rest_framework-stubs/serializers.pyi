@@ -1,4 +1,3 @@
-from _typeshed import Incomplete
 from collections.abc import Iterable, Iterator, Mapping, MutableMapping, Sequence
 from typing import Any, ClassVar, Literal, NoReturn, TypeVar
 
@@ -63,7 +62,7 @@ from rest_framework.relations import SlugRelatedField as SlugRelatedField
 from rest_framework.relations import StringRelatedField as StringRelatedField
 from rest_framework.utils.model_meta import FieldInfo, RelationInfo
 from rest_framework.utils.serializer_helpers import BindingDict, BoundField, ReturnDict, ReturnList
-from rest_framework.validators import BaseUniqueForValidator, UniqueTogetherValidator, Validator
+from rest_framework.validators import BaseUniqueForValidator, SerializerValidator, UniqueTogetherValidator
 from typing_extensions import override
 
 LIST_SERIALIZER_KWARGS: Sequence[str]
@@ -98,11 +97,20 @@ class BaseSerializer(Field[Any, Any, Any, _IN]):
         help_text: StrOrPromise | None = None,
         style: dict[str, Any] | None = None,
         error_messages: dict[str, StrOrPromise] | None = None,
-        validators: Sequence[Validator[Any]] | None = ...,
+        validators: Sequence[SerializerValidator[Any]] | None = ...,
         allow_null: bool = ...,
     ) -> None: ...
     @classmethod
     def many_init(cls, *args: Any, **kwargs: Any) -> BaseSerializer: ...
+    # Incompatible with `Field.validators` on purpose: a serializer calls its validators with itself as
+    # context, so they may require a serializer (`UniqueTogetherValidator`), which no field validator may.
+    @override  # type: ignore[explicit-override, override]
+    @property
+    def validators(self) -> list[SerializerValidator[Any]]: ...
+    @validators.setter
+    def validators(self, validators: list[SerializerValidator[Any]]) -> None: ...
+    @override
+    def get_validators(self) -> list[SerializerValidator[Any]]: ...  # type: ignore[override]
     def is_valid(self, *, raise_exception: bool = ...) -> bool: ...
     @property
     def data(self) -> Any: ...
@@ -117,7 +125,7 @@ class BaseSerializer(Field[Any, Any, Any, _IN]):
     def to_representation(self, instance: _IN) -> Any: ...
 
 class SerializerMetaclass(type):
-    def __new__(cls, name: Any, bases: Any, attrs: Any) -> Incomplete: ...
+    def __new__(cls, name: Any, bases: Any, attrs: Any) -> SerializerMetaclass: ...
     @classmethod
     def _get_declared_fields(cls, bases: Sequence[type], attrs: dict[str, Any]) -> dict[str, Field]: ...
 
@@ -172,12 +180,22 @@ class ListSerializer(BaseSerializer[_IN]):
         help_text: StrOrPromise | None = None,
         style: dict[str, Any] | None = None,
         error_messages: dict[str, StrOrPromise] | None = None,
-        validators: Sequence[Validator[list[Any]]] | None = ...,
+        validators: Sequence[SerializerValidator[list[Any]]] | None = ...,
         allow_null: bool = ...,
         min_length: int | None = ...,
         max_length: int | None = ...,
     ) -> None: ...
     def run_child_validation(self, data: Any) -> Any: ...
+    # The list-level validators receive the whole list, with the `ListSerializer` as context.
+    @override  # type: ignore[explicit-override, override]
+    @property
+    def validators(self) -> list[SerializerValidator[list[Any]]]: ...
+    @validators.setter
+    def validators(self, validators: list[SerializerValidator[list[Any]]]) -> None: ...
+    @override
+    def get_validators(self) -> list[SerializerValidator[list[Any]]]: ...  # type: ignore[override]
+    @override
+    def to_internal_value(self, data: Any) -> list[Any]: ...
     @override
     def to_representation(self, data: Manager[Any] | Iterable[Any]) -> list[Any]: ...  # type: ignore[override]
     @override
@@ -186,9 +204,14 @@ class ListSerializer(BaseSerializer[_IN]):
     @property
     @override
     def data(self) -> ReturnList: ...
+    # `ReturnList` only for the empty, no-errors case, since `_errors` defaults to `[]` here.
+    # Every error path in DRF 3.18 produces a `ReturnDict`: child errors are keyed by list index and
+    # list-level errors by `NON_FIELD_ERRORS_KEY`. A non-empty `ReturnList` is still reachable on DRF
+    # >= 3.19 with `LIST_SERIALIZER_ERRORS_AS_DICT = False` (deprecated, removed in DRF 3.20), which
+    # restores the positional list format, and from subclasses raising list-shaped details.
     @property
     @override
-    def errors(self) -> ReturnList: ...
+    def errors(self) -> ReturnDict | ReturnList: ...
 
 def raise_errors_on_nested_writes(method_name: str, serializer: BaseSerializer, validated_data: Any) -> None: ...
 
@@ -226,10 +249,14 @@ class ModelSerializer(Serializer[_MT]):
         help_text: StrOrPromise | None = None,
         style: dict[str, Any] | None = None,
         error_messages: dict[str, StrOrPromise] | None = None,
-        validators: Sequence[Validator[_MT]] | None = ...,
+        validators: Sequence[SerializerValidator[Any]] | None = ...,
         allow_null: bool = ...,
         allow_empty: bool = ...,
     ) -> None: ...
+    # The validated values of the model's fields. Not on `Serializer`: a plain serializer may
+    # validate into any shape (a dataclass, a domain object).
+    @override
+    def to_internal_value(self, data: Any) -> dict[str, Any]: ...
     @override
     def update(self, instance: _MT, validated_data: Any) -> _MT: ...
     @override
@@ -257,7 +284,11 @@ class ModelSerializer(Serializer[_MT]):
         self, kwargs: MutableMapping[str, Any], extra_kwargs: MutableMapping[str, Any]
     ) -> MutableMapping[str, Any]: ...
     def get_extra_kwargs(self) -> dict[str, Any]: ...
-    def get_unique_together_constraints(self, model: _MT) -> Iterator[tuple[set[tuple[str, ...]], Manager[_MT]]]: ...
+    def get_unique_together_constraints(
+        self, model: type[_MT]
+    ) -> Iterator[
+        tuple[Sequence[str], Manager[_MT], list[str], models.Q | None, bool | None, models.UniqueConstraint | None]
+    ]: ...
     def get_uniqueness_extra_kwargs(
         self, field_names: Iterable[str], declared_fields: Mapping[str, Field], extra_kwargs: dict[str, Any]
     ) -> tuple[dict[str, Any], dict[str, HiddenField]]: ...

@@ -184,6 +184,11 @@ SpectrogramObj_push_max_out (SpectrogramObject *self, PyObject *args)
   Py_ssize_t n_in = 0;
   if (!PyArg_ParseTuple (args, "n", &n_in))
     return NULL;
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
   return PyLong_FromSize_t (
       dp_spectrogram_push_max_out (self->handle, (size_t)n_in));
 }
@@ -1251,9 +1256,11 @@ static PyTypeObject SpectrogramObjType = {
     "    nfft would leave samples no row covers, so it is refused.\n"
     "window : Literal[\"hann\", \"kaiser\", \"blackman-harris\", \"rect\"], "
     "default \"hann\"\n"
-    "    The window every frame is shaped by, as PSD takes them. A window "
-    "that\n"
-    "    sums to zero at this nfft (the symmetric Hann at nfft = 2) is "
+    "    The window every frame is shaped by, as PSD takes them. Applied in "
+    "its\n"
+    "    periodic form, as PSD applies it. A window whose taps do not sum to "
+    "a\n"
+    "    positive finite number (a NaN or overflowing Kaiser beta) is "
     "refused.\n"
     "    One of ``\"hann\"``, ``\"kaiser\"``, ``\"blackman-harris\"``, "
     "``\"rect\"``.\n"

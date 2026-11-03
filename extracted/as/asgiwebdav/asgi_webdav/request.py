@@ -648,23 +648,41 @@ class DAVRequest:
 
             for action_item in action_data:
 
-                ns_key, dav_prop_data = action_item["DAV::prop"].popitem()
-                ns, key = self._cut_ns_key(ns_key)
+                prop_container = action_item["DAV::prop"]
+                # single-key dict: one property; list: several properties
+                # (clients that declare namespaces on the root element)
+                prop_items = (
+                    list(prop_container.items())
+                    if isinstance(prop_container, dict)
+                    else [
+                        (ns_key, prop_value)
+                        for single in prop_container
+                        for ns_key, prop_value in single.items()
+                    ]
+                )
 
-                # value = value.get("#text")
-                value = None
-                for prop_key, prop_value in dav_prop_data.items():
-                    if prop_key == _XML_NAME_SPACE_TAG:
-                        continue
-                    if prop_key == "#text":
-                        value = prop_value
+                for ns_key, dav_prop_data in prop_items:
+                    ns, key = self._cut_ns_key(ns_key)
+
+                    # value = value.get("#text")
+                    value = None
+                    if isinstance(dav_prop_data, dict):
+                        # the element carries attributes or child elements
+                        for prop_key, prop_value in dav_prop_data.items():
+                            if prop_key == _XML_NAME_SPACE_TAG:
+                                continue
+                            if prop_key == "#text":
+                                value = prop_value
+                            else:
+                                _, value = self._cut_ns_key(prop_key)
                     else:
-                        _, value = self._cut_ns_key(prop_key)
+                        # plain text (or None for a self-closing element)
+                        value = dav_prop_data
 
-                if not isinstance(value, str):
-                    value = str(value)  # TODO: 可能不需要转换?
+                    if not isinstance(value, str):
+                        value = str(value)  # TODO: 可能不需要转换?
 
-                self.proppatch_entries.append(((ns, key), value, method))
+                    self.proppatch_entries.append(((ns, key), value, method))
 
         return True
 
@@ -697,16 +715,29 @@ class DAVRequest:
     async def parser_body(self) -> bool:
         match self.method:
             case DAVMethod.PROPFIND:
-                self.body = await receive_all_data_in_one_call(self.receive)
-                self.body_is_parsed_success = await self._parser_body_propfind()
+                body = await receive_all_data_in_one_call(self.receive)
+                if body is None:
+                    # client disconnected mid-body — nothing to parse
+                    self.body_is_parsed_success = False
+                else:
+                    self.body = body
+                    self.body_is_parsed_success = await self._parser_body_propfind()
 
             case DAVMethod.PROPPATCH:
-                self.body = await receive_all_data_in_one_call(self.receive)
-                self.body_is_parsed_success = await self._parser_body_proppatch()
+                body = await receive_all_data_in_one_call(self.receive)
+                if body is None:
+                    self.body_is_parsed_success = False
+                else:
+                    self.body = body
+                    self.body_is_parsed_success = await self._parser_body_proppatch()
 
             case DAVMethod.LOCK:
-                self.body = await receive_all_data_in_one_call(self.receive)
-                self.body_is_parsed_success = await self._parser_body_lock()
+                body = await receive_all_data_in_one_call(self.receive)
+                if body is None:
+                    self.body_is_parsed_success = False
+                else:
+                    self.body = body
+                    self.body_is_parsed_success = await self._parser_body_lock()
 
             case _:
                 self.body_is_parsed_success = False

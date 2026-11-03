@@ -75,9 +75,14 @@ async def auth_middleware(
             return _redirect(request, "/")
         case Decision.READ_ONLY:
             # app.js shows the demo's note instead of this page (X-Myorb-Demo).
+            if request.app.state.settings.tour:
+                why = "This is the tour's made-up day, so nothing can be changed here. "
+                why += "Your own services are connected once the tour ends."
+            else:
+                why = "This is the public demo, so nothing can be changed here. "
+                why += f"To connect your own services, run myOrb yourself: {GITHUB}"
             return PlainTextResponse(
-                f"This is the public demo, so nothing can be changed here. "
-                f"To connect your own services, run myOrb yourself: {GITHUB}",
+                why,
                 status_code=403,
                 headers={"X-Myorb-Demo": "read-only"},
             )

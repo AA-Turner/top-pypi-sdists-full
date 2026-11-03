@@ -7,12 +7,13 @@ import os
 from urllib.parse import urlencode
 
 from starlette.applications import Starlette
+from starlette.requests import Request
 from starlette.responses import PlainTextResponse, Response
 from starlette.routing import Mount, Route, WebSocketRoute
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 from starlette.types import Receive, Scope, Send
-from starlette.websockets import WebSocketDisconnect
+from starlette.websockets import WebSocket, WebSocketDisconnect
 
 ROOT = os.path.dirname(__file__)
 STATIC_ROOT = os.environ.get("STATIC_ROOT", os.path.join(ROOT, "htdocs"))
@@ -23,15 +24,15 @@ QVIS_URL = "https://qvis.quictools.info/"
 templates = Jinja2Templates(directory=os.path.join(ROOT, "templates"))
 
 
-async def homepage(request):
+async def homepage(request: Request) -> Response:
     """
     Simple homepage.
     """
     await request.send_push_promise("/style.css")
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request, "index.html")
 
 
-async def echo(request):
+async def echo(request: Request) -> Response:
     """
     HTTP echo endpoint.
     """
@@ -40,7 +41,7 @@ async def echo(request):
     return Response(content, media_type=media_type)
 
 
-async def logs(request):
+async def logs(request: Request) -> Response:
     """
     Browsable list of QLOG files.
     """
@@ -64,15 +65,13 @@ async def logs(request):
                 }
             )
     return templates.TemplateResponse(
+        request,
         "logs.html",
-        {
-            "logs": sorted(logs, key=lambda x: x["date"], reverse=True),
-            "request": request,
-        },
+        {"logs": sorted(logs, key=lambda x: x["date"], reverse=True)},
     )
 
 
-async def padding(request):
+async def padding(request: Request) -> Response:
     """
     Dynamically generated data, maximum 50MB.
     """
@@ -80,7 +79,7 @@ async def padding(request):
     return PlainTextResponse("Z" * size)
 
 
-async def ws(websocket):
+async def ws(websocket: WebSocket) -> None:
     """
     WebSocket echo endpoint.
     """

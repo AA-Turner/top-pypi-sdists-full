@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wyoming
-Version: 1.10.2
+Version: 1.11.0
 Summary: Peer-to-peer protocol for voice assistants
 Author-email: Michael Hansen <mike@rhasspy.org>
 License: MIT
@@ -9,13 +9,11 @@ Keywords: voice,assistant,protocol
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Text Processing :: Linguistic
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Provides-Extra: dev
@@ -229,7 +227,8 @@ Streaming:
     * `language` - language of transcript (string, optional)
     * `context` - context from previous interactions (object, optional)
 2. `transcript-chunk`
-    * `text` - part of transcript (string, required)
+    * `text` - transcript so far, including text that may still be revised (string, required)
+    * Each chunk replaces the previous one instead of being appended to it
 3. Original `transcript` event must be sent for backwards compatibility
 4. `transcript-stop` - end of stream
 
@@ -241,7 +240,7 @@ Synthesize audio from text.
     * `text` - text to speak (string, required)
     * `voice` - use a specific voice (optional)
         * `name` - name of voice (string, optional)
-        * `language` - language of voice (string, optional)
+        * `language` - language of text, used to select a voice if `name` is not set (string, optional)
         * `speaker` - speaker of voice (string, optional)
     * `text_format` - format of text (string, optional)
         * Can be "text", "ssml", or something else
@@ -252,7 +251,7 @@ Streaming:
     * `context` - context from previous interactions (object, optional)
     * `voice` - use a specific voice (optional)
         * `name` - name of voice (string, optional)
-        * `language` - language of voice (string, optional)
+        * `language` - language of text, used to select a voice if `name` is not set (string, optional)
         * `speaker` - speaker of voice (string, optional)
     * `text_format` - format of text (string, optional)
         * Can be "text", "ssml", or something else
@@ -315,6 +314,7 @@ Handle structured intents or text directly.
 * `handled` - response when intent was successfully handled
     * `text` - response for user (string, optional)
     * `context` - context for next interactions (object, optional)
+    * `continue_conversation` - true if the client should listen for a response without a wake word (bool, optional)
 * `not-handled` - response when intent was not handled
     * `text` - response for user (string, optional)
     * `context` - context for next interactions (object, optional)
@@ -326,6 +326,7 @@ Streaming:
 2. `handled-chunk`
     * `text` - part of response (string, required)
 3. Original `handled` message must be sent for backwards compatibility
+    * `continue_conversation` is only carried here, not on `handled-stop`
 4. `handled-stop` - end of stream
 
 ### Audio Output
@@ -429,7 +430,7 @@ Streaming:
     * Send audio chunks until silence is detected
 4. &larr; `transcript-start` (required)
 5. &larr; `transcript-chunk` (required)
-    * Send transcript chunks as they're produced
+    * Send the transcript so far as it's produced and revised
 6. &rarr; `audio-stop` (required)
 7. &larr; `transcript` (required)
     * Sent for backwards compatibility
@@ -519,6 +520,7 @@ Streaming text only (successful):
     * Chunk of response text
 4. &larr; `handled` (required)
     * Sent for backwards compatibility
+    * Carries `continue_conversation`
 5. &larr; `handled-stop` (required)
     
 ### Audio Output

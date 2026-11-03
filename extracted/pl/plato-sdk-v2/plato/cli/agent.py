@@ -10,14 +10,24 @@ from pathlib import Path
 
 import typer
 
-from plato.cli.publish_flow import AGENT, find_wheel, publish_image_then_wheel, registry_api_url
+from plato.cli.chronos.settings import get_settings as get_chronos_settings
 from plato.cli.utils import (
     console,
     maybe_bump_package_version,
     prepare_build_context_with_sdk,
     require_api_key,
+    wait_for_pypi_version,
 )
-from plato.utils.pypi_index import plato_build_env
+from plato.utils.ecr import (
+    ECR_REGISTRY,
+    get_image_digest,
+    publish_docker_image,
+    retag_agent_image_via_chronos,
+    retag_image,
+)
+from plato.utils.pypi_index import plato_token_simple_index
+from plato.v2 import Env, Plato
+from plato.v2.types import SimConfigCompute
 
 
 def _extract_schemas(pkg_path: Path, package_name: str) -> tuple[dict | None, dict | None, dict | None]:
@@ -122,8 +132,8 @@ def _extract_config_schema(pkg_path: Path, package_name: str) -> dict | None:
 def _extract_template_variables(build_config_schema: dict | None) -> dict[str, str] | None:
     """Extract template variables from BuildConfig schema.
 
-    All fields in BuildConfig are considered build-time template variables.
-    These are stored separately for easy querying.
+    All fields in BuildConfig are considered template variables for Harbor's
+    installation templates. These are stored separately for easy querying.
 
     Returns dict of field name -> default value (or empty string), or None if no fields.
     """
@@ -146,7 +156,221 @@ def _extract_template_variables(build_config_schema: dict | None) -> dict[str, s
     return template_vars if template_vars else None
 
 
-agent_app = typer.Typer(help="Manage and deploy agents")
+agent_app = typer.Typer(help="Manage, deploy, and run agents (uses Harbor)")
+
+# Harbor agent name to install script path (relative to harbor/agents/installed/)
+HARBOR_AGENTS = {
+    "claude-code": "install-claude-code.sh.j2",
+    "openhands": "install-openhands.sh.j2",
+    "codex": "install-codex.sh.j2",
+    "aider": "install-aider.sh.j2",
+    "gemini-cli": "install-gemini-cli.sh.j2",
+    "goose": "install-goose.sh.j2",
+    "swe-agent": "install-swe-agent.sh.j2",
+    "mini-swe-agent": "install-mini-swe-agent.sh.j2",
+    "cline-cli": "cline/install-cline.sh.j2",
+    "cursor-cli": "install-cursor-cli.sh.j2",
+    "opencode": "install-opencode.sh.j2",
+    "qwen-coder": "install-qwen-code.sh.j2",
+}
+
+# Base Dockerfile template for Harbor agents
+HARBOR_AGENT_DOCKERFILE_BASE = """FROM python:3.12-slim
+
+# Install common dependencies
+RUN apt-get update && apt-get install -y \\
+    curl \\
+    git \\
+    bash \\
+    build-essential \\
+    && rm -rf /var/lib/apt/lists/*
+"""
+
+HARBOR_AGENT_DOCKERFILE_INSTALL = """
+# Copy and run the install script
+COPY install.sh /tmp/install.sh
+RUN chmod +x /tmp/install.sh && /tmp/install.sh
+
+WORKDIR /app
+"""
+
+
+def _build_harbor_dockerfile(aux_files: list[str]) -> str:
+    """Build Dockerfile content, optionally including COPY for aux files."""
+    dockerfile = HARBOR_AGENT_DOCKERFILE_BASE
+
+    # Add COPY for each auxiliary file
+    for filename in aux_files:
+        dockerfile += f"\n# Copy auxiliary file\nCOPY {filename} /{filename}\n"
+
+    dockerfile += HARBOR_AGENT_DOCKERFILE_INSTALL
+    return dockerfile
+
+
+# Auxiliary files needed by certain agents (relative to harbor/agents/installed/)
+HARBOR_AGENT_AUX_FILES = {
+    "openhands": ["patch_litellm.py"],
+}
+
+
+def _get_harbor_version() -> str:
+    """Get Harbor package version."""
+    try:
+        import harbor
+
+        return getattr(harbor, "__version__", "0.0.0")
+    except ImportError:
+        return "0.0.0"
+
+
+def _get_harbor_install_script(agent_name: str, template_vars: dict[str, str] | None = None) -> str | None:
+    """Get the install script content from Harbor package.
+
+    Args:
+        agent_name: Name of the Harbor agent (e.g., 'claude-code', 'openhands')
+        template_vars: Template variables to render (e.g., {'version': '1.0.0'})
+                      If None, uses latest version.
+
+    Returns:
+        Rendered install script content, or None if agent not found.
+    """
+    try:
+        import harbor
+
+        harbor_path = Path(harbor.__file__).parent
+        script_file = HARBOR_AGENTS.get(agent_name)
+        if not script_file:
+            return None
+
+        script_path = harbor_path / "agents" / "installed" / script_file
+        if not script_path.exists():
+            return None
+
+        # Read and render the Jinja2 template
+        from jinja2 import Environment
+
+        env = Environment()
+        template = env.from_string(script_path.read_text())
+
+        # Use provided template vars or empty dict (which means latest)
+        render_vars = template_vars or {}
+        rendered = template.render(**render_vars)
+
+        # Strip trailing whitespace from each line to fix heredoc issues
+        # (some Harbor templates have trailing spaces after EOF delimiters)
+        lines = [line.rstrip() for line in rendered.splitlines()]
+        return "\n".join(lines) + "\n"
+    except ImportError:
+        return None
+    except Exception:
+        return None
+
+
+def _copy_harbor_aux_files(agent_name: str, dest_path: Path) -> None:
+    """Copy auxiliary files needed by an agent to the build directory."""
+    aux_files = HARBOR_AGENT_AUX_FILES.get(agent_name, [])
+    if not aux_files:
+        return
+
+    try:
+        import harbor
+
+        harbor_path = Path(harbor.__file__).parent
+        installed_path = harbor_path / "agents" / "installed"
+
+        for filename in aux_files:
+            src = installed_path / filename
+            if src.exists():
+                shutil.copy(src, dest_path / filename)
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+
+def _prefetch_agent_image(image_url: str, agent_name: str) -> None:
+    console.print("[cyan]Starting VM to prefetch image...[/cyan]")
+
+    try:
+        plato = Plato()
+        env = Env.resource(
+            simulator=f"prefetch-{agent_name}",
+            sim_config=SimConfigCompute(),
+            docker_image_url=image_url,
+            upload_rootfs=True,
+            rootfs_storage_backend="snapshot-store",
+        )
+        session = plato.sessions.create(
+            envs=[env],
+            timeout=600,
+            connect_network=False,
+        )
+        console.print("[green]Prefetch complete - rootfs cached[/green]")
+        session.close()
+        plato.close()
+    except Exception as e:
+        console.print(f"[yellow]Prefetch failed (non-fatal): {e}[/yellow]")
+
+
+def _publish_agent_image(
+    agent_name: str,
+    version: str,
+    build_path: Path,
+    description: str,
+    dry_run: bool,
+    build_args: dict[str, str] | None = None,
+    no_cache: bool = False,
+) -> None:
+    """Build and publish an agent Docker image to ECR."""
+    # Check Docker is available
+    if not shutil.which("docker"):
+        console.print("[red]Error: docker not found[/red]")
+        raise typer.Exit(1)
+
+    ecr_image = f"{ECR_REGISTRY}/vm/rootfs/plato-agents/{agent_name}:{version}"
+    latest_image = f"{ECR_REGISTRY}/vm/rootfs/plato-agents/{agent_name}:latest"
+
+    console.print(f"[cyan]Agent:[/cyan] {agent_name}")
+    console.print(f"[cyan]Version:[/cyan] {version}")
+    console.print()
+
+    if dry_run:
+        console.print("[yellow]Dry run - would build and push:[/yellow]")
+        console.print(f"  {ecr_image}")
+        console.print(f"  {latest_image}")
+        return
+
+    # Get current :latest digest before pushing (to detect changes)
+    repository = f"vm/rootfs/plato-agents/{agent_name}"
+    old_digest = get_image_digest(repository, "latest")
+
+    console.print("[cyan]Building and pushing Docker image...[/cyan]")
+    result = publish_docker_image(
+        name=agent_name,
+        version=version,
+        build_path=str(build_path),
+        repo_prefix="vm/rootfs/plato-agents",
+        build_args=build_args,
+        no_cache=no_cache,
+    )
+
+    if not result.success:
+        console.print(f"[red]{result.error}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[green]Published:[/green] {result.ecr_image}")
+    console.print(f"[green]Published:[/green] {result.latest_image}")
+    console.print("\n[bold]Use in config:[/bold]")
+    console.print(f'  "image": "{result.ecr_image}"')
+
+    # Prefetch if the Docker image digest changed
+    new_digest = get_image_digest(repository, "latest")
+    if new_digest != old_digest:
+        console.print()
+        console.print("[bold]Step 4: Prefetching image (digest changed)...[/bold]")
+        _prefetch_agent_image(latest_image, agent_name)
+    else:
+        console.print("\n[dim]Docker image digest unchanged - skipping prefetch[/dim]")
 
 
 def _publish_package(path: str, repo: str, dry_run: bool = False):
@@ -224,7 +448,6 @@ def _publish_package(path: str, repo: str, dry_run: bool = False):
             cwd=pkg_path,
             capture_output=True,
             text=True,
-            env=plato_build_env(api_key=api_key),
         )
         if result.returncode != 0:
             console.print("[red]Build failed:[/red]")
@@ -303,10 +526,102 @@ def _publish_package(path: str, repo: str, dry_run: bool = False):
         raise typer.Exit(1) from e
 
 
+@agent_app.command(name="run")
+def agent_run(
+    ctx: typer.Context,
+    agent: str = typer.Option(None, "--agent", "-a", help="Agent name (e.g., 'claude-code', 'openhands')"),
+    model: str = typer.Option(None, "--model", "-m", help="Model name (e.g., 'anthropic/claude-sonnet-4')"),
+    dataset: str = typer.Option(None, "--dataset", "-d", help="Dataset to run on"),
+):
+    """Run an agent using Harbor's runner infrastructure.
+
+    Wraps `harbor run` to execute agents on a dataset. Supports Harbor built-in agents
+    (claude-code, openhands, codex, aider, etc.) and Plato custom agents (computer-use).
+
+    Options:
+        -a, --agent: Agent name to run. See 'plato agent list' for available agents.
+        -m, --model: Model name for the agent (e.g., 'anthropic/claude-sonnet-4')
+        -d, --dataset: Dataset to run on (e.g., 'swe-bench-lite', 'terminal-bench')
+
+    Additional arguments can be passed to Harbor after '--' separator.
+    """
+    # Check if harbor is installed
+    if not shutil.which("harbor"):
+        console.print("[red]Error: harbor CLI not found[/red]")
+        console.print("\n[yellow]Install Harbor with:[/yellow]")
+        console.print("  pip install harbor")
+        console.print("  # or")
+        console.print("  uv tool install harbor")
+        raise typer.Exit(1)
+
+    # Build command
+    cmd = ["harbor", "run"]
+
+    if agent:
+        cmd.extend(["-a", agent])
+    if model:
+        cmd.extend(["-m", model])
+    if dataset:
+        cmd.extend(["-d", dataset])
+
+    # Add any extra arguments passed after --
+    if ctx.args:
+        cmd.extend(ctx.args)
+
+    # If no arguments provided, show help
+    if len(cmd) == 2:
+        console.print("[yellow]Usage: plato agent run -a <agent> -m <model> -d <dataset>[/yellow]")
+        console.print("\n[bold]Harbor agents:[/bold]")
+        console.print("  claude-code, openhands, codex, aider, gemini-cli,")
+        console.print("  goose, swe-agent, mini-swe-agent, cline-cli,")
+        console.print("  cursor-cli, opencode, qwen-coder")
+        console.print("\n[bold]Plato agents:[/bold]")
+        console.print("  computer-use (pip install plato-agent-computer-use)")
+        console.print("\n[bold]Example:[/bold]")
+        console.print("  plato agent run -a claude-code -m anthropic/claude-sonnet-4 -d swe-bench-lite")
+        raise typer.Exit(0)
+
+    console.print(f"[cyan]Running:[/cyan] {' '.join(cmd)}")
+
+    try:
+        result = subprocess.run(cmd)
+        raise typer.Exit(result.returncode)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted by user[/yellow]")
+        raise typer.Exit(130) from None
+    except Exception as e:
+        console.print(f"[red]Error running harbor: {e}[/red]")
+        raise typer.Exit(1) from e
+
+
 @agent_app.command(name="list")
 def agent_list():
-    """List available Plato agents."""
-    console.print("[bold]Plato Agents:[/bold]\n")
+    """List all available agents.
+
+    Shows Harbor built-in agents (claude-code, openhands, etc.) and Plato custom agents
+    (computer-use) that can be used with 'plato agent run' and 'plato agent publish'.
+    """
+    console.print("[bold]Harbor Agents:[/bold]\n")
+
+    harbor_agents = [
+        ("claude-code", "Claude Code - Anthropic's CLI coding agent"),
+        ("openhands", "OpenHands - All Hands AI coding agent"),
+        ("codex", "Codex - OpenAI CLI coding agent"),
+        ("aider", "Aider - AI pair programming tool"),
+        ("gemini-cli", "Gemini CLI - Google's CLI coding agent"),
+        ("goose", "Goose - Block's coding agent"),
+        ("swe-agent", "SWE-agent - Princeton's software engineering agent"),
+        ("mini-swe-agent", "Mini SWE-agent - Lightweight SWE-agent"),
+        ("cline-cli", "Cline CLI - VS Code extension CLI"),
+        ("cursor-cli", "Cursor CLI - Cursor editor CLI"),
+        ("opencode", "OpenCode - Open source coding agent"),
+        ("qwen-coder", "Qwen Coder - Alibaba's coding agent"),
+    ]
+
+    for name, description in harbor_agents:
+        console.print(f"  [cyan]{name:<15}[/cyan] {description}")
+
+    console.print("\n[bold]Plato Agents:[/bold]\n")
 
     plato_agents = [
         (
@@ -319,14 +634,16 @@ def agent_list():
         console.print(f"  [cyan]{name:<15}[/cyan] {description}")
 
     console.print("\n[bold]Usage:[/bold]")
-    console.print("  plato agent publish <path>")
+    console.print("  plato agent run -a <agent> -m <model> -d <dataset>")
+    console.print("\n[bold]Example:[/bold]")
+    console.print("  plato agent run -a claude-code -m anthropic/claude-sonnet-4 -d swe-bench-lite")
 
 
 @agent_app.command(name="schema")
 def agent_schema(
     agent_name: str = typer.Argument(..., help="Agent name to get schema for"),
 ):
-    """Get the configuration schema for an agent.
+    """Get the configuration schema for a Harbor agent.
 
     Shows the JSON schema defining configuration options for the specified agent.
     The schema describes what fields are available when configuring the agent for runs.
@@ -339,9 +656,7 @@ def agent_schema(
     except ImportError:
         console.print("[red]Error: plato.agents module not available[/red]")
         console.print("\n[yellow]Install with:[/yellow]")
-        console.print(
-            "  pip install 'plato-sdk-v2[agents]' --index-url \"https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/\""
-        )
+        console.print("  pip install 'plato-sdk-v2[agents]'")
         raise typer.Exit(1) from None
 
     schema = get_agent_schema(agent_name)
@@ -370,20 +685,13 @@ def agent_publish(
     skip_docker: bool = typer.Option(
         False,
         "--skip-docker",
-        help="Skip Docker build; retag the image of the version being bumped from (falling back to :latest) "
-        "as the new version tag instead",
+        help="Skip Docker build; retag the current :latest image with the new version tag instead",
     ),
     no_cache: bool = typer.Option(False, "--no-cache", help="Build Docker image without cache"),
-    wheel_only: bool = typer.Option(
-        False,
-        "--wheel-only",
-        help="Re-run a publish whose image :<version> is already in ECR: no rebuild or version bump; prefetches and (release publishes) promotes :<version> to :latest unless :latest already points at it, then uploads the wheel. For recovering from a failed prefetch, promote, or upload",
-    ),
     no_skip_docker: bool = typer.Option(
         False,
         "--no-skip-docker",
-        help="Force Docker rebuild even with --dev (overrides the default skip behavior). "
-        "A dev rebuild pushes and prefetches :<version> only; :latest moves only on a release publish",
+        help="Force Docker rebuild even with --dev (overrides the default skip behavior)",
     ),
 ):
     """Build and publish an agent package to the Plato agents repository.
@@ -403,12 +711,8 @@ def agent_publish(
         --no-skip-docker: Force Docker rebuild even with --dev
     """
 
-    if wheel_only and (skip_docker or no_skip_docker):
-        console.print("[red]--wheel-only cannot be combined with --skip-docker / --no-skip-docker[/red]")
-        raise typer.Exit(1)
-
     # --dev implies --skip-docker unless --no-skip-docker is explicitly passed
-    if dev and not skip_docker and not no_skip_docker and not wheel_only:
+    if dev and not skip_docker and not no_skip_docker:
         skip_docker = True
         console.print(
             "[dim]--dev implies --skip-docker (retag instead of rebuild). Use --no-skip-docker to force a rebuild.[/dim]"
@@ -440,15 +744,7 @@ def agent_publish(
             console.print(f"[bold cyan]{'=' * 50}[/bold cyan]\n")
 
             try:
-                _push_single_agent(
-                    agent_dir,
-                    dry_run,
-                    minor=minor,
-                    dev=dev,
-                    skip_docker=skip_docker,
-                    no_cache=no_cache,
-                    wheel_only=wheel_only,
-                )
+                _push_single_agent(agent_dir, dry_run, minor=minor, dev=dev, skip_docker=skip_docker, no_cache=no_cache)
                 succeeded.append(agent_dir.name)
             except SystemExit:
                 failed.append(agent_dir.name)
@@ -469,9 +765,7 @@ def agent_publish(
         console.print(f"[red]Error: '{target}' is not a valid path[/red]")
         raise typer.Exit(1)
 
-    _push_single_agent(
-        pkg_path, dry_run, minor=minor, dev=dev, skip_docker=skip_docker, no_cache=no_cache, wheel_only=wheel_only
-    )
+    _push_single_agent(pkg_path, dry_run, minor=minor, dev=dev, skip_docker=skip_docker, no_cache=no_cache)
 
 
 def _push_single_agent(
@@ -482,7 +776,6 @@ def _push_single_agent(
     dev: bool = False,
     skip_docker: bool = False,
     no_cache: bool = False,
-    wheel_only: bool = False,
 ) -> None:
     """Publish a single agent package to PyPI and optionally Docker.
 
@@ -508,34 +801,37 @@ def _push_single_agent(
     project = pyproject.get("project", {})
     package_name = project.get("name", "")
     version = project.get("version")
-    project.get("description", "")
+    description = project.get("description", "")
 
     if not version:
         console.print("[red]Error: No version in pyproject.toml[/red]")
         raise typer.Exit(1)
 
-    previous_version = version
-    if wheel_only:
-        # The re-run after a failed upload: the image step already ran for the
-        # version in pyproject.toml, so publish exactly that version. Bumping
-        # (a fresh dated dev version, or the release prompt defaulting to yes)
-        # would point the wheel at an image tag that was never pushed.
-        console.print(f"[dim]--wheel-only: keeping version {version} (no bump)[/dim]")
-    else:
-        version = maybe_bump_package_version(
-            pyproject_file,
-            version,
-            minor=minor,
-            dev=dev,
-            dry_run=dry_run,
-        )
+    version = maybe_bump_package_version(
+        pyproject_file,
+        version,
+        minor=minor,
+        dev=dev,
+        dry_run=dry_run,
+    )
+
+    # Extract short name (remove common prefixes)
+    short_name = package_name
+    for prefix in ("plato-agent-", "plato-"):
+        if short_name.startswith(prefix):
+            short_name = short_name[len(prefix) :]
+            break
 
     # Get API key
     api_key = None
     if not dry_run:
         api_key = require_api_key()
 
-    api_url = registry_api_url()
+    # Get registry URL (always publish to production registry by default)
+    registry_url = os.getenv("PLATO_REGISTRY_BASE_URL", "https://plato.so").rstrip("/")
+    if registry_url.endswith("/api"):
+        registry_url = registry_url[:-4]
+    api_url = f"{registry_url}/api"
 
     console.print(f"[cyan]Package:[/cyan] {package_name}")
     console.print(f"[cyan]Version:[/cyan] {version}")
@@ -551,7 +847,6 @@ def _push_single_agent(
             cwd=pkg_path,
             capture_output=True,
             text=True,
-            env=plato_build_env(api_key=api_key),
         )
         if result.returncode != 0:
             console.print("[red]Build failed:[/red]")
@@ -562,31 +857,117 @@ def _push_single_agent(
         console.print("[red]Error: uv not found. Install with: pip install uv[/red]")
         raise typer.Exit(1) from None
 
-    wheel_file = find_wheel(pkg_path, package_name, version)
+    # Find built wheel
+    dist_dir = pkg_path / "dist"
+    if not dist_dir.exists():
+        console.print("[red]Error: dist/ directory not found after build[/red]")
+        raise typer.Exit(1)
+
+    normalized_name = package_name.replace("-", "_")
+    wheel_files = list(dist_dir.glob(f"{normalized_name}-{version}-*.whl"))
+    if not wheel_files:
+        wheel_files = list(dist_dir.glob("*.whl"))
+    if not wheel_files:
+        console.print(f"[red]Error: No wheel file found in {dist_dir}[/red]")
+        raise typer.Exit(1)
+
+    wheel_file = wheel_files[0]
     console.print(f"[cyan]Built:[/cyan] {wheel_file.name}")
 
-    # ========== STEP 2: Image, then wheel ==========
-    # Image first (retag, or push -> prefetch -> promote), wheel last: the
-    # wheel is what makes the version launchable. See plato.cli.publish_flow.
-    # AGENT_VERSION lets the Dockerfile stamp /opt/plato-agent-version so the
-    # runtime install is skipped when the baked version matches.
-    publish_image_then_wheel(
-        AGENT,
-        package_name=package_name,
-        previous_version=previous_version,
-        version=version,
-        pkg_path=pkg_path,
-        wheel_file=wheel_file,
-        api_key=api_key,
-        dry_run=dry_run,
-        skip_docker=skip_docker,
-        # A dev rebuild never moves :latest (prod's tag); it is launchable by
-        # its pinned :<version>.
-        promote_latest=not dev,
-        build_args={"AGENT_VERSION": version},
-        no_cache=no_cache,
-        wheel_only=wheel_only,
-    )
+    # ========== STEP 2: Publish to PyPI ==========
+    console.print()
+    console.print("[bold]Step 2: Publishing to PyPI...[/bold]")
+
+    if dry_run:
+        console.print("[yellow]Dry run - skipping PyPI upload[/yellow]")
+    else:
+        upload_url = f"{api_url}/v2/pypi/agents/"
+        console.print(f"[cyan]Uploading to {upload_url}...[/cyan]")
+
+        assert api_key is not None
+        try:
+            result = subprocess.run(
+                [
+                    "uv",
+                    "publish",
+                    "--publish-url",
+                    upload_url,
+                    "--username",
+                    "__token__",
+                    "--password",
+                    api_key,
+                    str(wheel_file),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            if result.returncode == 0:
+                console.print("[green]PyPI upload successful![/green]")
+            else:
+                console.print("[red]PyPI upload failed:[/red]")
+                if result.stdout:
+                    console.print(result.stdout)
+                if result.stderr:
+                    console.print(result.stderr)
+                raise typer.Exit(1)
+
+        except FileNotFoundError:
+            console.print("[red]Error: uv not found[/red]")
+            raise typer.Exit(1) from None
+
+    # ========== STEP 3: Build and push Docker image (if Dockerfile exists) ==========
+    dockerfile = pkg_path / "Dockerfile"
+    if dockerfile.exists():
+        console.print()
+        if skip_docker:
+            console.print("[bold]Step 3: Retagging existing Docker image...[/bold]")
+            repository = f"vm/rootfs/plato-agents/{short_name}"
+            # Prefer the server-side retag (Chronos uses its own ECS task creds,
+            # so the author needs no local AWS access), falling back to local AWS
+            # credentials if the endpoint is unavailable. The Chronos call needs
+            # an API key, which is absent on dry runs — those go straight to the
+            # local fallback.
+            retagged = False
+            if api_key is not None:
+                retagged, retag_err = retag_agent_image_via_chronos(
+                    get_chronos_settings().chronos_url, package_name, "latest", version, api_key
+                )
+                if not retagged:
+                    console.print(f"[yellow]Chronos retag failed:[/yellow] {retag_err}")
+                    console.print("[dim]Falling back to local AWS credentials...[/dim]")
+            if not retagged:
+                retagged = retag_image(repository, "latest", version)
+            if retagged:
+                ecr_image = f"{ECR_REGISTRY}/{repository}:{version}"
+                console.print(f"[green]Retagged:[/green] {ecr_image}")
+            else:
+                console.print("[red]Failed to retag image. Is there an existing :latest?[/red]")
+                raise typer.Exit(1)
+        else:
+            console.print("[bold]Step 3: Building and pushing Docker image...[/bold]")
+            # Wait for PyPI index to serve the newly uploaded version
+            # before Docker build tries to install it.
+            wait_for_pypi_version(short_name, version, repo="agents", api_key=api_key)
+            # Pass agent version and PyPI index URLs so the Dockerfile can
+            # pre-bake the agent package (skips ~14s install at runtime).
+            docker_build_args = {
+                "AGENT_VERSION": version,
+                "PYPI_AGENTS_URL": plato_token_simple_index("agents", api_key=api_key),
+            }
+            _publish_agent_image(
+                agent_name=short_name,
+                version=version,
+                build_path=pkg_path,
+                description=description,
+                dry_run=dry_run,
+                build_args=docker_build_args,
+                no_cache=no_cache,
+            )
+    else:
+        console.print()
+        console.print("[dim]No Dockerfile found - skipping Docker image build[/dim]")
 
     # ========== Summary ==========
     console.print()
@@ -1045,7 +1426,6 @@ def agent_deploy(
             capture_output=True,
             text=True,
             check=True,
-            env=plato_build_env(api_key=api_key),
         )
         console.print("[green]✅ Build successful[/green]")
     except subprocess.CalledProcessError as e:

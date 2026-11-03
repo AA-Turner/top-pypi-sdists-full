@@ -1,15 +1,15 @@
 # Specify the build system requirements.
 [build-system]
-requires = ["sip >=6.15, <7", "PyQt-builder >=1.19, <2"]
+requires = ["sip >=6.15, <7", "PyQt-builder >=1.21, <2"]
 build-backend = "sipbuild.api"
 
 [project]
 name = "PyQt6-WebEngine"
-version = "6.11.0"
+version = "6.140.0"
 description = "Python bindings for the Qt WebEngine framework"
 readme = "README.md"
 urls.homepage = "https://www.riverbankcomputing.com/software/pyqtwebengine/"
-dependencies = ["PyQt6 (>=6.2.0)"]
+dependencies = ["PyQt6 (>=6.12.0)"]
 license = "GPL-3.0-only"
 license-files = ["LICENSE"]
 

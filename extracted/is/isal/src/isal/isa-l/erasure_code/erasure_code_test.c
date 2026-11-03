@@ -50,6 +50,9 @@
 #define EFENCE_TEST_MIN_SIZE 16
 #define EFENCE_TEST_MAX_SIZE EFENCE_TEST_MIN_SIZE + 0x100
 
+#if HAVE_RVV
+#define EC_ALIGNED_ADDR
+#endif
 #ifdef EC_ALIGNED_ADDR
 // Define power of 2 range to check ptr, len alignment
 #define PTR_ALIGN_CHK_B 0
@@ -184,7 +187,7 @@ gf_gen_decode_matrix(unsigned char *encode_matrix, unsigned char *decode_matrix,
                                 continue;
                         }
                 }
-                if (decode_index[k - 1] + incr >= m) {
+                if (decode_index[k - 1] + incr >= (unsigned int) m) {
                         free(b);
                         free(backup);
                         printf("BAD MATRIX\n");
@@ -481,6 +484,7 @@ main(int argc, char *argv[])
                 }
 #ifdef TEST_VERBOSE
                 putchar('.');
+                fflush(stdout);
 #endif
         }
 
@@ -667,7 +671,7 @@ main(int argc, char *argv[])
 
                 for (i = 0; i < m; i++) {
 
-                        offset = ubuffs[i] - buffs[i];
+                        offset = (unsigned int) (ubuffs[i] - buffs[i]);
 
                         if (memcmp(buffs[i], temp_buffs[0], offset)) {
                                 printf("Fail rand ualign encode pad start\n");
@@ -684,7 +688,7 @@ main(int argc, char *argv[])
 
                 for (i = 0; i < nerrs; i++) {
 
-                        offset = temp_ubuffs[k + i] - temp_buffs[k + i];
+                        offset = (unsigned int) (temp_ubuffs[k + i] - temp_buffs[k + i]);
                         if (memcmp(temp_buffs[k + i], temp_buffs[0], offset)) {
                                 printf("Fail rand ualign decode pad start\n");
                                 re = -1;
@@ -700,6 +704,7 @@ main(int argc, char *argv[])
 
 #ifdef TEST_VERBOSE
                 putchar('.');
+                fflush(stdout);
 #endif
         }
 
@@ -778,6 +783,10 @@ main(int argc, char *argv[])
                                 goto exit;
                         }
                 }
+#ifdef TEST_VERBOSE
+                putchar('.');
+                fflush(stdout);
+#endif
         }
 
         printf("done EC tests: Pass\n");

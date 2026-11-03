@@ -653,6 +653,32 @@ class TestV3PageCreate(TestV3Base, WagtailTestUtils, TestCase):
             [{"msg": "body: unrecognised block type 'not_a_real_block'"}],
         )
 
+    def test_create_streamfield_page_with_invalid_chooser_value_returns_422(self):
+        response = self.post(
+            {
+                "meta": {"parent_id": self.root_page.pk, "type": "tests.StreamPage"},
+                "title": "Stream page",
+                "slug": "stream-page-invalid-chooser",
+                "body": [{"type": "image", "value": {"id": 1}}],
+            }
+        )
+        content = self.assert_problem_response(response, status_code=422)
+        self.assertEqual(content["errors"], [{"msg": "body-0-value: invalid value"}])
+
+    def test_create_streamfield_page_with_invalid_struct_value_returns_422(self):
+        response = self.post(
+            {
+                "meta": {"parent_id": self.root_page.pk, "type": "tests.StreamPage"},
+                "title": "Stream page",
+                "slug": "stream-page-invalid-struct",
+                "body": [{"type": "product", "value": "not a struct"}],
+            }
+        )
+        content = self.assert_problem_response(response, status_code=422)
+        self.assertEqual(
+            content["errors"], [{"msg": "body-0-value: value must be an object"}]
+        )
+
     def test_create_streamfield_page_with_rich_text_block(self):
         response = self.post(
             {
@@ -1140,3 +1166,96 @@ class TestV3PageCreate(TestV3Base, WagtailTestUtils, TestCase):
             ],
             [("Ada", "Lovelace"), ("Grace", "Hopper")],
         )
+
+    def post_speaker_event_page(self, slug, speakers, action=None):
+        meta = {"parent_id": self.root_page.pk, "type": "tests.EventPage"}
+        if action:
+            meta["action"] = action
+        return self.post(
+            {
+                "meta": meta,
+                "title": "Event",
+                "slug": slug,
+                "date_from": "2026-01-01",
+                "audience": "public",
+                "location": "Bristol",
+                "cost": "Free",
+                "speakers": speakers,
+            }
+        )
+
+    def test_create_page_with_nested_child_relations(self):
+        """
+        tests.EventPage's speakers InlinePanel has its own awards InlinePanel.
+        """
+        response = self.post_speaker_event_page(
+            "event",
+            [
+                {
+                    "first_name": "Ada",
+                    "last_name": "Lovelace",
+                    "awards": [
+                        {"name": "First programmer", "date_awarded": "1843-01-01"},
+                        {"name": "Analytical engine"},
+                    ],
+                },
+                {"first_name": "No", "last_name": "Awards", "awards": []},
+                {"first_name": "Awards", "last_name": "Omitted"},
+            ],
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        page = SpeakerEventPage.objects.get(slug="event")
+        speakers = list(page.speakers.order_by("sort_order"))
+        self.assertEqual(
+            [speaker.first_name for speaker in speakers], ["Ada", "No", "Awards"]
+        )
+        self.assertEqual(
+            [
+                (award.name, str(award.date_awarded))
+                for award in speakers[0].awards.order_by("sort_order")
+            ],
+            [("First programmer", "1843-01-01"), ("Analytical engine", "None")],
+        )
+        self.assertFalse(speakers[1].awards.exists())
+        self.assertFalse(speakers[2].awards.exists())
+
+        self.assertEqual(
+            [
+                (
+                    speaker["first_name"],
+                    [award["name"] for award in speaker["awards"]],
+                )
+                for speaker in response.json()["speakers"]
+            ],
+            [
+                ("Ada", ["First programmer", "Analytical engine"]),
+                ("No", []),
+                ("Awards", []),
+            ],
+        )
+        self.assertEqual(
+            response.json()["speakers"][0]["awards"][0]["id"],
+            speakers[0].awards.order_by("sort_order").first().pk,
+        )
+
+    def test_create_page_with_invalid_nested_child_returns_422(self):
+        response = self.post_speaker_event_page(
+            "event-invalid",
+            [
+                {"first_name": "Ada", "awards": [{"name": "First programmer"}]},
+                {
+                    "first_name": "Grace",
+                    # A new row with every field empty is skipped by the
+                    # formset rather than validated, so set another field.
+                    "awards": [{"name": "", "date_awarded": "1952-01-01"}],
+                },
+            ],
+            # Required fields are only enforced on publish, not for drafts.
+            action="publish",
+        )
+        content = self.assert_problem_response(response, status_code=422)
+        self.assertEqual(
+            [(error["type"], error["loc"]) for error in content["errors"]],
+            [("required", ["speakers", 1, "awards", 0, "name"])],
+        )
+        self.assertFalse(SpeakerEventPage.objects.filter(slug="event-invalid").exists())

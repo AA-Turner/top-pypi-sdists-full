@@ -19,7 +19,4 @@ class EvalTaskSelection(BaseModel):
   """Distinct tasks selected for execution."""
 
   max_samples: int | None = None
-  """
-    Explicit options.evaluation_max_samples, or null to run every task in the selected
-    scope.
-    """
+  """Explicit options.val_num_tasks, or null to run every task in the selected scope."""

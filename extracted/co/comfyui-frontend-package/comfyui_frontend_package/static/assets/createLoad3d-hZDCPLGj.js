@@ -1,1 +1,0 @@
-import{t as e}from"./createLoad3d-C-pibZAd.js";export{e as createLoad3d};

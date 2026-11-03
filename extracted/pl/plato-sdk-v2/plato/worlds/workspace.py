@@ -8,13 +8,11 @@ tracking refs/metadata.
 from __future__ import annotations
 
 import asyncio
-import gzip
 import json
 import logging
 import os
 import random
 import time
-from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -22,14 +20,16 @@ from typing import Any
 import httpx
 
 from plato.agents.mounts import AgentWorkspaceMount
+from plato.chronos.api.workspace_repos import bulk_ingest_ref_audit_events
+from plato.chronos.models import AuditEventInput, BulkRefAuditEventsRequest
 from plato.runtimes.base import RuntimeInfo
 from plato.transports.base import Transport
-from plato.transports.fuse import FuseDirectTransport
 from plato.transports.nfs import NFSTransport
 from plato.transports.rsync import RsyncTransport
 from plato.transports.sshfs import SSHFSTransport
+from plato.utils.audit import read_audit_records
 from plato.utils.subprocess import run_local
-from plato.worlds.dvc_models import S3Config, credential_refresh_config
+from plato.worlds.dvc_models import S3Config
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +69,6 @@ class Workspace:
         api_key: str = "",
         session_id: str = "",
         commit_strategy: str = "manifest",
-        nfs_mount_options: str = "",
-        pin_to_agent_vm: bool = False,
     ):
         self._repo_root = path
         self.path = path / "data" if tracked else path
@@ -86,13 +84,6 @@ class Workspace:
         self.api_key = api_key
         self.session_id = session_id
         self.commit_strategy = commit_strategy
-        # Extra client-side NFS mount options for this workspace's agent
-        # mounts (e.g. "sync" for live-tailed write-through workspaces).
-        self.nfs_mount_options = nfs_mount_options
-        # Mount on the agent VM even under sandbox_tools_only: this workspace
-        # holds state the agent CLI process writes itself, and that process
-        # runs on the agent VM no matter where its file tools act.
-        self.pin_to_agent_vm = pin_to_agent_vm
         self._transport: Transport | None = None
         self._sts_credentials: dict[str, str] = {}
         self._sts_expires_at: float = 0
@@ -101,25 +92,6 @@ class Workspace:
         self._last_changed_ref_step: str = ""
         self._lazy_mounts: dict[str, Any] = {}
         self._commit_lock = asyncio.Lock()
-        self._tree_changed = False
-        # The .dvc contents of the last smart commit whose ref was recorded; None before one in this process.
-        self._recorded_dvc_files: dict[str, str] | None = None
-        # Gzipped agent-VM fuse worker configs, keyed by (manifest_md5,
-        # credentials expiry, mountpoint, cache_dir, manifest_by_ref): the
-        # manifest JSON for a large dataset is ~100 MB, so serialize+gzip once
-        # per credential window instead of once per agent VM. The by-ref flag
-        # keys the config SHAPE so mixed fleets (old + new binaries) each get
-        # the right one.
-        self._fuse_agent_config_cache: dict[tuple[str, int | None, str, str, bool], bytes] = {}
-        # Singleflight for build_agent_fuse_config: a large-fan-out mount has
-        # every agent VM request the config near-simultaneously; without the
-        # lock each caller misses the cache and serializes+gzips the ~100 MB
-        # manifest independently (and a slow builder holding stale credentials
-        # could evict a fresher cached entry when it finished last).
-        self._fuse_agent_config_lock = asyncio.Lock()
-        # Fresh STS credentials for the SOURCE repo of a cross-repo restored
-        # mount, keyed by repo_id: (credentials, expires_at_epoch).
-        self._agent_fuse_source_creds: dict[str, tuple[dict[str, str], int]] = {}
 
     @property
     def repo_path(self) -> Path:
@@ -166,8 +138,6 @@ class Workspace:
             api_key=self.api_key,
             session_id=self.session_id,
             commit_strategy=self.commit_strategy,
-            nfs_mount_options=self.nfs_mount_options,
-            pin_to_agent_vm=self.pin_to_agent_vm,
         )
 
     def mount(
@@ -261,7 +231,6 @@ class Workspace:
         git_config: Any = None,
         nfs_server: NFSTransport | None = None,
         export_fsid: int = 0,
-        readonly: bool = False,
     ) -> NFSTransport | None:
         """Create and initialize the transport for this workspace.
 
@@ -285,39 +254,6 @@ class Workspace:
             return nfs_server
 
         effective_mode = marker_transport or transport_mode
-
-        if readonly and effective_mode not in ("nfs_kernel", "fuse"):
-            raise ValueError(
-                f"Workspace '{self.name}': readonly=True is only supported for the NFS and fuse "
-                f"transports, got transport '{effective_mode}'"
-            )
-
-        if effective_mode == "fuse":
-            # Direct per-agent-VM plato-fuse mount of this workspace's
-            # immutable manifest. Read-only datasets only: per-agent mounts
-            # have no cross-VM coherence, so a writable fuse workspace would
-            # silently fork state per agent.
-            if not self.tracked:
-                raise ValueError(
-                    f"Workspace '{self.name}': the fuse transport requires a tracked workspace "
-                    "(the agent VM mounts the committed manifest)"
-                )
-            if not readonly:
-                raise ValueError(
-                    f"Workspace '{self.name}': the fuse transport is read-only — per-agent "
-                    "mounts have no cross-VM coherence. Use NFS/git/rsync for writable workspaces."
-                )
-            t = FuseDirectTransport(
-                str(self.path),
-                ssh_key,
-                self.build_agent_fuse_config,
-                mount_path=self.mount_path,
-                workspace_name=self.name,
-                readonly=True,
-            )
-            await t.initialize()
-            self.transport = t
-            return nfs_server
 
         if effective_mode == "git":
             from plato.transports.git import GitTransport
@@ -343,60 +279,12 @@ class Workspace:
 
         # NFS mode — share a single server across workspaces
         if nfs_server is None:
-            nfs_server = NFSTransport(str(self.path), hostname, ssh_key, readonly=readonly)
+            nfs_server = NFSTransport(str(self.path), hostname, ssh_key)
             await nfs_server.initialize()
         else:
-            await nfs_server.add_export(str(self.path), fsid=export_fsid, readonly=readonly)
+            await nfs_server.add_export(str(self.path), fsid=export_fsid)
 
-        t = nfs_server.with_path(str(self.path), readonly=readonly, mount_options=self.nfs_mount_options)
-        t.mount_path = self.mount_path
-        self.transport = t
-        return nfs_server
-
-    def live_mount(self) -> Any:
-        """This workspace's plato-fuse mount (``LazyDVCMount``) while it's mounted, else None."""
-        return self._lazy_mounts.get(self.path.name)
-
-    def adopt_mount(self, mountpoint: Path, cache_dir: Path, worker_pid: int | None) -> None:
-        """Take over the plato-fuse mount a previous world process left running at ``mountpoint`` (handover.py),
-        instead of ``init()``, which would unmount it under the agents using it. Checkpoints then commit through it as
-        through a mount of this process's own, reading the running worker's live metadata."""
-        from plato.worlds.dvc_models import DVCManifest, LazyDVCMount
-        from plato.worlds.handover import HandoffRefused, adopted_fuse_config
-        from plato.worlds.lazy_dvc import AdoptedWorker
-
-        if worker_pid is None or AdoptedWorker(worker_pid).returncode is not None:
-            raise HandoffRefused(f"workspace '{self.name}': the plato-fuse process serving it isn't running")
-        if mountpoint != self.path:
-            raise HandoffRefused(
-                f"workspace '{self.name}' was mounted at {mountpoint}, this version expects {self.path}"
-            )
-        if not os.path.ismount(mountpoint):
-            raise HandoffRefused(f"workspace '{self.name}': {mountpoint} isn't mounted any more")
-        config = adopted_fuse_config(cache_dir)
-        self._lazy_mounts[mountpoint.name] = LazyDVCMount(
-            mountpoint=mountpoint,
-            cache_dir=cache_dir,
-            manifest=DVCManifest.from_dict(config.manifest),
-            worker_proc=AdoptedWorker(worker_pid),
-            s3_config=S3Config.from_dict(config.s3_config),
-        )
-        logger.info(
-            "Workspace '%s': adopted the live mount at %s (plato-fuse pid %d)", self.name, mountpoint, worker_pid
-        )
-
-    def adopt_nfs_transport(
-        self, runtime_info: RuntimeInfo, nfs_server: NFSTransport | None, *, readonly: bool = False
-    ) -> NFSTransport | None:
-        """The NFS transport for an export the world VM's NFS server already serves (a handed-over workspace): the
-        handle new agents mount through, with nothing written to the server. Returns the server handle to share."""
-        if not runtime_info.hostname or not runtime_info.ssh_key_path:
-            return nfs_server
-        if nfs_server is None:
-            nfs_server = NFSTransport(
-                str(self.path), runtime_info.hostname, runtime_info.ssh_key_path, readonly=readonly
-            )
-        t = nfs_server.with_path(str(self.path), readonly=readonly, mount_options=self.nfs_mount_options)
+        t = nfs_server.with_path(str(self.path))
         t.mount_path = self.mount_path
         self.transport = t
         return nfs_server
@@ -454,29 +342,17 @@ class Workspace:
                 f"Workspace '{self.name}' has no FUSE mounts. ensure_fuse_mount() must be called before materializing."
             )
 
-        from plato.transports.git import GitTransport
-
-        # ``snapshot_to_mirror`` rewrites ``.git-bare`` without this method's lock, so an
-        # rsync over it fails with "file has vanished". Each commit rewrites the mirror into
-        # the overlay itself. ``--exclude=.git`` does not match ``.git-bare``, and an
-        # excluded path is also safe from ``--delete``.
-        excludes = ["--exclude=.git"]
-        if isinstance(self._transport, GitTransport):
-            excludes.append("--exclude=/.git-bare")
-
         for mount in self._lazy_mounts.values():
             overlay_dir = mount.overlay_dir
             mountpoint = mount.mountpoint
             overlay_dir.mkdir(parents=True, exist_ok=True)
-            # rsync writes the overlay behind FUSE's back: its save journal misses these changes.
-            mount.journal_invalid = True
             exit_code, _, stderr = await run_local(
                 " ".join(
                     [
                         "rsync",
                         "-a",
                         "--delete",
-                        *excludes,
+                        "--exclude=.git",
                         f"{mountpoint}/",
                         f"{overlay_dir}/",
                     ]
@@ -513,59 +389,7 @@ class Workspace:
         async with self._commit_lock:
             return await self._commit_inner(step_name, message, trigger_span_id=trigger_span_id)
 
-    async def _snapshot_git_transport(self) -> None:
-        """Pack + mirror the git bare into the FUSE mount before snapshotting.
-
-        For git-transport workspaces the active object store lives off FUSE on
-        local disk; this writes a packed snapshot into ``{path}/.git-bare`` so
-        the workspace checkpoint persists it. No-op for other transports.
-        """
-        from plato.transports.git import GitTransport
-
-        if isinstance(self._transport, GitTransport):
-            await self._transport.snapshot_to_mirror()
-
-    def mark_tree_changed(self) -> None:
-        """Make the next commit materialize the git-changed tree first, so merges need not checkpoint inline."""
-        self._tree_changed = True
-
-    async def _materialize_changed_tree(self) -> None:
-        if not self._tree_changed:
-            return
-        self._tree_changed = False
-        from plato.transports.git import GitTransport
-
-        # Under the git sync lock, so the rsync never copies a tree that a
-        # merge is resetting at the same time.
-        sync_lock = self._transport.sync_lock if isinstance(self._transport, GitTransport) else None
-        try:
-            await self.ensure_fuse_mount()
-            async with sync_lock or nullcontext():
-                await self.materialize_current_tree_into_overlay()
-        except BaseException:
-            self._tree_changed = True
-            raise
-
-    def _in_fuse_git_lock(self) -> asyncio.Lock | None:
-        """The git sync lock when repo/.git sits inside the mount, else None."""
-        from plato.transports.git import GitTransport
-
-        if not isinstance(self._transport, GitTransport):
-            return None
-        if self._transport.merge_config.worktree_git_off_fuse:
-            return None
-        return self._transport.sync_lock
-
     async def _commit_inner(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
-        await self._materialize_changed_tree()
-        await self._snapshot_git_transport()
-
-        # A merge refresh rewrites in-mount repo/.git packs; a concurrent read
-        # can persist a truncated pack (see GitTransportConfig.worktree_git_off_fuse).
-        async with self._in_fuse_git_lock() or nullcontext():
-            return await self._commit_tree(step_name, message, trigger_span_id=trigger_span_id)
-
-    async def _commit_tree(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
         if self.commit_strategy == "archive":
             return await self._archive_commit(step_name, message, trigger_span_id=trigger_span_id)
 
@@ -651,17 +475,6 @@ class Workspace:
             logger.debug("Workspace '%s' step '%s' has no DVC files", self.name, step_name)
             self._last_ref_step = step_name
             return True
-        expected = self.path.name
-        if expected not in dvc_files:
-            # Each dir restores into <repo_root>/<dir_name>, and the world reads only self.path: a ref
-            # registered under another dir_name restores where nothing reads it, and the world then
-            # starts on an empty workspace (a git workspace seeds an empty repo over it).
-            got = ", ".join(sorted(dvc_files))
-            raise RuntimeError(
-                f"workspace ref for step '{step_name}' (repo={self.repo_name}) holds dir_name(s) '{got}', but "
-                f"workspace '{self.name}' reads '{expected}'. Re-upload the ref with 'plato chronos workspace "
-                f"upload git ... --dir-name {expected}' (or point the launch at a ref registered under '{expected}')."
-            )
 
         s3_config = self._s3_config()
 
@@ -718,23 +531,20 @@ class Workspace:
 
         dvc_files: dict[str, str] = {}
         for dir_name, mount in list(self._lazy_mounts.items()):
-            _manifest_md5, dvc_yaml, _ = await smart_commit(
+            manifest_md5, dvc_yaml = await smart_commit(
                 mount, s3_config, dir_name=dir_name, ignore_patterns=ignore_patterns
             )
             dvc_path = self._repo_root / f"{dir_name}.dvc"
             dvc_path.write_text(dvc_yaml)
             dvc_files[dir_name] = dvc_yaml
 
-        # Manifests are content-addressed: the same .dvc files as the last recorded commit's mean the same tree.
-        changed = dvc_files != self._recorded_dvc_files
-        if changed:
-            await self._validate_dvc_files_restorable(dvc_files)
-        await self._record_workspace_ref(
-            step_name, "output", dvc_files, changed=changed, trigger_span_id=trigger_span_id
+        await self._validate_dvc_files_restorable(dvc_files)
+        ref_public_id = await self._record_workspace_ref(
+            step_name, "output", dvc_files, changed=True, trigger_span_id=trigger_span_id
         )
-        self._recorded_dvc_files = dvc_files
+        await self._upload_audit_events(step_name, ref_public_id)
 
-        return json.dumps({"step": step_name, "dvc_files": list(dvc_files.keys()), "changed": changed})
+        return json.dumps({"step": step_name, "dvc_files": list(dvc_files.keys())})
 
     async def _archive_commit(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
         """Commit workspace as a single tar.gz archive to S3."""
@@ -775,7 +585,10 @@ class Workspace:
             dvc_path.write_text(dvc_yaml)
             dvc_files[dir_name] = dvc_yaml
 
-        await self._record_workspace_ref(step_name, "output", dvc_files, changed=True, trigger_span_id=trigger_span_id)
+        ref_public_id = await self._record_workspace_ref(
+            step_name, "output", dvc_files, changed=True, trigger_span_id=trigger_span_id
+        )
+        await self._upload_audit_events(step_name, ref_public_id)
 
         return json.dumps({"step": step_name, "dvc_files": list(dvc_files.keys())})
 
@@ -850,17 +663,10 @@ class Workspace:
         source_session_public_id: str | None = None,
         source_repo_name: str | None = None,
         source_step_name: str | None = None,
-        source_download_token: str | None = None,
         changed: bool | None = None,
         trigger_span_id: str = "",
     ) -> str | None:
-        """Record a workspace ref with Chronos. Returns the ref public_id if available.
-
-        ``source_download_token`` is the ``wdt_`` token a seed was restored
-        through: Chronos resolves ``source_ref_public_id`` inside the caller's
-        org, so lineage to a source in another org is only recordable with the
-        token as proof of read access.
-        """
+        """Record a workspace ref with Chronos. Returns the ref public_id if available."""
         if not self.chronos_url or not self.repo_name or not self.session_id:
             return None
         has_source_ref = bool(source_ref_public_id)
@@ -871,23 +677,17 @@ class Workspace:
             raise ValueError(
                 "source_session_public_id, source_repo_name, and source_step_name must be provided together"
             )
-        if source_download_token and not has_source_ref:
-            raise ValueError("source_download_token requires source_ref_public_id")
         payload: dict[str, Any] = {
             "repo_name": self.repo_name,
             "step_name": step_name,
             "direction": direction,
             "dvc_files": dvc_files,
             "changed": changed,
-            # Uploaded by the world runtime during a session (vs "manual" CLI).
-            "upload_mode": "runtime",
         }
         if trigger_span_id:
             payload["trigger_span_id"] = trigger_span_id
         if has_source_ref:
             payload["source_ref_public_id"] = source_ref_public_id
-            if source_download_token:
-                payload["source_download_token"] = source_download_token
         elif has_source_parts:
             payload["source_session_public_id"] = source_session_public_id
             payload["source_repo_name"] = source_repo_name
@@ -929,51 +729,6 @@ class Workspace:
                 return ref
         return None
 
-    async def adopt_download_source(
-        self, *, token: str, session_id: str, repo_name: str, step_name: str
-    ) -> dict[str, Any]:
-        """Point this workspace at a source readable only through a ``wdt_`` token.
-
-        A workspace download token authorizes exactly two Chronos routes — the
-        pinned session's workspace-refs listing and that repo's read-only S3
-        credentials — which is all ``restore()`` needs. The repo is therefore
-        resolved from the ref listing (``repo_public_id``) and its bucket/prefix
-        from the credentials reply, never via ``/resolve``: that route needs a
-        full principal and resolves-or-creates the *name* in the caller's org,
-        i.e. an empty repo when the source lives in another org.
-
-        Mutates identity in place (api_key, session_id, repo_*); callers restore
-        the original identity after the restore, as ``load_state`` does for
-        every cross-repo source. Returns the ref that will be restored.
-        """
-        self.api_key = token
-        self.session_id = session_id
-        self.repo_name = repo_name
-        self.repo_id = ""
-        self.s3_bucket = ""
-        self.s3_prefix = ""
-        self._sts_credentials = {}
-        self._sts_expires_at = 0
-        ref = await self._fetch_workspace_ref(step_name)
-        if not ref:
-            raise RuntimeError(
-                f"Download token for workspace '{self.name}' grants no ref for step '{step_name}' "
-                f"(session={session_id}, repo={repo_name})"
-            )
-        repo_id = str(ref.get("repo_public_id") or "")
-        if not repo_id:
-            raise RuntimeError(
-                f"Chronos returned no repo_public_id for workspace '{self.name}' "
-                f"(session={session_id}, repo={repo_name}, step={step_name})"
-            )
-        self.repo_id = repo_id
-        await self._refresh_credentials()
-        if not self.s3_bucket or not self.s3_prefix:
-            raise RuntimeError(
-                f"Chronos credentials for workspace '{self.name}' carry no bucket/prefix (repo={repo_name})"
-            )
-        return ref
-
     async def _refresh_credentials(self) -> None:
         """Fetch STS credentials from Chronos scoped to this repo's S3 prefix."""
         if not self.chronos_url or not self.repo_id:
@@ -983,13 +738,6 @@ class Workspace:
             f"/api/workspace-repos/{self.repo_id}/credentials",
         )
         data = resp.json()
-        # The reply names the prefix the credentials are scoped to. A workspace
-        # resolved by name already knows it; one adopted through a download
-        # token (no /resolve) learns it here.
-        if not self.s3_bucket and data.get("bucket"):
-            self.s3_bucket = str(data["bucket"])
-        if not self.s3_prefix and data.get("prefix"):
-            self.s3_prefix = str(data["prefix"])
         self._sts_credentials = {
             "AWS_ACCESS_KEY_ID": data["aws_access_key_id"],
             "AWS_SECRET_ACCESS_KEY": data["aws_secret_access_key"],
@@ -1010,7 +758,12 @@ class Workspace:
     def _credential_refresh_config(self) -> dict[str, str | int] | None:
         if not (self.chronos_url and self.repo_id and self.api_key):
             return None
-        return credential_refresh_config(self.chronos_url, self.repo_id, self.api_key)
+        return {
+            "chronos_url": self.chronos_url,
+            "repo_id": self.repo_id,
+            "api_key": self.api_key,
+            "refresh_margin_seconds": 300,
+        }
 
     def _s3_config(self) -> S3Config:
         return S3Config(
@@ -1021,160 +774,105 @@ class Workspace:
             credential_refresh=self._credential_refresh_config(),
         )
 
-    async def _agent_fuse_s3_config_dict(self) -> dict[str, Any]:
-        """S3 config dict for direct agent-VM fuse mounts of this workspace.
-
-        Load-bearing for cross-repo restores: after ``restore()`` the
-        workspace's own repo identity is swapped back in, but the mounted
-        content's blobs live under the SOURCE repo's prefix — so the agent
-        config must reuse the S3 config captured on the lazy mount (bucket,
-        prefix, credential_refresh) with freshly fetched STS credentials for
-        that source repo.
-        """
-        lazy_mount = self._lazy_mounts.get(self.path.name)
-        source = lazy_mount.s3_config if lazy_mount is not None else None
-        if source is None:
-            await self._ensure_credentials()
-            return self._s3_config().to_dict()
-
-        refresh = source.credential_refresh
-        if not refresh:
-            # No Chronos-backed refresh (e.g. unit tests / untracked overlay
-            # mounts): pass through the captured credentials as-is.
-            return source.to_dict()
-
-        repo_id = str(refresh["repo_id"])
-        cached = self._agent_fuse_source_creds.get(repo_id)
-        if cached is None or time.time() >= cached[1] - 300:
-            resp = await self._chronos_request(
-                "POST",
-                f"/api/workspace-repos/{repo_id}/credentials",
-            )
-            data = resp.json()
-            credentials = {
-                "AWS_ACCESS_KEY_ID": data["aws_access_key_id"],
-                "AWS_SECRET_ACCESS_KEY": data["aws_secret_access_key"],
-                "AWS_SESSION_TOKEN": data["aws_session_token"],
-                "AWS_DEFAULT_REGION": data.get("region", "us-east-1"),
-            }
-            expires_at = int(datetime.fromisoformat(data["expires_at"].replace("Z", "+00:00")).timestamp())
-            cached = (credentials, expires_at)
-            self._agent_fuse_source_creds[repo_id] = cached
-            logger.debug("Refreshed agent-fuse STS credentials for source repo id '%s'", repo_id)
-
-        return S3Config(
-            bucket=source.bucket,
-            prefix=source.prefix,
-            credentials=cached[0],
-            credentials_expires_at=cached[1],
-            credential_refresh=refresh,
-        ).to_dict()
-
-    async def build_agent_fuse_config(self, mountpoint: str, cache_dir: str, manifest_by_ref: bool = False) -> bytes:
-        """Gzipped plato-fuse worker config for a direct agent-VM mount.
-
-        Same shape ``mount_lazy`` writes for the world-side mount — the
-        restored manifest plus an :class:`S3Config` dict carrying STS
-        credentials, ``credentials_expires_at``, and the ``credential_refresh``
-        block (chronos_url/repo_id/api_key) so the agent-side fuse process can
-        refresh its own credentials for long runs. Serves the committed
-        manifest only: world-side overlay writes are NOT visible to agent VMs
-        (datasets are read-only, so this only matters if someone mutates the
-        workspace world-side — warned about below).
-
-        With ``manifest_by_ref`` the manifest is sent as a content-hash
-        reference (``manifest_ref``) instead of inline and the fuse worker
-        fetches the blob from the S3 dvc-cache itself — shrinking the
-        per-agent config push from ~30 MB gz to ~1 KB for large datasets.
-        Only pass it after probing that the remote binary advertises the
-        ``manifest-ref`` capability; empty manifests always go inline (there
-        is no blob to reference).
-        """
-        self._require_tracked()
-
-        dir_name = self.path.name
-        lazy_mount = self._lazy_mounts.get(dir_name)
-        manifest_ref_md5 = ""
-        manifest_dict: dict[str, Any] | None = None
-        manifest_md5 = ""
-        if lazy_mount is not None:
-            manifest_md5 = lazy_mount.manifest.manifest_md5
-            if manifest_by_ref and manifest_md5:
-                manifest_ref_md5 = manifest_md5
-            else:
-                # Inline fallback: serializing 835k entries costs seconds and
-                # ~100 MB, so skip it entirely when sending by reference.
-                manifest_dict = lazy_mount.manifest.to_dict()
-            overlay_dir = lazy_mount.overlay_dir
-            if overlay_dir.exists() and any(overlay_dir.iterdir()):
-                logger.warning(
-                    "Workspace '%s': world-side overlay changes exist but agent-VM fuse "
-                    "mounts serve the committed manifest only — agents will not see them",
-                    self.name,
-                )
-        elif self.path.exists() and any(self.path.iterdir()):
-            # Archive-format restores extract files directly (no lazy manifest
-            # mount), so there is no committed manifest to serve — a direct
-            # agent-VM fuse mount would silently present an EMPTY dataset
-            # (NFS, by contrast, exports the materialized directory). Fail
-            # loudly at setup instead.
-            raise RuntimeError(
-                f"Workspace '{self.name}' has materialized files at {self.path} but no lazy "
-                "manifest mount (archive-format restore) — a direct agent-VM fuse mount would "
-                'serve an empty dataset. Use mount: "nfs" for this dataset, or re-commit its '
-                "ref with the manifest strategy."
-            )
-        else:
-            manifest_dict = {"entries": [], "manifest_md5": ""}
-
-        # Singleflight: serialize builds so concurrent agent mounts share one
-        # serialize+gzip pass, and the credential expiry that keys the cache
-        # is always read at build time (a slower builder can never insert a
-        # config from an older credential window over a fresher one).
-        async with self._fuse_agent_config_lock:
-            s3_config_dict = await self._agent_fuse_s3_config_dict()
-
-            cache_key = (
-                manifest_md5,
-                s3_config_dict.get("credentials_expires_at"),
-                mountpoint,
-                cache_dir,
-                bool(manifest_ref_md5),
-            )
-            cached_config = self._fuse_agent_config_cache.get(cache_key)
-            if cached_config is not None:
-                return cached_config
-
-            def _serialize() -> bytes:
-                payload: dict[str, Any] = {
-                    "s3_config": s3_config_dict,
-                    "mountpoint": mountpoint,
-                    "cache_dir": cache_dir,
-                }
-                if manifest_ref_md5:
-                    payload["manifest_ref"] = {"manifest_md5": manifest_ref_md5}
-                else:
-                    payload["manifest"] = (
-                        manifest_dict if manifest_dict is not None else {"entries": [], "manifest_md5": ""}
-                    )
-                config_json = json.dumps(payload)
-                # Fast compression: the manifest JSON is highly repetitive, so
-                # level 1 already shrinks it ~5x and keeps setup latency low.
-                return gzip.compress(config_json.encode(), compresslevel=1)
-
-            config_gz = await asyncio.to_thread(_serialize)
-            # Evict entries from previous credential windows / manifests; keep
-            # sibling mountpoints of the current window (orchestrator + agents).
-            for key in list(self._fuse_agent_config_cache):
-                if key[0] != cache_key[0] or key[1] != cache_key[1]:
-                    del self._fuse_agent_config_cache[key]
-            self._fuse_agent_config_cache[cache_key] = config_gz
-            return config_gz
-
     async def _ensure_credentials(self) -> None:
         if self.chronos_url and self.repo_id:
             if not self._sts_credentials or time.time() >= self._sts_expires_at:
                 await self._refresh_credentials()
+
+    def _audit_scope_dir(self) -> Path:
+        return self._repo_root / ".plato" / "audit" / self.name
+
+    def _audit_scope_files(self) -> list[Path]:
+        audit_dir = self._audit_scope_dir()
+        if not audit_dir.exists():
+            return []
+        return sorted(audit_dir.glob("*.jsonl"))
+
+    def _read_audit_scope_events(self, paths: list[Path]) -> list[AuditEventInput]:
+        events: list[AuditEventInput] = []
+        for path in paths:
+            try:
+                records = read_audit_records(path)
+                events.extend(record.to_audit_event_input() for record in records)
+            except FileNotFoundError:
+                continue
+            except Exception as exc:
+                logger.warning(
+                    "Skipping invalid audit spool file %s: %s",
+                    path,
+                    exc,
+                )
+        return events
+
+    async def _upload_audit_events(self, step_name: str, ref_public_id: str | None) -> None:
+        """Upload audit events from local scoped JSONL spool files to Chronos."""
+        try:
+            if not self.chronos_url or not self.session_id or not self.tracked:
+                return
+
+            if not ref_public_id:
+                logger.debug(
+                    "Skipping audit upload for workspace '%s' at step '%s' because no committed ref_public_id was recorded",
+                    self.name,
+                    step_name,
+                )
+                return
+
+            scope_files = self._audit_scope_files()
+            if not scope_files:
+                return
+
+            events = await asyncio.to_thread(self._read_audit_scope_events, scope_files)
+            if not events:
+                logger.debug("No audit events to upload for step '%s'", step_name)
+                for path in scope_files:
+                    try:
+                        path.unlink()
+                    except OSError:
+                        pass
+                return
+
+            # Transform paths from agent mount path to workspace-relative paths
+            # so they match the file tree in workspace refs.
+            # Agent sees: /workspace/input_a.txt (mount_path)
+            # Workspace ref stores: /data/input_a.txt (relative to _repo_root)
+            mount = self.mount_path.rstrip("/")
+            repo_root = str(self._repo_root)
+            ws_relative = str(self.path).removeprefix(repo_root)  # e.g. "/data"
+            if mount:
+                for event in events:
+                    if event.path.startswith(mount):
+                        event.path = ws_relative + event.path[len(mount) :]
+                    if event.new_path and event.new_path.startswith(mount):
+                        event.new_path = ws_relative + event.new_path[len(mount) :]
+
+            # Upload in chunks of 500
+            chunk_size = 500
+            total_uploaded = 0
+            async with httpx.AsyncClient(
+                base_url=self.chronos_url,
+                headers={"X-API-Key": self.api_key},
+                timeout=30,
+            ) as client:
+                for i in range(0, len(events), chunk_size):
+                    chunk = events[i : i + chunk_size]
+                    payload = BulkRefAuditEventsRequest(events=chunk)
+                    await bulk_ingest_ref_audit_events.asyncio(
+                        client,
+                        ref_public_id=ref_public_id,
+                        body=payload,
+                    )
+                    total_uploaded += len(chunk)
+
+            logger.debug("Uploaded %d audit events for step '%s'", total_uploaded, step_name)
+
+            for path in scope_files:
+                try:
+                    path.unlink()
+                except OSError:
+                    pass
+        except Exception:
+            logger.warning("Failed to upload audit events for step '%s'", step_name, exc_info=True)
 
     def _require_tracked(self) -> None:
         if not self.tracked:

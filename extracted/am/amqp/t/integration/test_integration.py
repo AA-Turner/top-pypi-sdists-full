@@ -701,6 +701,38 @@ class test_channel:
             assert ch.callbacks['my_tag'] == callback_mock
             assert ret == 'my_tag'
 
+    def test_consume_nowait_with_consumer_tag(self):
+        # Test verifying starting consuming with nowait and specified
+        # consumer_tag. Broker does not send ConsumeOk in this case.
+        callback_mock = Mock()
+        frame_writer_cls_mock = Mock()
+        conn = Connection(frame_writer=frame_writer_cls_mock)
+        with patch.object(conn, 'Transport') as transport_mock:
+            handshake(conn, transport_mock)
+            ch = create_channel(1, conn, transport_mock)
+
+            transport_mock().read_frame.reset_mock()
+            frame_writer_mock = frame_writer_cls_mock()
+            frame_writer_mock.reset_mock()
+            ret = ch.basic_consume(
+                'my_queue', callback=callback_mock, consumer_tag='my_tag',
+                nowait=True
+            )
+            frame_writer_mock.assert_called_once_with(
+                1, 1, spec.Basic.Consume,
+                dumps(
+                    'BssbbbbF',
+                    (
+                        0, 'my_queue', 'my_tag',
+                        False, False, False, True, None
+                    )
+                ),
+                None
+            )
+            transport_mock().read_frame.assert_not_called()
+            assert ch.callbacks['my_tag'] == callback_mock
+            assert ret == 'my_tag'
+
     def test_queue_declare(self):
         # Test verifying declaring queue
         frame_writer_cls_mock = Mock()
@@ -901,6 +933,45 @@ class test_channel:
             assert msg.properties == {
                 'application_headers': {}, 'delivery_mode': 1
             }
+
+    def test_consumer_cancelled_by_broker(self):
+        # Test verifying that a no_ack consumer cancelled by the broker
+        # (e.g. because its queue was deleted) is fully forgotten
+        callback_mock = Mock()
+        on_cancel_mock = Mock()
+        frame_writer_cls_mock = Mock()
+        conn = Connection(frame_writer=frame_writer_cls_mock)
+        consumer_tag = 'amq.ctag-PCmzXGkhCw_v0Zq7jXyvkg'
+        with patch.object(conn, 'Transport') as transport_mock:
+            handshake(conn, transport_mock)
+            ch = create_channel(1, conn, transport_mock)
+
+            transport_mock().read_frame.side_effect = [
+                # Inject Consume-ok response
+                build_frame_type_1(
+                    spec.Basic.ConsumeOk,
+                    channel=1,
+                    args=(consumer_tag,),
+                    arg_format='s'
+                ),
+                # Inject Basic.Cancel sent by broker
+                build_frame_type_1(
+                    spec.Basic.Cancel,
+                    channel=1,
+                    args=(consumer_tag,),
+                    arg_format='s'
+                ),
+            ]
+            ch.basic_consume(
+                'my_queue', no_ack=True,
+                callback=callback_mock, on_cancel=on_cancel_mock,
+            )
+            assert consumer_tag in ch.no_ack_consumers
+            conn.drain_events()
+            on_cancel_mock.assert_called_once_with(consumer_tag)
+            assert consumer_tag not in ch.callbacks
+            assert consumer_tag not in ch.cancel_callbacks
+            assert consumer_tag not in ch.no_ack_consumers
 
     def test_queue_get(self):
         # Test verifying getting message from queue

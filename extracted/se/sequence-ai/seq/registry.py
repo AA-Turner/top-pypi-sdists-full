@@ -21,18 +21,17 @@ from typing import Any
 from sequence_base.contract import (
     Concurrency,
     ImageSpec,
-    ImageStepUvPip,
     InferParam,
     PolicyRegistration,
     PolicySpec,
     SecretRef,
     SeqFlags,
 )
-from sequence_base.by_name import INFER_PLATFORM, OBSERVE_PLATFORM
+from sequence_base.by_name import INFER_PLATFORM, OBSERVE_PLATFORM, RESET_GONE
 from sequence_base.constants.serving import EPISODE_IDLE_S, MACHINE_CARDS, REQUEST_TIMEOUT_S, STARTUP_TIMEOUT_S
 
 from seq._partial import Refused, hook, hooks_along, keeping, refused
-from seq import kinds, named
+from seq import named
 from seq.errors import PolicyDefinitionError
 from seq.image import Image
 from seq.secret import Secret
@@ -147,6 +146,12 @@ def _register(cls: type, policy_kwargs: dict[str, Any], bindings: dict[SeqFlags,
 
 
 
+    if SeqFlags.RESET in bindings:
+        raise PolicyDefinitionError(f"{cls.__name__}.{bindings[SeqFlags.RESET]}: {RESET_GONE}")
+
+
+
+
     constructor = named.constructor(cls, policy_kwargs)
 
     named.check(cls, bindings)
@@ -176,8 +181,8 @@ def _register(cls: type, policy_kwargs: dict[str, Any], bindings: dict[SeqFlags,
 
 
 _PLANNER_BINDS = (SeqFlags.PLAN, SeqFlags.SHUTDOWN, SeqFlags.SAMPLE)
-_DECORATOR = {SeqFlags.INFER: "infer", SeqFlags.OBSERVE: "observe", SeqFlags.RESET: "reset",
-              SeqFlags.ON_EPISODE: "on_episode", SeqFlags.SAMPLE: "sample"}
+_DECORATOR = {SeqFlags.INFER: "infer", SeqFlags.OBSERVE: "observe", SeqFlags.ON_EPISODE: "on_episode",
+              SeqFlags.SAMPLE: "sample"}
 
 
 def _register_planner(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str], plan_every_s: float | None,
@@ -271,33 +276,28 @@ def _collect_bindings(cls: type) -> tuple[dict[SeqFlags, str], float | None]:
 
 
 
-_OWN_STATE = (SeqFlags.ON_EPISODE, SeqFlags.RESET, SeqFlags.OBSERVE)
+_OWN_STATE = (SeqFlags.ON_EPISODE, SeqFlags.OBSERVE)
 
 
 def episodes_of(cls: type, bindings: dict[SeqFlags, str] | None) -> str | None:
     """How a policy keeps an episode's state, from how it is written (PolicySpec.episodes) - never declared:
     "shared" - its @seq.infer is @seq.concurrent, a batch's episodes handed to it as a list, with an @seq.observe or
-    @seq.on_episode method or not (an episode's end hands it that episode's alone); else "own" - an @seq.observe
-    method that does not take `episode`, whatever infer takes, or an @seq.reset method, which is handed nothing, so
-    what it clears is on the class (in an eval a copy takes its episodes in turn, and the next one's reset would clear
-    the one before mid-episode); else "shared" - its @seq.infer takes `episode`, the platform's seq.Episode, kept on the
-    copy serving it, one robot a copy - and its @seq.observe method too, when it has one: what the two keep is in
-    episode.state; else "own" - a hook keeps it on the class (@seq.on_episode, or an @seq.observe method beside an
-    infer handed no episode, which reads only what the class kept), so an episode holds a copy of its own; else None -
-    it keeps none. An @seq.reset method beside @seq.concurrent is refused (_validate).
-
-
+    @seq.on_episode method or not (an episode's start and end hand it that episode's alone); else "own" - an
+    @seq.observe method that does not take `episode`, whatever infer takes; else "shared" - its @seq.infer takes
+    `episode`, the platform's seq.Episode, kept on the copy serving it - and its @seq.observe method too, when it has one:
+    what they keep is in episode.state and episode.local; else "own" - an @seq.on_episode method beside an infer handed no
+    episode keeps it on the class, so an episode holds a copy of its own; else None - it keeps none. A policy has no
+    @seq.reset (_register refuses one): its @seq.on_episode runs as an episode begins, episode.phase "start".
+    
 
 
 """
     bindings = bindings or {}
     infer = bindings.get(SeqFlags.INFER)
     if infer is not None:
-        if getattr(hook(cls, infer), "__seq_concurrent__", None) and SeqFlags.RESET not in bindings:
+        if getattr(hook(cls, infer), "__seq_concurrent__", None):
             return "shared"
         if SeqFlags.OBSERVE in bindings and not _takes_episode(cls, bindings[SeqFlags.OBSERVE]):
-            return "own"
-        if SeqFlags.RESET in bindings:
             return "own"
         if _takes_episode(cls, infer):
             return "shared"
@@ -388,7 +388,7 @@ def _assemble_spec(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str] 
 
 
     image = kw.get("image")
-    setattr(cls, _IMAGE_DECLARED_ATTR, "image=" if image is not None else "deps=" if "deps" in kw else None)
+    setattr(cls, _IMAGE_DECLARED_ATTR, "image=" if image is not None else None)
     if image is None:
         image_spec = Image.debian_slim()._spec()
     elif isinstance(image, Image):
@@ -399,27 +399,6 @@ def _assemble_spec(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str] 
         raise PolicyDefinitionError(
             f"image= must be a seq.Image, got {type(image).__name__}"
         )
-
-
-
-
-
-
-
-    if "deps" in kw:
-        deps = kw["deps"]
-        if not isinstance(deps, (list, tuple)) or isinstance(deps, (str, bytes)):
-            raise PolicyDefinitionError(
-                f"deps= must be a list of package strings, got {type(deps).__name__}"
-            )
-        for pkg in deps:
-            if not isinstance(pkg, str):
-                raise PolicyDefinitionError(
-                    f"deps= entries must be package strings, got {type(pkg).__name__}"
-                )
-
-        image_spec = image_spec.model_copy(
-            update={"steps": list(image_spec.steps) + [ImageStepUvPip(uv_pip_install=list(deps))]})
 
 
     secrets: list[SecretRef] = []
@@ -456,7 +435,6 @@ def _assemble_spec(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str] 
     setattr(cls, _REGION_ATTR, region_of(kw.get("region"), "region="))
     fields: dict[str, Any] = {
         "name": _name(kw, cls),
-        "io": _io_note(kw),
         "gpu": gpu,
         "image": image_spec,
         "weights": weights,
@@ -465,8 +443,6 @@ def _assemble_spec(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str] 
         "secrets": secrets,
         "concurrency": concurrency,
         "episodes": episodes,
-
-        "family": kinds.declared(kw.get("family"), "family", PolicyDefinitionError),
     }
 
 
@@ -474,11 +450,10 @@ def _assemble_spec(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str] 
         ("min_workers", "min_containers"), ("buffer_workers", "buffer_containers"), ("max_gpus", "max_gpus"),
         ("tensors", "tensors"),
         ("hz", "hz"), ("action_chunk_valid_len", "action_chunk_valid_len"),
-        ("action_chunk_replan_at", "action_chunk_replan_at"),
+        ("action_chunk_replan_at", "action_chunk_replan_at"), ("max_wait_for_batch", "max_wait_for_batch"),
     ):
         if declared in kw:
             fields[field] = kw[declared]
-
     try:
         return PolicySpec(**fields)
     except Exception as exc:
@@ -514,17 +489,6 @@ def _name(kw: dict[str, Any], cls: type) -> str:
 
         return default_name(cls.__name__)
     return check_new_name(v)
-
-
-def _io_note(kw: dict[str, Any]) -> str | None:
-    """io=: the policy's own account of what it takes and returns. The platform stores it and hands it to connecting
-    robots; it never reads it."""
-    v = kw.get("io")
-    if v is None:
-        return None
-    if not isinstance(v, str) or not v.strip() or len(v) > 4000:
-        raise PolicyDefinitionError("io= must be a non-empty description of at most 4000 characters")
-    return v
 
 
 
@@ -590,6 +554,8 @@ def _concurrency(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str]) -
         if name != infer and getattr(member, "__seq_concurrent__", None):
             raise PolicyDefinitionError(f"{cls.__name__}.{name}: @seq.concurrent goes on the @seq.infer method")
     declared = dict(getattr(vars(cls).get(infer), "__seq_concurrent__", None) or {}) if infer else {}
+
+    declared.pop("collate", None)
     if "sizes" in declared:
 
         from seq.policy import policy_sizes
@@ -679,7 +645,10 @@ def models_declared(cls: type) -> list[str] | None:
 
 
 
-REGIONS = {"us-west": "US West", "us-east": "US East"}
+
+REGIONS = {"us-east": "US East", "us-northwest": "US Northwest", "us-central": "US Central",
+           "us-east-central": "US East Central", "us-southwest": "US Southwest", "us-southeast": "US Southeast",
+           "us-mountain": "US Mountain"}
 
 
 def region_of(value: Any, said: str) -> str | None:
@@ -714,7 +683,7 @@ def locals_declared(cls: type) -> tuple[tuple[tuple[str, str], ...], tuple[str, 
 
 
 def image_declared(cls: type) -> str | None:
-    """"image=" or "deps=" when the policy wrote one (image= when both), None when it wrote neither."""
+    """"image=" when the policy wrote one, None when it did not."""
     return getattr(cls, _IMAGE_DECLARED_ATTR, None)
 
 
@@ -753,21 +722,13 @@ def _validate(cls: type, spec: PolicySpec, bindings: dict[SeqFlags, str]) -> Non
                 raise PolicyDefinitionError(
                     f"{cls.__name__}: a @seq.concurrent infer is handed a batch's {what} as a list, one for each "
                     f"observation in order - annotate it `{name}: list[seq.{kind}]`, not `{name}: {written}`")
-        if SeqFlags.RESET in bindings:
 
-
-
-            raise PolicyDefinitionError(
-                f"{cls.__name__}: @seq.concurrent cannot be used beside @seq.reset ({bindings[SeqFlags.RESET]}): a copy "
-                "serves several robots' episodes at once, and a reset is handed nothing, so one call would clear the "
-                "state they all share. Keep each robot's own state in its episode - "
-                "def infer(self, obs, *, episode: list[seq.Episode]), and episode.state[...] - and remove @seq.reset")
 
 
         if SeqFlags.SAMPLE not in bindings:
             raise PolicyDefinitionError(
-                f"{cls.__name__}: @seq.concurrent needs @seq.sample - each listed batch size is warmed and timed on the "
-                "class's sample episode before a copy serves. Mark a method that returns one episode's calls in order, "
+                f"{cls.__name__}: @seq.concurrent needs @seq.sample - its build check times each listed batch size on "
+                "the class's sample episode. Mark a method that returns one episode's calls in order, "
                 "[(\"observe\", what a robot's observe() sends), (\"act\",), ...], with @seq.sample")
 
 

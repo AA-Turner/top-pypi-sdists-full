@@ -41,10 +41,10 @@ class VoiceCloningClient:
         self,
         *,
         text: str,
-        language_code: VoiceCloningLanguage,
         voice_id: typing.Optional[str] = OMIT,
         ref_audio: typing.Optional[core.File] = OMIT,
         ref_text: typing.Optional[str] = OMIT,
+        language_code: typing.Optional[VoiceCloningLanguage] = OMIT,
         pace: typing.Optional[float] = OMIT,
         output_audio_codec: typing.Optional[VoiceCloningOutputAudioCodec] = OMIT,
         speech_sample_rate: typing.Optional[SpeechSampleRate] = OMIT,
@@ -71,7 +71,7 @@ class VoiceCloningClient:
         **Base URL:** `https://api.sarvam.ai`.
         **Auth:** send your key in the `api-subscription-key` header (recommended); `Authorization: Bearer <key>` is also accepted.
 
-        The cloned voice is cross-lingual: the reference clip's language does not need to match `language_code`.
+        `language_code` is optional — omit it to detect the language from `text`, or pass it when pronunciation has to be exact. The cloned voice is cross-lingual: the reference clip's language does not need to match `language_code`.
 
         **Billing:** charged per character of `text` against the `text_to_speech_voice_cloning` API. See the [pricing page](https://docs.sarvam.ai/api/getting-started/pricing).
 
@@ -80,8 +80,17 @@ class VoiceCloningClient:
         text : str
             Text to synthesize in the cloned voice. Native scripts and code-mixed text are supported. Maximum 1000 characters; longer text is rejected with a 400. Split longer input client-side and synthesize it in parts.
 
-        language_code : VoiceCloningLanguage
-            BCP-47 language code for the synthesized output. The cloned voice can speak any supported language, regardless of the reference clip's language (cross-lingual cloning).
+        voice_id : typing.Optional[str]
+            Saved cloned voice ID (`svc-{uuid}`) from `POST /voices/create` or Content Studio. Exactly one of `ref_audio` or `voice_id` must be provided — sending both returns `400`. Prefer `voice_id` when you already saved the voice so you do not re-upload the clip.
+
+        ref_audio : typing.Optional[core.File]
+            See core.File for more documentation
+
+        ref_text : typing.Optional[str]
+            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
+
+        language_code : typing.Optional[VoiceCloningLanguage]
+            BCP-47 language code for the synthesized output. The cloned voice can speak any supported language, regardless of the reference clip's language (cross-lingual cloning). Omit it to detect the language from `text`. Detection can be wrong on short or code-mixed text — pass this when pronunciation has to be exact. Romanized Indic and Urdu return 400; short Assamese without ৰ or ৱ is often detected as Bengali, so pass `as-IN`.
 
             **Available Options:**
             - `as-IN`: Assamese
@@ -96,15 +105,6 @@ class VoiceCloningClient:
             - `pa-IN`: Punjabi
             - `ta-IN`: Tamil
             - `te-IN`: Telugu
-
-        voice_id : typing.Optional[str]
-            Saved cloned voice ID (`svc-{uuid}`) from `POST /voices/create` or Content Studio. Exactly one of `ref_audio` or `voice_id` must be provided — sending both returns `400`. Prefer `voice_id` when you already saved the voice so you do not re-upload the clip.
-
-        ref_audio : typing.Optional[core.File]
-            See core.File for more documentation
-
-        ref_text : typing.Optional[str]
-            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
 
         pace : typing.Optional[float]
             Speech speed multiplier. `1.0` is natural speed; `0.5` to `2.0` is accepted. Speed is adjusted without changing pitch. Mutually exclusive with `max_audio_duration` - sending both returns a 400 error.
@@ -162,15 +162,14 @@ class VoiceCloningClient:
         client.voice_cloning.convert(
             voice_id="svc-123e4567-e89b-12d3-a456-426614174000",
             text="नमस्ते, मैं आपकी कैसे मदद कर सकता हूँ?",
-            language_code="hi-IN",
         )
         """
         _response = self._raw_client.convert(
             text=text,
-            language_code=language_code,
             voice_id=voice_id,
             ref_audio=ref_audio,
             ref_text=ref_text,
+            language_code=language_code,
             pace=pace,
             output_audio_codec=output_audio_codec,
             speech_sample_rate=speech_sample_rate,
@@ -189,10 +188,10 @@ class VoiceCloningClient:
         self,
         *,
         text: str,
-        language_code: VoiceCloningLanguage,
         voice_id: typing.Optional[str] = OMIT,
         ref_audio: typing.Optional[core.File] = OMIT,
         ref_text: typing.Optional[str] = OMIT,
+        language_code: typing.Optional[VoiceCloningLanguage] = OMIT,
         pace: typing.Optional[float] = OMIT,
         output_audio_codec: typing.Optional[VoiceCloningStreamCodec] = OMIT,
         output_audio_bitrate: typing.Optional[SpeechStreamBitrate] = OMIT,
@@ -207,7 +206,7 @@ class VoiceCloningClient:
         - `voice_id` — a saved cloned voice from `POST /voices/create` (or Content Studio), or
         - `ref_audio` — a reference audio clip uploaded with this request (optional `ref_text` transcript).
 
-        Sending both returns `400`. The response is a binary audio stream (not JSON), so you can begin playback as soon as the first sentence is ready.
+        Sending both returns `400`. `language_code` is optional — omit it to detect the language from `text`, or pass it when pronunciation has to be exact. The response is a binary audio stream (not JSON), so you can begin playback as soon as the first sentence is ready.
 
         Accepts `multipart/form-data`.
 
@@ -225,8 +224,17 @@ class VoiceCloningClient:
         text : str
             Text to synthesize in the cloned voice. Native scripts and code-mixed text are supported. Maximum 1000 characters; longer text is rejected with a 400. Split longer input client-side and synthesize it in parts.
 
-        language_code : VoiceCloningLanguage
-            BCP-47 language code for the synthesized output. The cloned voice can speak any supported language, regardless of the reference clip's language (cross-lingual cloning).
+        voice_id : typing.Optional[str]
+            Saved cloned voice ID (`svc-{uuid}`) from `POST /voices/create` or Content Studio. Exactly one of `ref_audio` or `voice_id` must be provided — sending both returns `400`. Prefer `voice_id` when you already saved the voice so you do not re-upload the clip.
+
+        ref_audio : typing.Optional[core.File]
+            See core.File for more documentation
+
+        ref_text : typing.Optional[str]
+            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
+
+        language_code : typing.Optional[VoiceCloningLanguage]
+            BCP-47 language code for the synthesized output. The cloned voice can speak any supported language, regardless of the reference clip's language (cross-lingual cloning). Omit it to detect the language from `text`. Detection can be wrong on short or code-mixed text — pass this when pronunciation has to be exact. Romanized Indic and Urdu return 400; short Assamese without ৰ or ৱ is often detected as Bengali, so pass `as-IN`.
 
             **Available Options:**
             - `as-IN`: Assamese
@@ -241,15 +249,6 @@ class VoiceCloningClient:
             - `pa-IN`: Punjabi
             - `ta-IN`: Tamil
             - `te-IN`: Telugu
-
-        voice_id : typing.Optional[str]
-            Saved cloned voice ID (`svc-{uuid}`) from `POST /voices/create` or Content Studio. Exactly one of `ref_audio` or `voice_id` must be provided — sending both returns `400`. Prefer `voice_id` when you already saved the voice so you do not re-upload the clip.
-
-        ref_audio : typing.Optional[core.File]
-            See core.File for more documentation
-
-        ref_text : typing.Optional[str]
-            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
 
         pace : typing.Optional[float]
             Speech speed multiplier. `1.0` is natural speed; `0.5` to `2.0` is accepted. Speed is adjusted without changing pitch.
@@ -289,16 +288,15 @@ class VoiceCloningClient:
         client.voice_cloning.convert_stream(
             voice_id="svc-123e4567-e89b-12d3-a456-426614174000",
             text="नमस्ते। यह एक स्ट्रीमिंग टेस्ट है।",
-            language_code="hi-IN",
             output_audio_codec="mp3",
         )
         """
         with self._raw_client.convert_stream(
             text=text,
-            language_code=language_code,
             voice_id=voice_id,
             ref_audio=ref_audio,
             ref_text=ref_text,
+            language_code=language_code,
             pace=pace,
             output_audio_codec=output_audio_codec,
             output_audio_bitrate=output_audio_bitrate,
@@ -524,10 +522,10 @@ class AsyncVoiceCloningClient:
         self,
         *,
         text: str,
-        language_code: VoiceCloningLanguage,
         voice_id: typing.Optional[str] = OMIT,
         ref_audio: typing.Optional[core.File] = OMIT,
         ref_text: typing.Optional[str] = OMIT,
+        language_code: typing.Optional[VoiceCloningLanguage] = OMIT,
         pace: typing.Optional[float] = OMIT,
         output_audio_codec: typing.Optional[VoiceCloningOutputAudioCodec] = OMIT,
         speech_sample_rate: typing.Optional[SpeechSampleRate] = OMIT,
@@ -554,7 +552,7 @@ class AsyncVoiceCloningClient:
         **Base URL:** `https://api.sarvam.ai`.
         **Auth:** send your key in the `api-subscription-key` header (recommended); `Authorization: Bearer <key>` is also accepted.
 
-        The cloned voice is cross-lingual: the reference clip's language does not need to match `language_code`.
+        `language_code` is optional — omit it to detect the language from `text`, or pass it when pronunciation has to be exact. The cloned voice is cross-lingual: the reference clip's language does not need to match `language_code`.
 
         **Billing:** charged per character of `text` against the `text_to_speech_voice_cloning` API. See the [pricing page](https://docs.sarvam.ai/api/getting-started/pricing).
 
@@ -563,8 +561,17 @@ class AsyncVoiceCloningClient:
         text : str
             Text to synthesize in the cloned voice. Native scripts and code-mixed text are supported. Maximum 1000 characters; longer text is rejected with a 400. Split longer input client-side and synthesize it in parts.
 
-        language_code : VoiceCloningLanguage
-            BCP-47 language code for the synthesized output. The cloned voice can speak any supported language, regardless of the reference clip's language (cross-lingual cloning).
+        voice_id : typing.Optional[str]
+            Saved cloned voice ID (`svc-{uuid}`) from `POST /voices/create` or Content Studio. Exactly one of `ref_audio` or `voice_id` must be provided — sending both returns `400`. Prefer `voice_id` when you already saved the voice so you do not re-upload the clip.
+
+        ref_audio : typing.Optional[core.File]
+            See core.File for more documentation
+
+        ref_text : typing.Optional[str]
+            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
+
+        language_code : typing.Optional[VoiceCloningLanguage]
+            BCP-47 language code for the synthesized output. The cloned voice can speak any supported language, regardless of the reference clip's language (cross-lingual cloning). Omit it to detect the language from `text`. Detection can be wrong on short or code-mixed text — pass this when pronunciation has to be exact. Romanized Indic and Urdu return 400; short Assamese without ৰ or ৱ is often detected as Bengali, so pass `as-IN`.
 
             **Available Options:**
             - `as-IN`: Assamese
@@ -579,15 +586,6 @@ class AsyncVoiceCloningClient:
             - `pa-IN`: Punjabi
             - `ta-IN`: Tamil
             - `te-IN`: Telugu
-
-        voice_id : typing.Optional[str]
-            Saved cloned voice ID (`svc-{uuid}`) from `POST /voices/create` or Content Studio. Exactly one of `ref_audio` or `voice_id` must be provided — sending both returns `400`. Prefer `voice_id` when you already saved the voice so you do not re-upload the clip.
-
-        ref_audio : typing.Optional[core.File]
-            See core.File for more documentation
-
-        ref_text : typing.Optional[str]
-            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
 
         pace : typing.Optional[float]
             Speech speed multiplier. `1.0` is natural speed; `0.5` to `2.0` is accepted. Speed is adjusted without changing pitch. Mutually exclusive with `max_audio_duration` - sending both returns a 400 error.
@@ -650,7 +648,6 @@ class AsyncVoiceCloningClient:
             await client.voice_cloning.convert(
                 voice_id="svc-123e4567-e89b-12d3-a456-426614174000",
                 text="नमस्ते, मैं आपकी कैसे मदद कर सकता हूँ?",
-                language_code="hi-IN",
             )
 
 
@@ -658,10 +655,10 @@ class AsyncVoiceCloningClient:
         """
         _response = await self._raw_client.convert(
             text=text,
-            language_code=language_code,
             voice_id=voice_id,
             ref_audio=ref_audio,
             ref_text=ref_text,
+            language_code=language_code,
             pace=pace,
             output_audio_codec=output_audio_codec,
             speech_sample_rate=speech_sample_rate,
@@ -680,10 +677,10 @@ class AsyncVoiceCloningClient:
         self,
         *,
         text: str,
-        language_code: VoiceCloningLanguage,
         voice_id: typing.Optional[str] = OMIT,
         ref_audio: typing.Optional[core.File] = OMIT,
         ref_text: typing.Optional[str] = OMIT,
+        language_code: typing.Optional[VoiceCloningLanguage] = OMIT,
         pace: typing.Optional[float] = OMIT,
         output_audio_codec: typing.Optional[VoiceCloningStreamCodec] = OMIT,
         output_audio_bitrate: typing.Optional[SpeechStreamBitrate] = OMIT,
@@ -698,7 +695,7 @@ class AsyncVoiceCloningClient:
         - `voice_id` — a saved cloned voice from `POST /voices/create` (or Content Studio), or
         - `ref_audio` — a reference audio clip uploaded with this request (optional `ref_text` transcript).
 
-        Sending both returns `400`. The response is a binary audio stream (not JSON), so you can begin playback as soon as the first sentence is ready.
+        Sending both returns `400`. `language_code` is optional — omit it to detect the language from `text`, or pass it when pronunciation has to be exact. The response is a binary audio stream (not JSON), so you can begin playback as soon as the first sentence is ready.
 
         Accepts `multipart/form-data`.
 
@@ -716,8 +713,17 @@ class AsyncVoiceCloningClient:
         text : str
             Text to synthesize in the cloned voice. Native scripts and code-mixed text are supported. Maximum 1000 characters; longer text is rejected with a 400. Split longer input client-side and synthesize it in parts.
 
-        language_code : VoiceCloningLanguage
-            BCP-47 language code for the synthesized output. The cloned voice can speak any supported language, regardless of the reference clip's language (cross-lingual cloning).
+        voice_id : typing.Optional[str]
+            Saved cloned voice ID (`svc-{uuid}`) from `POST /voices/create` or Content Studio. Exactly one of `ref_audio` or `voice_id` must be provided — sending both returns `400`. Prefer `voice_id` when you already saved the voice so you do not re-upload the clip.
+
+        ref_audio : typing.Optional[core.File]
+            See core.File for more documentation
+
+        ref_text : typing.Optional[str]
+            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
+
+        language_code : typing.Optional[VoiceCloningLanguage]
+            BCP-47 language code for the synthesized output. The cloned voice can speak any supported language, regardless of the reference clip's language (cross-lingual cloning). Omit it to detect the language from `text`. Detection can be wrong on short or code-mixed text — pass this when pronunciation has to be exact. Romanized Indic and Urdu return 400; short Assamese without ৰ or ৱ is often detected as Bengali, so pass `as-IN`.
 
             **Available Options:**
             - `as-IN`: Assamese
@@ -732,15 +738,6 @@ class AsyncVoiceCloningClient:
             - `pa-IN`: Punjabi
             - `ta-IN`: Tamil
             - `te-IN`: Telugu
-
-        voice_id : typing.Optional[str]
-            Saved cloned voice ID (`svc-{uuid}`) from `POST /voices/create` or Content Studio. Exactly one of `ref_audio` or `voice_id` must be provided — sending both returns `400`. Prefer `voice_id` when you already saved the voice so you do not re-upload the clip.
-
-        ref_audio : typing.Optional[core.File]
-            See core.File for more documentation
-
-        ref_text : typing.Optional[str]
-            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
 
         pace : typing.Optional[float]
             Speech speed multiplier. `1.0` is natural speed; `0.5` to `2.0` is accepted. Speed is adjusted without changing pitch.
@@ -785,7 +782,6 @@ class AsyncVoiceCloningClient:
             await client.voice_cloning.convert_stream(
                 voice_id="svc-123e4567-e89b-12d3-a456-426614174000",
                 text="नमस्ते। यह एक स्ट्रीमिंग टेस्ट है।",
-                language_code="hi-IN",
                 output_audio_codec="mp3",
             )
 
@@ -794,10 +790,10 @@ class AsyncVoiceCloningClient:
         """
         async with self._raw_client.convert_stream(
             text=text,
-            language_code=language_code,
             voice_id=voice_id,
             ref_audio=ref_audio,
             ref_text=ref_text,
+            language_code=language_code,
             pace=pace,
             output_audio_codec=output_audio_codec,
             output_audio_bitrate=output_audio_bitrate,

@@ -243,10 +243,12 @@ def _transport_call(
     handler: str,
     feather_bytes: bytes,
     metadata: Sequence[Tuple[str, str]],
+    retry_policy: Optional[Mapping[str, Any]] = None,
 ) -> List[bytes]:
     remote_client = _new_remote_call_client(target, use_tls, metadata)
     try:
-        return list(remote_client.call_ipc(handler, feather_bytes))
+        options = {} if retry_policy is None else {"retry_policy": dict(retry_policy)}
+        return list(remote_client.call_ipc(handler, feather_bytes, **options))
     finally:
         remote_client.close()
 
@@ -257,13 +259,12 @@ def is_stale_route_error(error: BaseException) -> bool:
     Only connection-level failures qualify; status errors from the model are never retried.
     """
     try:
-        from chalkcompute._remote_call_client import (  # pyright: ignore[reportMissingImports]
-            RemoteCallTransportError,
-            RemoteCallUnavailableError,
-        )
+        from chalkcompute._remote_call_client import RemoteCallTransportError  # pyright: ignore[reportMissingImports]
     except ImportError:
         return False
-    return isinstance(error, (RemoteCallTransportError, RemoteCallUnavailableError))
+    # Transport errors come from connection establishment. Returned RPC statuses
+    # belong to the native invocation budget and must not trigger another call.
+    return isinstance(error, RemoteCallTransportError)
 
 
 def call_model_url(
@@ -272,6 +273,7 @@ def call_model_url(
     inputs: "Mapping[str, Sequence[Any]] | pa.RecordBatch | pa.Table",
     *,
     handler: str = DEFAULT_HANDLER,
+    retry_policy: Optional[Mapping[str, Any]] = None,
 ) -> "pa.RecordBatch":
     """Invoke a model by calling a deployment's public URL directly.
 
@@ -280,7 +282,8 @@ def call_model_url(
     """
     target, use_tls = _grpc_target_from_url(web_url)
     metadata = client._get_remote_call_metadata()  # pyright: ignore[reportPrivateUsage]
-    return _decode_output(_transport_call(target, use_tls, handler, _encode_inputs(inputs), metadata))
+    options = {} if retry_policy is None else {"retry_policy": retry_policy}
+    return _decode_output(_transport_call(target, use_tls, handler, _encode_inputs(inputs), metadata, **options))
 
 
 def new_queue_client(client: "ChalkGRPCClient") -> "RemoteCallClient":
@@ -304,6 +307,8 @@ def enqueue_model_call(
     queue_client: "RemoteCallClient",
     queue_name: str,
     inputs: "Mapping[str, Sequence[Any]] | pa.RecordBatch | pa.Table",
+    *,
+    max_retries: Optional[int] = None,
 ) -> Tuple[str, bytes]:
     """Enqueue one call, returning ``(call_id, request_bytes)``.
 
@@ -313,7 +318,8 @@ def enqueue_model_call(
     The encoded request is returned so callers can resubmit it after a transient failure.
     """
     feather_bytes = _encode_inputs(inputs)
-    call_id = queue_client.enqueue(queue_name, feather_bytes)
+    options = {} if max_retries is None else {"max_retries": max_retries}
+    call_id = queue_client.enqueue(queue_name, feather_bytes, **options)
     return call_id, feather_bytes
 
 

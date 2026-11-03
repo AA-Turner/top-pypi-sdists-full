@@ -38,7 +38,8 @@ class FlutterCommand:
 
         Args:
             locator (Union[WebElement, FlutterFinder]): The element to wait for; can be a WebElement or a FlutterFinder.
-            timeout (Optional[float]): Maximum wait time in seconds. Defaults to a predefined timeout if not specified.
+            timeout (Optional[float]): Maximum wait time in whole seconds. The Flutter server drops any fractional
+                part, so 0.5 becomes 0. Defaults to a predefined timeout if not specified.
 
         Returns:
             None
@@ -59,7 +60,8 @@ class FlutterCommand:
 
         Args:
             locator (Union[WebElement, FlutterFinder]): The element to wait for; can be a WebElement or a FlutterFinder.
-            timeout (Optional[float]): Maximum wait time in seconds. Defaults to a predefined timeout if not specified.
+            timeout (Optional[float]): Maximum wait time in whole seconds. The Flutter server drops any fractional
+                part, so 0.5 becomes 0. Defaults to a predefined timeout if not specified.
 
         Returns:
             None:
@@ -128,10 +130,10 @@ class FlutterCommand:
 
         Args:
             scroll_to (FlutterFinder): The Flutter element to scroll to.
-            scroll_direction (ScrollDirection): The direction to scroll up or down. Defaults to `ScrollDirection.DOWN`.
+            scroll_direction (ScrollDirection): The direction to scroll. Defaults to `ScrollDirection.DOWN`.
 
         KeywordArgs:
-                scrollView (str): The view of the scroll. Default value is 'Scrollable'
+                scrollView (FlutterFinder | dict): Finder of the scrollable view. Defaults to the first `Scrollable` widget
                 delta (int): delta for the scroll. Default value is 64
                 maxScrolls (int): Max times to scroll. Default value is 15
                 settleBetweenScrollsTimeout (float): settle timeout in milliseconds. Default value is 5000
@@ -142,6 +144,8 @@ class FlutterCommand:
         """
         opts['finder'] = scroll_to.to_dict()
         opts['scrollDirection'] = scroll_direction.value
+        if isinstance(opts.get('scrollView'), FlutterFinder):
+            opts['scrollView'] = opts['scrollView'].to_dict()
         return self.execute_flutter_command('scrollTillVisible', opts)
 
     def inject_mock_image(self, value: str) -> str:

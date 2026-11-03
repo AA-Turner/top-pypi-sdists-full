@@ -587,31 +587,31 @@ $tests = [Ordered]@{
         }
         Set-Variable -Name complex_args -Scope Global -Value @{
             _ansible_module_name = "test_no_log"
-            username = "user - pass - name"
-            password = "pass"
-            password2 = 1234
+            username = "user - password - name"
+            password = "password"
+            password2 = 1234567
             _ansible_inject_invocation = $true
             dict = @{
-                data = "Oops this is secret: pass"
+                data = "Oops this is secret: password"
                 dict = @{
                     pass = "plain"
-                    hide = "pass"
-                    sub_hide = "password"
-                    int_hide = 123456
+                    hide = "password"
+                    sub_hide = "password123"
+                    int_hide = 12345678
                 }
                 list = @(
-                    "pass",
                     "password",
-                    1234567,
+                    "password123",
+                    12345678,
                     "pa ss",
                     @{
                         pass = "plain"
-                        hide = "pass"
-                        sub_hide = "password"
-                        int_hide = 123456
+                        hide = "password"
+                        sub_hide = "password123"
+                        int_hide = 12345678
                     }
                 )
-                custom = "pass"
+                custom = "password"
             }
         }
 
@@ -619,10 +619,10 @@ $tests = [Ordered]@{
         $m.Result.data = $complex_args.dict
 
         # verify params internally aren't masked
-        $m.Params.username | Assert-Equal -Expected "user - pass - name"
-        $m.Params.password | Assert-Equal -Expected "pass"
-        $m.Params.password2 | Assert-Equal -Expected 1234
-        $m.Params.dict.custom | Assert-Equal -Expected "pass"
+        $m.Params.username | Assert-Equal -Expected "user - password - name"
+        $m.Params.password | Assert-Equal -Expected "password"
+        $m.Params.password2 | Assert-Equal -Expected 1234567
+        $m.Params.dict.custom | Assert-Equal -Expected "password"
 
         $failed = $false
         try {
@@ -635,68 +635,177 @@ $tests = [Ordered]@{
         }
         $failed | Assert-Equal -Expected $true
 
-        # verify no_log params are masked in invocation
+        $new_secrets = @($actual._ansible_new_secrets | Sort-Object)
+        $actual.Remove("_ansible_new_secrets")
+        Assert-Equal -Actual $new_secrets -Expected @("1234567", "password")
+
+        # verify the invocation contains the raw, unmasked values
         $expected = @{
             invocation = @{
                 module_args = @{
-                    password2 = "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
+                    password2 = 1234567
                     dict = @{
                         dict = @{
                             pass = "plain"
-                            hide = "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
-                            sub_hide = "********word"
-                            int_hide = "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
+                            hide = "password"
+                            sub_hide = "password123"
+                            int_hide = 12345678
                         }
-                        custom = "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
+                        custom = "password"
                         list = @(
-                            "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER",
-                            "********word",
-                            "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER",
+                            "password",
+                            "password123",
+                            12345678,
                             "pa ss",
                             @{
                                 pass = "plain"
-                                hide = "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
-                                sub_hide = "********word"
-                                int_hide = "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
+                                hide = "password"
+                                sub_hide = "password123"
+                                int_hide = 12345678
                             }
                         )
-                        data = "Oops this is secret: ********"
+                        data = "Oops this is secret: password"
                     }
-                    username = "user - ******** - name"
-                    password = "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
+                    username = "user - password - name"
+                    password = "password"
                 }
             }
             changed = $false
             data = $complex_args.dict
         }
         $actual | Assert-DictionaryEqual -Expected $expected
+    }
 
-        if ($IsWindows) {
-
-            $expected_event = @'
-test_no_log - Invoked with:
-  username: user - ******** - name
-  dict: dict: sub_hide: ****word
-      pass: plain
-      int_hide: ********56
-      hide: VALUE_SPECIFIED_IN_NO_LOG_PARAMETER
-      data: Oops this is secret: ********
-      custom: VALUE_SPECIFIED_IN_NO_LOG_PARAMETER
-      list:
-      - VALUE_SPECIFIED_IN_NO_LOG_PARAMETER
-      - ********word
-      - ********567
-      - pa ss
-      - sub_hide: ********word
-          pass: plain
-          int_hide: ********56
-          hide: VALUE_SPECIFIED_IN_NO_LOG_PARAMETER
-  password2: VALUE_SPECIFIED_IN_NO_LOG_PARAMETER
-  password: VALUE_SPECIFIED_IN_NO_LOG_PARAMETER
-'@
-            $actual_event = (Get-EventLog -LogName Application -Source Ansible -Newest 1).Message
-            $actual_event | Assert-DictionaryEqual -Expected $expected_event
+    "No log string value is redacted in the event log" = {
+        # This test only asserts the Windows event log, so skip it elsewhere.
+        if (-not $IsWindows) {
+            return
         }
+
+        $spec = @{
+            options = @{
+                hidden = @{type = "str"; no_log = $true }
+            }
+        }
+        Set-Variable -Name complex_args -Scope Global -Value @{
+            _ansible_module_name = "test_no_log_str"
+            hidden = "supersecretvalue"
+        }
+
+        $null = [Ansible.Basic.AnsibleModule]::Create(@(), $spec)
+        $actual_event = (Get-EventLog -LogName Application -Source Ansible -Newest 1).Message
+        $actual_event | Assert-Equal -Expected "test_no_log_str - Invoked with:`r`n  hidden: `$REDACTED`$"
+    }
+
+    "No log int value is redacted in the event log" = {
+        # This test only asserts the Windows event log, so skip it elsewhere.
+        if (-not $IsWindows) {
+            return
+        }
+
+        # A non-string no_log value is still blocked out by the pre-pass, which
+        # redacts every no_log value regardless of type or length.
+        $spec = @{
+            options = @{
+                hidden = @{type = "int"; no_log = $true }
+            }
+        }
+        Set-Variable -Name complex_args -Scope Global -Value @{
+            _ansible_module_name = "test_no_log_int"
+            hidden = 123456
+        }
+
+        $null = [Ansible.Basic.AnsibleModule]::Create(@(), $spec)
+        $actual_event = (Get-EventLog -LogName Application -Source Ansible -Newest 1).Message
+        $actual_event | Assert-Equal -Expected "test_no_log_int - Invoked with:`r`n  hidden: `$REDACTED`$"
+    }
+
+    "Registered secret is masked in the event log by the backstop" = {
+        # This test only asserts the Windows event log, so skip it elsewhere.
+        if (-not $IsWindows) {
+            return
+        }
+
+        # The pre-pass only redacts no_log values. The option key here happens to
+        # equal the registered secret text, so it survives the pre-pass and is
+        # instead caught by the SecretMasker backstop that runs over the whole
+        # formatted string - proving both layers are wired up.
+        $spec = @{
+            options = @{
+                password = @{type = "str"; no_log = $true }
+            }
+        }
+        Set-Variable -Name complex_args -Scope Global -Value @{
+            _ansible_module_name = "test_no_log_backstop"
+            password = "password"
+        }
+
+        $null = [Ansible.Basic.AnsibleModule]::Create(@(), $spec)
+        $actual_event = (Get-EventLog -LogName Application -Source Ansible -Newest 1).Message
+        $actual_event | Assert-Equal -Expected "test_no_log_backstop - Invoked with:`r`n  `$REDACTED`$: `$REDACTED`$"
+    }
+
+    "No log value nested in a dict sub-option is redacted in the event log" = {
+        # This test only asserts the Windows event log, so skip it elsewhere.
+        if (-not $IsWindows) {
+            return
+        }
+
+        # The pre-pass descends into dict sub-options and redacts nested no_log
+        # values, not just top-level ones.
+        $spec = @{
+            options = @{
+                config = @{
+                    type = "dict"
+                    options = @{
+                        hidden = @{type = "str"; no_log = $true }
+                    }
+                }
+            }
+        }
+        Set-Variable -Name complex_args -Scope Global -Value @{
+            _ansible_module_name = "test_no_log_dict"
+            config = @{
+                hidden = "supersecretvalue"
+            }
+        }
+
+        $null = [Ansible.Basic.AnsibleModule]::Create(@(), $spec)
+        $actual_event = (Get-EventLog -LogName Application -Source Ansible -Newest 1).Message
+        $actual_event | Assert-Equal -Expected "test_no_log_dict - Invoked with:`r`n  config: hidden: `$REDACTED`$"
+    }
+
+    "No log value nested in a list sub-option is redacted in the event log" = {
+        # This test only asserts the Windows event log, so skip it elsewhere.
+        if (-not $IsWindows) {
+            return
+        }
+
+        # The pre-pass descends into each element of a list of dicts and redacts
+        # nested no_log values.
+        $spec = @{
+            options = @{
+                items = @{
+                    type = "list"
+                    elements = "dict"
+                    options = @{
+                        hidden = @{type = "str"; no_log = $true }
+                    }
+                }
+            }
+        }
+        Set-Variable -Name complex_args -Scope Global -Value @{
+            _ansible_module_name = "test_no_log_list"
+            items = @(
+                @{
+                    hidden = "supersecretvalue"
+                }
+            )
+        }
+
+        $null = [Ansible.Basic.AnsibleModule]::Create(@(), $spec)
+        $actual_event = (Get-EventLog -LogName Application -Source Ansible -Newest 1).Message
+        $actual_event | Assert-Equal -Expected "test_no_log_list - Invoked with:`r`n  items: `r`n    - hidden: `$REDACTED`$"
     }
 
     "No log value with an empty string" = {
@@ -1255,6 +1364,75 @@ test_no_log - Invoked with:
             )
         }
         $actual | Assert-DictionaryEqual -Expected $expected
+    }
+
+    "LogEvent masks registered secrets" = {
+        if (-not $IsWindows) {
+            return
+        }
+
+        $m = [Ansible.Basic.AnsibleModule]::Create(@(), @{})
+        [Ansible.Secrets.SecretMasker]::RegisterSecret("SuperSecretValue")
+
+        $m.LogEvent("connecting with SuperSecretValue now")
+        $actual_event = (Get-EventLog -LogName Application -Source Ansible -Newest 1).Message
+        $actual_event | Assert-Equal -Expected "undefined win module - connecting with `$REDACTED`$ now"
+    }
+
+    "LogEvent with sanitise disabled does not mask secrets" = {
+        if (-not $IsWindows) {
+            return
+        }
+
+        $m = [Ansible.Basic.AnsibleModule]::Create(@(), @{})
+        [Ansible.Secrets.SecretMasker]::RegisterSecret("SuperSecretValue")
+
+        $m.LogEvent("connecting with SuperSecretValue now", [System.Diagnostics.EventLogEntryType]::Information, $false)
+        $actual_event = (Get-EventLog -LogName Application -Source Ansible -Newest 1).Message
+        $actual_event | Assert-Equal -Expected "undefined win module - connecting with SuperSecretValue now"
+    }
+
+    "Debug masks registered secrets" = {
+        if (-not $IsWindows) {
+            return
+        }
+
+        Set-Variable -Name complex_args -Scope Global -Value @{
+            _ansible_debug = $true
+        }
+        $m = [Ansible.Basic.AnsibleModule]::Create(@(), @{})
+        [Ansible.Secrets.SecretMasker]::RegisterSecret("SuperSecretValue")
+
+        $m.Debug("debugging SuperSecretValue here")
+        $actual_event = (Get-EventLog -LogName Application -Source Ansible -Newest 1).Message
+        $actual_event | Assert-Equal -Expected "undefined win module - [DEBUG] debugging `$REDACTED`$ here"
+    }
+
+    "Warn masks registered secrets" = {
+        if (-not $IsWindows) {
+            return
+        }
+
+        $m = [Ansible.Basic.AnsibleModule]::Create(@(), @{})
+        [Ansible.Secrets.SecretMasker]::RegisterSecret("SuperSecretValue")
+
+        $m.Warn("warning about SuperSecretValue")
+        $actual_event = (Get-EventLog -LogName Application -Source Ansible -Newest 1)
+        $actual_event.EntryType | Assert-Equal -Expected "Warning"
+        $actual_event.Message | Assert-Equal -Expected "undefined win module - [WARNING] warning about `$REDACTED`$"
+    }
+
+    "Deprecate masks registered secrets" = {
+        if (-not $IsWindows) {
+            return
+        }
+
+        $m = [Ansible.Basic.AnsibleModule]::Create(@(), @{})
+        [Ansible.Secrets.SecretMasker]::RegisterSecret("SuperSecretValue")
+
+        $m.Deprecate("deprecating SuperSecretValue", "2.7")
+        $actual_event = (Get-EventLog -LogName Application -Source Ansible -Newest 1).Message
+        $actual_event | Assert-Equal -Expected "undefined win module - [DEPRECATION WARNING] deprecating `$REDACTED`$ 2.7"
     }
 
     "Run with exec wrapper warnings" = {
@@ -1867,33 +2045,10 @@ test_no_log - Invoked with:
             $output = [Ansible.Basic.AnsibleModule]::FromJson($_.Exception.InnerException.Output)
         }
 
-        if ([System.Environment]::OSVersion.Version -lt [Version]'10.0') {
-            # Older hosts can only do delete on close. This means Dir1 and its
-            # file will still be present but Dir2 should be deleted.
-            $expected_msg = "Failure cleaning temp path '$actual_tmpdir': IOException Directory contains files still open by other processes"
-            $output.warnings.Count | Assert-Equal -Expected 1
-            $output.warnings[0] | Assert-Equal -Expected $expected_msg
+        (Test-Path -LiteralPath $actual_tmpdir -PathType Container) | Assert-Equal -Expected $false
+        $output.warnings.Count | Assert-Equal -Expected 0
 
-            (Test-Path -LiteralPath $actual_tmpdir -PathType Container) | Assert-Equal -Expected $true
-            (Test-Path -LiteralPath $dir1 -PathType Container) | Assert-Equal -Expected $true
-            # Test-Path tries to open the file in a way that fails if it's marked as deleted
-            (Get-ChildItem -LiteralPath $dir1 -File).Count | Assert-Equal -Expected 1
-            (Test-Path -LiteralPath $dir2 -PathType Container) | Assert-Equal -Expected $false
-            (Test-Path -LiteralPath $file3 -PathType Leaf) | Assert-Equal -Expected $false
-
-            # Releasing the file handle releases the lock on the file deleting
-            # it. Unfortunately the parent dir will still be present
-            $fs.Dispose()
-            (Test-Path -LiteralPath $dir1 -PathType Container) | Assert-Equal -Expected $true
-            (Test-Path -LiteralPath $file1 -PathType Leaf) | Assert-Equal -Expected $false
-        }
-        else {
-            # Server 2016+ can use the POSIX APIs which will delete it straight away
-            (Test-Path -LiteralPath $actual_tmpdir -PathType Container) | Assert-Equal -Expected $false
-            $output.warnings.Count | Assert-Equal -Expected 0
-
-            $fs.Dispose()
-        }
+        $fs.Dispose()
 
         Remove-Item -LiteralPath $remote_tmp -Force -Recurse
     }
@@ -1918,7 +2073,8 @@ test_no_log - Invoked with:
         $expected_msg += "removed_in_version, removed_at_date, removed_from_collection, required, required_by, required_if, "
         $expected_msg += "required_one_of, required_together, supports_check_mode, type"
 
-        $actual.Keys.Count | Assert-Equal -Expected 3
+        $actual.Keys.Count | Assert-Equal -Expected 4
+        $actual.changed | Assert-Equal -Expected $false
         $actual.failed | Assert-Equal -Expected $true
         $actual.msg | Assert-Equal -Expected $expected_msg
         ("exception" -cin $actual.Keys) | Assert-Equal -Expected $true
@@ -1952,7 +2108,8 @@ test_no_log - Invoked with:
         $expected_msg += "removed_in_version, removed_at_date, removed_from_collection, required, required_by, required_if, "
         $expected_msg += "required_one_of, required_together, supports_check_mode, type - found in option_key -> sub_option_key"
 
-        $actual.Keys.Count | Assert-Equal -Expected 3
+        $actual.Keys.Count | Assert-Equal -Expected 4
+        $actual.changed | Assert-Equal -Expected $false
         $actual.failed | Assert-Equal -Expected $true
         $actual.msg | Assert-Equal -Expected $expected_msg
         ("exception" -cin $actual.Keys) | Assert-Equal -Expected $true
@@ -1976,7 +2133,8 @@ test_no_log - Invoked with:
         $expected_msg = "internal error: argument spec for 'apply_defaults' did not match expected "
         $expected_msg += "type System.Boolean: actual type System.String"
 
-        $actual.Keys.Count | Assert-Equal -Expected 3
+        $actual.Keys.Count | Assert-Equal -Expected 4
+        $actual.changed | Assert-Equal -Expected $false
         $actual.failed | Assert-Equal -Expected $true
         $actual.msg | Assert-Equal -Expected $expected_msg
         ("exception" -cin $actual.Keys) | Assert-Equal -Expected $true
@@ -2004,7 +2162,8 @@ test_no_log - Invoked with:
         $expected_msg = "internal error: type 'invalid type' is unsupported - found in option_key. "
         $expected_msg += "Valid types are: bool, dict, float, int, json, list, path, raw, sid, str"
 
-        $actual.Keys.Count | Assert-Equal -Expected 3
+        $actual.Keys.Count | Assert-Equal -Expected 4
+        $actual.changed | Assert-Equal -Expected $false
         $actual.failed | Assert-Equal -Expected $true
         $actual.msg | Assert-Equal -Expected $expected_msg
         ("exception" -cin $actual.Keys) | Assert-Equal -Expected $true
@@ -2033,7 +2192,8 @@ test_no_log - Invoked with:
         $expected_msg = "internal error: elements 'invalid type' is unsupported - found in option_key. "
         $expected_msg += "Valid types are: bool, dict, float, int, json, list, path, raw, sid, str"
 
-        $actual.Keys.Count | Assert-Equal -Expected 3
+        $actual.Keys.Count | Assert-Equal -Expected 4
+        $actual.changed | Assert-Equal -Expected $false
         $actual.failed | Assert-Equal -Expected $true
         $actual.msg | Assert-Equal -Expected $expected_msg
         ("exception" -cin $actual.Keys) | Assert-Equal -Expected $true
@@ -2065,7 +2225,8 @@ test_no_log - Invoked with:
 
         $expected_msg = "internal error: One of version or date is required in a deprecated_aliases entry"
 
-        $actual.Keys.Count | Assert-Equal -Expected 3
+        $actual.Keys.Count | Assert-Equal -Expected 4
+        $actual.changed | Assert-Equal -Expected $false
         $actual.failed | Assert-Equal -Expected $true
         $actual.msg | Assert-Equal -Expected $expected_msg
         ("exception" -cin $actual.Keys) | Assert-Equal -Expected $true
@@ -2137,7 +2298,8 @@ test_no_log - Invoked with:
 
         $expected_msg = "internal error: Only one of version or date is allowed in a deprecated_aliases entry"
 
-        $actual.Keys.Count | Assert-Equal -Expected 3
+        $actual.Keys.Count | Assert-Equal -Expected 4
+        $actual.changed | Assert-Equal -Expected $false
         $actual.failed | Assert-Equal -Expected $true
         $actual.msg | Assert-Equal -Expected $expected_msg
         ("exception" -cin $actual.Keys) | Assert-Equal -Expected $true
@@ -2172,7 +2334,8 @@ test_no_log - Invoked with:
 
         $expected_msg = "internal error: A deprecated_aliases date must be a DateTime object"
 
-        $actual.Keys.Count | Assert-Equal -Expected 3
+        $actual.Keys.Count | Assert-Equal -Expected 4
+        $actual.changed | Assert-Equal -Expected $false
         $actual.failed | Assert-Equal -Expected $true
         $actual.msg | Assert-Equal -Expected $expected_msg
         ("exception" -cin $actual.Keys) | Assert-Equal -Expected $true
@@ -2201,7 +2364,8 @@ test_no_log - Invoked with:
 
         $expected_msg = "internal error: required and default are mutually exclusive for option_key"
 
-        $actual.Keys.Count | Assert-Equal -Expected 3
+        $actual.Keys.Count | Assert-Equal -Expected 4
+        $actual.changed | Assert-Equal -Expected $false
         $actual.failed | Assert-Equal -Expected $true
         $actual.msg | Assert-Equal -Expected $expected_msg
         ("exception" -cin $actual.Keys) | Assert-Equal -Expected $true
@@ -2553,13 +2717,23 @@ test_no_log - Invoked with:
         $spec = @{
             options = @{
                 option_key = @{
-                    choices = "a", "b"
+                    choices = "firstoption", "secondoption"
+                    no_log = $true
+                }
+                secret1 = @{
+                    type = "str"
+                    no_log = $true
+                }
+                secret2 = @{
+                    type = "str"
                     no_log = $true
                 }
             }
         }
         Set-Variable -Name complex_args -Scope Global -Value @{
-            option_key = "abc"
+            option_key = "longvalue"
+            secret1 = "abc"
+            secret2 = "other secret"
             _ansible_inject_invocation = $true
         }
 
@@ -2574,13 +2748,20 @@ test_no_log - Invoked with:
         }
         $failed | Assert-Equal -Expected $true
 
-        $expected_msg = "value of option_key must be one of: a, b. Got no match for: ********"
+        $expected_msg = "value of option_key must be one of: firstoption, secondoption. Got no match for: longvalue"
 
-        $actual.Keys.Count | Assert-Equal -Expected 4
+        $actual.Keys.Count | Assert-Equal -Expected 5
         $actual.changed | Assert-Equal -Expected $false
         $actual.failed | Assert-Equal -Expected $true
         $actual.msg | Assert-Equal -Expected $expected_msg
-        $actual.invocation | Assert-DictionaryEqual -Expected @{module_args = @{option_key = "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER" } }
+        $actual.invocation | Assert-DictionaryEqual -Expected @{
+            module_args = @{
+                option_key = "longvalue"
+                secret1 = "abc"
+                secret2 = "other secret"
+            }
+        }
+        Assert-Equal -Actual @($actual._ansible_new_secrets | Sort-Object) -Expected @("abc", "longvalue", "other secret")
     }
 
     "Invalid choice in list" = {
@@ -3355,10 +3536,23 @@ test_no_log - Invoked with:
     }
 }
 
+if (-not $IsCoreCLR) {
+    Set-Variable -Name IsWindows -Value $true -Scope Global
+}
+
 try {
+    # The SecretMasker is a process-wide singleton, so reset it to a pristine
+    # instance before each test to avoid secrets registered by one test leaking
+    # into the _ansible_new_secrets of a later test.
+    $secretMaskerField = [Ansible.Secrets.SecretMasker].GetField(
+        "_instance", [System.Reflection.BindingFlags]"NonPublic, Static")
+    $secretMaskerCtor = [Ansible.Secrets.SecretMasker].GetConstructor(
+        [System.Reflection.BindingFlags]"NonPublic, Instance", $null, @(), $null)
+
     foreach ($test_impl in $tests.GetEnumerator()) {
         # Reset the variables before each test
         Set-Variable -Name complex_args -Value @{} -Scope Global
+        $secretMaskerField.SetValue($null, $secretMaskerCtor.Invoke(@()))
 
         $test = $test_impl.Key
         &$test_impl.Value

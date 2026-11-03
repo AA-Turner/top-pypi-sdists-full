@@ -26,7 +26,7 @@ from typing import Any, ClassVar, Optional, TypeVar, Union
 
 StrOrStrList = Union[str, Sequence[str]]
 
-_Cls = TypeVar('_Cls')
+_Cls = TypeVar('_Cls', bound=type)
 
 
 _StrEnum = (
@@ -34,7 +34,7 @@ _StrEnum = (
 )
 
 
-class StrEnum(*_StrEnum):
+class StrEnum(*_StrEnum):  # pyrefly: ignore[invalid-inheritance]
   """Like `Enum`, but `enum.auto()` assigns `str` rather than `int`.
 
   ```python
@@ -71,14 +71,14 @@ class StrEnum(*_StrEnum):
         f'Expected one of {all_values}'
     )
 
-  def __eq__(self, other: str) -> bool:
+  def __eq__(self, other: object) -> bool:
     if not isinstance(other, str):
       return False
     return other.lower() == self.value.lower()
 
   # `__ne__` is required because `str.__ne__()` exists, so it is not
   # automatically inferred.
-  def __ne__(self, other: str) -> bool:
+  def __ne__(self, other: object) -> bool:
     return not self.__eq__(other)
 
   def __hash__(self) -> int:  # pylint: disable=useless-super-delegation
@@ -194,7 +194,7 @@ def normalize_str_to_list(x: Optional[StrOrStrList]) -> list[str]:
   elif not isinstance(x, (list, tuple)):
     raise TypeError(f'Expected list. Got: {x!r}')
   else:  # list/tuple
-    return list(x)
+    return list(x)  # pyrefly#2607
 
 
 def wraps_cls(wrapped: type[Any]) -> Callable[[_Cls], _Cls]:

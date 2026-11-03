@@ -144,7 +144,7 @@ def _write_owner(
 
 
 def _pid_alive(pid: int) -> bool:
-    from ....._shared import oscompat
+    from .....foundation.os_backend import os_backend as oscompat
 
     try:
         oscompat.probe_pid(pid)

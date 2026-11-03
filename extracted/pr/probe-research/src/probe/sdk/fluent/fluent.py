@@ -31,6 +31,7 @@ Nothing here is a second implementation: every function holds a real
 """
 
 from __future__ import annotations
+import os
 from typing import TYPE_CHECKING, Any
 
 from .. import errors
@@ -137,6 +138,10 @@ def init(
     (D16), each choice acts on the caller's own scope, and ``create_new`` runs
     close with their handle or at exit."""
     run_mode = resolve_mode(mode)
+    if run_mode is Mode.ONLINE and _names_offline_run():
+        # An offline `execute()` hands its child its `local:<key>` id: a run only this
+        # machine's queue holds, so the child joins it offline (no server knows it yet).
+        run_mode = Mode.OFFLINE
     reinit_mode = _reinit_mode(reinit)
     if run_mode is not Mode.DISABLED:
         # A researcher's `.probe.config` excludes where this runs: no run, and
@@ -209,6 +214,15 @@ def init(
             client, reinit_mode, kw, capture_reads, outputs, capture_outputs, ignore
         ),
     )
+
+
+def _names_offline_run() -> bool:
+    named = os.environ.get("PROBE_RUN_ID", "").strip()
+    if not named:
+        return False
+    from ..delivery.offline import LOCAL_PREFIX
+
+    return named.startswith(LOCAL_PREFIX)
 
 
 def finish(status: str = "completed", **kw: Any):

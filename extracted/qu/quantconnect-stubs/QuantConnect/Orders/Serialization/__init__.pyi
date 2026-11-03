@@ -143,6 +143,24 @@ class SerializedOrderEvent(System.Object):
         ...
 
     @property
+    def order_type(self) -> typing.Optional[QuantConnect.Orders.OrderType]:
+        """The type of the order this event comes from. Null for payloads that predate this property"""
+        ...
+
+    @order_type.setter
+    def order_type(self, value: typing.Optional[QuantConnect.Orders.OrderType]) -> None:
+        ...
+
+    @property
+    def group_id(self) -> typing.Optional[int]:
+        """The id of the group of orders the order belongs to if it is a combo order leg, null otherwise"""
+        ...
+
+    @group_id.setter
+    def group_id(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
     def message(self) -> str:
         """Any message from the exchange."""
         ...

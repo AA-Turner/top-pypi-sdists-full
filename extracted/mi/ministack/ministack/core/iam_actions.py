@@ -1168,6 +1168,11 @@ def extract_resource_arn(service: str, method: str, path: str,
             # keys — the key is recovered from the ciphertext.
             key_id = _kms_key_id_from_ciphertext(
                 _safe_json_field(body, "CiphertextBlob"))
+            if key_id:
+                # The ciphertext names its key by id; it may belong to another account.
+                from ministack.services.kms import ciphertext_key_arn
+
+                return ciphertext_key_arn(key_id)
         if key_id:
             # KeyId can be an ARN, alias, or key ID
             if key_id.startswith("arn:"):
@@ -1406,6 +1411,13 @@ def extract_resource_arn(service: str, method: str, path: str,
         return "*"
 
     if service == "cloudformation":
+        set_name = _query_param(query_params, "StackSetName")
+        if set_name and _query_param(query_params, "Action") in ("DescribeStackSet", "ListStackInstances"):
+            # A StackSet's ARN ends in its StackSetId, whether named by name or by ID.
+            from ministack.services.cloudformation import _stack_sets
+            rec = next((r for r in _stack_sets.values_scoped(account_id, region) if r["StackSetId"] == set_name
+                        or (r["StackSetName"] == set_name and r["Status"] == "ACTIVE")), None)
+            return f"arn:aws:cloudformation:{region}:{account_id}:stackset/{rec['StackSetId'] if rec else set_name}"
         name = _query_param(query_params, "StackName")
         if name:
             if name.startswith("arn:"):
@@ -2361,12 +2373,11 @@ def access_denied_response(service: str, action: str, principal_arn: str,
             400, {"Content-Type": "application/x-amz-json-1.1"},
             json.dumps({"__type": "AccessDeniedException", "Message": message}).encode(),
         )
-    if (service == "kms" and not error_code and resource_arn.startswith("arn:")
-            and resource_arn.split(":")[4] != principal_arn.split(":")[4]):
-        # A key in another account: KMS does not say whether it exists (captured through AppConfig).
-        message = (f"User: {principal_arn} is not authorized to perform: {action} on this resource because the "
-                   "resource does not exist in this Region, no resource-based policies allow access, or a "
-                   "resource-based policy explicitly denies access")
+    if service == "kms" and not error_code and not explicit_deny:
+        # KMS denials no policy allows are HTTP 400 and name the key (an alias resolved to its key), as recorded on AWS.
+        from ministack.services.kms import key_arn_for_request
+
+        message = identity_denial_message(action, principal_arn, key_arn_for_request(resource_arn), explicit_deny)
         return (
             400, {"Content-Type": "application/x-amz-json-1.1"},
             json.dumps({"__type": "AccessDeniedException", "message": message}).encode(),

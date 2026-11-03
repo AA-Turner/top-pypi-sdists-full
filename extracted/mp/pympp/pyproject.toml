@@ -1,6 +1,6 @@
 [project]
 name = "pympp"
-version = "0.18.0"
+version = "0.19.0"
 description = "Python SDK for the Machine Payments Protocol (MPP)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -248,6 +248,7 @@ only_mutate = [
     "src/mpp/_body_digest.py",
     "src/mpp/_parsing.py",
     "src/mpp/client/transport.py",
+    "src/mpp/methods/tempo/_fee_payer.py",
     "src/mpp/methods/tempo/intents.py",
     "src/mpp/server/compose.py",
     "src/mpp/server/verify.py",

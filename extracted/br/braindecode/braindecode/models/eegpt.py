@@ -3,19 +3,19 @@
 #
 # License: BSD-3
 
-import math
 from functools import partial
-from typing import Literal, Optional
+from typing import Dict, Literal, Optional, Union
 
 import mne
 import torch
-from einops import rearrange, repeat
 from torch import nn
 
+from braindecode.functional import init_weights_
 from braindecode.models.base import EEGModuleMixin
-from braindecode.modules import DropPath
+from braindecode.modules import PreNormBlock, TimmAttention, TimmMlp
 from braindecode.modules.convolution import Conv1dWithConstraint
 from braindecode.modules.linear import LinearWithConstraint
+from braindecode.util import resolve_montage_name
 
 
 class EEGPT(EEGModuleMixin, nn.Module):
@@ -87,7 +87,8 @@ class EEGPT(EEGModuleMixin, nn.Module):
         - *Role.* Maps raw spatio-temporal EEG patches into a sequence of latent tokens :math:`z`.
     - `EEGPT.chans_id` **(Channel Identification)**
         - *Operations.* A buffer containing channel indices mapped from the standard channel names provided
-          in ``chs_info`` [eegpt]_.
+          in ``chs_info`` [eegpt]_. It is rebuilt from the montage at construction and not stored in
+          checkpoints, so pretrained weights load on any montage.
         - *Role.* Provides the spatial identity for each input channel, allowing the model to look up
           the correct channel embedding vector :math:`\varsigma_i`.
     - **Local Spatio-Temporal Embedding** (Input Processing)
@@ -251,6 +252,8 @@ class EEGPT(EEGModuleMixin, nn.Module):
         n_chans_target: int = 19,
         chan_conv_max_norm: float = 1.0,
         final_layer: type[nn.Module] | None = None,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
         super().__init__(
             n_outputs=n_outputs,
@@ -259,6 +262,8 @@ class EEGPT(EEGModuleMixin, nn.Module):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
 
@@ -337,8 +342,12 @@ class EEGPT(EEGModuleMixin, nn.Module):
         else:
             self.channel_names = None  # type: ignore
 
+        # Derived from the montage above, so it is not saved in the state dict:
+        # loading a checkpoint must not replace the IDs of this model's channels.
         self.register_buffer(
-            "chans_id", self.target_encoder.prepare_chan_ids(self.channel_names)
+            "chans_id",
+            self.target_encoder.prepare_chan_ids(self.channel_names),
+            persistent=False,
         )
 
         self.flattened_encoder_output_dim = (
@@ -370,6 +379,7 @@ class EEGPT(EEGModuleMixin, nn.Module):
 
     def reset_head(self, n_outputs):
         self._n_outputs = n_outputs
+        self._update_init_kwargs(n_outputs=n_outputs)
         self.final_layer = _LinearConstraintProbe(
             **self.get_probe_params(),
             n_outputs=n_outputs,
@@ -389,7 +399,16 @@ class EEGPT(EEGModuleMixin, nn.Module):
             "embed_dim": self.embed_dim,
         }
 
-    def forward(self, x, return_features=False):
+    def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
+        # Checkpoints saved before ``chans_id`` became non-persistent (including
+        # the released EEGPT weights) still carry it. Drop it, so the IDs keep
+        # matching this model's montage and a different montage can load.
+        state_dict.pop(prefix + "chans_id", None)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+
+    def forward(
+        self, x: torch.Tensor, return_features: bool = False
+    ) -> Union[torch.Tensor, Dict[str, Optional[torch.Tensor]]]:
         """
         Forward pass.
 
@@ -413,7 +432,11 @@ class EEGPT(EEGModuleMixin, nn.Module):
         z = self.target_encoder(x, self.chans_id)
 
         if return_features:
-            return {"features": z.flatten(2), "cls_token": None}
+            out: Dict[str, Optional[torch.Tensor]] = {
+                "features": z.flatten(2),
+                "cls_token": None,
+            }
+            return out
 
         if self.return_encoder_output:
             return z
@@ -494,7 +517,7 @@ _ALLOWED_CHANNELS = {
 
 
 def _get_eegpt_channels():
-    montage = mne.channels.make_standard_montage("standard_1020")
+    montage = mne.channels.make_standard_montage(resolve_montage_name("standard_1020"))
     return [ch.upper() for ch in montage.ch_names if ch.upper() in _ALLOWED_CHANNELS]
 
 
@@ -615,61 +638,6 @@ class _ChannelProjection(nn.Module):
         return self.proj(x)
 
 
-def _rotate_half(x):
-    """Rotate half of the dimensions for RoPE.
-
-    Parameters
-    ----------
-    x : torch.Tensor
-        Input tensor of shape (..., d).
-
-    Returns
-    -------
-    torch.Tensor
-        Rotated tensor of the same shape.
-    """
-    x = x.reshape((*x.shape[:-1], x.shape[-1] // 2, 2))
-    x1, x2 = x.unbind(dim=-1)
-    x = torch.stack((-x2, x1), dim=-1)
-    return x.flatten(-2)
-
-
-def _apply_rotary_emb(freqs, t, start_index=0, scale=1.0):
-    """Apply rotary positional embeddings (RoPE) to input tensor.
-
-    Parameters
-    ----------
-    freqs : torch.Tensor
-        Frequency tensor for rotation.
-    t : torch.Tensor
-        Input tensor to rotate.
-    start_index : int, default=0
-        Starting index for rotation.
-    scale : float, default=1.0
-        Scaling factor.
-
-    Returns
-    -------
-    torch.Tensor
-        Tensor with rotary embeddings applied.
-    """
-    freqs = freqs.to(t)
-    rot_dim = freqs.shape[-1]
-    end_index = start_index + rot_dim
-    if rot_dim > t.shape[-1]:
-        raise ValueError(
-            f"feature dimension {t.shape[-1]} is not of sufficient size "
-            f"to rotate in all the positions {rot_dim}"
-        )
-    t_left, t_mid, t_right = (
-        t[..., :start_index],
-        t[..., start_index:end_index],
-        t[..., end_index:],
-    )
-    t_mid = (t_mid * freqs.cos() * scale) + (_rotate_half(t_mid) * freqs.sin() * scale)
-    return torch.cat((t_left, t_mid, t_right), dim=-1)
-
-
 def _apply_mask(mask, x):
     r"""Apply mask to select specific patches from input tensor.
 
@@ -700,42 +668,29 @@ def _apply_mask(mask, x):
     batch_size, n_patches, n_chans, embed_dim = x.shape
 
     # Flatten patches and channels: (b, n, c, d) -> (b, n*c, d)
-    x_flat = rearrange(x, "b n c d -> b (n c) d")
+    x_flat = x.reshape(batch_size, n_patches * n_chans, embed_dim)
 
     if len(mask.shape) == 2:
         n_masked_patches, n_masked_chans = mask.shape
 
         # Flatten mask: (mn, mc) -> (mn*mc)
-        mask_flat = rearrange(mask, "mn mc -> (mn mc)")
+        mask_flat = mask.reshape(-1)
 
         # Prepare indices for gathering: (1, mn*mc, 1) -> (b, mn*mc, d)
-        mask_keep = repeat(
-            mask_flat,
-            "m -> b m d",
-            b=batch_size,
-            d=embed_dim,
-        )
+        mask_keep = mask_flat[None, :, None].expand(batch_size, -1, embed_dim)
 
         # Gather selected patch-channel pairs
         masked_x_flat = torch.gather(x_flat, dim=1, index=mask_keep)
 
         # Reshape back to 2D structure: (b, mn*mc, d) -> (b, mn, mc, d)
-        masked_x = rearrange(
-            masked_x_flat,
-            "b (mn mc) d -> b mn mc d",
-            mn=n_masked_patches,
-            mc=n_masked_chans,
+        masked_x = masked_x_flat.reshape(
+            batch_size, n_masked_patches, n_masked_chans, embed_dim
         )
     else:
         # Mask is 1D: (n_masked_items,)
 
         # Prepare indices for gathering: (m, ) -> (b, m, d)
-        mask_keep = repeat(
-            mask,
-            "m -> b m d",
-            b=batch_size,
-            d=embed_dim,
-        )
+        mask_keep = mask[None, :, None].expand(batch_size, -1, embed_dim)
 
         # Gather
         masked_x = torch.gather(x_flat, dim=1, index=mask_keep)
@@ -773,280 +728,10 @@ def _apply_mask_t(mask_t, x):
     """
     batch_size, n_patches, embed_dim = x.shape
 
-    mask_keep = repeat(
-        mask_t,
-        "n -> b n d",
-        b=batch_size,
-        d=embed_dim,
-    )
+    mask_keep = mask_t[None, :, None].expand(batch_size, -1, embed_dim)
 
     masked_x = torch.gather(x, dim=1, index=mask_keep)
     return masked_x
-
-
-class _MLP(nn.Module):
-    """
-    Multi-Layer Perceptron (MLP) with GELU activation and dropout.
-
-    This block consists of two linear layers with a GELU activation and dropout
-    in between, and another dropout after the second linear layer.
-
-    Parameters
-    ----------
-    in_features : int
-        Number of input features.
-    hidden_features : int, optional
-        Number of hidden features. If None, defaults to `in_features`.
-    out_features : int, optional
-        Number of output features. If None, defaults to `in_features`.
-    act_layer : nn.Module, default=nn.GELU
-        Activation function.
-    drop : float, default=0.0
-        Dropout probability.
-    """
-
-    def __init__(
-        self,
-        in_features,
-        hidden_features=None,
-        out_features=None,
-        act_layer=nn.GELU,
-        drop=0.0,
-    ):
-        super().__init__()
-        out_features = out_features or in_features
-        hidden_features = hidden_features or in_features
-        self.fc1 = nn.Linear(in_features, hidden_features)
-        self.act = act_layer()
-        self.fc2 = nn.Linear(hidden_features, out_features)
-        self.drop = nn.Dropout(drop)
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.act(x)
-        x = self.drop(x)
-        x = self.fc2(x)
-        x = self.drop(x)
-        return x
-
-
-class _Attention(nn.Module):
-    """
-    Multi-head Self-Attention with optional RoPE and Causal Masking.
-
-    This layer implements multi-head self-attention using PyTorch's
-    scaled_dot_product_attention (Flash Attention) for efficiency.
-    It supports Rotary Positional Embeddings (RoPE) and causal masking.
-
-    Parameters
-    ----------
-    dim : int
-        Input and output embedding dimension.
-    num_heads : int, default=8
-        Number of attention heads.
-    qkv_bias : bool, default=False
-        If True, add a learnable bias to query, key, value projections.
-    attn_drop : float, default=0.0
-        Dropout probability for attention weights.
-    proj_drop : float, default=0.0
-        Dropout probability for output projection.
-    is_causal : bool, default=False
-        If True, applies a causal mask (temporal causality).
-    use_rope : bool, default=False
-        If True, applies Rotary Positional Embeddings (RoPE) to queries and keys.
-    return_attention : bool, default=False
-        If True, returns the attention weights instead of the output tensor.
-    """
-
-    def __init__(
-        self,
-        dim,
-        num_heads=8,
-        qkv_bias=False,
-        attn_drop=0.0,
-        proj_drop=0.0,
-        is_causal=False,
-        use_rope=False,
-        return_attention=False,
-    ):
-        super().__init__()
-        self.use_rope = use_rope
-
-        self.num_heads = num_heads
-        self.head_dim = dim // num_heads
-        self.scale = self.head_dim**-0.5
-
-        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
-        self.attn_drop = nn.Dropout(attn_drop)
-        self.proj = nn.Linear(dim, dim)
-        self.proj_drop = nn.Dropout(proj_drop)
-
-        self.is_causal = is_causal
-        self.return_attention = return_attention
-
-    def forward(self, x, freqs=None):
-        """
-        Forward pass of the attention layer.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor of shape (batch, seq_len, embed_dim).
-        freqs : torch.Tensor, optional
-            Frequencies for Rotary Positional Embeddings (RoPE).
-        """
-        # qkv: (batch, seq_len, 3 * num_heads * head_dim)
-        qkv = self.qkv(x)
-
-        # Reshape to (3, batch, num_heads, seq_len, head_dim)
-        qkv = rearrange(
-            qkv,
-            "batch seq_len (three num_heads head_dim) -> three batch num_heads seq_len head_dim",
-            three=3,
-            num_heads=self.num_heads,
-        )
-        q, k, v = qkv[0], qkv[1], qkv[2]  # batch, num_heads, seq_len, head_dim
-
-        # 1. Rotary Positional Embeddings (RoPE)
-        # Unlike standard absolute positional encodings, RoPE rotates the
-        # query and key vectors to encode relative positions.
-        if self.use_rope:
-            q = _apply_rotary_emb(freqs, q)
-            k = _apply_rotary_emb(freqs, k)
-
-        # 2. Return Attention Weights
-        # If return_attention is True, we manually compute attention scores
-        # because F.scaled_dot_product_attention doesn't return weights.
-        if self.return_attention:
-            if self.is_causal:
-                attn_mask = torch.ones(
-                    q.size(-2), q.size(-2), device=q.device, dtype=torch.bool
-                ).tril(diagonal=0)
-                attn_zeros = torch.zeros(
-                    q.size(-2), q.size(-2), device=q.device, dtype=q.dtype
-                )
-                attn_mask = attn_zeros.masked_fill(
-                    torch.logical_not(attn_mask), -float("inf")
-                )
-                # Naive attention computation for visualization/debugging
-                attn_weight = torch.softmax(
-                    (q @ k.transpose(-2, -1) / math.sqrt(q.size(-1))) + attn_mask,
-                    dim=-1,
-                )
-            else:
-                attn_weight = torch.softmax(
-                    (q @ k.transpose(-2, -1) / math.sqrt(q.size(-1))), dim=-1
-                )
-            return attn_weight
-
-        # 3. Flash Attention
-        # Use PyTorch's optimized scaled_dot_product_attention (SDPA)
-        # which internally uses FlashAttention or EfficientAttention kernels.
-        y = torch.nn.functional.scaled_dot_product_attention(
-            q,
-            k,
-            v,
-            attn_mask=None,
-            dropout_p=self.attn_drop.p if self.training else 0,
-            is_causal=self.is_causal,
-        )
-
-        # Reshape back: (batch, num_heads, seq_len, head_dim) -> (batch, seq_len, embed_dim)
-        x = rearrange(
-            y,
-            "batch num_heads seq_len head_dim -> batch seq_len (num_heads head_dim)",
-        )
-
-        x = self.proj(x)
-        x = self.proj_drop(x)
-        return x
-
-
-class _Block(nn.Module):
-    """
-    Transformer Block consisting of Self-Attention and MLP.
-
-    This is a standard Transformer encoder block that applies:
-    1. Layer Normalization
-    2. Multi-Head Self-Attention (with optional RoPE)
-    3. Residual Connection with DropPath
-    4. Layer Normalization
-    5. MLP
-    6. Residual Connection with DropPath
-
-    Parameters
-    ----------
-    dim : int
-        Input and output embedding dimension.
-    num_heads : int
-        Number of attention heads.
-    mlp_ratio : float, default=4.0
-        Ratio of MLP hidden dimension to embedding dimension.
-    qkv_bias : bool, default=False
-        If True, add a learnable bias to query, key, value projections.
-    drop : float, default=0.0
-        Dropout probability for MLP and projection layers.
-    attn_drop : float, default=0.0
-        Dropout probability for attention weights.
-    drop_path : float, default=0.0
-        Stochastic depth rate.
-    act_layer : nn.Module, default=nn.GELU
-        Activation function.
-    norm_layer : nn.Module, default=nn.LayerNorm
-        Normalization layer.
-    is_causal : bool, default=False
-        If True, applies a causal mask to attention.
-    use_rope : bool, default=False
-        If True, applies Rotary Positional Embeddings (RoPE).
-    return_attention : bool, default=False
-        If True, returns attention weights instead of the output tensor.
-    """
-
-    def __init__(
-        self,
-        dim,
-        num_heads,
-        mlp_ratio=4.0,
-        qkv_bias=False,
-        drop=0.0,
-        attn_drop=0.0,
-        drop_path=0.0,
-        act_layer=nn.GELU,
-        norm_layer=nn.LayerNorm,
-        is_causal=False,
-        use_rope=False,
-        return_attention=False,
-    ):
-        super().__init__()
-        self.return_attention = return_attention
-        self.norm1 = norm_layer(dim)
-        self.attn = _Attention(
-            dim,
-            num_heads=num_heads,
-            qkv_bias=qkv_bias,
-            attn_drop=attn_drop,
-            proj_drop=drop,
-            is_causal=is_causal,
-            use_rope=use_rope,
-            return_attention=return_attention,
-        )
-        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
-        self.norm2 = norm_layer(dim)
-        mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = _MLP(
-            in_features=dim,
-            hidden_features=mlp_hidden_dim,
-            act_layer=act_layer,
-            drop=drop,
-        )
-
-    def forward(self, x, freqs=None):
-        y = self.attn(self.norm1(x), freqs)
-        if self.return_attention:
-            return y
-        x = x + self.drop_path(y)
-        x = x + self.drop_path(self.mlp(self.norm2(x)))
-        return x
 
 
 class _PatchEmbed(nn.Module):
@@ -1070,6 +755,10 @@ class _PatchEmbed(nn.Module):
     embed_dim : int, default=768
         Dimension of the output embeddings.
     """
+
+    # Constant, so TorchScript compiles only the branch in use (``unfold``
+    # exists only with ``apply_norm``).
+    __constants__ = ["apply_norm"]
 
     def __init__(
         self,
@@ -1119,18 +808,14 @@ class _PatchEmbed(nn.Module):
         """
         # x: batch, n_chans, n_times
         x = self.padding_layer(x)
-        x = rearrange(x, "batch n_chans n_times -> batch 1 n_chans n_times")
+        x = x.unsqueeze(1)  # (batch, 1, n_chans, n_times)
 
         if self.apply_norm:
             x = self.unfold(x)
             # (batch, patch_size, n_patches * n_chans)
 
-            # Rearrange using Einops to (batch, n_patches, n_chans, patch_size)
-            x = rearrange(
-                x,
-                "batch patch_size (n_chans n_patches) -> batch n_patches n_chans patch_size",
-                n_chans=self.n_chans,
-            )
+            # Rearrange to (batch, n_patches, n_chans, patch_size)
+            x = x.unflatten(2, (self.n_chans, -1)).permute(0, 3, 2, 1)
 
             x = torch.layer_norm(x, (self.patch_size,))
             x = self.proj(x)  # (batch, n_patches, n_chans, embed_dim)
@@ -1139,11 +824,7 @@ class _PatchEmbed(nn.Module):
             # Convolve and rearrange:
             # (batch, embed_dim, n_chans, n_patches) -> (batch, n_patches, n_chans, embed_dim)
             x = self.proj(x)
-            x = rearrange(
-                x,
-                "batch embed_dim n_chans n_patches -> batch n_patches n_chans embed_dim",
-            )
-            return x
+            return x.permute(0, 3, 2, 1)
 
     def _configure_padding(self):
         """
@@ -1249,6 +930,7 @@ class _EEGTransformer(nn.Module):
         self.embed_dim = embed_dim
         self.embed_num = embed_num
         self.num_heads = num_heads
+        self.return_attention_layer = return_attention_layer
 
         self.patch_embed = patch_module(
             n_chans=n_chans,
@@ -1270,18 +952,22 @@ class _EEGTransformer(nn.Module):
 
         self.blocks = nn.ModuleList(
             [
-                _Block(
-                    dim=embed_dim,
-                    num_heads=num_heads,
-                    mlp_ratio=mlp_ratio,
-                    qkv_bias=qkv_bias,
-                    drop=drop_rate,
-                    attn_drop=attn_drop_rate,
-                    drop_path=dpr[i],
+                PreNormBlock(
+                    embed_dim,
+                    TimmAttention(
+                        embed_dim,
+                        num_heads=num_heads,
+                        qkv_bias=qkv_bias,
+                        attn_drop=attn_drop_rate,
+                        proj_drop=drop_rate,
+                    ),
+                    TimmMlp(
+                        in_features=embed_dim,
+                        hidden_features=int(embed_dim * mlp_ratio),
+                        drop=drop_rate,
+                    ),
                     norm_layer=norm_layer,
-                    is_causal=False,
-                    use_rope=False,
-                    return_attention=(i + 1) == return_attention_layer,
+                    drop_path=dpr[i],
                 )
                 for i in range(depth)
             ]
@@ -1290,8 +976,21 @@ class _EEGTransformer(nn.Module):
         self.init_std = init_std
         self.summary_token = nn.Parameter(torch.zeros(1, embed_num, embed_dim))
 
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Initialize this block's weights."""
         nn.init.trunc_normal_(self.summary_token, std=self.init_std)
-        self.apply(self._init_weights)
+        trunc = partial(nn.init.trunc_normal_, std=self.init_std)
+        self.apply(
+            partial(
+                init_weights_,
+                weights={
+                    (nn.Linear, nn.Conv2d): trunc,
+                    nn.Embedding: partial(nn.init.normal_, mean=0.0, std=0.02),
+                },
+            )
+        )
         self.fix_init_weight()
 
     def prepare_chan_ids(self, channels):
@@ -1328,22 +1027,13 @@ class _EEGTransformer(nn.Module):
             rescale(layer.attn.proj.weight.data, layer_id + 1)
             rescale(layer.mlp.fc2.weight.data, layer_id + 1)
 
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            nn.init.trunc_normal_(m.weight, std=self.init_std)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.Conv2d):
-            nn.init.trunc_normal_(m.weight, std=self.init_std)
-            if m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.Embedding):
-            torch.nn.init.normal_(m.weight, mean=0.0, std=0.02)
-
-    def forward(self, x, chan_ids=None, mask_x=None, mask_t=None):
+    def forward(
+        self,
+        x,
+        chan_ids: Optional[torch.Tensor] = None,
+        mask_x: Optional[torch.Tensor] = None,
+        mask_t: Optional[torch.Tensor] = None,
+    ):
         """
         Forward pass.
 
@@ -1392,10 +1082,7 @@ class _EEGTransformer(nn.Module):
 
         # Flatten batch and patches dimensions for Transformer processing
         # (batch, n_patches, n_chans, embed_dim) -> (batch * n_patches, n_chans, embed_dim)
-        x = rearrange(
-            x,
-            "batch n_patches n_chans embed_dim -> (batch n_patches) n_chans embed_dim",
-        )
+        x = x.flatten(0, 1)
 
         # -- concat summary token
         # summary_token shape: (batch * n_patches, embed_num, embed_dim)
@@ -1405,9 +1092,9 @@ class _EEGTransformer(nn.Module):
 
         # -- fwd prop
         for i, blk in enumerate(self.blocks):
+            if i + 1 == self.return_attention_layer:
+                return blk.attn(blk.norm1(x), need_weights=True)
             x = blk(x)
-            if blk.return_attention:
-                return x
 
         # Extract only the summary tokens (used for global representation)
         # x shape: (batch * n_patches, embed_num, embed_dim)
@@ -1416,51 +1103,15 @@ class _EEGTransformer(nn.Module):
         if self.norm is not None:
             x = self.norm(x)
 
-        # Instead of flatten+reshape, let's just rearrange back to separate batch/patches explicitly
-        x = rearrange(
-            x,
-            "(batch n_patches) embed_num embed_dim -> batch n_patches (embed_num embed_dim)",
-            batch=batch,
-        )
+        # (batch * n_patches, embed_num, embed_dim) -> (batch, n_patches, embed_num * embed_dim)
+        x = x.reshape(batch, -1, x.shape[1] * x.shape[2])
 
         if mask_t is not None:
             mask_t = mask_t.to(x.device)
             x = _apply_mask_t(mask_t, x)
 
         # Reshape to final output format: (batch, n_patches, embed_num, embed_dim)
-        x = rearrange(
-            x,
-            "batch n_patches (embed_num embed_dim) -> batch n_patches embed_num embed_dim",
-            embed_num=self.embed_num,
-        )
-
-        return x
+        return x.unflatten(2, (self.embed_num, -1))
 
 
-# -----------------------------------------------------------------------------
-# InterpolatedEEGPT — experimental channel-interpolation variant of EEGPT
-# -----------------------------------------------------------------------------
-# A :func:`~braindecode.models.interpolated.InterpolatedModel` wrapper around
-# :class:`EEGPT` whose target channel set is the canonical ``EEGPT_CHANNELS``.
-# Accepts arbitrary user ``chs_info``; projects to the canonical channels via an
-# MNE-backed (frozen by default) interpolation matrix.
-
-from mne.channels import make_standard_montage  # noqa: E402
-
-from braindecode.models.interpolated import InterpolatedModel  # noqa: E402
-
-montage = make_standard_montage("standard_1020")
-ch_pos = {
-    ch.upper(): (ch, loc) for ch, loc in montage.get_positions()["ch_pos"].items()
-}
-_EEGPT_TARGET_CHS_INFO = [
-    {
-        "ch_name": ch_pos[ch.upper()][0],
-        "kind": "eeg",
-        "loc": ch_pos[ch.upper()][1],
-    }
-    for ch in EEGPT_CHANNELS
-]
-InterpolatedEEGPT = InterpolatedModel(
-    EEGPT, _EEGPT_TARGET_CHS_INFO, name="InterpolatedEEGPT"
-)
+EEGPT._channel_target = EEGPT_19_CHANNELS

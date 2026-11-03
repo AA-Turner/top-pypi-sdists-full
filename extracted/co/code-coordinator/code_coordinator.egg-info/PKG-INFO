@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: code-coordinator
-Version: 0.5.703
+Version: 0.5.705
 Summary: Coordinate Claude Code workers across multiple machines and repos.
 Author-email: John Donaghy <johnfdonaghy@gmail.com>
 License-Expression: LicenseRef-FSL-1.1-MIT
@@ -48,9 +48,10 @@ Provides-Extra: dev
 Requires-Dist: code-coordinator[server]; extra == "dev"
 Requires-Dist: code-coordinator[reports-xlsx]; extra == "dev"
 Requires-Dist: code-coordinator[tui-pty]; extra == "dev"
-Requires-Dist: pytest<9,>=8.0; extra == "dev"
+Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
 Requires-Dist: pytest-xdist>=3.5; extra == "dev"
+Requires-Dist: pytest-timeout>=2.3; extra == "dev"
 Requires-Dist: setuptools>=68; extra == "dev"
 Requires-Dist: setuptools-scm>=8; extra == "dev"
 Requires-Dist: wheel; extra == "dev"

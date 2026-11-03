@@ -35,16 +35,24 @@
 
 use std::sync::Arc;
 
+use crate::builder::stream_builder::GrpcStreamParts;
 use crate::builder::StreamBuilder;
 use crate::callbacks::AckCallback;
+use crate::client_warnings::record_stream_creation;
 use crate::headers_provider::HeadersProvider;
 use crate::{PersistentStream, ZerobusResult, ZerobusStream};
 
 /// A fluent builder for creating or resuming persistent (Eos) streams.
 ///
-/// Configuration setters mirror [`StreamBuilder`] (they delegate to it); the
-/// terminals [`build`](Self::build) and [`resume`](Self::resume) open the
-/// stream. Arrow format is not supported for persistent streams.
+/// In development: this API can change. It is available behind the `eos`
+/// feature.
+///
+/// The setters for the table, authentication, the JSON and compiled protobuf
+/// formats, recovery, timeouts, backpressure, and callbacks delegate to
+/// [`StreamBuilder`]. The terminals [`build`](Self::build) and
+/// [`resume`](Self::resume) open the stream. Arrow, Avro, dynamic protobuf,
+/// multiplexing, and federated authentication are not available on persistent
+/// streams.
 #[must_use = "a PersistentStreamBuilder does nothing until `.build()` or `.resume()` is called"]
 pub struct PersistentStreamBuilder<'a> {
     inner: StreamBuilder<'a>,
@@ -143,12 +151,6 @@ impl<'a> PersistentStreamBuilder<'a> {
         self
     }
 
-    /// Set the maximum wait time during graceful stream pause.
-    pub fn stream_paused_max_wait_time_ms(mut self, ms: Option<u64>) -> Self {
-        self.inner = self.inner.stream_paused_max_wait_time_ms(ms);
-        self
-    }
-
     /// Set the acknowledgment callback.
     pub fn ack_callback(mut self, callback: Arc<dyn AckCallback>) -> Self {
         self.inner = self.inner.ack_callback(callback);
@@ -172,7 +174,7 @@ impl<'a> PersistentStreamBuilder<'a> {
     ///
     /// The server mints a durable stream identity, available via
     /// [`PersistentStream::stream_id`]; persist it to reconnect later with
-    /// [`resume`](Self::resume). Delivery into Delta is exactly-once.
+    /// [`resume`](Self::resume) and continue without rewriting committed records.
     ///
     /// Returns an error if table name, authentication, or format has not been set.
     pub async fn build(self) -> ZerobusResult<PersistentStream> {
@@ -191,8 +193,12 @@ impl<'a> PersistentStreamBuilder<'a> {
     }
 
     async fn open(self, resume_stream_id: Option<String>) -> ZerobusResult<PersistentStream> {
-        let (channel, table_properties, headers_provider, config) =
-            self.inner.prepare_grpc().await?;
+        let GrpcStreamParts {
+            channel,
+            table_properties,
+            headers_provider,
+            config,
+        } = self.inner.prepare_grpc().await?;
         let stream = ZerobusStream::new_persistent_stream(
             channel,
             table_properties,
@@ -201,7 +207,7 @@ impl<'a> PersistentStreamBuilder<'a> {
             resume_stream_id,
         )
         .await?;
-        crate::client_warnings::record_stream_creation(stream.table_properties.table_name.as_str());
+        record_stream_creation(stream.table_properties.table_name.as_str());
         Ok(PersistentStream::new(stream))
     }
 }

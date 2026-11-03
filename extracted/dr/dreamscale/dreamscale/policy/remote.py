@@ -407,7 +407,10 @@ class AsyncRemotePolicy:
                 # Cancelling __anext__ closes an async generator; use a new consumer.
                 self._chunks = self._connection.transport.action_chunks().__aiter__()
             self._emit_progress("Preparing task…")
-            own = (self._runtime_contract if follows_server_contract(self.model)
+            # The session's contract where the server's is the whole contract (a model this
+            # SDK doesn't know, or an exported deployment base); the model's own otherwise.
+            own = (self._runtime_contract
+                   if follows_server_contract(self.model) or exported_base(self.model)
                    else runtime_contract_for_model(self.model))
             await prepare(instruction.strip(), timeout_s=(
                 own.task_prepare_timeout_s if timeout_s is None else timeout_s),

@@ -7,18 +7,20 @@ License: BSD 3 clause
 """
 
 from collections import OrderedDict
+from typing import Dict, List, Optional, Tuple, Union
 from warnings import warn
 
 import numpy as np
 import torch
 import torch.nn as nn
-from einops import rearrange
 from einops.layers.torch import Rearrange
 from torch.nn.init import trunc_normal_
 
-from braindecode.functional import rescale_parameter
+from braindecode.functional import init_weights_, rescale_parameter
+from braindecode.functional.attention import _hpu_eager_fused_sdpa
 from braindecode.models.base import EEGModuleMixin
 from braindecode.modules import MLP, DropPath
+from braindecode.modules.blocks import PatchTokenizer
 
 # -----------------------------------------------------------------------------
 # Standard 10-20 system electrode positions used by LaBraM for position embeddings.
@@ -27,7 +29,8 @@ from braindecode.modules import MLP, DropPath
 # Reference: https://github.com/935963004/LaBraM/blob/c431221e6cfd23dbfa9950e0180682fb322b0548/utils.py#L42-L57
 # We just commented the last 8 channels to match the 128 in the pretrained weights here
 #
-# Channels positions come from several sources:
+# Channels positions come from several sources, all in the head frame that
+# ``raw.set_montage`` gives (one fiducial transform of the montages' own frame):
 #   - standard_1005 names (majority): looked up directly by uppercase key
 #   - bipolar pairs "A-B"  → midpoint of A and B (from standard_1005).
 #     TODO: this is a simplification. A bipolar signal V(A)-V(B) cannot
@@ -45,140 +48,140 @@ from braindecode.modules import MLP, DropPath
 #   - FTT9h/TTP7h/TPP9h/FTT10h/TPP8h/TPP10h → standard_1005 (h-suffix entries)
 #
 # The `loc` values are only used to build an MNE interpolation matrix
-# for InterpolatedLaBraM. They are NOT used by Labram itself, which
+# for the channel layer. They are NOT used by Labram itself, which
 # relies on learned position embeddings indexed by channel name.
 # -----------------------------------------------------------------------------
 
 # fmt: off
 _LABRAM_TARGET_CHS_TUPLES: list[tuple[str, tuple[float, float, float]]] = [
-    ("FP1", (-0.02943670, 0.08391710, -0.00699000)),  # standard_1005
-    ("FPZ", (0.00011230, 0.08824700, -0.00171300)),  # standard_1005
-    ("FP2", (0.02987230, 0.08489590, -0.00708000)),  # standard_1005
-    ("AF9", (-0.04897080, 0.06408720, -0.04768300)),  # standard_1005
-    ("AF7", (-0.05483970, 0.06857220, -0.01059000)),  # standard_1005
-    ("AF5", (-0.04543070, 0.07286220, 0.00597800)),  # standard_1005
-    ("AF3", (-0.03370070, 0.07683710, 0.02122700)),  # standard_1005
-    ("AF1", (-0.01847170, 0.07990410, 0.03275200)),  # standard_1005
-    ("AFZ", (0.00023130, 0.08077100, 0.03541700)),  # standard_1005
-    ("AF2", (0.01982030, 0.08030190, 0.03276400)),  # standard_1005
-    ("AF4", (0.03571230, 0.07772590, 0.02195600)),  # standard_1005
-    ("AF6", (0.04658430, 0.07380780, 0.00603400)),  # standard_1005
-    ("AF8", (0.05574330, 0.06965680, -0.01075500)),  # standard_1005
-    ("AF10", (0.05043520, 0.06386980, -0.04800500)),  # standard_1005
-    ("F9", (-0.07010190, 0.04165230, -0.04995200)),  # standard_1005
-    ("F7", (-0.07026290, 0.04247430, -0.01142000)),  # standard_1005
-    ("F5", (-0.06446580, 0.04803530, 0.01692100)),  # standard_1005
-    ("F3", (-0.05024380, 0.05311120, 0.04219200)),  # standard_1005
-    ("F1", (-0.02749580, 0.05693110, 0.06034200)),  # standard_1005
-    ("FZ", (0.00031220, 0.05851200, 0.06646200)),  # standard_1005
-    ("F2", (0.02951420, 0.05760190, 0.05954000)),  # standard_1005
-    ("F4", (0.05183620, 0.05430480, 0.04081400)),  # standard_1005
-    ("F6", (0.06791420, 0.04982970, 0.01636700)),  # standard_1005
-    ("F8", (0.07304310, 0.04442170, -0.01200000)),  # standard_1005
-    ("F10", (0.07211410, 0.04206670, -0.05045200)),  # standard_1005
-    ("FT9", (-0.08407590, 0.01456730, -0.05042900)),  # standard_1005
-    ("FT7", (-0.08077500, 0.01412030, -0.01113500)),  # standard_1005
-    ("FC5", (-0.07721490, 0.01864330, 0.02446000)),  # standard_1005
-    ("FC3", (-0.06018190, 0.02271620, 0.05554400)),  # standard_1005
-    ("FC1", (-0.03406190, 0.02601110, 0.07998700)),  # standard_1005
-    ("FCZ", (0.00037610, 0.02739000, 0.08866800)),  # standard_1005
-    ("FC2", (0.03478410, 0.02643790, 0.07880800)),  # standard_1005
-    ("FC4", (0.06229310, 0.02372280, 0.05563000)),  # standard_1005
-    ("FC6", (0.07953410, 0.01993570, 0.02443800)),  # standard_1005
-    ("FT8", (0.08181510, 0.01541670, -0.01133000)),  # standard_1005
-    ("FT10", (0.08411310, 0.01436470, -0.05053800)),  # standard_1005
-    ("T9", (-0.08589410, -0.01582870, -0.04828300)),  # standard_1005
-    ("T7", (-0.08416110, -0.01601870, -0.00934600)),  # standard_1005
-    ("C5", (-0.08028010, -0.01375970, 0.02916000)),  # standard_1005
-    ("C3", (-0.06535810, -0.01163170, 0.06435800)),  # standard_1005
-    ("C1", (-0.03615800, -0.00998390, 0.08975200)),  # standard_1005
-    ("CZ", (0.00040090, -0.00916700, 0.10024400)),  # standard_1005
-    ("C2", (0.03767200, -0.00962410, 0.08841200)),  # standard_1005
-    ("C4", (0.06711790, -0.01090030, 0.06358000)),  # standard_1005
-    ("C6", (0.08345590, -0.01277630, 0.02920800)),  # standard_1005
-    ("T8", (0.08507990, -0.01502030, -0.00949000)),  # standard_1005
-    ("T10", (0.08555990, -0.01636130, -0.04827100)),  # standard_1005
-    ("TP9", (-0.08561920, -0.04651470, -0.04570700)),  # standard_1005
-    ("TP7", (-0.08483020, -0.04602170, -0.00705600)),  # standard_1005
-    ("CP5", (-0.07959220, -0.04655070, 0.03094900)),  # standard_1005
-    ("CP3", (-0.06355620, -0.04700880, 0.06562400)),  # standard_1005
-    ("CP1", (-0.03551310, -0.04729190, 0.09131500)),  # standard_1005
-    ("CPZ", (0.00038580, -0.04731800, 0.09943200)),  # standard_1005
-    ("CP2", (0.03838380, -0.04707310, 0.09069500)),  # standard_1005
-    ("CP4", (0.06661180, -0.04663720, 0.06558000)),  # standard_1005
-    ("CP6", (0.08332180, -0.04610130, 0.03120600)),  # standard_1005
-    ("TP8", (0.08554880, -0.04554530, -0.00713000)),  # standard_1005
-    ("TP10", (0.08616180, -0.04703530, -0.04586900)),  # standard_1005
-    ("P9", (-0.07300930, -0.07376570, -0.04099800)),  # standard_1005
-    ("P7", (-0.07243430, -0.07345270, -0.00248700)),  # standard_1005
-    ("P5", (-0.06727230, -0.07629070, 0.02838200)),  # standard_1005
-    ("P3", (-0.05300730, -0.07878780, 0.05594000)),  # standard_1005
-    ("P1", (-0.02862030, -0.08052490, 0.07543600)),  # standard_1005
-    ("PZ", (0.00032470, -0.08111500, 0.08261500)),  # standard_1005
-    ("P2", (0.03191970, -0.08048710, 0.07671600)),  # standard_1005
-    ("P4", (0.05566670, -0.07856020, 0.05656100)),  # standard_1005
-    ("P6", (0.06788770, -0.07590430, 0.02809100)),  # standard_1005
-    ("P8", (0.07305570, -0.07306830, -0.00254000)),  # standard_1005
-    ("P10", (0.07389470, -0.07439030, -0.04122000)),  # standard_1005
-    ("PO9", (-0.05491040, -0.09804480, -0.03546500)),  # standard_1005
-    ("PO7", (-0.05484040, -0.09752790, 0.00279200)),  # standard_1005
-    ("PO5", (-0.04842440, -0.09934080, 0.02159900)),  # standard_1005
-    ("PO3", (-0.03651140, -0.10085290, 0.03716700)),  # standard_1005
-    ("PO1", (-0.01897240, -0.10176800, 0.04653600)),  # standard_1005
-    ("POZ", (0.00021560, -0.10217800, 0.05060800)),  # standard_1005
-    ("PO2", (0.01987760, -0.10179300, 0.04639300)),  # standard_1005
-    ("PO4", (0.03678160, -0.10084910, 0.03639700)),  # standard_1005
-    ("PO6", (0.04981960, -0.09944610, 0.02172700)),  # standard_1005
-    ("PO8", (0.05566660, -0.09762510, 0.00273000)),  # standard_1005
-    ("PO10", (0.05498760, -0.09809110, -0.03554100)),  # standard_1005
-    ("O1", (-0.02941340, -0.11244900, 0.00883900)),  # standard_1005
-    ("OZ", (0.00010760, -0.11489200, 0.01465700)),  # standard_1005
-    ("O2", (0.02984260, -0.11215600, 0.00880000)),  # standard_1005
-    ("O9", (-0.02981840, -0.11457000, -0.02921600)),  # standard_1020
-    ("CB1", (-0.05491040, -0.09804480, -0.03546500)),  # standard_postfixed (cerebellar site; coincides with PO9 in standard_1005)
-    ("CB2", (0.05498760, -0.09809110, -0.03554100)),  # standard_postfixed (cerebellar site; coincides with PO10 in standard_1005)
-    ("IZ", (0.00000450, -0.11856500, -0.02307800)),  # standard_1005 (inion area)
-    ("O10", (0.02974160, -0.11426000, -0.02925600)),  # standard_1020
-    ("T3", (-0.08416110, -0.01601870, -0.00934600)),  # legacy alias of T7 (standard_1005)
-    ("T5", (-0.07243430, -0.07345270, -0.00248700)),  # legacy alias of P7 (standard_1005)
-    ("T4", (0.08507990, -0.01502030, -0.00949000)),  # legacy alias of T8 (standard_1005)
-    ("T6", (0.07305570, -0.07306830, -0.00254000)),  # legacy alias of P8 (standard_1005)
-    ("M1", (-0.08607610, -0.04498970, -0.06798600)),  # standard_1005 (left mastoid)
-    ("M2", (0.08579390, -0.04500930, -0.06803100)),  # standard_1005 (right mastoid)
-    ("A1", (-0.08607610, -0.02498970, -0.06798600)),  # standard_1005 (left ear reference)
-    ("A2", (0.08579390, -0.02500930, -0.06803100)),  # standard_1005 (right ear reference)
-    ("CFC1", (-0.03510995, 0.00801360, 0.08486950)),  # midpoint(FC1, C1) in standard_1005
-    ("CFC2", (0.03622805, 0.00840690, 0.08361000)),  # midpoint(FC2, C2) in standard_1005
-    ("CFC3", (-0.06277000, 0.00554225, 0.05995100)),  # midpoint(FC3, C3) in standard_1005
-    ("CFC4", (0.06470550, 0.00641125, 0.05960500)),  # midpoint(FC4, C4) in standard_1005
-    ("CFC5", (-0.07874750, 0.00244180, 0.02681000)),  # midpoint(FC5, C5) in standard_1005
-    ("CFC6", (0.08149500, 0.00357970, 0.02682300)),  # midpoint(FC6, C6) in standard_1005
-    ("CFC7", (-0.08246805, -0.00094920, -0.01024050)),  # midpoint(FT7, T7) in standard_1005
-    ("CFC8", (0.08344750, 0.00019820, -0.01041000)),  # midpoint(FT8, T8) in standard_1005
-    ("CCP1", (-0.03693010, -0.02856990, 0.09173400)),  # standard_1005
-    ("CCP2", (0.03853990, -0.02822510, 0.09097600)),  # standard_1005
-    ("CCP3", (-0.06612810, -0.02929570, 0.06589800)),  # standard_1005
-    ("CCP4", (0.06885390, -0.02864030, 0.06641000)),  # standard_1005
-    ("CCP5", (-0.08154310, -0.03017270, 0.03027300)),  # standard_1005
-    ("CCP6", (0.08455290, -0.02937830, 0.03087800)),  # standard_1005
-    ("CCP7", (-0.08449565, -0.03102020, -0.00820100)),  # midpoint(T7, TP7) in standard_1005
-    ("CCP8", (0.08531435, -0.03028280, -0.00831000)),  # midpoint(T8, TP8) in standard_1005
-    ("T1", (-0.08407590, 0.01456730, -0.05042900)),  # standard_postfixed (anterior temporal; same position as FT9 in standard_1005)
-    ("T2", (0.08411310, 0.01436470, -0.05053800)),  # standard_postfixed (anterior temporal; same position as FT10 in standard_1005)
-    ("FTT9h", (-0.08412500, -0.00184670, -0.02979400)),  # standard_1005 (h-suffix intermediate position)
-    ("TTP7h", (-0.08556510, -0.03062870, 0.01115300)),  # standard_1005 (h-suffix intermediate position)
-    ("TPP9h", (-0.07816020, -0.06075670, -0.02382400)),  # standard_1005 (h-suffix intermediate position)
-    ("FTT10h", (0.08412300, -0.00180830, -0.02963800)),  # standard_1005 (h-suffix intermediate position)
-    ("TPP8h", (0.07851980, -0.06043230, 0.01290200)),  # standard_1005 (h-suffix intermediate position)
-    ("TPP10h", (0.07890270, -0.06095530, -0.02380500)),  # standard_1005 (h-suffix intermediate position)
-    ("FP1-F7", (-0.04984980, 0.06319570, -0.00920500)),  # bipolar: midpoint(FP1, F7) from standard_1005
-    ("F7-T7", (-0.07721200, 0.01322780, -0.01038300)),  # bipolar: midpoint(F7, T7) from standard_1005
-    ("T7-P7", (-0.07829770, -0.04473570, -0.00591650)),  # bipolar: midpoint(T7, P7) from standard_1005
-    ("P7-O1", (-0.05092385, -0.09295085, 0.00317600)),  # bipolar: midpoint(P7, O1) from standard_1005
-    ("FP2-F8", (0.05145770, 0.06465880, -0.00954000)),  # bipolar: midpoint(FP2, F8) from standard_1005
-    ("F8-T8", (0.07906150, 0.01470070, -0.01074500)),  # bipolar: midpoint(F8, T8) from standard_1005
-    ("T8-P8", (0.07906780, -0.04404430, -0.00601500)),  # bipolar: midpoint(T8, P8) from standard_1005
-    ("P8-O2", (0.05144915, -0.09261215, 0.00313000)),  # bipolar: midpoint(P8, O2) from standard_1005
+    ("FP1", (-0.03090260, 0.11458518, 0.02786657)),  # standard_1005
+    ("FPZ", (-0.00133734, 0.11910180, 0.03288990)),  # standard_1005
+    ("FP2", (0.02840949, 0.11534631, 0.02772126)),  # standard_1005
+    ("AF9", (-0.05051523, 0.09255244, -0.01163823)),  # standard_1005
+    ("AF7", (-0.05636067, 0.09915152, 0.02514129)),  # standard_1005
+    ("AF5", (-0.04693314, 0.10433931, 0.04143977)),  # standard_1005
+    ("AF3", (-0.03518601, 0.10912957, 0.05643921)),  # standard_1005
+    ("AF1", (-0.01994389, 0.11279006, 0.06777204)),  # standard_1005
+    ("AFZ", (-0.00123739, 0.11373993, 0.07038366)),  # standard_1005
+    ("AF2", (0.01834928, 0.11305167, 0.06776147)),  # standard_1005
+    ("AF4", (0.03422985, 0.10981127, 0.05711667)),  # standard_1005
+    ("AF6", (0.04508465, 0.10495921, 0.04144208)),  # standard_1005
+    ("AF8", (0.05422545, 0.09983162, 0.02491507)),  # standard_1005
+    ("AF10", (0.04888931, 0.09196351, -0.01194746)),  # standard_1005
+    ("F9", (-0.07172634, 0.07010038, -0.01263317)),  # standard_1005
+    ("F7", (-0.07187663, 0.07310353, 0.02579046)),  # standard_1005
+    ("F5", (-0.06605409, 0.08023978, 0.05377108)),  # standard_1005
+    ("F3", (-0.05180905, 0.08668790, 0.07871409)),  # standard_1005
+    ("F1", (-0.02904395, 0.09144848, 0.09661865)),  # standard_1005
+    ("FZ", (-0.00122928, 0.09327445, 0.10263929)),  # standard_1005
+    ("F2", (0.02796791, 0.09186996, 0.09577992)),  # standard_1005
+    ("F4", (0.05027427, 0.08743839, 0.07727065)),  # standard_1005
+    ("F6", (0.06633133, 0.08152896, 0.05311628)),  # standard_1005
+    ("F8", (0.07143526, 0.07450512, 0.02510103)),  # standard_1005
+    ("F10", (0.07049013, 0.06997984, -0.01315592)),  # standard_1005
+    ("FT9", (-0.08579655, 0.04308171, -0.01157568)),  # standard_1005
+    ("FT7", (-0.08248932, 0.04484874, 0.02768058)),  # standard_1005
+    ("FC5", (-0.07890598, 0.05136739, 0.06296235)),  # standard_1005
+    ("FC3", (-0.06185234, 0.05713329, 0.09376583)),  # standard_1005
+    ("FC1", (-0.03571587, 0.06171406, 0.11798302)),  # standard_1005
+    ("FCZ", (-0.00127143, 0.06345979, 0.12657198)),  # standard_1005
+    ("FC2", (0.03313097, 0.06182848, 0.11678170)),  # standard_1005
+    ("FC4", (0.06062547, 0.05770742, 0.09379462)),  # standard_1005
+    ("FC6", (0.07784661, 0.05209881, 0.06286711)),  # standard_1005
+    ("FT8", (0.08010432, 0.04555358, 0.02741239)),  # standard_1005
+    ("FT10", (0.08239065, 0.04227491, -0.01167313)),  # standard_1005
+    ("T9", (-0.08772227, 0.01286266, -0.00771191)),  # standard_1005
+    ("T7", (-0.08598209, 0.01487164, 0.03117337)),  # standard_1005
+    ("C5", (-0.08208531, 0.01929363, 0.06948967)),  # standard_1005
+    ("C3", (-0.06714873, 0.02335823, 0.10451068)),  # standard_1005
+    ("C1", (-0.03793783, 0.02633745, 0.12977061)),  # standard_1005
+    ("CZ", (-0.00137414, 0.02761709, 0.14019949)),  # standard_1005
+    ("C2", (0.03589271, 0.02635814, 0.12841234)),  # standard_1005
+    ("C4", (0.06532887, 0.02357310, 0.10369243)),  # standard_1005
+    ("C6", (0.08165316, 0.01969565, 0.06948181)),  # standard_1005
+    ("T8", (0.08326136, 0.01525818, 0.03097297)),  # standard_1005
+    ("T10", (0.08372876, 0.01172163, -0.00766987)),  # standard_1005
+    ("TP9", (-0.08755584, -0.01762902, -0.00340241)),  # standard_1005
+    ("TP7", (-0.08675729, -0.01495097, 0.03515866)),  # standard_1005
+    ("CP5", (-0.08151352, -0.01334569, 0.07313263)),  # standard_1005
+    ("CP3", (-0.06547224, -0.01189660, 0.10777792)),  # standard_1005
+    ("CP1", (-0.03742513, -0.01082424, 0.13344371)),  # standard_1005
+    ("CPZ", (-0.00152491, -0.01051838, 0.14154914)),  # standard_1005
+    ("CP2", (0.03647195, -0.01090379, 0.13281227)),  # standard_1005
+    ("CP4", (0.06469625, -0.01199118, 0.10771287)),  # standard_1005
+    ("CP6", (0.08140110, -0.01346205, 0.07336367)),  # standard_1005
+    ("TP8", (0.08362232, -0.01508568, 0.03505770)),  # standard_1005
+    ("TP10", (0.08422219, -0.01876909, -0.00353477)),  # standard_1005
+    ("P9", (-0.07504186, -0.04461433, 0.00284215)),  # standard_1005
+    ("P7", (-0.07445797, -0.04212316, 0.04127363)),  # standard_1005
+    ("P5", (-0.06929985, -0.04322697, 0.07225380)),  # standard_1005
+    ("P3", (-0.05503824, -0.04421030, 0.09990898)),  # standard_1005
+    ("P1", (-0.03065362, -0.04492739, 0.11947205)),  # standard_1005
+    ("PZ", (-0.00170945, -0.04521299, 0.12667292)),  # standard_1005
+    ("P2", (0.02988639, -0.04503254, 0.12074782)),  # standard_1005
+    ("P4", (0.05363601, -0.04433453, 0.10051603)),  # standard_1005
+    ("P6", (0.06586061, -0.04333852, 0.07194131)),  # standard_1005
+    ("P8", (0.07103246, -0.04225998, 0.04119886)),  # standard_1005
+    ("P10", (0.07185895, -0.04577312, 0.00265579)),  # standard_1005
+    ("PO9", (-0.05702819, -0.06860540, 0.00974109)),  # standard_1005
+    ("PO7", (-0.05694863, -0.06592324, 0.04790744)),  # standard_1005
+    ("PO5", (-0.05053531, -0.06669109, 0.06678691)),  # standard_1005
+    ("PO3", (-0.03862461, -0.06736158, 0.08241555)),  # standard_1005
+    ("PO1", (-0.02108708, -0.06780708, 0.09182133)),  # standard_1005
+    ("POZ", (-0.00189983, -0.06805410, 0.09591000)),  # standard_1005
+    ("PO2", (0.01776256, -0.06797835, 0.09167995)),  # standard_1005
+    ("PO4", (0.03466779, -0.06766214, 0.08164653)),  # standard_1005
+    ("PO6", (0.04770772, -0.06713848, 0.06692061)),  # standard_1005
+    ("PO8", (0.05355732, -0.06641694, 0.04785098)),  # standard_1005
+    ("PO10", (0.05286893, -0.06904690, 0.00966777)),  # standard_1005
+    ("O1", (-0.03157357, -0.08056835, 0.05478965)),  # standard_1005
+    ("OZ", (-0.00206025, -0.08278299, 0.06073663)),  # standard_1005
+    ("O2", (0.02768309, -0.08048884, 0.05473408)),  # standard_1005
+    ("O9", (-0.03199379, -0.08483939, 0.01691581)),  # standard_1020
+    ("CB1", (-0.05702819, -0.06860540, 0.00974109)),  # standard_postfixed (cerebellar site; coincides with PO9 in standard_1005)
+    ("CB2", (0.05286893, -0.06904690, 0.00966777)),  # standard_postfixed (cerebellar site; coincides with PO10 in standard_1005)
+    ("IZ", (-0.00218402, -0.08858648, 0.02327017)),  # standard_1005 (inion area)
+    ("O10", (0.02756693, -0.08474405, 0.01685829)),  # standard_1020
+    ("T3", (-0.08598209, 0.01487164, 0.03117337)),  # legacy alias of T7 (standard_1005)
+    ("T5", (-0.07445797, -0.04212316, 0.04127363)),  # legacy alias of P7 (standard_1005)
+    ("T4", (0.08326136, 0.01525818, 0.03097297)),  # legacy alias of T8 (standard_1005)
+    ("T6", (0.07103246, -0.04225998, 0.04119886)),  # legacy alias of P8 (standard_1005)
+    ("M1", (-0.08801182, -0.01736641, -0.02573202)),  # standard_1005 (left mastoid)
+    ("M2", (0.08385701, -0.01799998, -0.02577594)),  # standard_1005 (right mastoid)
+    ("A1", (-0.08794079, 0.00260137, -0.02686454)),  # standard_1005 (left ear reference)
+    ("A2", (0.08392805, 0.00196780, -0.02690846)),  # standard_1005 (right ear reference)
+    ("CFC1", (-0.03682685, 0.04402576, 0.12387681)),  # midpoint(FC1, C1) in standard_1005
+    ("CFC2", (0.03451184, 0.04409331, 0.12259702)),  # midpoint(FC2, C2) in standard_1005
+    ("CFC3", (-0.06450054, 0.04024576, 0.09913825)),  # midpoint(FC3, C3) in standard_1005
+    ("CFC4", (0.06297717, 0.04064026, 0.09874353)),  # midpoint(FC4, C4) in standard_1005
+    ("CFC5", (-0.08049564, 0.03533051, 0.06622601)),  # midpoint(FC5, C5) in standard_1005
+    ("CFC6", (0.07974989, 0.03589723, 0.06617446)),  # midpoint(FC6, C6) in standard_1005
+    ("CFC7", (-0.08423570, 0.02986019, 0.02942698)),  # midpoint(FT7, T7) in standard_1005
+    ("CFC8", (0.08168284, 0.03040588, 0.02919268)),  # midpoint(FT8, T8) in standard_1005
+    ("CCP1", (-0.03877554, 0.00789637, 0.13280188)),  # standard_1005
+    ("CCP2", (0.03669505, 0.00792920, 0.13202553)),  # standard_1005
+    ("CCP3", (-0.06798115, 0.00581263, 0.10704846)),  # standard_1005
+    ("CCP4", (0.06700242, 0.00601575, 0.10752244)),  # standard_1005
+    ("CCP5", (-0.08340637, 0.00297459, 0.07153029)),  # standard_1005
+    ("CCP6", (0.08269152, 0.00321106, 0.07208924)),  # standard_1005
+    ("CCP7", (-0.08636969, -0.00003966, 0.03316601)),  # midpoint(T7, TP7) in standard_1005
+    ("CCP8", (0.08344184, 0.00008625, 0.03301533)),  # midpoint(T8, TP8) in standard_1005
+    ("T1", (-0.08579655, 0.04308171, -0.01157568)),  # standard_postfixed (anterior temporal; same position as FT9 in standard_1005)
+    ("T2", (0.08239065, 0.04227491, -0.01167313)),  # standard_postfixed (anterior temporal; same position as FT10 in standard_1005)
+    ("FTT9h", (-0.08589978, 0.02786280, 0.00995568)),  # standard_1005 (h-suffix intermediate position)
+    ("TTP7h", (-0.08743383, 0.00145095, 0.05246679)),  # standard_1005 (h-suffix intermediate position)
+    ("TPP9h", (-0.08014305, -0.03063547, 0.01925194)),  # standard_1005 (h-suffix intermediate position)
+    ("FTT10h", (0.08234732, 0.02731141, 0.01010915)),  # standard_1005 (h-suffix intermediate position)
+    ("TPP8h", (0.07654453, -0.02878936, 0.05590055)),  # standard_1005 (h-suffix intermediate position)
+    ("TPP10h", (0.07691815, -0.03139144, 0.01928207)),  # standard_1005 (h-suffix intermediate position)
+    ("FP1-F7", (-0.05138961, 0.09384436, 0.02682852)),  # bipolar: midpoint(FP1, F7) from standard_1005
+    ("F7-T7", (-0.07892936, 0.04398759, 0.02848191)),  # bipolar: midpoint(F7, T7) from standard_1005
+    ("T7-P7", (-0.08022003, -0.01362576, 0.03622350)),  # bipolar: midpoint(T7, P7) from standard_1005
+    ("P7-O1", (-0.05301577, -0.06134576, 0.04803164)),  # bipolar: midpoint(P7, O1) from standard_1005
+    ("FP2-F8", (0.04992237, 0.09492571, 0.02641114)),  # bipolar: midpoint(FP2, F8) from standard_1005
+    ("F8-T8", (0.07734831, 0.04488165, 0.02803700)),  # bipolar: midpoint(F8, T8) from standard_1005
+    ("T8-P8", (0.07714691, -0.01350090, 0.03608592)),  # bipolar: midpoint(T8, P8) from standard_1005
+    ("P8-O2", (0.04935778, -0.06137441, 0.04796647)),  # bipolar: midpoint(P8, O2) from standard_1005
 ]   # "FP1-F3", "F3-C3", "C3-P3", "P3-O1", "FP2-F4", "F4-C4", "C4-P4", "P4-O2"
 # fmt: on
 
@@ -191,6 +194,11 @@ _LABRAM_TARGET_CHS_INFO = [
     for ch, loc in _LABRAM_TARGET_CHS_TUPLES
 ]
 LABRAM_CHANNEL_ORDER = [ch for ch, _ in _LABRAM_TARGET_CHS_TUPLES]
+
+#: Absolute time slots of the original LaBraM (``time_embed`` in its
+#: ``modeling_finetune.py``), whatever the window length. A window of P patches
+#: uses slots 0..P-1, and the released weights hold all 16 of them.
+_LABRAM_N_TIME_SLOTS = 16
 _LABRAM_CANONICAL_INDEX = {n.upper(): i for i, n in enumerate(LABRAM_CHANNEL_ORDER)}
 
 
@@ -279,12 +287,18 @@ class Labram(EEGModuleMixin, nn.Module):
 
     Parameters
     ----------
+    on_non_divisible : {"pad", "crop", "error"}, default="pad"
+        How :class:`~braindecode.modules.PatchTokenizer` treats a time axis that
+        is not a multiple of ``patch_size``: right-pad with zeros (default),
+        crop the trailing samples, or raise.
     patch_size : int
         The size of the patch to be used in the patch embedding.
     learned_patcher : bool
         Whether to use a learned patch embedding (via a convolutional layer) or a fixed patch embedding (via rearrangement).
     embed_dim : int
-        The dimension of the embedding.
+        The dimension of the embedding. In the Neural Tokenizer mode, it is
+        set by the temporal convolution (``conv_out_channels`` and
+        ``patch_size``), with a warning if the given value differs.
     conv_in_channels : int
         The number of convolutional input channels.
     conv_out_channels : int
@@ -319,7 +333,13 @@ class Labram(EEGModuleMixin, nn.Module):
     use_abs_pos_emb : bool (default=True)
         If True, use absolute position embedding.
     use_mean_pooling : bool (default=True)
-        If True, use mean pooling.
+        If True, the readout is ``fc_norm`` applied to the mean of the patch
+        tokens, as in the original fine-tuning. If False, the readout is the
+        [CLS] token after the final ``norm``; the original pretraining loss
+        never uses the [CLS] output. A pretraining checkpoint (with ``norm``
+        and without ``fc_norm`` or head, such as the released weights) loads
+        into a mean-pooling model as in the original fine-tuning script:
+        ``norm`` is unused and ``fc_norm`` keeps its initialization.
     init_scale : float (default=0.001)
         The initial scale to be used in the parameters of the model.
     neural_tokenizer : bool (default=True)
@@ -346,6 +366,11 @@ class Labram(EEGModuleMixin, nn.Module):
        arXiv:2208.06366 [cs.CV]
     """
 
+    _channel_target = _LABRAM_TARGET_CHS_INFO
+    # Constant, so TorchScript compiles only the mode in use (the decoder-only
+    # locals do not exist in tokenizer mode).
+    __constants__ = ["neural_tokenizer"]
+
     def __init__(
         self,
         n_times=None,
@@ -371,11 +396,14 @@ class Labram(EEGModuleMixin, nn.Module):
         norm_layer: type[nn.Module] = nn.LayerNorm,
         init_values=0.1,
         use_abs_pos_emb=True,
-        use_mean_pooling=False,
+        use_mean_pooling=True,
         init_scale=0.001,
         neural_tokenizer=True,
         attn_head_dim=None,
         activation: type[nn.Module] = nn.GELU,
+        on_non_divisible="pad",
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
         super().__init__(
             n_outputs=n_outputs,
@@ -384,6 +412,8 @@ class Labram(EEGModuleMixin, nn.Module):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, n_times, input_window_seconds, sfreq
 
@@ -400,10 +430,12 @@ class Labram(EEGModuleMixin, nn.Module):
                     f"Labram chs_info does not match LABRAM_CHANNEL_ORDER "
                     f"(got {len(user_names)} of {len(LABRAM_CHANNEL_ORDER)}). "
                     f"Pass ch_names to forward() per batch, or use "
-                    f"InterpolatedLaBraM.",
+                    f"channel_strategy='spline'.",
                     UserWarning,
                 )
 
+        # A module attribute, so the scripted forward can resolve ch_names.
+        self._canonical_index = _LABRAM_CANONICAL_INDEX
         self.patch_size = patch_size
         self.num_features = self.embed_dim = embed_dim
         self.neural_tokenizer = neural_tokenizer
@@ -420,7 +452,12 @@ class Labram(EEGModuleMixin, nn.Module):
             self.embed_dim = None
         else:
             self.patch_size = patch_size
-        self.n_path = self.n_times // self.patch_size
+        self.on_non_divisible = on_non_divisible
+        self.n_path = (
+            -(-self.n_times // self.patch_size)
+            if on_non_divisible == "pad"
+            else self.n_times // self.patch_size
+        )
 
         if neural_tokenizer and conv_in_channels != 1:
             warn(
@@ -445,6 +482,7 @@ class Labram(EEGModuleMixin, nn.Module):
                                 n_chans=self.n_chans,
                                 emb_dim=self.patch_size,
                                 learned_patcher=learned_patcher,
+                                on_non_divisible=on_non_divisible,
                             ),
                         ),
                         (
@@ -470,6 +508,7 @@ class Labram(EEGModuleMixin, nn.Module):
                     patch_size=patch_size,
                     in_channels=conv_in_channels,
                     emb_dim=self.embed_dim,
+                    on_non_divisible=on_non_divisible,
                 ),
             )
 
@@ -478,6 +517,14 @@ class Labram(EEGModuleMixin, nn.Module):
             out = self.patch_embed(dummy)
         # out.shape for tokenizer: (1, n_chans, emb_dim)
         # for decoder:        (1, n_patch, patch_size, emb_dim), but we want last dim
+        if neural_tokenizer and out.shape[-1] != self.embed_dim:
+            warn(
+                f"In the Neural Tokenizer mode the embedding dimension is set "
+                f"by the temporal convolution (conv_out_channels, patch_size): "
+                f"using embed_dim={out.shape[-1]} instead of the given "
+                f"embed_dim={self.embed_dim}.",
+                UserWarning,
+            )
         self.embed_dim = out.shape[-1]
         self.num_features = self.embed_dim
 
@@ -498,8 +545,15 @@ class Labram(EEGModuleMixin, nn.Module):
         else:
             self.position_embedding = None
 
+        # The tokenizer keeps the original's absolute time slots, so the
+        # pretrained slots load at every window length; longer windows get
+        # extra slots. The decoder mode keeps one slot per patch plus one.
+        n_patches = self.patch_embed[0].n_patchs
+        n_time_slots = (
+            max(_LABRAM_N_TIME_SLOTS, n_patches) if neural_tokenizer else n_patches + 1
+        )
         self.temporal_embedding = nn.Parameter(
-            torch.zeros(1, self.patch_embed[0].n_patchs + 1, self.embed_dim),
+            torch.zeros(1, n_time_slots, self.embed_dim),
             requires_grad=True,
         )
         self.pos_drop = nn.Dropout(p=drop_prob)
@@ -541,7 +595,11 @@ class Labram(EEGModuleMixin, nn.Module):
 
         self.reset_classifier(self.n_outputs)
 
-        self.apply(self._init_weights)
+        self._init_parameters()
+
+    def _init_parameters(self) -> None:
+        """Model-specific initialization (see ``reset_parameters``)."""
+        self.apply(init_weights_)
         self.fix_init_weight_and_init_embedding()
 
     def fix_init_weight_and_init_embedding(self):
@@ -566,35 +624,6 @@ class Labram(EEGModuleMixin, nn.Module):
             self.final_layer.weight.data.mul_(self.init_scale)
             self.final_layer.bias.data.mul_(self.init_scale)
 
-    @staticmethod
-    def _init_weights(layer):
-        """
-        Initialize the weights of the model for each layer layer.
-
-        If the layer is a linear layer, the weight will be initialized
-        with a truncated normal distribution with std=0.02.
-
-        If m.bias is not None, the bias will be initialized with a constant
-        value of 0.
-
-        If the layer is a layer normalization layer, the bias will be
-        initialized with a constant value of 0, and the weight will be
-        initialized with a constant value of 1.
-
-        Parameters
-        ----------
-        m : torch.nn.Module
-            The layer of the pytorch model
-        """
-
-        if isinstance(layer, nn.Linear):
-            trunc_normal_(layer.weight, std=0.02)
-            if layer.bias is not None:
-                nn.init.constant_(layer.bias, 0)
-        elif isinstance(layer, nn.LayerNorm):
-            nn.init.constant_(layer.bias, 0)
-            nn.init.constant_(layer.weight, 1.0)
-
     def get_num_layers(self):
         """
         Convenience method to get the number of layers in the model.
@@ -605,8 +634,8 @@ class Labram(EEGModuleMixin, nn.Module):
         self,
         x,
         input_chans,
-        return_patch_tokens=False,
-        return_all_tokens=False,
+        return_patch_tokens: bool = False,
+        return_all_tokens: bool = False,
     ):
         """
         Forward the features of the model.
@@ -638,10 +667,11 @@ class Labram(EEGModuleMixin, nn.Module):
             temporal = self.embed_dim
         else:
             # For neural decoder: input is (batch, n_chans, n_times)
-            # patch_embed returns (batch, n_patchs, emb_dim)
+            # patch_embed returns one token per temporal patch:
+            # (batch, n_patches_per_channel, emb_dim)
             x = self.patch_embed(x)
-            # x shape: (batch, n_patchs, emb_dim)
-            batch_size, n_patch, temporal = x.shape
+            # x shape: (batch, n_patches_per_channel, emb_dim)
+            batch_size, n_patches_per_channel, temporal = x.shape
 
         # add the [CLS] token to the embedded patch tokens
         cls_tokens = self.cls_token.expand(batch_size, -1, -1)
@@ -659,10 +689,13 @@ class Labram(EEGModuleMixin, nn.Module):
                     pos_embed_used=pos_embed_used, batch_size=batch_size
                 )
             else:
-                # In decoder mode, we have different number of patches
-                # Adapt position embedding for n_patch patches
-                # Use the first n_patch+1 positions from position_embedding
-                n_pos = min(self.position_embedding.shape[1], n_patch + 1)
+                # In decoder mode, patch_embed already averages over the grouped
+                # channel dimension, so the token axis only indexes temporal
+                # patches.
+                n_pos = min(
+                    self.position_embedding.shape[1],
+                    n_patches_per_channel + 1,
+                )
                 pos_embed_used = self.position_embedding[:, :n_pos, :]
                 pos_embed = pos_embed_used.expand(batch_size, -1, -1)
 
@@ -672,29 +705,34 @@ class Labram(EEGModuleMixin, nn.Module):
         if self.neural_tokenizer:
             num_ch = n_input_chans  # Use actual input channels
             time_embed = self._adj_temporal_embedding(
-                num_ch=num_ch, batch_size=batch_size, dim_embed=temporal
+                num_ch=num_ch,
+                batch_size=batch_size,
+                n_patches=self.patch_embed[0].n_patchs,
             )
             x[:, 1:, :] += time_embed
         else:
-            # In decoder mode, we have n_patch patches and don't need to expand
-            # Just broadcast the temporal embedding
+            # In decoder mode, patch_embed returns one token per temporal patch,
+            # so we only need one temporal embedding per time slice.
             if temporal is None:
                 temporal = self.embed_dim
 
-            # Get temporal embeddings for n_patch patches
-            n_time_tokens = min(n_patch, self.temporal_embedding.shape[1] - 1)
+            n_time_tokens = min(
+                n_patches_per_channel, self.temporal_embedding.shape[1] - 1
+            )
             time_embed = self.temporal_embedding[
                 :, 1 : n_time_tokens + 1, :
-            ]  # (1, n_patch, emb_dim)
+            ]  # (1, n_patches_per_channel, emb_dim)
             time_embed = time_embed.expand(
                 batch_size, -1, -1
-            )  # (batch, n_patch, emb_dim)
+            )  # (batch, n_patches_per_channel, emb_dim)
             x[:, 1:, :] += time_embed
 
         x = self.pos_drop(x)
 
         for blk in self.blocks:
-            x = blk(x)
+            out = blk(x)
+            assert isinstance(out, torch.Tensor)  # narrows the Union for TorchScript
+            x = out
 
         x = self.norm(x)
         if self.fc_norm is not None:
@@ -713,13 +751,12 @@ class Labram(EEGModuleMixin, nn.Module):
 
     def forward(
         self,
-        x,
-        return_patch_tokens=False,
-        return_all_tokens=False,
-        return_features=False,
-        *,
-        ch_names: list[str] | None = None,
-    ):
+        x: torch.Tensor,
+        return_patch_tokens: bool = False,
+        return_all_tokens: bool = False,
+        return_features: bool = False,
+        ch_names: Optional[List[str]] = None,
+    ) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
         """
         Forward the input EEG data through the model.
 
@@ -736,7 +773,7 @@ class Labram(EEGModuleMixin, nn.Module):
             If True, return a dict with ``"features"`` (patch tokens) and
             ``"cls_token"`` instead of the classification output.
         ch_names : list of str, optional
-            Keyword-only. Channel names matching the channel axis of ``x``.
+            Channel names matching the channel axis of ``x``.
             Matched case-insensitively against :data:`LABRAM_CHANNEL_ORDER`
             to select the corresponding position embeddings, so callers can
             forward an arbitrary subset of canonical channels. If ``None``
@@ -751,42 +788,46 @@ class Labram(EEGModuleMixin, nn.Module):
         torch.Tensor or dict
             The output of the model with dimensions (batch, n_outputs)
         """
+        n_canonical = len(self._canonical_index)  # len(LABRAM_CHANNEL_ORDER)
         if ch_names is None:
-            if x.shape[1] != len(LABRAM_CHANNEL_ORDER):
+            if x.shape[1] != n_canonical:
                 raise ValueError(
                     f"x has {x.shape[1]} channels but ch_names is None; "
-                    f"expected {len(LABRAM_CHANNEL_ORDER)} canonical channels "
+                    f"expected {n_canonical} canonical channels "
                     f"in LABRAM_CHANNEL_ORDER. Either pass "
                     f"ch_names=<your channel names> matching x.shape[1], or "
-                    f"use InterpolatedLaBraM to project from an arbitrary "
+                    f"use channel_strategy='spline' to project from an arbitrary "
                     f"montage onto the canonical 128-channel layout."
                 )
             input_chans = torch.arange(
-                len(LABRAM_CHANNEL_ORDER) + 1, device=x.device, dtype=torch.long
+                n_canonical + 1, device=x.device, dtype=torch.long
             )
         else:
             if len(ch_names) != x.shape[1]:
                 raise ValueError(
                     f"len(ch_names)={len(ch_names)} != x.shape[1]={x.shape[1]}"
                 )
-            try:
-                matched = [_LABRAM_CANONICAL_INDEX[n.upper()] for n in ch_names]
-            except KeyError as exc:
-                raise ValueError(
-                    f"ch_names contains a name not in LABRAM_CHANNEL_ORDER: "
-                    f"{exc.args[0]!r}. Filter unknown channels before calling "
-                    f"forward, or use InterpolatedLaBraM."
-                ) from exc
             # CLS token at index 0; canonical channel indices are offset by 1.
-            input_chans = torch.tensor(
-                [0] + [i + 1 for i in matched], device=x.device, dtype=torch.long
-            )
+            matched = [0]
+            for name in ch_names:
+                if name.upper() not in self._canonical_index:
+                    raise ValueError(
+                        "ch_names contains a name not in LABRAM_CHANNEL_ORDER: "
+                        f"'{name.upper()}'. Filter unknown channels before calling "
+                        "forward, or use channel_strategy='spline'."
+                    )
+                matched.append(self._canonical_index[name.upper()] + 1)
+            input_chans = torch.tensor(matched, device=x.device, dtype=torch.long)
 
         if return_features:
             x = self.forward_features(
                 x, input_chans=input_chans, return_all_tokens=True
             )
-            return {"features": x[:, 1:, :], "cls_token": x[:, 0, :]}
+            out: Dict[str, torch.Tensor] = {
+                "features": x[:, 1:, :],
+                "cls_token": x[:, 0, :],
+            }
+            return out
 
         x = self.forward_features(
             x,
@@ -823,21 +864,23 @@ class Labram(EEGModuleMixin, nn.Module):
 
     def reset_head(self, n_outputs):
         self._n_outputs = n_outputs
+        self._update_init_kwargs(n_outputs=n_outputs)
         self.reset_classifier(n_outputs)
 
-    def _adj_temporal_embedding(self, num_ch, batch_size, dim_embed=None):
+    def _adj_temporal_embedding(self, num_ch: int, batch_size: int, n_patches: int):
         """
         Adjust the dimensions of the time embedding to match the
-        number of channels or patches.
+        number of channels and patches.
 
         Parameters
         ----------
         num_ch : int
-            The number of channels or number of patches.
+            The number of channels.
         batch_size : int
             Batch size of the input data.
-        dim_embed : int
-            The embedding dimension (temporal feature dimension).
+        n_patches : int
+            The number of patches per channel. Patch ``p`` uses time slot
+            ``p``, as in the original implementation.
 
         Returns
         -------
@@ -845,13 +888,9 @@ class Labram(EEGModuleMixin, nn.Module):
             The adjusted time embedding to be added across the channels
             after the [CLS] token. (x[:, 1:, :] += time_embed)
         """
-        if dim_embed is None:
-            cut_dimension = self.patch_size
-        else:
-            cut_dimension = min(dim_embed, self.temporal_embedding.shape[1] - 1)
-
-        # Get the temporal embedding: (1, temporal_embedding_dim, emb_size)
-        # Slice to cut_dimension: (1, cut_dimension, emb_size)
+        # Get the temporal embedding: (1, n_time_slots, emb_size)
+        # Keep the first n_patches slots: (1, n_patches, emb_size)
+        cut_dimension = n_patches
         temporal_embedding = self.temporal_embedding[:, 0:cut_dimension, :]
 
         # Add a new dimension to the time embedding
@@ -868,7 +907,71 @@ class Labram(EEGModuleMixin, nn.Module):
 
         return temporal_embedding
 
-    def _adj_position_embedding(self, pos_embed_used, batch_size):
+    def _load_from_state_dict(
+        self,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
+    ):
+        # Time slots are absolute positions: take every slot the checkpoint
+        # holds and keep the model's own values for the others. This loads the
+        # released 16 slots at any window length, and checkpoints saved when
+        # the embedding had one slot per patch plus one.
+        key = prefix + "temporal_embedding"
+        loaded = state_dict.get(key)
+        own = self.temporal_embedding
+        if (
+            self.neural_tokenizer
+            and isinstance(loaded, torch.Tensor)
+            and loaded.dim() == own.dim() == 3
+            and loaded.shape[0] == own.shape[0]
+            and loaded.shape[2] == own.shape[2]
+            and loaded.shape[1] != own.shape[1]
+        ):
+            n_copied = min(loaded.shape[1], own.shape[1])
+            resized = own.detach().clone()
+            resized[:, :n_copied] = loaded[:, :n_copied].to(resized)
+            n_used = self.patch_embed[0].n_patchs
+            if n_copied < n_used:
+                warn(
+                    f"The checkpoint holds {loaded.shape[1]} time slots but this "
+                    f"model uses {n_used} (one per patch); time slots "
+                    f"{n_copied} to {n_used - 1} keep their initialization.",
+                    UserWarning,
+                )
+            state_dict[key] = resized
+        # A pretraining checkpoint has the per-token final ``norm`` and no
+        # pooling ``fc_norm`` or head. As in the original fine-tuning script,
+        # a mean-pooling model leaves that ``norm`` unused and starts
+        # ``fc_norm`` from its initialization. A checkpoint with a head was
+        # fine-tuned with its own readout and is not converted.
+        if (
+            self.fc_norm is not None
+            and prefix + "cls_token" in state_dict
+            and not any(
+                k.startswith((prefix + "fc_norm.", prefix + "final_layer."))
+                for k in state_dict
+            )
+        ):
+            for k in [k for k in state_dict if k.startswith(prefix + "norm.")]:
+                del state_dict[k]
+            for name, value in self.fc_norm.state_dict().items():
+                state_dict[prefix + "fc_norm." + name] = value
+        super()._load_from_state_dict(
+            state_dict,
+            prefix,
+            local_metadata,
+            strict,
+            missing_keys,
+            unexpected_keys,
+            error_msgs,
+        )
+
+    def _adj_position_embedding(self, pos_embed_used, batch_size: int):
         """Copy/pasted from https://github.com/935963004/LaBraM/blob/c431221e6cfd23dbfa9950e0180682fb322b0548/modeling_finetune.py#L358-L362"""
         input_time_window = self.patch_embed[0].n_patchs
         pos_embed = (
@@ -918,14 +1021,32 @@ class _SegmentPatch(nn.Module):
         Output tensor of shape (batch, n_chans, num_patches, emb_dim).
     """
 
+    # Constant, so TorchScript skips the branch whose layers do not exist.
+    __constants__ = ["learned_patcher"]
+
     def __init__(
-        self, n_times=2000, patch_size=200, n_chans=1, emb_dim=200, learned_patcher=True
+        self,
+        n_times=2000,
+        patch_size=200,
+        n_chans=1,
+        emb_dim=200,
+        learned_patcher=True,
+        on_non_divisible="pad",
     ):
         super().__init__()
 
         self.n_times = n_times
         self.patch_size = patch_size
-        self.n_patchs = n_times // patch_size
+        # Single place that pads/crops/rejects a non-divisible time axis
+        # (no parameters, so checkpoints are unaffected).
+        self.tokenizer = PatchTokenizer(
+            patch_size=patch_size, n_times=n_times, on_non_divisible=on_non_divisible
+        )
+        self.n_patchs = (
+            -(-n_times // patch_size)
+            if on_non_divisible == "pad"
+            else n_times // patch_size
+        )
         self.emb_dim = emb_dim
         self.n_chans = n_chans
         self.learned_patcher = learned_patcher
@@ -953,8 +1074,12 @@ class _SegmentPatch(nn.Module):
         Returns:
         --------
         X_patch: Tensor
-            [batch, n_chans, n_times//patch_size, patch_size]
+            [batch, n_chans, n_patchs, emb_dim] if ``learned_patcher``, else
+            [batch, n_chans, n_patchs, patch_size], where ``n_patchs`` is
+            ``ceil(n_times / patch_size)`` for ``on_non_divisible="pad"`` and
+            ``n_times // patch_size`` otherwise.
         """
+        x = self.tokenizer.prepare_input(x)
         batch_size, n_chans_actual, n_times_actual = x.shape
         # Input shape: [batch, n_chs, n_times]
 
@@ -974,12 +1099,9 @@ class _SegmentPatch(nn.Module):
             # as output, which keeps channel information
             # This treats each patch embedding as a feature alongside channels
             # Use actual number of channels from input, not self.n_chans
-            x = rearrange(
-                x,
-                pattern="(batch nchans) embed npatchs -> batch nchans npatchs embed",
-                batch=batch_size,
-                nchans=n_chans_actual,
-            )
+            # (batch * nchans, embed, npatchs) -> (batch, nchans, npatchs, embed)
+            x = x.reshape(batch_size, n_chans_actual, x.shape[1], x.shape[2])
+            x = x.permute(0, 1, 3, 2)
         else:
             x = x.view(
                 batch_size,
@@ -1000,7 +1122,8 @@ class _PatchEmbed(nn.Module):
     but the original LaBraM expects pre-patched data (Batch, n_channels, n_patches, patch_size).
     This class reshapes the input to the pre-patched format, then applies a 2D
     convolution to project this pre-patched data to the embedding dimension,
-    and finally flattens across channels to produce a unified embedding.
+    and finally averages over grouped channels to produce one embedding per
+    temporal patch.
 
     Parameters:
     -----------
@@ -1012,16 +1135,32 @@ class _PatchEmbed(nn.Module):
         Number of input channels (from VQVAE codebook).
     emb_dim: int (default=200)
         Number of output embedding dimension.
+    on_non_divisible: {"pad", "crop", "error"} (default="pad")
+        Passed to :class:`~braindecode.modules.PatchTokenizer`.
     """
 
     def __init__(
-        self, n_times=2000, patch_size=200, in_channels=1, emb_dim=200, n_codebooks=62
+        self,
+        n_times=2000,
+        patch_size=200,
+        in_channels=1,
+        emb_dim=200,
+        n_codebooks=62,
+        on_non_divisible="pad",
     ):
         super().__init__()
         self.n_times = n_times
         self.patch_size = patch_size
-        self.patch_shape = (1, self.n_times // self.patch_size)
-        self.n_patchs = self.n_times // self.patch_size
+        # Same pad/crop/error step as the tokenizer mode (no parameters).
+        self.tokenizer = PatchTokenizer(
+            patch_size=patch_size, n_times=n_times, on_non_divisible=on_non_divisible
+        )
+        self.n_patchs = (
+            -(-n_times // patch_size)
+            if on_non_divisible == "pad"
+            else n_times // patch_size
+        )
+        self.patch_shape = (1, self.n_patchs)
         self.emb_dim = emb_dim
         self.in_channels = in_channels
 
@@ -1066,11 +1205,9 @@ class _PatchEmbed(nn.Module):
                 "Input must be either 3D (batch, channels, times) or "
                 "4D (batch, channels, n_patches, patch_size)."
             )
+        x = self.tokenizer.prepare_input(x)
+        n_times = x.shape[-1]
 
-        if n_times % self.patch_size != 0:
-            raise ValueError(
-                f"n_times ({n_times}) must be divisible by patch_size ({self.patch_size})."
-            )
         if n_channels % self.in_channels != 0:
             raise ValueError(
                 "The input channel dimension "
@@ -1216,9 +1353,9 @@ class _Attention(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        return_attention=False,
-        return_qkv=False,
-    ):
+        return_attention: bool = False,
+        return_qkv: bool = False,
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """
         Apply the attention mechanism to the input tensor.
 
@@ -1245,25 +1382,23 @@ class _Attention(nn.Module):
             qkv_bias = torch.cat(
                 (
                     self.q_bias,
-                    torch.zeros_like(self.v_bias, requires_grad=False),
+                    torch.zeros_like(self.v_bias),
                     self.v_bias,
                 )
             )
-        qkv = nn.functional.linear(input=x, weight=self.qkv.weight, bias=qkv_bias)
+        # Call the ``qkv`` module rather than ``linear`` on its weight, so hooks
+        # and adapters attached to it (e.g. LoRA) take part in the forward.
+        qkv = self.qkv(x)
+        if qkv_bias is not None:
+            qkv = qkv + qkv_bias.to(qkv.dtype)  # keep autocast dtype
         qkv = qkv.reshape(B, N, 3, self.num_heads, -1).permute(2, 0, 3, 1, 4)
-        q, k, v = (
-            qkv[0],
-            qkv[1],
-            qkv[2],
-        )  # make torchscript happy (cannot use tensor as tuple) (B, H, N, C)
+        q, k, v = qkv.unbind(0)  # (B, H, N, C); TorchScript cannot unpack qkv
         if self.q_norm is not None:
             q = self.q_norm(q).type_as(v)
         if self.k_norm is not None:
             k = self.k_norm(k).type_as(v)
 
-        q = q * self.scale
-        attn = q @ k.transpose(-2, -1)
-
+        attn_mask: Optional[torch.Tensor] = None
         if self.relative_position_bias_table is not None:
             relative_position_bias = self.relative_position_bias_table[
                 self.relative_position_index.view(-1)
@@ -1272,18 +1407,38 @@ class _Attention(nn.Module):
                 self.window_size[0] * self.window_size[1] + 1,
                 -1,
             )  # Wh*Ww,Wh*Ww,nH
-            relative_position_bias = relative_position_bias.permute(
-                2, 0, 1
-            ).contiguous()  # nH, Wh*Ww, Wh*Ww
-            attn = attn + relative_position_bias.unsqueeze(0)
+            attn_mask = (
+                relative_position_bias.permute(2, 0, 1).contiguous().unsqueeze(0)
+            )  # 1, nH, Wh*Ww, Wh*Ww
 
-        attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
-
-        if return_attention:
-            return attn
-
-        x = (attn @ v).transpose(1, 2).reshape(B, N, -1)
+        # Fused kernel, same math. Not with attention dropout in training (it
+        # would draw other masks). On Gaudi, torch's SDPA trains ~12 % slower
+        # than the plain ops; the bridge's own fused kernel (eager mode, no
+        # mask) is used instead.
+        fused = not return_attention and (self.attn_drop.p == 0.0 or not self.training)
+        out: Optional[torch.Tensor] = None
+        if fused and q.device.type != "hpu":
+            out = nn.functional.scaled_dot_product_attention(
+                q, k, v, attn_mask=attn_mask, scale=self.scale
+            )
+        elif (
+            fused
+            and attn_mask is None
+            and not torch.jit.is_scripting()
+            and (q.dtype == torch.float32 or q.dtype == torch.bfloat16)
+        ):
+            out = _hpu_eager_fused_sdpa(q, k, v, self.scale)
+        if out is None:
+            attn = (q * self.scale) @ k.transpose(-2, -1)
+            if attn_mask is not None:
+                attn = attn + attn_mask
+            attn = self.attn_drop(attn.softmax(dim=-1))
+            if return_attention:
+                return attn
+            x = attn @ v
+        else:
+            x = out
+        x = x.transpose(1, 2).reshape(B, N, -1)
 
         x = self.proj(x)
         x = self.proj_drop(x)
@@ -1393,7 +1548,9 @@ class _WindowsAttentionBlock(nn.Module):
         else:
             self.gamma_1, self.gamma_2 = None, None
 
-    def forward(self, x, return_attention=False, return_qkv=False):
+    def forward(
+        self, x, return_attention: bool = False, return_qkv: bool = False
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """
         Apply the attention mechanism to the input tensor.
         Parameters
@@ -1415,16 +1572,20 @@ class _WindowsAttentionBlock(nn.Module):
         if return_attention:
             return self.attn(self.norm1(x), return_attention=True)
         if return_qkv:
-            y, qkv = self.attn(self.norm1(x), return_qkv=return_qkv)
+            out = self.attn(self.norm1(x), return_qkv=return_qkv)
+            assert isinstance(out, tuple)  # narrows the Union for TorchScript
+            y, qkv = out
             x = x + self.drop_path(self.gamma_1 * y)
             x = x + self.drop_path(self.gamma_2 * self.mlp(self.norm2(x)))
             return x, qkv
 
+        y = self.attn(self.norm1(x))
+        assert isinstance(y, torch.Tensor)  # narrows the Union for TorchScript
         if self.gamma_1 is None:
-            x = x + self.drop_path(self.attn(self.norm1(x)))
+            x = x + self.drop_path(y)
             x = x + self.drop_path(self.mlp(self.norm2(x)))
         else:
-            x = x + self.drop_path(self.gamma_1 * self.attn(self.norm1(x)))
+            x = x + self.drop_path(self.gamma_1 * y)
             x = x + self.drop_path(self.gamma_2 * self.mlp(self.norm2(x)))
         return x
 
@@ -1538,23 +1699,3 @@ class _TemporalConv(nn.Module):
         x = self.act_layer_3(self.norm3(self.conv3(x)))
         x = self.transpose_temporal_channel(x)
         return x
-
-
-# -----------------------------------------------------------------------------
-# InterpolatedLaBraM — experimental channel-interpolation variant of Labram
-# -----------------------------------------------------------------------------
-# A :func:`~braindecode.models.interpolated.InterpolatedModel` wrapper around
-# :class:`Labram` whose target channel set is the 128-channel canonical
-# ``LABRAM_CHANNEL_ORDER``. Accepts arbitrary user ``chs_info``; projects to
-# the canonical 128 channels via an MNE-backed (frozen by default)
-# interpolation matrix.
-#
-# NOTE: 8 of the 128 canonical channels are bipolar derivations (e.g. FP1-F7);
-# their positions are approximated as midpoints — see the TODO in
-# ``_LABRAM_TARGET_CHS_TUPLES``.
-
-from braindecode.models.interpolated import InterpolatedModel  # noqa: E402
-
-InterpolatedLaBraM = InterpolatedModel(
-    Labram, _LABRAM_TARGET_CHS_INFO, name="InterpolatedLaBraM"
-)

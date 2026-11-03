@@ -1,22 +1,21 @@
 Metadata-Version: 2.5
 Name: data-designer-engine
-Version: 0.9.7
+Version: 0.10.0
 Summary: Generation engine for DataDesigner synthetic data generation
 License-Expression: Apache-2.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: anyascii<1,>=0.3.3
 Requires-Dist: asciichartpy<2,>=1.5.25
-Requires-Dist: data-designer-config==0.9.7
+Requires-Dist: data-designer-config==0.10.0
 Requires-Dist: duckdb<2,>=1.5.0
 Requires-Dist: faker<21,>=20.1.0
 Requires-Dist: fsspec<2027,>=2026.6.0
@@ -24,7 +23,7 @@ Requires-Dist: httpx-retries<1,>=0.4.2
 Requires-Dist: httpx<1,>=0.27.2
 Requires-Dist: huggingface-hub<2,>=1.0.1
 Requires-Dist: jinja2<4,>=3.1.6
-Requires-Dist: json-repair<1,>=0.48.0
+Requires-Dist: json-repair<1,>=0.60.1
 Requires-Dist: jsonpath-rust-bindings<2,>=1.0
 Requires-Dist: jsonschema<5,>=4.0.0
 Requires-Dist: lxml<7,>=6.1.1

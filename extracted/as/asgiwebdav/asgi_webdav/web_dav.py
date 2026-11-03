@@ -103,11 +103,12 @@ class PrefixProviderInfo:
 
 
 class WebDAV:
-    prefix_provider_mapping: list[PrefixProviderInfo] = list()
     timezone: ZoneInfo
 
     def __init__(self, config: Config):
-        # init prefix => provider
+        # init prefix => provider; the mapping is per-instance — providers
+        # must never leak across WebDAV instances
+        self.prefix_provider_mapping: list[PrefixProviderInfo] = list()
         for p_config in config.provider_mapping:
             try:
                 provider_class = self.match_provider_class(p_config)

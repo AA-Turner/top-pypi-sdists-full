@@ -8,7 +8,6 @@ from typing import Literal, Required, TypedDict
 class ModelEndpointConfigParam(TypedDict, total=False):
   model_path: Required[str]
   max_output_tokens_per_step: int | None
-  max_response_chars_per_tool_call: int | None
   max_context_tokens: int | None
   max_output_tokens: int | None
   max_turns_per_trajectory: int | None

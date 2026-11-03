@@ -3233,6 +3233,84 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         return await self.attach_vbr_to_vpconn_with_options_async(request, runtime)
 
+    def calculate_nat_gateway_capacity_units_with_options(
+        self,
+        tmp_req: main_models.CalculateNatGatewayCapacityUnitsRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.CalculateNatGatewayCapacityUnitsResponse:
+        tmp_req.validate()
+        request = main_models.CalculateNatGatewayCapacityUnitsShrinkRequest()
+        Utils.convert(tmp_req, request)
+        if not DaraCore.is_null(tmp_req.nat_gateway_capacity):
+            request.nat_gateway_capacity_shrink = Utils.array_to_string_with_specified_style(tmp_req.nat_gateway_capacity, 'NatGatewayCapacity', 'json')
+        if not DaraCore.is_null(tmp_req.nat_gateway_performance_values):
+            request.nat_gateway_performance_values_shrink = Utils.array_to_string_with_specified_style(tmp_req.nat_gateway_performance_values, 'NatGatewayPerformanceValues', 'json')
+        query = Utils.query(request.to_map())
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'CalculateNatGatewayCapacityUnits',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'GET',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.CalculateNatGatewayCapacityUnitsResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def calculate_nat_gateway_capacity_units_with_options_async(
+        self,
+        tmp_req: main_models.CalculateNatGatewayCapacityUnitsRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.CalculateNatGatewayCapacityUnitsResponse:
+        tmp_req.validate()
+        request = main_models.CalculateNatGatewayCapacityUnitsShrinkRequest()
+        Utils.convert(tmp_req, request)
+        if not DaraCore.is_null(tmp_req.nat_gateway_capacity):
+            request.nat_gateway_capacity_shrink = Utils.array_to_string_with_specified_style(tmp_req.nat_gateway_capacity, 'NatGatewayCapacity', 'json')
+        if not DaraCore.is_null(tmp_req.nat_gateway_performance_values):
+            request.nat_gateway_performance_values_shrink = Utils.array_to_string_with_specified_style(tmp_req.nat_gateway_performance_values, 'NatGatewayPerformanceValues', 'json')
+        query = Utils.query(request.to_map())
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'CalculateNatGatewayCapacityUnits',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'GET',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.CalculateNatGatewayCapacityUnitsResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def calculate_nat_gateway_capacity_units(
+        self,
+        request: main_models.CalculateNatGatewayCapacityUnitsRequest,
+    ) -> main_models.CalculateNatGatewayCapacityUnitsResponse:
+        runtime = RuntimeOptions()
+        return self.calculate_nat_gateway_capacity_units_with_options(request, runtime)
+
+    async def calculate_nat_gateway_capacity_units_async(
+        self,
+        request: main_models.CalculateNatGatewayCapacityUnitsRequest,
+    ) -> main_models.CalculateNatGatewayCapacityUnitsResponse:
+        runtime = RuntimeOptions()
+        return await self.calculate_nat_gateway_capacity_units_with_options_async(request, runtime)
+
     def cancel_common_bandwidth_package_ip_bandwidth_with_options(
         self,
         request: main_models.CancelCommonBandwidthPackageIpBandwidthRequest,
@@ -14455,6 +14533,88 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         return await self.delete_nat_ip_cidr_with_options_async(request, runtime)
 
+    def delete_nat_rate_limit_rule_with_options(
+        self,
+        request: main_models.DeleteNatRateLimitRuleRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.DeleteNatRateLimitRuleResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.nat_gateway_id):
+            query['NatGatewayId'] = request.nat_gateway_id
+        if not DaraCore.is_null(request.region_id):
+            query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.rule_ids):
+            query['RuleIds'] = request.rule_ids
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DeleteNatRateLimitRule',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DeleteNatRateLimitRuleResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def delete_nat_rate_limit_rule_with_options_async(
+        self,
+        request: main_models.DeleteNatRateLimitRuleRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.DeleteNatRateLimitRuleResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.nat_gateway_id):
+            query['NatGatewayId'] = request.nat_gateway_id
+        if not DaraCore.is_null(request.region_id):
+            query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.rule_ids):
+            query['RuleIds'] = request.rule_ids
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DeleteNatRateLimitRule',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DeleteNatRateLimitRuleResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def delete_nat_rate_limit_rule(
+        self,
+        request: main_models.DeleteNatRateLimitRuleRequest,
+    ) -> main_models.DeleteNatRateLimitRuleResponse:
+        runtime = RuntimeOptions()
+        return self.delete_nat_rate_limit_rule_with_options(request, runtime)
+
+    async def delete_nat_rate_limit_rule_async(
+        self,
+        request: main_models.DeleteNatRateLimitRuleRequest,
+    ) -> main_models.DeleteNatRateLimitRuleResponse:
+        runtime = RuntimeOptions()
+        return await self.delete_nat_rate_limit_rule_with_options_async(request, runtime)
+
     def delete_network_acl_with_options(
         self,
         request: main_models.DeleteNetworkAclRequest,
@@ -21068,6 +21228,72 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeNatGatewayAssociateNetworkInterfacesResponse:
         runtime = RuntimeOptions()
         return await self.describe_nat_gateway_associate_network_interfaces_with_options_async(request, runtime)
+
+    def describe_nat_gateway_capacity_reservation_with_options(
+        self,
+        request: main_models.DescribeNatGatewayCapacityReservationRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.DescribeNatGatewayCapacityReservationResponse:
+        request.validate()
+        query = Utils.query(request.to_map())
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DescribeNatGatewayCapacityReservation',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'GET',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DescribeNatGatewayCapacityReservationResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def describe_nat_gateway_capacity_reservation_with_options_async(
+        self,
+        request: main_models.DescribeNatGatewayCapacityReservationRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.DescribeNatGatewayCapacityReservationResponse:
+        request.validate()
+        query = Utils.query(request.to_map())
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DescribeNatGatewayCapacityReservation',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'GET',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DescribeNatGatewayCapacityReservationResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def describe_nat_gateway_capacity_reservation(
+        self,
+        request: main_models.DescribeNatGatewayCapacityReservationRequest,
+    ) -> main_models.DescribeNatGatewayCapacityReservationResponse:
+        runtime = RuntimeOptions()
+        return self.describe_nat_gateway_capacity_reservation_with_options(request, runtime)
+
+    async def describe_nat_gateway_capacity_reservation_async(
+        self,
+        request: main_models.DescribeNatGatewayCapacityReservationRequest,
+    ) -> main_models.DescribeNatGatewayCapacityReservationResponse:
+        runtime = RuntimeOptions()
+        return await self.describe_nat_gateway_capacity_reservation_with_options_async(request, runtime)
 
     def describe_nat_gateways_with_options(
         self,
@@ -34217,6 +34443,104 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         return await self.modify_nat_gateway_attribute_with_options_async(request, runtime)
 
+    def modify_nat_gateway_capacity_reservation_with_options(
+        self,
+        tmp_req: main_models.ModifyNatGatewayCapacityReservationRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.ModifyNatGatewayCapacityReservationResponse:
+        tmp_req.validate()
+        request = main_models.ModifyNatGatewayCapacityReservationShrinkRequest()
+        Utils.convert(tmp_req, request)
+        if not DaraCore.is_null(tmp_req.nat_gateway_capacity):
+            request.nat_gateway_capacity_shrink = Utils.array_to_string_with_specified_style(tmp_req.nat_gateway_capacity, 'NatGatewayCapacity', 'json')
+        query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.nat_gateway_capacity_shrink):
+            query['NatGatewayCapacity'] = request.nat_gateway_capacity_shrink
+        if not DaraCore.is_null(request.nat_gateway_id):
+            query['NatGatewayId'] = request.nat_gateway_id
+        if not DaraCore.is_null(request.region_id):
+            query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.reset_capacity_reservation):
+            query['ResetCapacityReservation'] = request.reset_capacity_reservation
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ModifyNatGatewayCapacityReservation',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ModifyNatGatewayCapacityReservationResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def modify_nat_gateway_capacity_reservation_with_options_async(
+        self,
+        tmp_req: main_models.ModifyNatGatewayCapacityReservationRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.ModifyNatGatewayCapacityReservationResponse:
+        tmp_req.validate()
+        request = main_models.ModifyNatGatewayCapacityReservationShrinkRequest()
+        Utils.convert(tmp_req, request)
+        if not DaraCore.is_null(tmp_req.nat_gateway_capacity):
+            request.nat_gateway_capacity_shrink = Utils.array_to_string_with_specified_style(tmp_req.nat_gateway_capacity, 'NatGatewayCapacity', 'json')
+        query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.nat_gateway_capacity_shrink):
+            query['NatGatewayCapacity'] = request.nat_gateway_capacity_shrink
+        if not DaraCore.is_null(request.nat_gateway_id):
+            query['NatGatewayId'] = request.nat_gateway_id
+        if not DaraCore.is_null(request.region_id):
+            query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.reset_capacity_reservation):
+            query['ResetCapacityReservation'] = request.reset_capacity_reservation
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ModifyNatGatewayCapacityReservation',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ModifyNatGatewayCapacityReservationResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def modify_nat_gateway_capacity_reservation(
+        self,
+        request: main_models.ModifyNatGatewayCapacityReservationRequest,
+    ) -> main_models.ModifyNatGatewayCapacityReservationResponse:
+        runtime = RuntimeOptions()
+        return self.modify_nat_gateway_capacity_reservation_with_options(request, runtime)
+
+    async def modify_nat_gateway_capacity_reservation_async(
+        self,
+        request: main_models.ModifyNatGatewayCapacityReservationRequest,
+    ) -> main_models.ModifyNatGatewayCapacityReservationResponse:
+        runtime = RuntimeOptions()
+        return await self.modify_nat_gateway_capacity_reservation_with_options_async(request, runtime)
+
     def modify_nat_gateway_spec_with_options(
         self,
         request: main_models.ModifyNatGatewaySpecRequest,
@@ -34542,6 +34866,108 @@ class Client(OpenApiClient):
     ) -> main_models.ModifyNatIpCidrAttributeResponse:
         runtime = RuntimeOptions()
         return await self.modify_nat_ip_cidr_attribute_with_options_async(request, runtime)
+
+    def modify_nat_rate_limit_rule_with_options(
+        self,
+        request: main_models.ModifyNatRateLimitRuleRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.ModifyNatRateLimitRuleResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.bandwidth_limit):
+            query['BandwidthLimit'] = request.bandwidth_limit
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.nat_gateway_id):
+            query['NatGatewayId'] = request.nat_gateway_id
+        if not DaraCore.is_null(request.region_id):
+            query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.rule_description):
+            query['RuleDescription'] = request.rule_description
+        if not DaraCore.is_null(request.rule_id):
+            query['RuleId'] = request.rule_id
+        if not DaraCore.is_null(request.rule_name):
+            query['RuleName'] = request.rule_name
+        if not DaraCore.is_null(request.source_cidrs):
+            query['SourceCIDRs'] = request.source_cidrs
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ModifyNatRateLimitRule',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ModifyNatRateLimitRuleResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def modify_nat_rate_limit_rule_with_options_async(
+        self,
+        request: main_models.ModifyNatRateLimitRuleRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.ModifyNatRateLimitRuleResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.bandwidth_limit):
+            query['BandwidthLimit'] = request.bandwidth_limit
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.nat_gateway_id):
+            query['NatGatewayId'] = request.nat_gateway_id
+        if not DaraCore.is_null(request.region_id):
+            query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.rule_description):
+            query['RuleDescription'] = request.rule_description
+        if not DaraCore.is_null(request.rule_id):
+            query['RuleId'] = request.rule_id
+        if not DaraCore.is_null(request.rule_name):
+            query['RuleName'] = request.rule_name
+        if not DaraCore.is_null(request.source_cidrs):
+            query['SourceCIDRs'] = request.source_cidrs
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ModifyNatRateLimitRule',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ModifyNatRateLimitRuleResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def modify_nat_rate_limit_rule(
+        self,
+        request: main_models.ModifyNatRateLimitRuleRequest,
+    ) -> main_models.ModifyNatRateLimitRuleResponse:
+        runtime = RuntimeOptions()
+        return self.modify_nat_rate_limit_rule_with_options(request, runtime)
+
+    async def modify_nat_rate_limit_rule_async(
+        self,
+        request: main_models.ModifyNatRateLimitRuleRequest,
+    ) -> main_models.ModifyNatRateLimitRuleResponse:
+        runtime = RuntimeOptions()
+        return await self.modify_nat_rate_limit_rule_with_options_async(request, runtime)
 
     def modify_network_acl_attributes_with_options(
         self,

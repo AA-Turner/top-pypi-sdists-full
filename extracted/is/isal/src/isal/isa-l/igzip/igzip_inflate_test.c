@@ -57,7 +57,7 @@ inflate_multi_pass(uint8_t *compress_buf, uint64_t compress_len, uint8_t *uncomp
         state = malloc(sizeof(struct inflate_state));
         if (state == NULL) {
                 printf("Failed to allocate memory\n");
-                exit(0);
+                exit(1);
         }
 
         isal_inflate_init(state);
@@ -82,7 +82,7 @@ inflate_multi_pass(uint8_t *compress_buf, uint64_t compress_len, uint8_t *uncomp
 
                                 if (comp_tmp == NULL) {
                                         printf("Failed to allocate memory\n");
-                                        exit(0);
+                                        exit(1);
                                 }
 
                                 memcpy(comp_tmp, compress_buf + comp_processed, comp_tmp_size);
@@ -117,7 +117,7 @@ inflate_multi_pass(uint8_t *compress_buf, uint64_t compress_len, uint8_t *uncomp
                                 uncomp_tmp = malloc(uncomp_tmp_size);
                                 if (uncomp_tmp == NULL) {
                                         printf("Failed to allocate memory\n");
-                                        exit(0);
+                                        exit(1);
                                 }
 
                                 state->avail_out = uncomp_tmp_size;
@@ -240,6 +240,16 @@ main(int argc, char **argv)
                         printf("Starting file %s", argv[i]);
                 fflush(0);
                 file_length = get_filesize(file);
+                if (file_length == 0) {
+                        /* Check if it's a real error or just an empty file */
+                        if (fseek(file, 0, SEEK_END) != 0 || ftell(file) < 0)
+                                printf("\nFailed to get file size.\n");
+                        else
+                                printf("\nFile has zero length.\n");
+                        printf(" ... Fail\n");
+                        fclose(file);
+                        continue;
+                }
                 if (file_length > MAX_INPUT_FILE_SIZE) {
                         printf("\nFile too large to run on this test,"
                                " Max 512MB for 32bit OS, 2GB for 64bit OS.\n");
@@ -258,17 +268,17 @@ main(int argc, char **argv)
                 compressed_stream = malloc(compressed_length);
                 if (uncompressed_stream == NULL && file_length != 0) {
                         printf("\nFailed to allocate input memory\n");
-                        exit(0);
+                        exit(1);
                 }
 
                 if (compressed_stream == NULL) {
                         printf("\nFailed to allocate output memory\n");
-                        exit(0);
+                        exit(1);
                 }
 
                 if (uncompressed_test_stream == NULL && file_length != 0) {
                         printf("\nFailed to allocate decompressed memory\n");
-                        exit(0);
+                        exit(1);
                 }
 
                 uncompressed_length = (uncompressed_stream == NULL)

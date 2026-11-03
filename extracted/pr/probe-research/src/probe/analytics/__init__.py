@@ -26,6 +26,8 @@ _HOMES = {
     "RecorderOutcome": "outcomes",
     "UninstallOutcome": "outcomes",
     "ImportJobStall": "outcomes",
+    "PrivateUvOutcome": "outcomes",
+    "PrivateUvReason": "outcomes",
     # transport
     "_post_batch": "transport",
     # sender
@@ -113,11 +115,13 @@ _HOMES = {
     "emit_outbox_pause_lifted": "events",
     "emit_capture_repair_applied": "events",
     "emit_settings_remote_applied": "events",
+    "emit_private_uv": "events",
     "Event": "events",
     "EVENT_SERVICE_STARTED": "events",
     "EVENT_SERVICE_STATE": "events",
     "EVENT_SERVICE_STOPPED": "events",
     "EVENT_LIFEBOAT_ACTED": "events",
+    "EVENT_UPDATES_PRIVATE_UV": "events",
     "SERVICE_EVENTS": "events",
     "EVENT_MCP_TOOL_SERVED": "events",
     "EVENT_EXCEPTION": "events",

@@ -21,7 +21,7 @@ import threading
 import time
 from typing import Any, Iterator, Optional
 
-from ..errors import Conflict, InvalidRequest, Unavailable
+from ..errors import Conflict, InvalidRequest, MissingPackage, Unavailable
 from . import worker_stream as _stream
 from .pinned_tls import build_pinned_ssl_context
 
@@ -42,7 +42,7 @@ def _codec():
 
     try:
         return codec()
-    except InvalidRequest:
+    except MissingPackage:
         return None
 
 

@@ -12,6 +12,7 @@ from ansible.module_utils.common.network import (
     to_netmask,
     to_subnet,
     to_ipv6_network,
+    is_mac,
     is_masklen,
     is_netmask
 )
@@ -49,6 +50,22 @@ def test_to_subnet_invalid():
         to_subnet('foo', 'bar')
 
 
+def test_is_mac():
+    assert is_mac('52:54:00:e1:44:e0')
+    assert is_mac('52-54-00-e1-44-e0')
+    assert is_mac('AA:BB:CC:DD:EE:FF')
+    assert not is_mac('foo')
+    assert not is_mac('52:54:00:e1:44')
+    # mixed separators are not valid
+    assert not is_mac('52:54-00:e1:44:e0')
+    # by default a trailing newline is accepted (regex '$' matches before a final newline)
+    assert is_mac('52:54:00:e1:44:e0\n')
+    # strict=True anchors with \Z, so a trailing newline is rejected
+    assert not is_mac('52:54:00:e1:44:e0\n', strict=True)
+    # strict=True still accepts a well-formed address
+    assert is_mac('52:54:00:e1:44:e0', strict=True)
+
+
 def test_is_masklen():
     assert is_masklen(32)
     assert not is_masklen(33)
@@ -57,8 +74,21 @@ def test_is_masklen():
 
 def test_is_netmask():
     assert is_netmask('255.255.255.255')
+    assert is_netmask('0.0.0.0')
+    assert is_netmask('255.255.255.0')
+    assert is_netmask('255.255.254.0')
     assert not is_netmask(24)
     assert not is_netmask('foo')
+    # individually valid octets that are not a contiguous mask
+    assert not is_netmask('255.255.0.255')
+    assert not is_netmask('254.255.255.0')
+    assert not is_netmask('0.255.0.0')
+    assert not is_netmask('0.0.0.255')
+    # inet_aton-style legacy forms must stay rejected (they break to_masklen)
+    assert not is_netmask('0xffffff00')
+    assert not is_netmask('0377.0377.0377.0')
+    assert not is_netmask('4294967040')
+    assert not is_netmask('255.255.0')
 
 
 def test_to_ipv6_network():

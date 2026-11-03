@@ -9,10 +9,19 @@ if (CMAKE_C_COMPILER_ARCHITECTURE_ID MATCHES "x86_64|AMD64|i686|X86|x64")
     set(X86 TRUE)
 endif()
 
+if (CMAKE_C_COMPILER_ARCHITECTURE_ID MATCHES "ARM64|aarch64|arm64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+    set(ARM64 TRUE)
+endif()
+
 if (X86)
    message(STATUS "Enabling SSE and AESNI")
    option(SSE "Enable SSE instructions on Intel targets" ON)
    option(AESNI "Enable AESNI instructions on Intel targets" ON)
+endif()
+
+if (ARM64)
+   message(STATUS "Enabling the ARMv8 Cryptography Extensions")
+   option(ARMV8_CRYPTO "Enable the ARMv8 Cryptography Extensions on 64-bit ARM targets" ON)
 endif()
 
 if (DEFINED ENV{PYTHON})
@@ -231,6 +240,14 @@ if (VALGRIND AND HAVE_VALGRIND_MEMCHECK_H)
         LINK_LIBRARIES "")
     add_test(NAME test_nat_ct COMMAND ${VALGRIND} -q --error-exitcode=1 $<TARGET_FILE:test_nat_ct>)
 
+    # Constant-time check of the PKCS#1 v1.5 and OAEP decoding
+    add_executable(test_pkcs1_ct test_pkcs1_ct.c ../pkcs1_decode.c)
+    set_target_properties(test_pkcs1_ct PROPERTIES
+        COMPILE_OPTIONS "-O2;-g;-Wall;-Werror"
+        LINK_OPTIONS ""
+        LINK_LIBRARIES "")
+    add_test(NAME test_pkcs1_ct COMMAND ${VALGRIND} -q --error-exitcode=1 $<TARGET_FILE:test_pkcs1_ct>)
+
     add_executable(test_ec_nat_ct test_ec_nat_ct.c ${EC_SOURCES} ${NAT_SOURCES})
     target_compile_definitions(test_ec_nat_ct PRIVATE NAT_CTGRIND)
     set_target_properties(test_ec_nat_ct PROPERTIES
@@ -283,6 +300,13 @@ if (VALGRIND AND HAVE_VALGRIND_MEMCHECK_H)
             LINK_OPTIONS "-m32"
             LINK_LIBRARIES "")
         add_test(NAME test_nat_ct_32 COMMAND ${VALGRIND} -q --error-exitcode=1 $<TARGET_FILE:test_nat_ct_32>)
+
+        add_executable(test_pkcs1_ct_32 test_pkcs1_ct.c ../pkcs1_decode.c)
+        set_target_properties(test_pkcs1_ct_32 PROPERTIES
+            COMPILE_OPTIONS "-m32;-O2;-g;-Wall;-Werror;-UHAVE_UINT128;-USYS_BITS;-DSYS_BITS=32"
+            LINK_OPTIONS "-m32"
+            LINK_LIBRARIES "")
+        add_test(NAME test_pkcs1_ct_32 COMMAND ${VALGRIND} -q --error-exitcode=1 $<TARGET_FILE:test_pkcs1_ct_32>)
 
         add_executable(test_ec_nat_ct_32 test_ec_nat_ct.c ${EC_SOURCES} ${NAT_SOURCES})
         target_compile_definitions(test_ec_nat_ct_32 PRIVATE NAT_CTGRIND)
@@ -356,10 +380,16 @@ if (SSE)
   add_test(NAME test_clmul COMMAND test_clmul)
 endif()
 
-# GHASH: portable, and CLMUL when available
+# GHASH: portable, and CLMUL or PMULL when available
 if (SSE)
   add_executable(test_ghash test_ghash.c ../ghash_portable.c ../ghash_clmul.c)
   target_compile_definitions(test_ghash PRIVATE TEST_CLMUL)
+elseif (ARMV8_CRYPTO)
+  add_executable(test_ghash test_ghash.c ../ghash_portable.c ../ghash_pmull.c)
+  target_compile_definitions(test_ghash PRIVATE TEST_PMULL)
+  if (NOT MSVC)
+    set_source_files_properties(../ghash_pmull.c PROPERTIES COMPILE_OPTIONS "-march=armv8-a+crypto")
+  endif()
 else()
   add_executable(test_ghash test_ghash.c ../ghash_portable.c)
 endif()
@@ -384,6 +414,10 @@ add_test(NAME test_pkcs1 COMMAND test_pkcs1)
 # CTR mode
 add_executable(test_raw_ctr test_raw_ctr.c ../raw_ctr.c)
 add_test(NAME test_raw_ctr COMMAND test_raw_ctr)
+
+# The 4-state Keccak for 64-bit ARM (it does nothing on other CPUs)
+add_executable(test_keccak_x4 test_keccak_x4.c)
+add_test(NAME test_keccak_x4 COMMAND test_keccak_x4)
 
 # Salsa20, for each way of computing the key stream
 add_executable(test_salsa20 test_salsa20.c ../Salsa20.c)
@@ -478,4 +512,13 @@ add_test(NAME test_ed25519_no_tables COMMAND test_ed25519_no_tables)
 if (AESNI)
   add_executable(test_aesni test_aesni.c ../AESNI.c)
   add_test(NAME test_aesni COMMAND test_aesni)
+endif()
+
+# AES with the ARMv8 Cryptography Extensions, against the portable AES
+if (ARMV8_CRYPTO)
+  add_executable(test_aes_armv8 test_aes_armv8.c ../AES_armv8.c ../AES.c)
+  if (NOT MSVC)
+    set_source_files_properties(../AES_armv8.c PROPERTIES COMPILE_OPTIONS "-march=armv8-a+crypto")
+  endif()
+  add_test(NAME test_aes_armv8 COMMAND test_aes_armv8)
 endif()

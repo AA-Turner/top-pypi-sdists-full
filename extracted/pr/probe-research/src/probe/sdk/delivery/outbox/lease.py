@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from ...._shared import oscompat
+from ....foundation.os_backend import os_backend as oscompat
 from ....foundation.durable import durable
 
 
@@ -19,6 +19,13 @@ def _lease_path(journal) -> str:
 # asks `ready_for(kind)` and leaves a stop file a live older worker obeys between passes.
 
 
+#: What this release's worker does beyond the op kinds it delivers: it publishes the per-run
+#: progress record a waiting `finish()` reads (R1). A waiter asks a worker lacking it to step
+#: aside (R3); an older release reads the name as an op kind it lacks, and exits.
+PROGRESS_FEATURE = "progress-record"
+WORKER_FEATURES = frozenset({PROGRESS_FEATURE})
+
+
 def _caps_path(journal):
     return journal.dir / ".worker-caps.json"
 
@@ -27,9 +34,9 @@ def _stop_path(journal):
     return journal.dir / ".worker-stop"
 
 
-def _write_caps(journal) -> None:
-    """Advertise what this worker delivers. Best-effort: without the file a producer assumes
-    the oldest caps and asks for a restart (safe)."""
+def _write_caps(journal, *, features: frozenset = WORKER_FEATURES) -> None:
+    """Advertise what this worker delivers, and its ``features``. Best-effort: without the file a
+    producer assumes the oldest caps and asks for a restart (safe)."""
     import json
 
     from ..ops.ops import OP_KINDS
@@ -44,7 +51,13 @@ def _write_caps(journal) -> None:
         durable.write_text_atomic(
             _caps_path(journal),
             json.dumps(
-                {"schema": 1, "version": version, "kinds": sorted(OP_KINDS), "pid": os.getpid()}
+                {
+                    "schema": 1,
+                    "version": version,
+                    "kinds": sorted(OP_KINDS),
+                    "features": sorted(features),
+                    "pid": os.getpid(),
+                }
             )
             + "\n",
             mode=0o600,
@@ -152,7 +165,7 @@ def _asked_to_stop(journal) -> bool:
     except (ValueError, AttributeError):
         kinds = {"?"}  # unreadable: assume we are the old one
     path.unlink(missing_ok=True)
-    return not kinds <= OP_KINDS
+    return not kinds <= OP_KINDS | WORKER_FEATURES
 
 
 def _lease_is_free(journal, path: str | None = None) -> bool:
@@ -184,3 +197,47 @@ def worker_holder(queue) -> "tuple[object, str] | None":
     except (OSError, ValueError):
         caps = {}
     return caps.get("pid"), str(caps.get("version") or "")
+
+
+def live_worker_has(feature: str, directory: str | None = None) -> bool | None:
+    """Whether the worker holding ``directory``'s lease advertises ``feature``: None when no
+    worker holds it, False for one that predates the feature (or its caps file)."""
+    import json
+
+    from ..journal.journal import Journal
+
+    journal = Journal(directory)
+    if _lease_is_free(journal):
+        return None
+    try:
+        caps = json.loads(_caps_path(journal).read_text())
+    except (OSError, ValueError):
+        return False
+    if not isinstance(caps, dict) or not _pid_alive(caps.get("pid")):
+        return False
+    features = caps.get("features")
+    return isinstance(features, list) and feature in features
+
+
+def ask_worker_to_step_aside(feature: str, directory: str | None = None) -> bool:
+    """Leave a stop file naming ``feature`` for the live worker that lacks it (R3): it exits after
+    its pass, and the next kick starts one of this release. True when a request was left."""
+    import json
+
+    from ..journal.journal import Journal
+
+    if live_worker_has(feature, directory) is not False:
+        return False
+    journal = Journal(directory)
+    try:
+        wanted: set = set()
+        try:
+            wanted = set(json.loads(_stop_path(journal).read_text()).get("kinds") or ())
+        except (OSError, ValueError, AttributeError):
+            pass
+        durable.write_text_atomic(
+            _stop_path(journal), json.dumps({"kinds": sorted(wanted | {feature})}) + "\n", mode=0o600
+        )
+    except OSError:
+        return False
+    return True

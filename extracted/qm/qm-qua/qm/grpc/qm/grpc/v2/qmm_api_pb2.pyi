@@ -233,11 +233,15 @@ class GetControllersResponse(_message.Message):
         FEM_TYPE_UNSPECIFIED: _ClassVar[GetControllersResponse.FemType]
         FEM_TYPE_LF: _ClassVar[GetControllersResponse.FemType]
         FEM_TYPE_MW: _ClassVar[GetControllersResponse.FemType]
-        FEM_TYPE_BB: _ClassVar[GetControllersResponse.FemType]
+        FEM_TYPE_LF_LN08: _ClassVar[GetControllersResponse.FemType]
+        FEM_TYPE_MW2: _ClassVar[GetControllersResponse.FemType]
+        FEM_TYPE_AT: _ClassVar[GetControllersResponse.FemType]
     FEM_TYPE_UNSPECIFIED: GetControllersResponse.FemType
     FEM_TYPE_LF: GetControllersResponse.FemType
     FEM_TYPE_MW: GetControllersResponse.FemType
-    FEM_TYPE_BB: GetControllersResponse.FemType
+    FEM_TYPE_LF_LN08: GetControllersResponse.FemType
+    FEM_TYPE_MW2: GetControllersResponse.FemType
+    FEM_TYPE_AT: GetControllersResponse.FemType
     class ControllerType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = []
         CONTROLLER_TYPE_UNSPECIFIED: _ClassVar[GetControllersResponse.ControllerType]

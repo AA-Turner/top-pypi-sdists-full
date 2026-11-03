@@ -1,9 +1,9 @@
 Metadata-Version: 2.5
 Name: dol
-Version: 0.3.100
+Version: 0.3.109
 Summary: Base builtin tools make and transform data object layers (dols).
 Project-URL: Homepage, https://github.com/i2mint/dol
-License: MIT
+License-Expression: Apache-2.0
 License-File: LICENSE
 Keywords: interface,storage
 Requires-Python: >=3.10

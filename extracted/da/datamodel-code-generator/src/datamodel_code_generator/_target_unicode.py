@@ -14,28 +14,32 @@ rebuild them only for text holding a character some target changes or the target
 
 from __future__ import annotations
 
+import keyword
 import re
 import unicodedata
 from bisect import bisect_left, bisect_right
 from functools import cache, cached_property
 from itertools import chain
-from typing import TYPE_CHECKING, Final, NamedTuple
+from typing import TYPE_CHECKING, Any, Final, Literal, NamedTuple, TypeAlias, TypeVar
 
-from datamodel_code_generator._format_types import PythonVersion, PythonVersionMin
+from datamodel_code_generator._format_types import NEWEST_TARGET, PythonVersion, PythonVersionMin
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator
+    from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 
 __all__ = (
     "NEWEST_TARGET",
     "HostIdentifiers",
+    "NameRule",
     "capitalize",
     "casefold",
     "host_identifiers",
     "host_parsable",
+    "is_dotted_python_name",
     "is_identifier",
     "is_nfkc",
     "is_numeric",
+    "is_python_name",
     "is_upper",
     "lower",
     "nfc",
@@ -71,6 +75,9 @@ _HANGUL_SYLLABLE_COUNT: Final = 11172
 _PLACEHOLDER_RANGES: Final = {2: ((0x0780, 0x07A5), (0x07CA, 0x07EA)), 3: ((0x4E00, 0x9FFC),), 4: ((0x20000, 0x2A6DD),)}
 """Letters lent to the running interpreter for identifier characters it does not know, by UTF-8 length: Thaana and
 N'Ko, CJK ideographs and CJK Extension B, which every target has without case or normalization data."""
+
+
+_R = TypeVar("_R")
 
 
 class _Case(NamedTuple):
@@ -138,7 +145,7 @@ class _TargetUnicode:
     """The Unicode data of one target, each table built on first use."""
 
     def __init__(self, target: PythonVersion) -> None:
-        from datamodel_code_generator import _target_unicode_data as data  # noqa: PLC0415
+        import datamodel_code_generator._target_unicode_data as data  # noqa: PLC0415
 
         self._data = data
         self._index = data.TARGETS.index(target.value)
@@ -187,19 +194,33 @@ class _TargetUnicode:
         """Match a character the target does not have."""
         return re.compile(f"[^{_class(self.assigned)}]")
 
+    def _latest(
+        self,
+        changes: Mapping[tuple[int, int], Iterable[tuple[Any, ...]]],
+        unchanged: Sequence[Any],
+        record: Callable[..., _R],
+    ) -> dict[str, _R]:
+        """Return each changed character's data as of the target: its last change up to the target, or `unchanged`.
+
+        A row holds texts, each standing for the character itself when empty, and a number last.
+        """
+        table: dict[str, _R] = {}
+        for (first, last), rows in changes.items():
+            latest = unchanged
+            for index, *values in rows:
+                if index > self._index:
+                    break
+                latest = values
+            *texts, number = latest
+            for code_point in range(first, last + 1):
+                character = chr(code_point)
+                table[character] = record(*[text or character for text in texts], number)
+        return table
+
     @cached_property
     def case(self) -> dict[str, _Case]:
         """Return the case data of each character whose case data differs between targets."""
-        cases: dict[str, _Case] = {}
-        for code_point, changes in self._data.CASE_CHANGES.items():
-            character = chr(code_point)
-            case = _Case(character, character, character, character, 0)
-            for index, upper, lower, title, fold, flags in changes:
-                if index > self._index:
-                    break
-                case = _Case(upper or character, lower or character, title or character, fold or character, flags)
-            cases[character] = case
-        return cases
+        return self._latest(self._data.CASE_CHANGES, ("", "", "", "", 0), _Case)
 
     @cached_property
     def case_special(self) -> re.Pattern[str]:
@@ -209,16 +230,7 @@ class _TargetUnicode:
     @cached_property
     def normalization(self) -> dict[str, _Normalization]:
         """Return the normalization data of each character whose data differs between targets."""
-        items: dict[str, _Normalization] = {}
-        for code_point, changes in self._data.NORMALIZATION_CHANGES.items():
-            character = chr(code_point)
-            item = _Normalization(character, character, 0)
-            for index, canonical, compatibility, combining in changes:
-                if index > self._index:
-                    break
-                item = _Normalization(canonical or character, compatibility or character, combining)
-            items[character] = item
-        return items
+        return self._latest(self._data.NORMALIZATION_CHANGES, ("", "", 0), _Normalization)
 
     @cached_property
     def compositions(self) -> dict[tuple[str, str], str]:
@@ -332,10 +344,6 @@ class _TargetUnicode:
         return "".join(composed)
 
 
-NEWEST_TARGET: Final = max(PythonVersion, key=lambda version: version.version_key)
-"""The newest target: its rules accept every identifier some target accepts."""
-
-
 @cache
 def _unicode(target: PythonVersion | None) -> _TargetUnicode:
     return _TargetUnicode(target or PythonVersionMin)
@@ -344,6 +352,29 @@ def _unicode(target: PythonVersion | None) -> _TargetUnicode:
 def is_identifier(value: str, target: PythonVersion | None) -> bool:
     """Return whether text is an identifier in the target, as `str.isidentifier()` on its interpreter."""
     return value.isidentifier() if value.isascii() else _unicode(target).identifier.fullmatch(value) is not None
+
+
+NameRule: TypeAlias = Literal["target", "ascii", "host", "legacy-host-identifiers"]
+"""Whose identifier characters `is_python_name` reads.
+
+`target` reads the target's (`is_identifier`), `ascii` only ASCII identifiers (Starlette's path placeholders, the
+field names the Pydantic resolver keeps as given), `host` the running interpreter's, for text its tokenizer or parser
+gave, and `legacy-host-identifiers` the running interpreter's where the names are checked or written for the target.
+"""
+
+
+def is_python_name(value: str, target: PythonVersion | None = None, *, rule: NameRule = "target") -> bool:
+    """Return whether text is a name Python binds: an identifier by the rule's characters, and no keyword."""
+    if rule == "target":
+        identifier = is_identifier(value, target)
+    else:
+        identifier = (rule != "ascii" or value.isascii()) and value.isidentifier()
+    return identifier and not keyword.iskeyword(value)
+
+
+def is_dotted_python_name(value: str, target: PythonVersion | None = None, *, rule: NameRule = "target") -> bool:
+    """Return whether text is Python names joined by dots, each by `is_python_name` with the rule."""
+    return all(is_python_name(part, target, rule=rule) for part in value.split("."))
 
 
 def replace_non_word(value: str, target: PythonVersion | None) -> str:

@@ -202,10 +202,21 @@ def resolve(adapter: Any, *, api_key: str | None = None, base_url: str | None = 
 
 def label(adapter: Any, *, at: str = "@v") -> str:
     """How a report names its adapter: name@vN for a registered one (`at=" v"` writes it as the benchmark's and the
-    policy's versions are, "name vN"), "no adapter" for none."""
+    policy's versions are, "name vN"), "no adapter" for none - and one deleted since (the gateway's `deleted`: no later
+    adapter of its name is the one it ran) said so, "name (deleted) vN" as a deleted policy's version is said beside
+    its name, "name@vN (deleted)" after a reference."""
     if isinstance(adapter, dict):
-        return f"{adapter.get('name')}{at}{adapter.get('version')}"
+        name, version = adapter.get("name"), adapter.get("version")
+        if not adapter.get("deleted"):
+            return f"{name}{at}{version}"
+        return f"{name} (deleted){at}{version}" if at == " v" else f"{name}{at}{version} (deleted)"
     return "no adapter"
+
+
+def _benchmark_said(row: dict) -> str:
+    """The benchmark an eval of an adapter ran on, by its name - "(deleted)" beside it for one deleted since (the
+    gateway's `benchmark_deleted`, by its id), which a benchmark registered again under its name is not."""
+    return f"{row.get('benchmark')}" + (" (deleted)" if row.get("benchmark_deleted") else "")
 
 
 
@@ -220,10 +231,6 @@ def deploy(cls: type, args: Any) -> int:
     """`seq deploy <folder>` of an adapter: register it — nothing is built or run, it has no machine of its own; the
     eval that names it runs it in the benchmark's container. --dry-run prints what would be sent and has the platform
     check it, registering nothing (without a key or a connection, the checks here alone)."""
-    from sequence_ai.errors import InvalidRequest
-
-    if getattr(args, "max_gpus", None) is not None:
-        raise InvalidRequest("an adapter has no machine of its own: --max-gpus is a policy's")
     body = registration_body(cls, name=args.name, override=args.override)
     if args.dry_run:
         if args.json:
@@ -375,8 +382,9 @@ def adapter_evals(name: str, *, policy: str | None = None, benchmark: str | None
     for e in rows:
         figures = " ".join(f"{k} {v:.3g}" if isinstance(v, (int, float)) else f"{k} -"
                            for k, v in (e.get("metrics") or {}).items())
+
         say(f"  {str(e.get('eval_id') or '')[:8]}  v{e.get('version')}  {e.get('status')}  "
-            f"{e.get('benchmark')} → {e.get('model')}" + (f"  {figures}" if figures else ""))
+            f"{_benchmark_said(e)} → {e.get('model')}" + (f"  {figures}" if figures else ""))
     if not rows:
         say(f"no eval ran {name}" + (f" with {policy}" if policy else "") + (f" on {benchmark}" if benchmark else "")
             + (f" ({status})" if status else ""))
@@ -394,7 +402,8 @@ def ls(*, limit: int = PAGE, cursor: str | None = None, base_url: str | None = N
     echo(f"{'name':<24} {'latest':>6} {'versions':>8}  last eval")
     for a in rows:
         last = a.get("last_eval") or {}
-        used = (f"{str(last.get('eval_id'))[:8]} v{last.get('version')} on {last.get('benchmark')} with "
+
+        used = (f"{str(last.get('eval_id'))[:8]} v{last.get('version')} on {_benchmark_said(last)} with "
                 f"{last.get('model')}") if last else "-"
         echo(f"{a['name']:<24} {'v' + str(a['latest']):>6} {a['versions']:>8}  {used}")
         for line in pair_lines(a.get("pairs"), none="none declared (registered before pairs): an eval refuses it",

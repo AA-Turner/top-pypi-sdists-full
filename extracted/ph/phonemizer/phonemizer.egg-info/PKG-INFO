@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: phonemizer
-Version: 3.4.0
+Version: 3.6.0
 Summary: Simple text to phones converter for multiple languages
 Author: Hadrien Titeux
 Author-email: Mathieu Bernard <mathieu.bernard.2@cnrs.fr>
@@ -683,12 +683,12 @@ License:                     GNU GENERAL PUBLIC LICENSE
 Project-URL: Documentation, https://bootphon.github.io/phonemizer/
 Project-URL: Repository, https://github.com/bootphon/phonemizer
 Project-URL: Issues, https://github.com/bootphon/phonemizer
-Project-URL: Changelog, https://github.com/bootphon/phonemizer/blob/master/docs/source/changelog.rst
+Project-URL: Changelog, https://github.com/bootphon/phonemizer/blob/master/CHANGELOG.md
 Keywords: linguistics,G2P,phone,espeak,festival,TTS
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: joblib
@@ -705,6 +705,8 @@ Requires-Dist: segments; extra == "test"
 Provides-Extra: doc
 Requires-Dist: sphinx; extra == "doc"
 Requires-Dist: sphinx_rtd_theme; extra == "doc"
+Requires-Dist: myst-parser; extra == "doc"
+Requires-Dist: segments; extra == "doc"
 Dynamic: license-file
 
 |         **Tests** | [![Linux][badge-test-linux]](https://github.com/bootphon/phonemizer/actions/workflows/linux.yaml) [![MacOS][badge-test-macos]](https://github.com/bootphon/phonemizer/actions/workflows/macos.yaml) [![Windows][badge-test-windows]](https://github.com/bootphon/phonemizer/actions/workflows/windows.yaml) [![Codecov][badge-codecov]](https://codecov.io/gh/bootphon/phonemizer) |
@@ -759,7 +761,7 @@ Dynamic: license-file
 
 ## Citation
 
-To refenrece the `phonemizer` in your own work, please cite the following [JOSS
+To reference the `phonemizer` in your own work, please cite the following [JOSS
 paper](https://joss.theoj.org/papers/10.21105/joss.03958).
 
 ```bibtex

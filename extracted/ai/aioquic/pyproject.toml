@@ -45,11 +45,15 @@ source = ["aioquic"]
 [tool.mypy]
 disallow_untyped_calls = true
 disallow_untyped_decorators = true
+disallow_untyped_defs = true
 files = ["examples", "src", "tests"]
-ignore_missing_imports = true
 strict_optional = false
 warn_redundant_casts = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["dnslib.*", "uvloop.*"]
+ignore_missing_imports = true
 
 [tool.ruff.lint]
 select = [
@@ -57,6 +61,7 @@ select = [
     "F",  # Pyflakes
     "W",  # pycodestyle
     "I",  # isort
+    "UP",  # pyupgrade
 ]
 
 [tool.ruff.lint.isort]

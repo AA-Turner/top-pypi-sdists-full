@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Literal, NamedTuple, Protocol
+from typing import Any, Final, Literal, NamedTuple, Protocol
 
 from bitfab.compress import PreparedRequest
 
 TraceOperation = Literal["external_span", "external_trace", "internal_trace"]
+
+SPAN_OPERATION: Final = "external_span"
+TRACE_OPERATION: Final = "external_trace"
 
 # Takes an ALREADY-ENCODED request body and a timeout, and returns once the
 # server has accepted it whole. Supplied by the HTTP client, which owns the

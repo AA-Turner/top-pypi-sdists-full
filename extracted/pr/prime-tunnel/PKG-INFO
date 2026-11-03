@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: prime-tunnel
-Version: 0.1.15
+Version: 0.1.17
 Summary: Prime Intellect Tunnel SDK - Expose local services via secure tunnels
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime
 Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime/tree/main/packages/prime-tunnel
@@ -74,6 +74,20 @@ status = await tunnel.status()
 if status.gone:
     await tunnel.stop()
 ```
+
+### Keeping a tunnel up
+
+`keep_serving()` checks that requests reach your service through the tunnel's
+URL, and restarts the client if they stop. Give it a path on your service that
+returns 2xx, and run it as a task:
+
+```python
+watch = asyncio.create_task(tunnel.keep_serving("/health"))
+```
+
+If your service itself is down, nothing is restarted. If the tunnel was deleted
+or expired, the task raises `TunnelGoneError`, and you need a new tunnel with a
+new URL. Cancel the task to stop watching.
 
 ## CLI Usage
 

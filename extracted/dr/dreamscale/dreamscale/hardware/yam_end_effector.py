@@ -586,6 +586,11 @@ class YamEndEffectorAdapter:
         wrapped = _JointExecutionPolicy(
             policy, rig, self, getattr(policy, "runtime_contract", None), on_conversion,
         )
+        self.bind_limits(rig)
+        return wrapped
+
+    def bind_limits(self, rig):
+        """Bind native IK to the opened rig's effective hardware/task arm bounds."""
         with self._lock:
             reported = getattr(rig, "limits", None)
             if not isinstance(reported, dict) or set(reported) != {"left", "right"}:
@@ -601,7 +606,6 @@ class YamEndEffectorAdapter:
                     raise YamHardwareError("Kinematics must accept the rig's hardware/task limits.")
             for side in ("left", "right"):
                 self.kinematics[side].set_joint_limits(bounds[side][:6].copy())
-        return wrapped
 
 
 class _JointExecutionPolicy:

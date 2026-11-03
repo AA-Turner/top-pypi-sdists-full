@@ -6,6 +6,7 @@ import threading
 from typing import Any
 from ...foundation.safe_warn import safe_warn as _diagnostics
 from .journal.journal import Journal
+from .status_fields import StatusField
 
 # Eager, not lazy (review of #2056): first importing a module during
 # interpreter finalization made an uncaught Ctrl-C exit 1 instead of
@@ -66,10 +67,10 @@ class DeliveryNoticesMixin:
         except Exception:  # noqa: BLE001
             status, recent = {}, []
         self._dead_seen = {str(entry.get("op_id")) for entry in recent}
-        self._failed_seen = int(status.get("failed") or 0)
+        self._failed_seen = int(status.get(StatusField.FAILED) or 0)
         self._auth_seen = self._auth_blocked_since(status)
         self._auth_block_started(self._auth_seen)
-        self._pending_seen = int(status.get("pending") or 0)
+        self._pending_seen = int(status.get(StatusField.PENDING) or 0)
         self._delivered_seen = self._own_delivered()
         # Plan 1.12: what this process's delivery report counts, and what its
         # last report already said (the report carries deltas).
@@ -158,7 +159,7 @@ class DeliveryNoticesMixin:
                 )
             # Dead letters no status entry accounts for were written by a worker
             # that predates 1.7 (it names no runs): the machine's, said so.
-            failed = int(status.get("failed") or 0)
+            failed = int(status.get(StatusField.FAILED) or 0)
             unnamed = failed - self._failed_seen - len(fresh)
             if unnamed > 0:
                 notices.note(
@@ -181,8 +182,8 @@ class DeliveryNoticesMixin:
                     + (f" for {minutes} min" if minutes is not None else "")
                     + f": the server refused this machine's credential (401/403) since {started}",
                 )
-            oldest = status.get("oldest_pending")
-            pending = int(status.get("pending") or 0)
+            oldest = status.get(StatusField.OLDEST_PENDING)
+            pending = int(status.get(StatusField.PENDING) or 0)
             # Progress since the last look -- this client's writes landing, or
             # the queue shrinking -- means a drain is working through it, if
             # slowly (a long recovery pass after an outage), not stalled
@@ -241,8 +242,8 @@ class DeliveryNoticesMixin:
             props: dict[str, Any] = {
                 **delta,
                 "dead_lettered_by_status": by_status or None,
-                "pending": int(status.get("pending") or 0),
-                "oldest_pending_s": _age_seconds(status.get("oldest_pending")),
+                "pending": int(status.get(StatusField.PENDING) or 0),
+                "oldest_pending_s": _age_seconds(status.get(StatusField.OLDEST_PENDING)),
                 "auth_blocked_s": _age_seconds(
                     self._auth_block_started(self._auth_blocked_since(status))
                 ),

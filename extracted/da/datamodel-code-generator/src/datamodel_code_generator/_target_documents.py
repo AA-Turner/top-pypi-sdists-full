@@ -1,4 +1,4 @@
-"""Target documents: canonical JSON, document identities, and the pointers that name documents."""
+"""Target documents: canonical JSON and document identities."""
 
 from __future__ import annotations
 
@@ -11,10 +11,12 @@ from typing import TYPE_CHECKING, Final, TypeAlias, cast
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
-from datamodel_code_generator._api_types import APIGenerationError, Diagnostic, OperationRef, SchemaRef
+from datamodel_code_generator._api_types import OperationRef, SchemaRef
 from datamodel_code_generator._url_redaction import redact_url
 
 if TYPE_CHECKING:
+    from urllib.parse import SplitResult
+
     from datamodel_code_generator._runtime.model_codecs.media import JSONValue
     from datamodel_code_generator._target_contract import (
         GeneratedTypeContractBatch,
@@ -28,16 +30,6 @@ ROOT_POINTER: Final = "/inputs/root"
 JSONObject: TypeAlias = "dict[str, JSONValue]"
 
 
-def escape_pointer_token(token: str | int) -> str:
-    """Escape one RFC 6901 reference token."""
-    return token.replace("~", "~0").replace("/", "~1") if isinstance(token, str) else str(token)
-
-
-def pointer_tokens(pointer: str) -> list[str]:
-    """Split an RFC 6901 pointer into its unescaped reference tokens."""
-    return [token.replace("~1", "/").replace("~0", "~") for token in pointer[1:].split("/")] if pointer else []
-
-
 def canonical_bytes(value: JSONValue) -> bytes:
     """Encode JSON with sorted keys, no whitespace, UTF-8, and no non-finite numbers."""
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
@@ -48,11 +40,9 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def config_error(*, code: str, option_path: str | None, message: str) -> APIGenerationError:
-    """Raise one configuration diagnostic as an API generation error."""
-    return APIGenerationError((
-        Diagnostic(code=code, severity="error", stage="config", message=message, option_path=option_path),
-    ))
+def _file_path(parts: SplitResult) -> Path:
+    """Return the path a file URI names: the path of the URI, its host, query and fragment left out."""
+    return Path(url2pathname(parts.path))
 
 
 def document_identity(document: str, base: Path) -> str:
@@ -60,7 +50,7 @@ def document_identity(document: str, base: Path) -> str:
     parts = urlsplit(document)
     match parts.scheme:
         case "file":
-            return Path(url2pathname(parts.path)).resolve().as_uri()
+            return _file_path(parts).resolve().as_uri()
         case scheme if len(scheme) > 1:
             return document
     return (base / document).resolve().as_uri()
@@ -77,7 +67,7 @@ def named_document(written: str | None, identity: str | None) -> str:
     parts = urlsplit(identity or written)
     if parts.scheme != "file":
         return f" in {redact_url(written)!r}"
-    file = Path(url2pathname(parts.path)).as_posix()
+    file = _file_path(parts).as_posix()
     return f" in {file!r}" if written == identity or Path(written).as_posix() == file else f" in {written!r} ({file})"
 
 

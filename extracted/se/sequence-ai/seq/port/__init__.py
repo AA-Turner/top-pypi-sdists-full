@@ -85,7 +85,9 @@ def convert(target: str, *, engine: str | None = None, out: str | None = None, t
         made = scaffold(tmp, out, engine=engine, worlds=worlds, check=report, force=force)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+    then = (f"then check its motion with seq port compare {out}/scene" if engine == "mujoco-warp"
+            else "then check it with an eval (seq port compare runs MuJoCo Warp alone)")
     text = [*lines(report),
-            f"skeleton: {out}/benchmark.py — fill in its TODOs (controller, observation, success), then check its "
-            f"motion with seq port compare {out}/scene"]
+            f"skeleton: {out}/benchmark.py — fill in its TODOs (controller, observation, success), {then}"]
     return {"export": json.loads(json.dumps(manifest)), "check": report, "scaffold": made, "lines": text}

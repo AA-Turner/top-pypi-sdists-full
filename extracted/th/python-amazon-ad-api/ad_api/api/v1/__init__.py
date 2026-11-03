@@ -9,6 +9,14 @@ from .brand_store_edition_publish_versions import BrandStoreEditionPublishVersio
 from .brand_stores import BrandStores
 from .brand_store_editions import BrandStoreEditions
 from .brand_store_pages import BrandStorePages
+from .reports import Reports
+from .labels import Labels
+from .manager_accounts import ManagerAccounts
+from .recommendations import Recommendations
+from .selling_accounts import SellingAccounts
+from .label_object_associations import LabelObjectAssociations
+from .geo_locations import GeoLocations
+from .recommendation_types import RecommendationTypes
 
 __all__ = [
     "Campaigns",
@@ -22,4 +30,12 @@ __all__ = [
     "BrandStores",
     "BrandStoreEditions",
     "BrandStorePages",
+    "Reports",
+    "Labels",
+    "ManagerAccounts",
+    "Recommendations",
+    "SellingAccounts",
+    "LabelObjectAssociations",
+    "GeoLocations",
+    "RecommendationTypes",
 ]

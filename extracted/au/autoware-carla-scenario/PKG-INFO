@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autoware-carla-scenario
-Version: 22.3.1
+Version: 23.1.24
 Summary: CARLA scenario testing framework for Autoware
 Author: Masaya Kataoka
 Author-email: Masaya Kataoka <ms.kataoka@gmail.com>
@@ -40,18 +40,19 @@ Requires-Dist: grpcio>=1.60
 Requires-Dist: protobuf>=4.25.0,<8
 Requires-Dist: orjson>=3.13.0
 Requires-Dist: hilspy>=0.16,<0.17 ; extra == 'hils'
-Requires-Dist: roadgen>=0.41.2 ; extra == 'map'
-Requires-Dist: autoware-carla-scenario-rerun>=0.1,<0.2 ; extra == 'rerun'
-Requires-Dist: autoware-carla-scenario-rerun>=0.1,<0.2 ; extra == 'rerun-lidar'
+Requires-Dist: roadgen>=0.42.0 ; extra == 'map'
+Requires-Dist: autoware-carla-scenario-rerun>=0.2,<0.3 ; extra == 'rerun'
+Requires-Dist: rerun-sdk>=0.38.1,<0.39 ; extra == 'rerun'
+Requires-Dist: autoware-carla-scenario-rerun>=0.2,<0.3 ; extra == 'rerun-lidar'
 Requires-Dist: rerun-sdk>=0.38.1,<0.39 ; extra == 'rerun-lidar'
 Requires-Dist: cyclonedds>=11.0.1 ; python_full_version < '3.14' and platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'ros2'
 Requires-Dist: eclipse-sumo>=1.23 ; extra == 'sumo'
 Requires-Dist: libsumo>=1.23 ; extra == 'sumo'
 Requires-Dist: sumolib>=1.23 ; extra == 'sumo'
 Requires-Dist: traci>=1.23 ; extra == 'sumo'
-Requires-Dist: roadgen>=0.41.2 ; extra == 'sumo'
+Requires-Dist: roadgen>=0.42.0 ; extra == 'sumo'
 Requires-Dist: autoware-carla-scenario-t4>=0.1,<0.2 ; extra == 't4'
-Requires-Dist: autoware-carla-scenario-rerun[viewer]>=0.1,<0.2 ; extra == 'viewer'
+Requires-Dist: autoware-carla-scenario-rerun[viewer]>=0.2,<0.3 ; extra == 'viewer'
 Requires-Python: >=3.10, <3.15
 Project-URL: Homepage, https://github.com/autowarefoundation/autoware_carla_scenario
 Project-URL: Documentation, https://autowarefoundation.github.io/autoware_carla_scenario/

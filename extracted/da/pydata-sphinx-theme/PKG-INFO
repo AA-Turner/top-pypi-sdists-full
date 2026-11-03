@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydata-sphinx-theme
-Version: 0.23.0
+Version: 0.24.0
 Summary: Bootstrap-based Sphinx theme from the PyData community
 Maintainer-Email: Joris Van den Bossche <jorisvandenbossche@gmail.com>
 License-File: LICENSE
@@ -66,6 +66,7 @@ Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pytest-regressions; extra == "test"
 Requires-Dist: sphinx[test]; extra == "test"
 Requires-Dist: pytest-playwright; extra == "test"
+Requires-Dist: playwright==1.63.0; extra == "test"
 Requires-Dist: typing-extensions; extra == "test"
 Provides-Extra: a11y
 Requires-Dist: pydata-sphinx-theme[test]; extra == "a11y"

@@ -119,9 +119,12 @@ impl ZerobusSdk {
 
     /// Creates a new builder for a persistent (Eos) ingestion stream.
     ///
+    /// In development: this API can change. It is available behind the `eos`
+    /// feature.
+    ///
     /// Persistent streams are durable and recoverable: the server records the
     /// stream identity and its committed offset, so a client can reconnect after
-    /// a restart and resume with exactly-once delivery into Delta. Configure the
+    /// a restart and continue from that offset. Configure the
     /// builder like [`stream_builder`](Self::stream_builder), then call
     /// [`build`](crate::PersistentStreamBuilder::build) to open a new stream or
     /// [`resume`](crate::PersistentStreamBuilder::resume) to reconnect to one by
@@ -362,7 +365,7 @@ impl ZerobusSdk {
             .user_agent(self.sdk_identifier.as_ref())
             .map_err(|err| ZerobusError::ChannelCreationError(err.to_string()))?;
 
-        let endpoint = self.tls_config.configure_endpoint(endpoint)?;
+        let endpoint = self.tls_config.tls_settings()?.apply(endpoint)?;
         let host = endpoint.uri().host().unwrap_or_default().to_string();
         let proxy_connector = proxy::resolve_connector(&host, self.connector_factory.as_ref())?;
         let channel = match proxy_connector {

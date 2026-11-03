@@ -1,6 +1,7 @@
 //! macOS: births from `proc_pidinfo`, exact handles as a kqueue watching the process's exit.
 #![allow(unsafe_code)]
 use super::{Birth, State, unix};
+use rustix::process::{Pid, Signal, kill_process};
 use std::{
     io, mem,
     os::fd::{AsFd, AsRawFd, FromRawFd, OwnedFd},
@@ -83,11 +84,8 @@ pub(super) fn kill(_: &Handle, birth: &Birth) -> io::Result<()> {
         Err(error) if gone(&error) => return Ok(()),
         Err(error) => return Err(error),
     };
-    // SAFETY: plain syscall on scalars.
-    unix::signaled(
-        unsafe { libc::kill(birth.pid as libc::pid_t, libc::SIGKILL) },
-        birth.pid,
-    )?;
+    let pid = Pid::from_raw(birth.pid as i32).ok_or_else(|| io::Error::from(io::ErrorKind::InvalidInput))?;
+    unix::signaled(kill_process(pid, Signal::KILL), birth.pid)?;
     if info.pbi_pgid == birth.pid {
         unix::signal_group(birth.pid)?;
     }
@@ -107,6 +105,10 @@ pub(super) fn wait(handle: &Handle, period: Option<Duration>) -> io::Result<bool
 
 pub(super) fn in_kernel(_pid: u32) -> Option<String> {
     None
+}
+
+pub(super) fn threads(_pid: u32) -> Vec<(String, usize)> {
+    Vec::new()
 }
 
 pub(super) fn usage(pid: u32) -> io::Result<super::Usage> {
@@ -156,8 +158,9 @@ pub(super) fn boot_id() -> io::Result<String> {
 
 /// `ru_maxrss`, in bytes on macOS.
 pub(super) fn peak_resident() -> io::Result<u64> {
-    // SAFETY: plain-old-data the call fills.
+    // SAFETY: plain-old-data; all-zero is a valid value.
     let mut usage: libc::rusage = unsafe { mem::zeroed() };
+    // SAFETY: a valid `who` and a writable rusage.
     if unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) } != 0 {
         return Err(io::Error::last_os_error());
     }

@@ -593,9 +593,13 @@ class TabPFNClassifier(
                 optional when you've set the level explicitly.
 
             thinking_effort:
-                Effort level for thinking mode. When set, thinking is enabled
-                (you don't also need `thinking_mode=True`). When None and
-                `thinking_mode=True`, defaults to "medium".
+                Effort level for thinking mode, from least to most compute:
+                "micro", "mini", "low", "medium", "high", "xhigh", "max". When
+                set, thinking is enabled (you don't also need
+                `thinking_mode=True`). When None and `thinking_mode=True`,
+                defaults to "medium". Levels other than "medium" and "high" are
+                not available to every account; the server rejects a level your
+                account cannot use.
 
             thinking_timeout_s:
                 Budget for the fit, in seconds. Only consulted when thinking is
@@ -1249,9 +1253,13 @@ class TabPFNRegressor(
                 optional when you've set the level explicitly.
 
             thinking_effort:
-                Effort level for thinking mode. When set, thinking is enabled
-                (you don't also need `thinking_mode=True`). When None and
-                `thinking_mode=True`, defaults to "medium".
+                Effort level for thinking mode, from least to most compute:
+                "micro", "mini", "low", "medium", "high", "xhigh", "max". When
+                set, thinking is enabled (you don't also need
+                `thinking_mode=True`). When None and `thinking_mode=True`,
+                defaults to "medium". Levels other than "medium" and "high" are
+                not available to every account; the server rejects a level your
+                account cannot use.
 
             thinking_timeout_s:
                 Budget for the fit, in seconds. Only consulted when thinking is
@@ -2011,18 +2019,21 @@ def _clean_text_features(X):
 
     # limit to 2500 chars and remove commas for text features
     for col in df.columns:
+        # Only object columns hold text. Other dtypes, such as periods, make
+        # pd.to_numeric raise TypeError.
+        if df[col].dtype != object:
+            continue
         # check if we can't convert to float
         try:
             pd.to_numeric(df[col])
         except ValueError:
-            if df[col].dtype == object:  # only process string/object columns
-                df[col] = (
-                    df[col]
-                    .str.replace(",", "")
-                    .str.replace(r"\s+", " ", regex=True)
-                    .str.strip()
-                    .str.slice(0, 2500)
-                )
+            df[col] = (
+                df[col]
+                .str.replace(",", "")
+                .str.replace(r"\s+", " ", regex=True)
+                .str.strip()
+                .str.slice(0, 2500)
+            )
 
     # Convert back to numpy if input was numpy (or tensor that was converted to numpy)
     if isinstance(data, np.ndarray):

@@ -81,8 +81,8 @@ def base_model(model: Any) -> HubRef | None:
     return HubRef(uri=f"{HUB}/{repo}", kind="model", revision=commit if isinstance(commit, str) and _SHA.match(commit) else None)
 
 
-def _is_datasets_object(obj: Any) -> bool:
-    module = type(obj).__module__ or ""
+def _is_datasets_object(target: Any) -> bool:
+    module = type(target).__module__ or ""
     return module == "datasets" or module.startswith("datasets.")
 
 
@@ -124,8 +124,8 @@ def hub_dataset(obj: Any) -> HubRef | None:
 def loader_dataset(dataloader: Any) -> Any:
     """The dataset behind a DataLoader (accelerate's wrappers keep `.dataset`)."""
     seen = 0
-    obj = dataloader
-    while obj is not None and seen < 4 and not _is_datasets_object(obj):
-        obj = getattr(obj, "dataset", None)
+    target = dataloader
+    while target is not None and seen < 4 and not _is_datasets_object(target):
+        target = getattr(target, "dataset", None)
         seen += 1
-    return obj
+    return target

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ConfigUpdater
-Version: 4.1
+Version: 4.1.1
 Summary: Parser like ConfigParser but for updating configuration files
 Project-URL: Homepage, https://github.com/pyscaffold/configupdater
 Project-URL: Documentation, https://configupdater.readthedocs.io/

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycryptodome
-Version: 4.2.0
+Version: 4.3.0
 Summary: Cryptographic library for Python
 Author-email: Helder Eijs <helderijs@gmail.com>
 License-Expression: BSD-2-Clause AND Unlicense AND MIT

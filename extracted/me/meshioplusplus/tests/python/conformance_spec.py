@@ -862,7 +862,7 @@ SPEC: dict[str, dict] = {
         "is the input deck's, so a `vertex` has no type, side regions are dropped, and "
         "Herrmann, bubble and generalized plane strain types come back as the default type "
         "of their shape. A post file is checked against meshio++'s own reader only, until a "
-        "Mentat run (roadmap §1.2.11).",
+        "Mentat run (roadmap §2.2.11).",
     },
     "marc": {
         "cells": {
@@ -880,7 +880,7 @@ SPEC: dict[str, dict] = {
         "field_data": False,
         "regions": ["cell", "point"],
         "note": "A deck holds no data arrays; Marc's face and edge numbering is not "
-        "mapped to facets, so side regions are dropped (roadmap §1.2.11); a `vertex` has "
+        "mapped to facets, so side regions are dropped (roadmap §2.2.11); a `vertex` has "
         "no type; Herrmann, bubble and generalized plane strain types come back as the "
         "default type of their shape.",
     },
@@ -933,6 +933,25 @@ SPEC: dict[str, dict] = {
         "cell_data": {"c_f64": "missing", "c_i32": "missing"},
         "field_data": False,
         "regions": [],
+    },
+    "medit_sol": {
+        "cells": {
+            "vertex": "lost",
+            "line": "lost",
+            "triangle": "lost",
+            "quad": "lost",
+            "tetra": "lost",
+            "hexahedron": "lost",
+            "wedge": "lost",
+            "pyramid": "lost",
+        },
+        "points": "none",
+        "point_data": {"p_f64": "missing", "p_i32": "missing", "p_vec": "missing"},
+        "cell_data": {"c_f64": "missing", "c_i32": "missing"},
+        "field_data": False,
+        "regions": [],
+        "note": "Fields without geometry: the float data comes back renamed "
+        "`medit:sol:<i>`, element fields only through `medit.read(path, sol=...)`.",
     },
     "mfem": {
         "cells": {
@@ -1490,9 +1509,10 @@ SPEC: dict[str, dict] = {
         "cell_data": {"c_f64": "missing", "c_i32": "missing"},
         "field_data": False,
         "regions": [],
-        "note": "A faceted B-rep solid for CAD tools, read back through the optional "
-        "OpenCASCADE backend as its triangulation: volume cells come back as their "
-        "skin, and data is not kept. Checked only in a build with the backend.",
+        "note": "A B-rep solid for CAD tools (coplanar facets merged into one face), "
+        "read back through OpenCASCADE as its triangulation: volume cells come back "
+        "as their skin, and data is not kept. Checked only in a build with "
+        "OpenCASCADE (the meshioplusplus-occt wheel carries it).",
     },
     "stl": {
         "cells": {
@@ -1857,8 +1877,8 @@ _GAP = "Tracked gap, roadmap §{item}: no writer yet. {why}"
 _RESULT = "{tool}'s result file; the writer is the physics-ML loop's missing half."
 READ_ONLY = {
     "iges": (
-        "Exempt, not a gap: a CAD exchange format read through the optional "
-        "OpenCASCADE backend (roadmap non-goals: every format reads and writes); STEP is the CAD format meshio++ writes."
+        "Exempt, not a gap: a CAD exchange format read through "
+        "OpenCASCADE (roadmap non-goals: every format reads and writes); STEP is the CAD format meshio++ writes."
     ),
     "ansys_rst_cyclic": (
         "Exempt, not a gap: not a file of its own but the full rotor that a static "
@@ -1921,11 +1941,11 @@ ENGINE_EXEMPT = {
     ),
     ("iges", "read"): (
         "Exempt, not a gap (roadmap non-goals: every format reads and writes): reading a CAD model needs the "
-        "optional OpenCASCADE kernel, which only the core links."
+        "OpenCASCADE kernel, which only the core links."
     ),
     ("step", "read"): (
         "Exempt, not a gap (roadmap non-goals: every format reads and writes): reading a CAD model needs the "
-        "optional OpenCASCADE kernel, which only the core links."
+        "OpenCASCADE kernel, which only the core links."
     ),
     ("openfoam", "write"): (
         "Exempt, not a gap (roadmap non-goals: every format reads and writes): the OpenFOAM case writer (polyMesh, "

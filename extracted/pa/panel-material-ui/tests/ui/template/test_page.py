@@ -12,6 +12,8 @@ from panel_material_ui.widgets import Button
 
 pytestmark = pytest.mark.ui
 
+LOGO = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'/%3E"
+
 
 def test_page_theme_config_header_color(page):
     pg = Page()
@@ -212,8 +214,33 @@ def test_page_main_width_custom(page):
     expect(main_content).to_have_css("align-self", "center")
 
 
-def test_page_app_bar_width_default_unclamped(page):
-    """By default the app bar toolbar is not clamped (no max-width)."""
+def test_page_main_width_scrolls_from_gutter(page):
+    """Regression for holoviz/panel#8959: the gutters around a clamped main area scroll it."""
+    pg = Page(main=[pn.Column(*[pn.pane.Markdown(f"# Row {i}") for i in range(50)])], main_width=400)
+
+    serve_component(page, pg)
+
+    page.set_viewport_size({"width": 1200, "height": 600})
+    scroller = page.locator(".main-scroll")
+    content = page.locator(".main-content")
+    expect(content).to_have_css("max-width", "400px")
+
+    scroll_box = scroller.bounding_box()
+    content_box = content.bounding_box()
+    assert content_box["width"] == pytest.approx(400, abs=1)
+    assert scroll_box["width"] > content_box["width"]
+    page_right = page.locator(".mui-light, .mui-dark").evaluate_all(
+        "els => Math.max(...els.map(el => el.getBoundingClientRect().right))"
+    )
+    assert scroll_box["x"] + scroll_box["width"] == pytest.approx(page_right, abs=1)
+
+    page.mouse.move(scroll_box["x"] + 20, scroll_box["y"] + 100)
+    page.mouse.wheel(0, 300)
+    wait_until(lambda: scroller.evaluate("el => el.scrollTop") > 0, page)
+
+
+def test_page_header_width_default_unclamped(page):
+    """By default the header toolbar is not clamped (no max-width)."""
     pg = Page(main=[pn.pane.Markdown("# Content")])
 
     serve_component(page, pg)
@@ -222,9 +249,9 @@ def test_page_app_bar_width_default_unclamped(page):
     expect(toolbar).to_have_css("max-width", "none")
 
 
-def test_page_app_bar_width_custom(page):
-    """app_bar_width clamps and centers the app bar toolbar content."""
-    pg = Page(main=[pn.pane.Markdown("# Content")], app_bar_width=900)
+def test_page_header_width_custom(page):
+    """header_width clamps and centers the header toolbar content."""
+    pg = Page(main=[pn.pane.Markdown("# Content")], header_width=900)
 
     serve_component(page, pg)
 
@@ -260,21 +287,21 @@ def test_page_main_width_breakpoint_dict(page):
     expect(main_content).not_to_have_css("max-width", "800px")
 
 
-def test_page_app_bar_width_follows_main_width(page):
-    """When app_bar_width is unset, the toolbar follows main_width so the
-    header stays aligned with the clamped main content."""
+def test_page_header_width_independent_of_main_width(page):
+    """Setting main_width does not clamp the header toolbar."""
     pg = Page(main=[pn.pane.Markdown("# Content")], main_width=800)
 
     serve_component(page, pg)
 
     toolbar = page.locator(".header .MuiToolbar-root")
-    expect(toolbar).to_have_css("max-width", "800px")
-    expect(toolbar).to_have_css("align-self", "center")
+    expect(toolbar).to_have_css("max-width", "none")
+    main_content = page.locator(".main-content")
+    expect(main_content).to_have_css("max-width", "800px")
 
 
-def test_page_app_bar_width_overrides_main_width(page):
-    """An explicit app_bar_width takes precedence over main_width for the toolbar."""
-    pg = Page(main=[pn.pane.Markdown("# Content")], main_width=800, app_bar_width=1200)
+def test_page_header_width_overrides_main_width(page):
+    """header_width and main_width clamp the header and main area independently."""
+    pg = Page(main=[pn.pane.Markdown("# Content")], main_width=800, header_width=1200)
 
     serve_component(page, pg)
 
@@ -282,6 +309,36 @@ def test_page_app_bar_width_overrides_main_width(page):
     expect(toolbar).to_have_css("max-width", "1200px")
     main_content = page.locator(".main-content")
     expect(main_content).to_have_css("max-width", "800px")
+
+
+
+def test_page_title_links_to_site_url(page):
+    pg = Page(title="My App", site_url="/home")
+
+    serve_component(page, pg)
+
+    title = page.locator(".MuiAppBar-root a:has(.title)")
+    expect(title).to_have_attribute("href", "/home")
+    expect(page.locator(".MuiAppBar-root .site")).to_have_count(0)
+    expect(page.locator(".MuiAppBar-root .separator")).to_have_count(0)
+
+
+def test_page_site_and_title_link_separately(page):
+    pg = Page(title="My App", site="My Site", site_url="/home")
+
+    serve_component(page, pg)
+
+    site = page.locator(".MuiAppBar-root a:has(.site)")
+    expect(site).to_have_text("My Site")
+    expect(site).to_have_attribute("href", "/home")
+    expect(page.locator(".MuiAppBar-root .separator")).to_have_text("/")
+    title = page.locator(".MuiAppBar-root a:has(.title)")
+    expect(title).to_have_text("My App")
+    expect(title).to_have_attribute("href", "")
+
+    pg.site = ""
+    expect(page.locator(".MuiAppBar-root .site")).to_have_count(0)
+    expect(title).to_have_attribute("href", "/home")
 
 
 def test_page_linear_progress_hidden_when_idle(page):
@@ -387,3 +444,26 @@ def test_page_inline_theme_toggle_scoped(page):
         assert page.evaluate("() => document.head.querySelector('#page-style')") is None
     finally:
         pn.config.theme = "default"
+
+
+def test_page_served_links_title_and_logo_to_site_url(page):
+    serve_component(page, Page(title="Atlas", logo=LOGO))
+
+    expect(page.locator('a[href="/"] .title')).to_have_text("Atlas")
+    expect(page.locator('a[href="/"] img.logo')).to_have_count(1)
+
+
+def test_page_empty_site_url_renders_title_and_logo_without_link(page):
+    serve_component(page, Page(title="Atlas", logo=LOGO, site_url=""))
+
+    expect(page.locator(".title")).to_have_text("Atlas")
+    expect(page.locator("img.logo")).to_have_count(1)
+    expect(page.locator(".MuiAppBar-root a")).to_have_count(0)
+
+
+def test_page_empty_site_url_renders_site_and_title_without_link(page):
+    serve_component(page, Page(title="Atlas", site="Site", logo=LOGO, site_url=""))
+
+    expect(page.locator(".site")).to_have_text("Site")
+    expect(page.locator(".title")).to_have_text("Atlas")
+    expect(page.locator(".MuiAppBar-root a")).to_have_count(0)

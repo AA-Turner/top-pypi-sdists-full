@@ -22,6 +22,16 @@ class OrderFee(System.Object):
     def value(self, value: QuantConnect.Securities.CashAmount) -> None:
         ...
 
+    @property
+    def amount(self) -> float:
+        """Gets the order fee amount. Synonym of value.Cashamount.amount"""
+        ...
+
+    @property
+    def currency(self) -> str:
+        """Gets the order fee currency. Synonym of value.CashAmount.currency"""
+        ...
+
     ZERO: QuantConnect.Orders.Fees.OrderFee = ...
     """Gets an instance of OrderFee that represents zero."""
 

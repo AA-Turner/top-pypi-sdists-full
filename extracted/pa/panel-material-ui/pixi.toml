@@ -8,7 +8,10 @@ install = "pip install --no-build-isolation --no-deps --disable-pip-version-chec
 serve-dev = "panel serve examples/components.py --dev --port 0 --show"
 serve-example = { cmd = "echo ", depends-on = ["install", "serve-dev"] }
 compile = { cmd = "panel compile panel_material_ui --file-loader woff woff2", env = { PYTHONPATH = "./src:$PYTHONPATH" } }
-compile-dev = { cmd = "panel compile panel_material_ui --build-dir build --file-loader woff woff2 --watch", env = { PYTHONPATH = "./src:$PYTHONPATH" } }
+# jsconfig.json maps bare imports onto build/node_modules for editors; esbuild
+# honors those paths too, bypassing package exports and bundling MUI twice,
+# so an empty tsconfig in the build dir shields the build from it.
+compile-dev = { cmd = "mkdir -p build && echo '{}' > build/tsconfig.json && panel compile panel_material_ui --build-dir build --file-loader woff woff2 --watch", env = { PYTHONPATH = "./src:$PYTHONPATH" } }
 pre-commit-install = "pre-commit install"
 pre-commit-run = "pre-commit run -a"
 
@@ -165,6 +168,7 @@ python-build = "*"
 twine = "*"
 wheel = "*"
 conda-build = "*"
+simdjson = "<5.0.8" # tmp pin: 5.0.8 bumped its soname, breaking libmamba 2.10.0 built against 5.0.5-5.0.7
 
 [feature.build.tasks]
 build-wheel = "python -m build --no-isolation ."
@@ -185,7 +189,10 @@ esbuild = "*"
 
 [feature.lint.dependencies]
 pre-commit = "*"
+nodejs = ">=18"
 
 [feature.lint.tasks]
 pre-commit-install = "pre-commit install"
 pre-commit-run = "pre-commit run -a"
+lint-js-install = "npm ci"
+lint-js = { cmd = "npm run lint", depends-on = ["lint-js-install"] }

@@ -256,14 +256,13 @@ def _machine_name(m: dict) -> str:
 def _machine_price(m: dict) -> Optional[str]:
     """What an hour of a machine costs its owner, as the platform says it: one worker's price on its card, said as a
     worker's as `seq policy status` says it ("$0.9612/h a worker": the card with its CPU and memory, more than the card
-    alone), for a machine that serves or checks a deploy; "not billed to you" for a replica
-    check, which the platform pays for; "billed with its eval" for an eval's instance, which its eval bills for what its
-    run used. None where the platform gave no price: a machine whose purpose is not recorded (it could have been
-    either), a card it does not price.
+    alone), for a machine that serves or checks a deploy; "billed with its eval" for an eval's instance, which its eval
+    bills for what its run used. None where the platform gave no price: a machine whose purpose is not recorded (it could
+    have been either), a card it does not price. No machine is said to be free: every one the platform starts for its
+    user is billed from when it starts, and no replica check runs any more.
+
  
 """
-    if m.get("purpose") == "replica_check":
-        return "not billed to you"
     if m.get("purpose") == "eval":
         return "billed with its eval"
     v = m.get("usd_per_hour")
@@ -319,7 +318,9 @@ def format_events(page: dict, deployment: str, *, flags: str = "") -> str:
         text = str(e.get("text") or "")
         if e.get("kind") == "user":
 
-            tags = (["setup"] if e.get("setup") else []) + (["stderr"] if e.get("stream") == "stderr" else [])
+
+            tags = ((["setup"] if e.get("setup") else []) + (["shutdown"] if e.get("shutdown") else [])
+                    + (["stderr"] if e.get("stream") == "stderr" else []))
             text = f"({', '.join(tags)}) {text}" if tags else text
         until = e.get("billed_until")
         if e.get("kind") == "end" and isinstance(until, (int, float)) and not isinstance(until, bool):

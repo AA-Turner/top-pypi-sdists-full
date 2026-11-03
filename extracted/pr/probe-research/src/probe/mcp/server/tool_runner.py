@@ -15,7 +15,8 @@ from pydantic_core import to_jsonable_python
 from pydantic import BaseModel, create_model
 from ...sdk import errors
 from ...sdk.settings import workspace_limit
-from ...foundation.request_identity.surface import tool_scope
+from ...foundation.request_identity.surface import Surface, tool_scope
+from ...foundation.server_messages import render_server_message
 from ..delivery import accounting, delivery as continuation
 from ...foundation.token_budget.token_budget import serialize
 from probe.mcp.server.limits import _QUEUE_TIMEOUT_S, _QUEUE_WARN_S, _WEB_TOOLS, _limiters, _web_limiter
@@ -262,10 +263,28 @@ def _limit_hint(exc: BaseException) -> str:
     return ""
 
 
+def _get_server_message_text(exc: BaseException) -> str | None:
+    """A registered server message somewhere in `exc`'s chain, as the MCP surface words it."""
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        message = getattr(current, "server_message", None)
+        if message is not None and message.is_registered and message.text:
+            return render_server_message(message, Surface.MCP)
+        # `raise ... from` only: a refusal already handled in an `except` is not this error.
+        current = current.__cause__
+    return None
+
+
 def _bounded_error_text(exc: BaseException, limit: int = 600) -> str:
     """A tool error's text, at most `limit` characters -- and, when the caller's
     workspace limit hid what was asked for, saying so (kept whole, never the part
-    the bound cuts): an agent reads a silent miss as data loss."""
+    the bound cuts): an agent reads a silent miss as data loss. A refusal from the
+    server's registry is its own sentence, FIRST, so the cut never drops it (A4)."""
+    said = _get_server_message_text(exc)
+    if said is not None:
+        return said[:limit].encode("utf-8", errors="replace").decode("utf-8")
     message = str(exc)
     hint = _limit_hint(exc)
     if hint:

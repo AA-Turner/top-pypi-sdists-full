@@ -8,6 +8,8 @@ import io
 import itertools
 import logging
 import re
+import urllib.parse
+import warnings
 from typing import Any, BinaryIO, Dict, Optional, TextIO, Union
 
 logger = logging.getLogger("deepl")
@@ -43,6 +45,21 @@ def _get_log_text(message, **kwargs):
     )
 
 
+def _add_extra_body_parameters(
+    request_data: Dict[str, Any], extra_body_parameters: Optional[dict]
+) -> None:
+    """Merges extra_body_parameters into request_data in place. Entries
+    replace keys of the same name set by the library; None or {} adds
+    nothing."""
+    if extra_body_parameters:
+        request_data.update(extra_body_parameters)
+
+
+def encode_query(params) -> str:
+    """Encodes params as a URI query string, a space as %20 (RFC 3986)."""
+    return urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+
+
 def log_debug(message, **kwargs):
     text = _get_log_text(message, **kwargs)
     logger.debug(text)
@@ -61,9 +78,32 @@ def get_int_safe(d: Optional[dict], key: str) -> Optional[int]:
         return None
 
 
-def auth_key_is_free_account(auth_key: str) -> bool:
+def get_float_safe(d: Optional[dict], key: str) -> Optional[float]:
+    """Returns value in dictionary with given key as float, or None."""
+    try:
+        return float(d.get(key) if d else None)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
+def is_free_account_auth_key(auth_key: str) -> bool:
     """Returns True if the given authentication key belongs to a DeepL API Free
     account, otherwise False."""
+    return auth_key.strip().endswith(":fx")
+
+
+def auth_key_is_free_account(auth_key: str) -> bool:
+    """Returns True if the given authentication key belongs to a DeepL API Free
+    account, otherwise False.
+
+    .. deprecated::
+        Use is_free_account_auth_key() instead.
+    """
+    warnings.warn(
+        "auth_key_is_free_account is deprecated, use is_free_account_auth_key",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return auth_key.endswith(":fx")
 
 
@@ -143,6 +183,11 @@ def convert_dict_to_tsv(
     )
 
 
+class _GlossaryCsvRowError(ValueError, IndexError):
+    """ValueError for an invalid CSV row; also an IndexError, which earlier
+    versions raised."""
+
+
 def convert_csv_to_dict(
     csv_data: Union[TextIO, BinaryIO, str, bytes, Any],
     skip_checks: bool = False,
@@ -176,6 +221,8 @@ def convert_csv_to_dict(
     for line, index in zip(reader, itertools.count(1)):
         if not line:
             continue
+        if len(line) < 2:
+            raise _GlossaryCsvRowError(f"Entry {index} has no target term")
         source, target = line[0].strip(), line[1].strip()
         if source in entries_dict:
             raise ValueError(
@@ -192,4 +239,10 @@ def parse_timestamp(creation_time: str) -> datetime.datetime:
     # Truncate fractional seconds to 6 digits (microseconds) since Python's
     # %f only handles up to 6 digits, but the API may return 7 (nanoseconds).
     creation_time = re.sub(r"(\.\d{6})\d+", r"\1", creation_time)
-    return datetime.datetime.strptime(creation_time, "%Y-%m-%dT%H:%M:%S.%f%z")
+    # Some timestamps (e.g. the usage billing period) have no fraction.
+    fmt = (
+        "%Y-%m-%dT%H:%M:%S.%f%z"
+        if "." in creation_time
+        else "%Y-%m-%dT%H:%M:%S%z"
+    )
+    return datetime.datetime.strptime(creation_time, fmt)

@@ -3,17 +3,18 @@ from __future__ import annotations
 import logging
 import os
 import stat
-import subprocess
 import sys
+from copy import deepcopy
 from pathlib import Path
+from subprocess import check_call, check_output
 from typing import TYPE_CHECKING, Final
 from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
 
-from python_discovery import DiskCache, PythonInfo, get_interpreter
-from python_discovery._discovery import IS_WIN, LazyPathDump, get_paths
+from python_discovery import DiskCache, PythonInfo, PythonSpec, SimpleSpecifierSet, get_interpreter, iter_interpreters
+from python_discovery._discovery import IS_WIN, LazyPathDump, get_paths, propose_interpreters
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -73,6 +74,83 @@ def test_discovery_via_path_not_found(tmp_path: Path, monkeypatch: pytest.Monkey
     assert interpreter is None
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlink names")
+def test_discovery_via_path_literal_symlink(tmp_path: Path) -> None:
+    link = tmp_path / "python_custom"
+    link.symlink_to(sys.executable)
+
+    interpreter = get_interpreter("python_custom", [], env={"PATH": str(tmp_path)})
+
+    assert interpreter is not None
+    assert interpreter.executable == str(link)
+
+
+@pytest.mark.skipif(sys.implementation.name != "cpython", reason="requires CPython")
+@pytest.mark.parametrize("name", [pytest.param("pypy", id="pypy"), pytest.param("Python", id="mixed-case-python")])
+def test_pypy_spec_rejects_cpython_alias(name: str, tmp_path: Path, session_cache: DiskCache) -> None:
+    threaded = "t" if PythonInfo.current_system(session_cache).free_threaded else ""
+    version = f"{sys.version_info.major}.{sys.version_info.minor}{threaded}"
+    (tmp_path / f"{name}{version}{'.exe' if IS_WIN else ''}").symlink_to(sys.executable)
+    env = {"PATH": str(tmp_path), "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")}
+
+    selected = get_interpreter(f"pypy{version}", [], cache=session_cache, env=env)
+    assert selected is None or selected.implementation == "PyPy"
+    assert all(
+        info.implementation == "PyPy" for info in iter_interpreters(f"pypy{version}", cache=session_cache, env=env)
+    )
+
+
+@pytest.mark.skipif(sys.implementation.name != "cpython", reason="requires CPython")
+def test_generic_python_spec_accepts_mixed_case_alias(tmp_path: Path, session_cache: DiskCache) -> None:
+    threaded = "t" if PythonInfo.current_system(session_cache).free_threaded else ""
+    version = f"{sys.version_info.major}.{sys.version_info.minor}{threaded}"
+    alias = tmp_path / f"Python{version}{'.exe' if IS_WIN else ''}"
+    alias.symlink_to(sys.executable)
+
+    selected = get_interpreter(
+        f"Python{version}",
+        [],
+        cache=session_cache,
+        env={"PATH": str(tmp_path), "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")},
+    )
+
+    assert selected is not None
+    assert (selected.executable, selected.implementation) == (str(alias), "CPython")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell script")
+@pytest.mark.parametrize(
+    "output",
+    [
+        pytest.param("{}", id="empty-object"),
+        pytest.param(
+            '{"version_info": {"major": 3, "minor": 11, "micro": 0, "releaselevel": "final", "serial": 0}}',
+            id="version-only",
+        ),
+        pytest.param("[]", id="array"),
+    ],
+)
+def test_discovery_skips_candidate_with_wrong_shape_json(tmp_path: Path, output: str) -> None:
+    first, second = tmp_path / "first", tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    name = "python_custom"
+    fake = first / name
+    fake.write_text(f"#!/bin/sh\nprintf '%s\\n' '{output}'\n", encoding="utf-8")
+    fake.chmod(0o755)
+    real = second / name
+    real.symlink_to(sys.executable)
+
+    interpreter = get_interpreter(
+        name,
+        cache=DiskCache(tmp_path / "cache"),
+        env={"PATH": os.pathsep.join([str(first), str(second)]), "HOME": "/nonexistent"},
+    )
+
+    assert interpreter is not None
+    assert interpreter.executable == str(real)
+
+
 def test_discovery_via_path_in_nonbrowseable_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     bad_perm = tmp_path / "bad_perm"
     bad_perm.mkdir(mode=0o000)
@@ -91,6 +169,25 @@ def test_relative_path(session_cache: DiskCache, monkeypatch: pytest.MonkeyPatch
     relative = str(sys_executable.relative_to(cwd))
     result = get_interpreter(relative, [], session_cache)
     assert result is not None
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("3.14.0rc1", id="prerelease"),
+        pytest.param("python3.13-arm64-64", id="swapped-platform"),
+        pytest.param("python_d", id="executable-name"),
+    ],
+)
+def test_bare_name_spec_does_not_probe_cwd(
+    name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    (tmp_path / name).touch(mode=0o755)
+    monkeypatch.chdir(tmp_path)
+    from_exe = mocker.patch("python_discovery._discovery.PythonInfo.from_exe", return_value=None)
+
+    assert get_interpreter(name, [], env={"PATH": "", "UV_PYTHON_INSTALL_DIR": str(tmp_path / "uv")}) is None
+    from_exe.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -133,6 +230,38 @@ def test_discovery_invalid_specifier_raises(session_cache: DiskCache) -> None:
         get_interpreter([">=3.12 <4", sys.executable], cache=session_cache)
 
 
+@pytest.mark.parametrize(
+    "use_iterator",
+    [pytest.param(False, id="list"), pytest.param(True, id="iterator")],
+)
+def test_discovery_fallback_reuses_preferred_paths(
+    tmp_path: Path, session_cache: DiskCache, mocker: MockerFixture, *, use_iterator: bool
+) -> None:
+    executable = tmp_path / "preferred" / ("Scripts/python.exe" if IS_WIN else "bin/python")
+    executable.parent.mkdir(parents=True)
+    executable.touch()
+    preferred_info = deepcopy(PythonInfo.current_system(session_cache))
+    preferred_info.executable = str(executable)
+    mocker.patch.object(PythonInfo, "from_exe", return_value=preferred_info)
+    paths = [str(executable)]
+    result = get_interpreter(
+        ["missing-interpreter", ">=3"],
+        try_first_with=iter(paths) if use_iterator else paths,
+        cache=session_cache,
+        env={**os.environ, "PATH": str(tmp_path), "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")},
+        predicate=lambda info: Path(info.executable) == executable,
+    )
+    assert result is not None
+    assert Path(result.executable) == executable
+
+
+def test_discovery_stops_reading_preferred_paths_after_match(session_cache: DiskCache) -> None:
+    preferred_paths = iter([sys.executable, "unneeded"])
+    result = get_interpreter(">=3", try_first_with=preferred_paths, cache=session_cache)
+    assert result is not None
+    assert next(preferred_paths) == "unneeded"
+
+
 @pytest.fixture
 def mock_find_interpreter(mocker: MockerFixture) -> None:
     mocker.patch(
@@ -154,8 +283,8 @@ def test_discovery_absolute_path_with_try_first(
     good_env = tmp_path / "good"
     bad_env = tmp_path / "bad"
 
-    subprocess.check_call([sys.executable, "-m", "venv", str(good_env)])
-    subprocess.check_call([sys.executable, "-m", "venv", str(bad_env)])
+    check_call([sys.executable, "-m", "venv", str(good_env)])
+    check_call([sys.executable, "-m", "venv", str(bad_env)])
 
     scripts_dir = "Scripts" if IS_WIN else "bin"
     exe_name = "python.exe" if IS_WIN else "python"
@@ -177,11 +306,45 @@ def test_discovery_venvs_on_one_base_keep_their_executable(tmp_path: Path, sessi
     exe_name = "python.exe" if IS_WIN else "python"
     exes = [tmp_path / name / scripts_dir / exe_name for name in ("a", "b")]
     for exe in exes:
-        subprocess.check_call([sys.executable, "-m", "venv", "--without-pip", str(exe.parents[1])])
+        check_call([sys.executable, "-m", "venv", "--without-pip", str(exe.parents[1])])
 
     found = [get_interpreter(str(exe), cache=session_cache) for exe in exes]
 
     assert [Path(info.executable) for info in found if info is not None] == exes
+
+
+def test_discovery_try_first_with_keeps_venv(tmp_path: Path, session_cache: DiskCache) -> None:
+    venv = tmp_path / "preferred"
+    check_call([sys.executable, "-m", "venv", "--without-pip", str(venv)])
+    exe = venv / ("Scripts/python.exe" if IS_WIN else "bin/python")
+
+    info = get_interpreter(
+        ">=3",
+        try_first_with=[str(exe)],
+        cache=session_cache,
+        env={**os.environ, "PATH": "", "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")},
+    )
+
+    assert info is not None
+    assert (
+        info.executable,
+        check_output([info.executable, "-c", "import sys; print(sys.prefix)"], text=True).strip(),
+    ) == (str(exe), str(venv))
+
+
+def test_discovery_try_first_with_skips_broken_symlink(tmp_path: Path, session_cache: DiskCache) -> None:
+    broken = tmp_path / "missing-python"
+    broken.symlink_to(tmp_path / "missing")
+
+    info = get_interpreter(
+        ">=3",
+        try_first_with=[str(broken)],
+        cache=session_cache,
+        env={**os.environ, "PATH": "", "UV_PYTHON_INSTALL_DIR": str(tmp_path / "missing")},
+    )
+
+    assert info is not None
+    assert info.executable == PythonInfo.current_system(session_cache).executable
 
 
 def test_discovery_via_path_with_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -194,8 +357,34 @@ def test_discovery_via_path_with_file(tmp_path: Path, monkeypatch: pytest.Monkey
 
 def test_get_paths_no_path_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PATH", raising=False)
-    paths = list(get_paths({}))
-    assert paths
+    assert all(path.is_absolute() for path in get_paths({}))
+
+
+@pytest.mark.parametrize("relative", [".", "bin", "~/.local/bin"])
+def test_get_paths_skips_relative_entries(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, relative: str) -> None:
+    monkeypatch.chdir(tmp_path)
+    relative_dir = tmp_path / relative
+    relative_dir.mkdir(parents=True, exist_ok=True)
+    (relative_dir / "python3").touch()
+    absolute_dir = tmp_path / "absolute"
+    absolute_dir.mkdir()
+    (absolute_dir / "python3").touch()
+
+    assert list(get_paths({"PATH": f"{relative}{os.pathsep}{absolute_dir}"})) == [absolute_dir]
+
+
+def test_get_paths_skips_relative_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "python3").touch()
+    absolute_dir = tmp_path / "absolute"
+    absolute_dir.mkdir()
+    (absolute_dir / "python3").touch()
+
+    with (
+        patch("python_discovery._discovery.os.confstr", side_effect=AttributeError, create=True),
+        patch("python_discovery._discovery.os.defpath", f".{os.pathsep}{absolute_dir}"),
+    ):
+        assert list(get_paths({})) == [absolute_dir]
 
 
 @pytest.mark.parametrize(
@@ -366,6 +555,90 @@ def test_shim_uses_python_version_file(tmp_path: Path, monkeypatch: pytest.Monke
         mock_from_exe.return_value = None
         get_interpreter("python2.7", [])
         assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
+
+
+@pytest.mark.parametrize(
+    ("version", "target"),
+    [
+        pytest.param("{outside}", "outside", id="absolute"),
+        pytest.param("../../outside", "outside", id="traversal"),
+        pytest.param("..", "root", id="parent"),
+        pytest.param(".", "versions", id="current"),
+        pytest.param("2.7.18/subdir", "nested", id="nested"),
+    ],
+)
+def test_shim_skips_path_like_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, version: str, target: str
+) -> None:
+    root = _create_version_manager(tmp_path, "PYENV_ROOT")
+    real_binary = _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
+    outside = tmp_path / "outside"
+    attack_root = {
+        "outside": outside,
+        "root": root,
+        "versions": root / "versions",
+        "nested": root / "versions" / "2.7.18" / "subdir",
+    }[target]
+    _create_versioned_binary(attack_root, (), "", "python2.7")
+    shim = root / "shims" / ("python2.7.exe" if IS_WIN else "python2.7")
+    shim.touch(mode=0o755)
+    (tmp_path / ".python-version").write_text(f"{version.format(outside=outside)}\n2.7.18\n", encoding="utf-8")
+
+    monkeypatch.setenv("PATH", str(root / "shims"))
+    monkeypatch.setenv("PYENV_ROOT", str(root))
+    monkeypatch.delenv("PYENV_VERSION", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe:
+        mock_from_exe.return_value = None
+        get_interpreter("python2.7", [])
+        assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
+
+
+def test_shim_skips_empty_environment_version(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = _create_version_manager(tmp_path, "PYENV_ROOT")
+    real_binary = _create_versioned_binary(root, ("versions",), "2.7.18", "python2.7")
+    _create_versioned_binary(root / "versions", (), "", "python2.7")
+    shim = root / "shims" / ("python2.7.exe" if IS_WIN else "python2.7")
+    shim.touch(mode=0o755)
+
+    monkeypatch.setenv("PATH", str(root / "shims"))
+    monkeypatch.setenv("PYENV_ROOT", str(root))
+    monkeypatch.setenv("PYENV_VERSION", ":2.7.18")
+
+    with patch("python_discovery._discovery.PathPythonInfo.from_exe") as mock_from_exe:
+        mock_from_exe.return_value = None
+        get_interpreter("python2.7", [])
+        assert mock_from_exe.call_args_list[0][0][0] == str(real_binary)
+
+
+@pytest.mark.parametrize(
+    ("length", "version"),
+    [pytest.param(4096, "2.7.18", id="at-limit"), pytest.param(4097, "2.7.15", id="over-limit")],
+)
+def test_shim_oversized_python_version_file_is_skipped(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    pyenv_probed: Callable[[], tuple[str, ...]],
+    length: int,
+    version: str,
+) -> None:
+    root = Path(os.environ["PYENV_ROOT"])
+    _create_versioned_binary(root, ("versions",), "2.7.15", "python2.7")
+    (root / "version").write_text("2.7.15\n", encoding="utf-8")
+    (tmp_path / ".python-version").write_text("2.7.18\n#" + "x" * (length - 8), encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert pyenv_probed() == ("versions", version)
+
+
+def test_shim_python_version_file_keeps_unicode_separator_in_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pyenv_probed: Callable[[], tuple[str, ...]]
+) -> None:
+    (tmp_path / ".python-version").write_text("2.7.18\u2028ignored\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert pyenv_probed() == ("shims", "python2.7.exe" if IS_WIN else "python2.7")
 
 
 def test_shim_python_version_file_not_utf8(
@@ -605,6 +878,57 @@ def test_discovery_uv_store_roots_per_platform(
     assert uv_probed() == executables
 
 
+@pytest.mark.parametrize(
+    ("appdata", "store"),
+    [
+        pytest.param("", "uv/data", id="empty"),
+        pytest.param("relative", "relative/uv/data", id="relative"),
+    ],
+)
+def test_discovery_uv_store_invalid_appdata_uses_profile_default(
+    uv_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    uv_plant: Callable[[Path], str],
+    uv_probed: Callable[..., list[str]],
+    appdata: str,
+    store: str,
+) -> None:
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setenv("APPDATA", appdata)
+    (checkout := uv_home / "checkout").mkdir()
+    monkeypatch.chdir(checkout)
+    uv_plant(checkout / store / "python")
+    profile_executable = uv_plant(uv_home / "AppData" / "Roaming" / "uv" / "data" / "python")
+
+    assert uv_probed() == [profile_executable]
+
+
+@pytest.mark.parametrize(
+    ("platform", "profile_var", "store"),
+    [
+        pytest.param("win32", "USERPROFILE", "relative/AppData/Roaming/uv/data", id="windows"),
+        pytest.param("linux", "HOME", "relative/.local/share/uv", id="linux"),
+        pytest.param("darwin", "HOME", "relative/Library/Application Support/uv", id="macos"),
+    ],
+)
+def test_discovery_uv_store_skips_relative_profile(
+    uv_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    uv_plant: Callable[[Path], str],
+    uv_probed: Callable[..., list[str]],
+    platform: str,
+    profile_var: str,
+    store: str,
+) -> None:
+    monkeypatch.setattr(sys, "platform", platform)
+    monkeypatch.setenv(profile_var, "relative")
+    (checkout := uv_home / "checkout").mkdir()
+    monkeypatch.chdir(checkout)
+    uv_plant(checkout / store / "python")
+
+    assert uv_probed() == []
+
+
 def test_discovery_uv_store_windows_ignores_xdg_data_home(
     uv_home: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -627,6 +951,52 @@ def test_discovery_uv_store_reads_the_env_argument(
     assert uv_probed(env={"PATH": "", "UV_PYTHON_INSTALL_DIR": str(uv_home / "store")}) == [executable]
 
 
+@pytest.mark.parametrize(
+    ("platform", "store"),
+    [
+        pytest.param("win32", "AppData/Roaming/uv/data", id="windows"),
+        pytest.param("darwin", "Library/Application Support/uv", id="macos"),
+        pytest.param("linux", ".local/share/uv", id="linux"),
+    ],
+)
+def test_discovery_uv_store_ignores_process_home_without_mapped_home(
+    uv_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    uv_plant: Callable[[Path], str],
+    uv_probed: Callable[..., list[str]],
+    platform: str,
+    store: str,
+) -> None:
+    monkeypatch.setattr(sys, "platform", platform)
+    uv_plant(uv_home / store / "python")
+
+    assert uv_probed(env={"PATH": ""}) == []
+
+
+@pytest.mark.parametrize(
+    ("platform", "variable", "store"),
+    [
+        pytest.param("win32", "APPDATA", "uv/data", id="windows-appdata"),
+        pytest.param("darwin", "XDG_DATA_HOME", "uv", id="macos-xdg"),
+        pytest.param("linux", "XDG_DATA_HOME", "uv", id="linux-xdg"),
+    ],
+)
+def test_discovery_uv_store_uses_mapped_directory_without_home(
+    uv_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    uv_plant: Callable[[Path], str],
+    uv_probed: Callable[..., list[str]],
+    platform: str,
+    variable: str,
+    store: str,
+) -> None:
+    monkeypatch.setattr(sys, "platform", platform)
+    mapped = uv_home / "mapped"
+    executable = uv_plant(mapped / store / "python")
+
+    assert uv_probed(env={"PATH": "", variable: str(mapped)}) == [executable]
+
+
 @pytest.mark.usefixtures("uv_home")
 def test_discovery_uv_store_missing_root_is_not_an_error(uv_probed: Callable[..., list[str]]) -> None:
     assert uv_probed() == []
@@ -638,9 +1008,57 @@ def test_discovery_uv_store_is_searched_after_path(
     uv_plant: Callable[[Path], str],
     uv_probed: Callable[..., list[str]],
 ) -> None:
-    store_executable = uv_plant(uv_home / ".local" / "share" / "uv" / "python")
+    store_executable = uv_plant(uv_home / ("AppData/Roaming/uv/data" if IS_WIN else ".local/share/uv") / "python")
     (path_dir := uv_home / "path-bin").mkdir()
     (path_executable := path_dir / f"python{_NO_UV_MATCH}{'.exe' if IS_WIN else ''}").touch()
     monkeypatch.setenv("PATH", str(path_dir))
 
     assert uv_probed() == [str(path_executable), store_executable]
+
+
+@pytest.mark.parametrize(
+    ("spec", "install_version", "releaselevel", "expected"),
+    [
+        pytest.param("==3.99", "3.99.2", "final", True, id="minor-equality"),
+        pytest.param(">=3.99,<3.100", "3.99.2", "final", True, id="minor-range"),
+        pytest.param("==3.98", "3.99.2", "final", False, id="different-minor"),
+        pytest.param(">=3.99a1", "3.99a2", "alpha", True, id="alpha"),
+        pytest.param(">=3.99", "3.99a2", "alpha", True, id="alpha-minor-bound"),
+        pytest.param(">=3.99b1", "3.99b2", "beta", True, id="beta"),
+        pytest.param(">=3.99rc1", "3.99rc2", "candidate", True, id="candidate"),
+    ],
+)
+def test_discovery_uv_patch_release_matches_minor_spec(
+    tmp_path: Path, mocker: MockerFixture, spec: str, install_version: str, releaselevel: str, expected: bool
+) -> None:
+    store = tmp_path / "uv"
+    executable = store / f"cpython-{install_version}-linux-x86_64-gnu" / "bin" / "python"
+    executable.parent.mkdir(parents=True)
+    executable.touch()
+    info = deepcopy(PythonInfo.current_system())
+    info.executable = str(executable)
+    info.system_executable = str(executable)
+    info.version_info = info.version_info._replace(
+        major=3, minor=99, micro=2 if releaselevel == "final" else 0, releaselevel=releaselevel, serial=2
+    )
+    mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=info)
+
+    found = get_interpreter(spec, [], env={"PATH": "", "UV_PYTHON_INSTALL_DIR": str(store)})
+
+    assert (found is info) is expected
+
+
+def test_discovery_uv_invalid_hand_built_spec_skips_install(tmp_path: Path, mocker: MockerFixture) -> None:
+    store = tmp_path / "uv"
+    executable = store / "cpython-3.99.2-linux-x86_64-gnu" / "bin" / "python"
+    executable.parent.mkdir(parents=True)
+    executable.touch()
+    spec = PythonSpec.from_string_spec("==3.99")
+    spec.version_specifier = SimpleSpecifierSet.from_string("==invalid")
+    info = deepcopy(PythonInfo.current_system())
+    info.executable = str(executable)
+    mocker.patch("python_discovery._discovery.PathPythonInfo.from_exe", return_value=info)
+
+    candidates = list(propose_interpreters(spec, [], env={"PATH": "", "UV_PYTHON_INSTALL_DIR": str(store)}))
+
+    assert all(candidate is not info for candidate, _ in candidates)

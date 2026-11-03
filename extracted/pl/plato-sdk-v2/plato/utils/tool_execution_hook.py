@@ -1,12 +1,4 @@
-"""CLI hook entrypoints run by agent CLIs (Claude Code, Codex, Gemini CLI).
-
-Active modes persist the Claude Code compaction summary and capture browser
-screenshots after ``agent-browser`` tool calls. The pre-tool modes only
-recorded tool start events for the removed recorder; they remain accepted as
-no-ops (with their original stdout contract) because hook configs written by
-already-published agent versions still invoke them, and a failing hook could
-block the tool call.
-"""
+"""CLI hook entrypoints for pre-tool execution attribution."""
 
 from __future__ import annotations
 
@@ -20,22 +12,39 @@ import subprocess
 import sys
 import tempfile
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 from plato.utils.tool_execution import (
-    COMPACTION_SUMMARY_PATH_ENV,
     DEFAULT_TOOL_EXECUTION_CONTEXT_PATH,
+    ToolStartRecord,
+    append_tool_start_record,
     load_tool_execution_context,
+    normalize_tool_input,
 )
 
 logger = logging.getLogger(__name__)
 
 _AGENT_BROWSER_SCREENSHOT_TIMEOUT_S = 5.0
 
-# Compat for published agents built against the removed recorder API; drop once
-# all agents are republished. These modes used to spool pre-tool start records;
-# they now only reproduce the stdout each CLI expects so the tool call proceeds.
-_LEGACY_PRETOOL_MODES = ("claude-pretooluse", "codex-pretooluse", "gemini-beforetool")
+
+def _write_record(mode: str, payload: dict[str, object]) -> None:
+    context = load_tool_execution_context(DEFAULT_TOOL_EXECUTION_CONTEXT_PATH)
+    if context is None:
+        return
+
+    hook_spool_path = Path(context.hook_spool_path)
+    record = ToolStartRecord(
+        source=mode,
+        observed_at=datetime.now(UTC),
+        tool_name=str(payload.get("tool_name", "")),
+        normalized_tool_input=normalize_tool_input(payload.get("tool_input", {})),
+        tool_use_id=(str(payload["tool_use_id"]) if isinstance(payload.get("tool_use_id"), str) else None),
+        session_id=str(payload.get("session_id", "")),
+        transcript_path=str(payload.get("transcript_path", "")),
+        cwd=str(payload.get("cwd", "")),
+    )
+    append_tool_start_record(hook_spool_path, record)
 
 
 _SESSION_FLAG_RE = re.compile(r"--session(?:=|\s+)([A-Za-z0-9_.-]+)")
@@ -164,33 +173,6 @@ def _emit_screenshot_span(
         span.set_attribute("plato.browser_screenshot.tool_name", tool_name)
 
 
-def _write_compaction_summary(summary: str) -> None:
-    """Write a compaction summary to ``$PLATO_COMPACTION_SUMMARY_PATH``.
-
-    Overwrites any prior summary — the latest compaction is the one a resume
-    wants to re-inject. No-op when the env var is unset or the summary is empty.
-    """
-    target = os.environ.get(COMPACTION_SUMMARY_PATH_ENV)
-    if not target or not summary or not summary.strip():
-        return
-    path = Path(target)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(summary, encoding="utf-8")
-
-
-def _handle_claude_postcompact(payload: dict[str, object]) -> None:
-    """Persist the Claude Code ``PostCompact`` summary to a durable file.
-
-    The ``PostCompact`` hook fires after every compaction (manual ``/compact``
-    and auto) with ``compact_summary`` on stdin. Best-effort: an empty summary
-    or unset path is a no-op, and any error is swallowed by the caller so the
-    hook never disrupts the agent.
-    """
-    summary = payload.get("compact_summary")
-    if isinstance(summary, str):
-        _write_compaction_summary(summary)
-
-
 def _handle_claude_posttool_screenshot(payload: dict[str, object]) -> None:
     tool_name = str(payload.get("tool_name") or "")
     if tool_name != "Bash":
@@ -224,15 +206,16 @@ def _handle_claude_posttool_screenshot(payload: dict[str, object]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Handle one agent CLI hook invocation; the hook payload arrives on stdin."""
-    parser = argparse.ArgumentParser(description="Plato agent CLI hook handler")
+    """Record pre-tool sidecar data for agent CLIs."""
+    parser = argparse.ArgumentParser(description="Record pre-tool execution hook data")
     parser.add_argument(
         "mode",
         choices=(
+            "claude-pretooluse",
             "claude-posttool-screenshot",
-            "claude-postcompact",
             "codex-posttool-screenshot",
-            *_LEGACY_PRETOOL_MODES,
+            "gemini-beforetool",
+            "codex-pretooluse",
         ),
     )
     args = parser.parse_args(argv)
@@ -244,7 +227,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         payload = json.loads(raw_payload)
     except json.JSONDecodeError:
-        logger.warning("Failed to parse hook payload: %s", raw_payload[:200])
+        logger.warning("Failed to parse pre-tool hook payload: %s", raw_payload[:200])
         return 0
 
     if args.mode in ("claude-posttool-screenshot", "codex-posttool-screenshot"):
@@ -256,15 +239,8 @@ def main(argv: list[str] | None = None) -> int:
             logger.debug("posttool-screenshot hook failed: %s", exc)
         return 0
 
-    if args.mode == "claude-postcompact":
-        try:
-            _handle_claude_postcompact(payload)
-        except Exception as exc:
-            logger.debug("postcompact hook failed: %s", exc)
-        return 0
+    _write_record(args.mode, payload)
 
-    # Legacy pre-tool modes: no-op, but Gemini's BeforeTool and Codex's
-    # PreToolUse hooks expect a decision payload on stdout to let the tool run.
     if args.mode == "gemini-beforetool":
         sys.stdout.write("{}\n")
     elif args.mode == "codex-pretooluse":

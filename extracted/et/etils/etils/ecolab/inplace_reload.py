@@ -110,11 +110,11 @@ class _ObjectUpdater:
       # Normal enums compare by singleton and dont implement eq. For these,
       # override it to our special eq. If eq is implemented (eg. for
       # ReprEnum's) just leave it alone.
-      if cur_eq(x, y) == NotImplemented:
+      if eq == NotImplemented:
         return x is y or x.__class__ == y.__class__ and x.name == y.name
       return eq
 
-    new.__eq__ = enum_eq
+    new.__eq__ = enum_eq  # pyrefly: ignore[bad-assignment]
 
   def _update_function(self, old: types.FunctionType, new: types.FunctionType):
     """Upgrade the code object of a function."""
@@ -133,9 +133,9 @@ class _ObjectUpdater:
 
   def _update_property(self, old: property, new: property):
     """Replace get/set/del functions of a property."""
-    self._update_function(old.fdel, new.fdel)
-    self._update_function(old.fget, new.fget)
-    self._update_function(old.fset, new.fset)
+    self._update_function(old.fdel, new.fdel)  # pyrefly: ignore[bad-argument-type]
+    self._update_function(old.fget, new.fget)  # pyrefly: ignore[bad-argument-type]
+    self._update_function(old.fset, new.fset)  # pyrefly: ignore[bad-argument-type]
 
   def update(self, old, new):
     """Updates a function/class/method/property to a new definition."""
@@ -151,7 +151,7 @@ class _ObjectUpdater:
       case types.FunctionType(), types.FunctionType():
         return self._update_function(old, new)
       case types.MethodType(), types.MethodType():
-        return self._update_function(old.__func__, new.__func__)  # pytype: disable=wrong-arg-types
+        return self._update_function(old.__func__, new.__func__)
       case property(), property():
         return self._update_property(old, new)
 

@@ -21,6 +21,7 @@ from bitfab.processor_payload import finalize_span_payload, finalize_trace_paylo
 from bitfab.serialize import to_json_safe, to_json_safe_report
 from bitfab.span_origin import make_span_origin
 from bitfab.timestamp import now_iso_timestamp
+from bitfab.trace_payload import RAW_TRACE_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -388,7 +389,7 @@ class BitfabClaudeAgentHandler:
         payload = finalize_span_payload(payload, extra_dropped=span_info.get("dropped"))
 
         try:
-            self._http_client.send_external_span(payload)
+            self._http_client.send_span(payload)
         except Exception as e:
             logger.error(
                 "Bitfab: Failed to send Claude Agent span: %s", e, exc_info=True
@@ -415,7 +416,7 @@ class BitfabClaudeAgentHandler:
             "type": "sdk-function",
             "source": "python-sdk-claude-agent-sdk",
             "traceFunctionKey": self._trace_function_key,
-            "externalTrace": {
+            RAW_TRACE_KEY: {
                 "id": trace_id,
                 "started_at": self._trace_started_at or _now_iso(),
                 "ended_at": ended_at or _now_iso(),
@@ -424,14 +425,14 @@ class BitfabClaudeAgentHandler:
         }
 
         if metadata:
-            trace_data["externalTrace"]["metadata"] = metadata
+            trace_data[RAW_TRACE_KEY]["metadata"] = metadata
 
         # Sanitize the whole trace (warning when the capture was lossy) instead
         # of a bare json.dumps that drops the trace on the first stray value.
         trace_data = finalize_trace_payload(trace_data, logger)
 
         try:
-            self._http_client.send_external_trace(trace_data)
+            self._http_client.send_trace(trace_data)
         except Exception as e:
             logger.error(
                 "Bitfab: Failed to send Claude Agent trace: %s", e, exc_info=True

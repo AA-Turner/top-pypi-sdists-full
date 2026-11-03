@@ -17,6 +17,10 @@ round trip does.
 Not held to anything: the first act on a new connection (it also opens it, and nothing was left to say), one that waited
 for a starting worker, one sent after its robot had played the answer before, and a policy that declares no valid
 length, no hz, or asks at its last valid step (its robot waits for every answer).
+A policy that sets max_wait_for_batch (connect hands it over): its robot waits up to that long for an answer by its
+author's choice, so an answer is late only past it - its time standing still reported all the same - and what is said is
+that wait, never a step to ask at.
+
 
 WHY: an answer that comes after the robot played its last valid step leaves the robot waiting, and on Wi-Fi a link
 stalls now and then for a few hundred milliseconds - nothing said why the robot stopped, nor what would let it keep
@@ -45,6 +49,7 @@ RUN_REPORT_S = 300.0
 _SAID = threading.Event()
 _LOCK = threading.Lock()
 _REST = "a longer action_chunk_valid_len or a shorter round trip does"
+WAIT = "max_wait_for_batch"
 
 
 def _split(ms: float, worker_ms: Optional[float]) -> str:
@@ -79,6 +84,14 @@ def words(late: int, acts: int, hz: float, valid_len: int, *, ask: Optional[int]
             f"makes room for them: {_REST}")
 
 
+def wait_words(late: int, acts: int, wait_ms: float, slowest: tuple) -> str:
+    """What is said of a policy that sets max_wait_for_batch: how many of its answers took longer than that wait, the
+    slowest of them (ms, its worker's ms), and what keeps more of them within it."""
+    return (f"{late} of {acts} answers took longer than the {wait_ms:.0f} ms this robot waits for one "
+            f"(max_wait_for_batch), the slowest {_split(*slowest)}: its worker seats fewer robots as its batches take "
+            "longer, and a longer max_wait_for_batch keeps more of them seated")
+
+
 class LateAnswers:
     """One Policy's answers, each held to what was left of the one before as it asked (see the module); `on_run` takes
     each run's row as it ends."""
@@ -97,6 +110,7 @@ class LateAnswers:
         self._before_ms: Optional[float] = None
         self._first_late: Optional[float] = None
         self._plays: Optional[tuple] = None
+        self._wait_ms: Optional[float] = None
         self._run: Optional[dict] = None
 
     def answered(self, total_ms: Optional[float], plays: Any, *, counted: bool = True,
@@ -111,10 +125,17 @@ class LateAnswers:
         now = self._clock()
         before_ms, self._before_ms = self._before_ms, float(total_ms)
         plays = plays if isinstance(plays, dict) else {}
-        hz, valid_len = plays.get("hz"), plays.get("action_chunk_valid_len")
-        held = (counted and before_ms is not None and isinstance(left_ms, (int, float)) and left_ms > 0
-                and bool(wait_steps(valid_len, plays.get("action_chunk_replan_at")))
-                and isinstance(hz, (int, float)) and not isinstance(hz, bool) and hz > 0)
+        hz, valid_len, wait = plays.get("hz"), plays.get("action_chunk_valid_len"), plays.get(WAIT)
+        wait_ms = (float(wait) * 1000.0 if isinstance(wait, (int, float)) and not isinstance(wait, bool) and wait > 0
+                   else None)
+        rate = isinstance(hz, (int, float)) and not isinstance(hz, bool) and hz > 0
+        if wait_ms is not None:
+
+            held = (counted and before_ms is not None and rate and isinstance(valid_len, int)
+                    and not isinstance(valid_len, bool) and valid_len >= 1)
+        else:
+            held = (counted and before_ms is not None and isinstance(left_ms, (int, float)) and left_ms > 0
+                    and bool(wait_steps(valid_len, plays.get("action_chunk_replan_at"))) and rate)
         rows = []
         with self._lock:
             if not held:
@@ -127,7 +148,19 @@ class LateAnswers:
                 self.acts += 1
                 run["chunks"] += 1
                 run["last"] = now
-                if total_ms > left_ms:
+                if wait_ms is not None:
+
+
+                    left = (max(0.0, float(left_ms)) if isinstance(left_ms, (int, float))
+                            and not isinstance(left_ms, bool) else 0.0)
+                    if total_ms > left:
+                        run["underrun_s"] += (total_ms - left) / 1000.0
+                    if total_ms > wait_ms:
+                        run["underruns"] += 1
+                        worker = (float(worker_ms) if isinstance(worker_ms, (int, float))
+                                  and not isinstance(worker_ms, bool) else None)
+                        self._count_wait(float(total_ms), worker, wait_ms)
+                elif total_ms > left_ms:
                     run["underruns"] += 1
                     run["underrun_s"] += (total_ms - left_ms) / 1000.0
                     worker = (float(worker_ms) if isinstance(worker_ms, (int, float))
@@ -140,6 +173,15 @@ class LateAnswers:
             self._report(row)
         if due:
             self._say()
+
+    def _count_wait(self, ms: float, worker_ms: Optional[float], wait_ms: float) -> None:
+        """A late answer of `ms` past the max_wait_for_batch `wait_ms` (under the lock): counted, the slowest kept."""
+        self.late += 1
+        self._wait_ms = wait_ms
+        if self._first_late is None:
+            self._first_late = self._clock()
+        if self._slowest is None or ms > self._slowest[0]:
+            self._slowest = (ms, worker_ms)
 
     def _count(self, ms: float, worker_ms: Optional[float], before_ms: float, hz: float, valid_len: int) -> None:
         """A late answer of `ms`, after one of `before_ms` (under the lock): asked for at step k it comes in time when
@@ -193,7 +235,10 @@ class LateAnswers:
                 return
             _SAID.set()
         with self._lock:
-            hz, valid_len = self._plays
-            said = words(self.late, self.acts, hz, valid_len, ask=self._ask, slowest=self._slowest,
-                         helped=self.helped, worst=self._worst)
+            if self._wait_ms is not None:
+                said = wait_words(self.late, self.acts, self._wait_ms, self._slowest)
+            else:
+                hz, valid_len = self._plays
+                said = words(self.late, self.acts, hz, valid_len, ask=self._ask, slowest=self._slowest,
+                             helped=self.helped, worst=self._worst)
         warn(said)

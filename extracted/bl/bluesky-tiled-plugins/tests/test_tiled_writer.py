@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from typing import cast
 from urllib.parse import parse_qs, urlparse
 
-import httpx
+import httpx2
 
 from bluesky import RunEngine
 import bluesky.plan_stubs as bps
@@ -29,6 +29,7 @@ from event_model.documents.stream_datum import StreamDatum
 from event_model.documents.stream_resource import StreamResource
 from tiled.client import record_history
 from tiled.client.utils import ClientError
+from tiled.structures.core import Spec
 from tiled.utils import safe_json_dump
 from examples.render import render_templated_documents
 
@@ -433,6 +434,27 @@ def test_tiled_specs_from_start_doc(RE: RunEngine, client):
     assert "TomographyFlyscan" in specs
     # The marker key is consumed by the writer and not stored in start metadata.
     assert "tiled_specs" not in run.metadata["start"]
+
+
+def test_tiled_specs_accepts_spec_objects(RE: RunEngine, client):
+    """`tiled_specs` entries may also be `Spec` objects, mixed with dicts and strings."""
+    tw = TiledWriter(client)
+    RE(
+        bp.count([ophyd.sim.det], 1),
+        tw,
+        tiled_specs=[
+            Spec("TomoAlignmentScan", version="1"),
+            {"name": "XAS_Calib", "version": "1.0"},
+            "TomographyFlyscan",
+        ],
+    )
+    run = client.values().last()
+    specs = {spec.name: spec.version for spec in run.specs}
+
+    assert specs["TomoAlignmentScan"] == "1"
+    assert specs["XAS_Calib"] == "1.0"
+    assert "TomographyFlyscan" in specs
+    assert specs["BlueskyRun"] == "3.0"
 
 
 def test_no_tiled_specs_leaves_default_spec(RE, client):
@@ -991,7 +1013,7 @@ def test_json_backup(client, tmpdir, monkeypatch):
     assert lines[6]["name"] == "stop"
 
 
-class _LoseAppendResponseOnce(httpx.BaseTransport):
+class _LoseAppendResponseOnce(httpx2.BaseTransport):
     """Forward the first PATCH /table/partition request to the wrapped transport
     -- so the server fully processes the append -- but raise ReadTimeout to the
     caller, simulating a lost response for an append that actually succeeded."""
@@ -1008,7 +1030,7 @@ class _LoseAppendResponseOnce(httpx.BaseTransport):
             and "/table/partition/" in str(request.url)
         ):
             self.tripped = True
-            raise httpx.ReadTimeout("Simulated lost response", request=request)
+            raise httpx2.ReadTimeout("Simulated lost response", request=request)
         return response
 
 

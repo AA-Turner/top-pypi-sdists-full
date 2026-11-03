@@ -1,0 +1,671 @@
+# Authors: Konstantinos Barmpas et al. (original implementation)
+#          Braindecode contributors (adaptation)
+#
+# License: CC BY-NC 4.0
+"""NeuroRVQ EEG foundation model."""
+
+from __future__ import annotations
+
+import math
+import warnings
+from functools import partial
+from typing import Callable, Dict, Optional, Union
+
+import torch
+import torch.nn.functional as F
+from torch import Tensor, nn
+
+from braindecode.functional import init_weights_, patch_count
+from braindecode.functional.patches import _check_on_non_divisible
+from braindecode.models.base import EEGModuleMixin
+from braindecode.models.labram import _Attention
+from braindecode.models.signal_jepa import _GroupNorm
+from braindecode.models.util import _in_model_resample
+from braindecode.modules import MLP, PatchTokenizer, PreNormBlock
+
+# Channel order used to train NeuroRVQ-EEG v1. Keep in sync with the released
+# inference module: https://github.com/KonstantinosBarmpas/NeuroRVQ
+NEURORVQ_CHANNELS = (
+    "a1",
+    "a2",
+    "af3",
+    "af4",
+    "af7",
+    "af8",
+    "afz",
+    "c1",
+    "c2",
+    "c3",
+    "c4",
+    "c5",
+    "c6",
+    "ccp1",
+    "ccp2",
+    "ccp3",
+    "ccp4",
+    "ccp5",
+    "ccp6",
+    "ccp7",
+    "ccp8",
+    "cfc1",
+    "cfc2",
+    "cfc3",
+    "cfc4",
+    "cfc5",
+    "cfc6",
+    "cfc7",
+    "cfc8",
+    "cp1",
+    "cp2",
+    "cp3",
+    "cp4",
+    "cp5",
+    "cp6",
+    "cpz",
+    "cz",
+    "eog",
+    "f1",
+    "f10",
+    "f2",
+    "f3",
+    "f4",
+    "f5",
+    "f6",
+    "f7",
+    "f8",
+    "f9",
+    "fc1",
+    "fc2",
+    "fc3",
+    "fc4",
+    "fc5",
+    "fc6",
+    "fcz",
+    "fp1",
+    "fp2",
+    "fpz",
+    "ft7",
+    "ft8",
+    "fz",
+    "iz",
+    "loc",
+    "o1",
+    "o2",
+    "oz",
+    "p08",
+    "p1",
+    "p10",
+    "p2",
+    "p3",
+    "p4",
+    "p5",
+    "p6",
+    "p7",
+    "p8",
+    "p9",
+    "po1",
+    "po10",
+    "po2",
+    "po3",
+    "po4",
+    "po7",
+    "po8",
+    "po9",
+    "poz",
+    "pz",
+    "roc",
+    "sp1",
+    "sp2",
+    "t1",
+    "t10",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9",
+    "tp10",
+    "tp7",
+    "tp8",
+    "tp9",
+)
+
+# The four released packages (ntinosbarmpas/NeuroRVQ, NeuroRVQ_{EEG,ECG,EMG,PPG})
+# differ only in these values: sampling rate, patch size, temporal-embedding
+# length, the two rows of temporal kernel sizes, the fine-tuning head pooling,
+# the residual codebooks per scale and the channel list.
+_MODALITIES = {
+    "eeg": dict(
+        sfreq=200,
+        patch_size=200,
+        max_patches=256,
+        kernels=((21, 15, 9, 5), (9, 7, 5, 3)),
+        head_pooling="flatten",
+        num_quantizers=8,
+        channels=NEURORVQ_CHANNELS,
+    ),
+    "ecg": dict(
+        sfreq=200,
+        patch_size=40,
+        max_patches=600,
+        kernels=((21, 15, 9, 5), (9, 7, 5, 3)),
+        head_pooling="mean",
+        num_quantizers=8,
+        channels=tuple("avf avl avr i ii iii v1 v2 v3 v4 v5 v6 vx vy vz".split()),
+    ),
+    "emg": dict(
+        sfreq=1000,
+        patch_size=200,
+        max_patches=256,
+        kernels=((51, 17, 8, 5), (25, 9, 4, 3)),
+        head_pooling="mean",
+        num_quantizers=16,
+        channels=tuple(sorted(f"c{i}" for i in range(1, 17))),
+    ),
+    "ppg": dict(
+        sfreq=100,
+        patch_size=80,
+        max_patches=12,
+        kernels=((41, 31, 17, 9), (17, 13, 9, 5)),
+        head_pooling="mean",
+        num_quantizers=8,
+        channels=("ppg_c1",),
+    ),
+}
+
+
+def _input_sfreq(model) -> float | None:
+    """The input's sampling rate, given or inferred from the window length."""
+    if model._sfreq is None and model._input_window_seconds is not None:
+        return model.n_times / model._input_window_seconds
+    return model._sfreq
+
+
+def _modality(model, modality: str, resample: bool = False) -> dict:
+    """Return the preset of ``modality``; without ``resample`` the input must be
+    at the modality's rate."""
+    if modality not in _MODALITIES:
+        raise ValueError(f"modality must be one of {sorted(_MODALITIES)}.")
+    preset = _MODALITIES[modality]
+    model_sfreq = _input_sfreq(model)
+    if not resample and model_sfreq is not None and model_sfreq != preset["sfreq"]:
+        raise ValueError(
+            f"NeuroRVQ-{modality.upper()} was trained at {preset['sfreq']} Hz; "
+            "resample before calling the model."
+        )
+    return preset
+
+
+def _channel_slots(
+    model, channel_names, channels: tuple[str, ...], on_missing: str = "error"
+):
+    """Normalized channel names, their slots in the pretrained ``channels`` and
+    the indices of the input channels kept (``None``: all of them)."""
+    if channel_names is None and model._chs_info is not None:
+        channel_names = [ch["ch_name"] for ch in model._chs_info]
+    if channel_names is None:
+        # Fallback for training from scratch; pass channel_names or chs_info
+        # with pretrained weights so electrodes map to their spatial slots.
+        channel_names = channels[: model.n_chans]
+    if len(channel_names) != model.n_chans:
+        raise ValueError("channel_names must have one entry per input channel.")
+    names = tuple(str(name).strip().lower() for name in channel_names)
+    if len(set(names)) != len(names):
+        raise ValueError("channel_names must be unique.")
+    unknown = [name for name in names if name not in channels]
+    if not unknown:
+        return names, torch.tensor([channels.index(name) for name in names]), None
+    if on_missing != "drop" or len(unknown) == len(names):
+        raise ValueError(
+            f"Unsupported NeuroRVQ channel name(s): {unknown}. Pass "
+            'on_missing="drop" to leave them out of the input.'
+        )
+    warnings.warn(
+        f"NeuroRVQ has no pretrained slot for {unknown}; these channels are dropped.",
+        UserWarning,
+    )
+    keep = [i for i, name in enumerate(names) if name in channels]
+    names = tuple(names[i] for i in keep)
+    slots = torch.tensor([channels.index(name) for name in names])
+    return names, slots, torch.tensor(keep)
+
+
+def _stack_scales(x: Tensor, dropout: bool) -> bool:
+    """Whether the four scales run the shared blocks as one batch.
+
+    Yes on accelerators (2-3x faster on Gaudi). Not on CPU, where the 4x taller
+    GEMMs are not faster at batch 32 and round differently at small batches,
+    nor while dropout draws masks (the per-scale order keeps the RNG stream).
+    """
+    return x.device.type != "cpu" and not dropout
+
+
+class _MultiScaleTemporalConv(nn.Module):
+    """Released four-branch patch embedding; ``kernels`` = (first, second) rows."""
+
+    def __init__(self, out_chans: int, activation: type[nn.Module], kernels):
+        super().__init__()
+        for i, kernel in enumerate(kernels[0], start=1):
+            setattr(
+                self,
+                f"conv1_{i}",
+                nn.Conv2d(1, out_chans, (1, kernel), padding=(0, kernel // 2)),
+            )
+            setattr(self, f"norm1_{i}", _GroupNorm(4, out_chans))
+            setattr(self, f"pool1_{i}", nn.AvgPool2d((1, 2)))
+        for i, kernel in enumerate(kernels[1], start=1):
+            setattr(
+                self,
+                f"conv2_{i}",
+                nn.Conv2d(out_chans, out_chans, (1, kernel), padding=(0, kernel // 2)),
+            )
+            setattr(self, f"norm2_{i}", _GroupNorm(4, out_chans))
+            setattr(self, f"pool2_{i}", nn.AvgPool2d((1, 4)))
+        self.gelu1 = activation()
+        self.gelu2 = activation()
+
+    def forward(self, x: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+        # x: batch x channels x patches x patch_size, in channel-major order.
+        batch, channels, patches, patch_size = x.shape
+        x = x.reshape(batch, channels * patches, patch_size).unsqueeze(1)
+        # Unrolled (no getattr with a computed name) so TorchScript compiles it.
+        return (
+            self._tokens(self._branch1(x), batch, channels * patches),
+            self._tokens(self._branch2(x), batch, channels * patches),
+            self._tokens(self._branch3(x), batch, channels * patches),
+            self._tokens(self._branch4(x), batch, channels * patches),
+        )
+
+    @staticmethod
+    def _tokens(branch: Tensor, batch: int, n_tokens: int) -> Tensor:
+        # Match the reference reshape B,C,channel*patch,time -> B,token,time*C.
+        return branch.permute(0, 2, 3, 1).reshape(batch, n_tokens, -1)
+
+    def _branch1(self, x: Tensor) -> Tensor:
+        x = self.pool1_1(self.gelu1(self.norm1_1(self.conv1_1(x))))
+        return self.pool2_1(self.gelu2(self.norm2_1(self.conv2_1(x))))
+
+    def _branch2(self, x: Tensor) -> Tensor:
+        x = self.pool1_2(self.gelu1(self.norm1_2(self.conv1_2(x))))
+        return self.pool2_2(self.gelu2(self.norm2_2(self.conv2_2(x))))
+
+    def _branch3(self, x: Tensor) -> Tensor:
+        x = self.pool1_3(self.gelu1(self.norm1_3(self.conv1_3(x))))
+        return self.pool2_3(self.gelu2(self.norm2_3(self.conv2_3(x))))
+
+    def _branch4(self, x: Tensor) -> Tensor:
+        x = self.pool1_4(self.gelu1(self.norm1_4(self.conv1_4(x))))
+        return self.pool2_4(self.gelu2(self.norm2_4(self.conv2_4(x))))
+
+
+def _block(
+    dim: int,
+    num_heads: int,
+    mlp_ratio: float,
+    qkv_bias: bool,
+    qk_norm: Callable[..., nn.Module] | None,
+    drop: float,
+    attn_drop: float,
+    drop_path: float,
+    init_values: float,
+) -> PreNormBlock:
+    """LaBraM's transformer block: pre-norm, its attention, timm MLP, layer scale."""
+    return PreNormBlock(
+        dim,
+        _Attention(
+            dim,
+            num_heads=num_heads,
+            qkv_bias=qkv_bias,
+            qk_norm=qk_norm,
+            attn_drop=attn_drop,
+            proj_drop=drop,
+        ),
+        MLP(
+            in_features=dim,
+            hidden_features=(int(dim * mlp_ratio),),
+            out_features=dim,
+            drop=drop,
+        ),
+        drop_path=drop_path,
+        layer_scale=init_values if init_values > 0 else None,
+    )
+
+
+class NeuroRVQ(EEGModuleMixin, nn.Module, license="cc-by-nc-4.0"):
+    r"""NeuroRVQ foundation model for EEG, ECG and EMG from Barmpas et al. [neurorvq]_.
+
+    :bdg-success:`Convolution` :bdg-info:`Attention/Transformer` :bdg-danger:`Foundation Model` :bdg-dark-line:`Channel`
+
+    The model combines four temporal convolution scales with a shared
+    Transformer encoder and learned channel/time embeddings; this class adapts
+    the pretrained encoder to Braindecode's window classifier API.
+
+    Inputs are ``(batch, channels, time)``, sampled at the modality's rate
+    (EEG 200 Hz, ECG 200 Hz, EMG 1000 Hz, PPG 100 Hz), made of whole patches
+    (EEG 200, ECG 40, EMG 200, PPG 80 samples), with channel names from the
+    modality's pretrained list. This model does not preprocess signals; the
+    authors' EEG example applies a 0.5--45 Hz band-pass, resamples to 200 Hz
+    and clips amplitudes to +/-500.
+
+    The upstream implementation [neurorvqcode]_ and checkpoints are licensed
+    CC BY-NC 4.0.
+    This is a non-commercial research license.
+
+    `License <https://github.com/KonstantinosBarmpas/NeuroRVQ/blob/main/LICENSE>`_
+
+    .. important::
+       **Pre-trained Weights Available**
+
+       The released foundation models (`ntinosbarmpas/NeuroRVQ
+       <https://huggingface.co/ntinosbarmpas/NeuroRVQ>`_, revision ``d944b87``,
+       CC BY-NC 4.0) are hosted as ``braindecode/neurorvq-eeg-pretrained``,
+       ``braindecode/neurorvq-ecg-pretrained`` and
+       ``braindecode/neurorvq-emg-pretrained``; the tokenizers are in
+       ``braindecode/neurorvq-tokenizer-{eeg,ecg,emg,ppg}-pretrained``
+       (:class:`NeuroRVQTokenizer`). The classification head is not
+       pretrained:
+
+       .. code-block:: python
+
+           from braindecode.models import NeuroRVQ
+
+           model = NeuroRVQ.from_pretrained(
+               "braindecode/neurorvq-eeg-pretrained", chs_info=raw.info["chs"], n_outputs=4
+           )
+
+    Parameters
+    ----------
+    n_outputs : int
+        Number of task-specific output classes.
+    n_chans : int
+        Number of channels in each input window.
+    chs_info : list of dict or None
+        MNE channel metadata. Channel names are used to select the pretrained
+        spatial embedding slots when ``channel_names`` is not provided.
+    n_times : int
+        Number of input time samples. It gives ``n_patches`` patches
+        (``ceil(n_times / patch_size)`` by default, see ``on_non_divisible``),
+        at most ``max_patches``.
+    sfreq : float or None
+        Sampling frequency. An integer rate other than the modality's (EEG
+        200 Hz) is resampled to it inside the model with
+        :class:`torchaudio.transforms.Resample`, with a warning; the patch count
+        follows the resampled length.
+    channel_names : tuple of str, list of str, or None
+        Ordered channel names. Names are case-insensitive and must occur in
+        the modality's pretrained list (EEG: 104 electrodes; ECG: the 12
+        standard leads and ``vx``, ``vy``, ``vz``; EMG: ``c1``-``c16``; PPG:
+        ``ppg_c1``). If omitted,
+        names are read from ``chs_info``; without either, the first entries
+        of that list are used, which only suits training from scratch.
+    modality : {"eeg", "ecg", "emg", "ppg"}, default="eeg"
+        Released configuration: sampling rate, temporal kernel sizes, channel
+        list, head pooling (EEG flattens the tokens, the others average them)
+        and the defaults of ``patch_size`` and ``max_patches``. No PPG
+        foundation model was released.
+    patch_size : int or None, default=None
+        Samples per temporal patch; ``None`` uses the modality's value.
+    on_non_divisible : {"pad", "crop", "error"}, default="pad"
+        How :class:`~braindecode.modules.PatchTokenizer` treats a time axis that
+        is not a multiple of ``patch_size`` (right zero-pad, crop, or raise).
+        The reference implementation requires a multiple (``"error"``); all
+        three give the same model and output when ``n_times`` is a multiple of
+        ``patch_size``.
+    on_missing : {"error", "drop"}, default="error"
+        Input channels whose name has no pretrained slot: ``"error"`` raises,
+        ``"drop"`` leaves them out of the input (with a warning), so the model
+        reads the channels it knows. Channels are never mapped by guesswork.
+    max_patches : int or None, default=None
+        Length of the temporal embedding table (EEG 256, ECG 600, EMG 256,
+        PPG 12); ``None`` uses the modality's value.
+    depth : int, default=12
+        Number of shared Transformer blocks applied to each temporal branch.
+    num_heads : int, default=10
+        Number of attention heads.
+    mlp_ratio : float, default=4.0
+        Transformer feed-forward expansion ratio.
+    out_chans : int, default=8
+        Channels per temporal convolution branch. Must be divisible by four.
+    qkv_bias : bool, default=True
+        Whether to use the released query/value attention biases.
+    qk_norm : bool, default=True
+        Whether to normalize query and key vectors with LayerNorm.
+    init_values : float, default=1e-5
+        LayerScale initialization value used by the released EEG checkpoint.
+    drop_prob : float, default=0.0
+        Dropout probability in the patch embedding, feed-forward blocks, and
+        positional embedding path.
+    attn_drop_rate : float, default=0.0
+        Attention-probability dropout.
+    drop_path_rate : float, default=0.0
+        Maximum stochastic-depth probability across Transformer depth.
+    activation : type[nn.Module], default=nn.GELU
+        Activation in the multi-scale temporal patch embedding. GELU reproduces
+        the released model.
+
+    Notes
+    -----
+    Input shape: ``(batch, n_chans, n_times)``.
+
+    Output shape: by default, ``(batch, n_outputs)`` logits. With
+    ``return_features=True``, returns a dictionary whose ``"features"`` entry has shape
+    ``(batch, 4 * embed_dim * n_chans * n_patches)`` for EEG
+    and ``(batch, 4 * embed_dim)`` for the other modalities, where
+    ``embed_dim = out_chans * patch_size // 8``.
+
+    .. versionadded:: 2.0
+
+    References
+    ----------
+    .. [neurorvq] Barmpas et al. (2025). NeuroRVQ: Multi-Scale Biosignal
+       Tokenization for Generative Foundation Models. https://arxiv.org/abs/2510.13068
+    .. [neurorvqcode] https://github.com/KonstantinosBarmpas/NeuroRVQ
+    """
+
+    def __init__(
+        self,
+        n_outputs: int | None = None,
+        n_chans: int | None = None,
+        chs_info=None,
+        n_times: int | None = None,
+        input_window_seconds: float | None = None,
+        sfreq: float | None = None,
+        *,
+        channel_names: tuple[str, ...] | list[str] | None = None,
+        modality: str = "eeg",
+        patch_size: int | None = None,
+        on_non_divisible: str = "pad",
+        on_missing: str = "error",
+        max_patches: int | None = None,
+        depth: int = 12,
+        num_heads: int = 10,
+        mlp_ratio: float = 4.0,
+        out_chans: int = 8,
+        qkv_bias: bool = True,
+        qk_norm: bool = True,
+        init_values: float = 1e-5,
+        drop_prob: float = 0.0,
+        attn_drop_rate: float = 0.0,
+        drop_path_rate: float = 0.0,
+        activation: type[nn.Module] = nn.GELU,
+    ):
+        super().__init__(
+            n_outputs=n_outputs,
+            n_chans=n_chans,
+            chs_info=chs_info,
+            n_times=n_times,
+            input_window_seconds=input_window_seconds,
+            sfreq=sfreq,
+        )
+        del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
+        if on_missing not in ("error", "drop"):
+            raise ValueError(
+                f'on_missing must be "error" or "drop", got {on_missing!r}.'
+            )
+        preset = _modality(self, modality, resample=True)
+        patch_size = patch_size or preset["patch_size"]
+        max_patches = max_patches or preset["max_patches"]
+        _check_on_non_divisible(on_non_divisible)
+        # Another input rate is resampled to the modality's rate inside forward.
+        in_sfreq = _input_sfreq(self)
+        self.resample: nn.Module = nn.Identity()
+        self._n_times_model = self.n_times
+        if in_sfreq is not None and in_sfreq != preset["sfreq"]:
+            self.resample, self._n_times_model = _in_model_resample(
+                f"NeuroRVQ-{modality.upper()}", in_sfreq, preset["sfreq"], self.n_times
+            )
+        # ceil for "pad", floor for "crop", exact for "error" (raises otherwise).
+        num_patches = patch_count(self._n_times_model, patch_size, on_non_divisible)
+        if num_patches > max_patches:
+            raise ValueError(
+                f"n_times supports at most {max_patches} patches (got {num_patches})."
+            )
+        for name, value in (
+            ("depth", depth),
+            ("num_heads", num_heads),
+            ("out_chans", out_chans),
+            ("max_patches", max_patches),
+        ):
+            if value <= 0:
+                raise ValueError(f"{name} must be positive.")
+        if out_chans % 4:
+            raise ValueError("out_chans must be divisible by 4 for GroupNorm.")
+        embed_dim = out_chans * (patch_size // 8)
+        if embed_dim % num_heads:
+            raise ValueError(
+                "The derived embedding width must be divisible by num_heads."
+            )
+        if init_values is None:
+            raise ValueError(
+                "init_values must be a number; the reference requires a numeric value."
+            )
+
+        self.embed_dim = embed_dim
+        self.patch_size = patch_size
+        self.on_non_divisible = on_non_divisible
+        self.on_missing = on_missing
+        self.max_patches = max_patches
+        self.head_pooling = preset["head_pooling"]
+        self.num_patches = num_patches
+        # Pads, crops or rejects a non-multiple of patch_size at forward; a pure
+        # reshape (no parameters) otherwise.
+        self.patch_tokenizer = PatchTokenizer(
+            patch_size, self._n_times_model, on_non_divisible=on_non_divisible
+        )
+        self.channel_names, slots, keep = _channel_slots(
+            self, channel_names, preset["channels"], on_missing
+        )
+        self.register_buffer("spatial_embedding_ix", slots, persistent=False)
+        # Input channels read by the backbone (all unless on_missing="drop" left
+        # some out); a flag keeps the full-montage path free of an index copy.
+        self._drops_channels = keep is not None
+        self.register_buffer(
+            "channel_keep_ix",
+            keep if keep is not None else torch.arange(self.n_chans),
+            persistent=False,
+        )
+
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        self.patch_embed = _MultiScaleTemporalConv(
+            out_chans, activation, preset["kernels"]
+        )
+        self.pos_embed = nn.Parameter(
+            torch.zeros(len(preset["channels"]) + 1, embed_dim)
+        )
+        self.time_embed = nn.Parameter(torch.zeros(max_patches, embed_dim))
+        self.pos_drop = nn.Dropout(drop_prob)
+        self._dropout = max(drop_prob, attn_drop_rate, drop_path_rate) > 0
+        drop_paths = torch.linspace(0, drop_path_rate, depth).tolist()
+        # LaBraM's attention builds ``qk_norm(head_dim, eps=1e-6)``.
+        norm = nn.LayerNorm if qk_norm else None
+        self.blocks = nn.ModuleList(
+            [
+                _block(
+                    embed_dim,
+                    num_heads,
+                    mlp_ratio,
+                    qkv_bias,
+                    norm,
+                    drop_prob,
+                    attn_drop_rate,
+                    drop_paths[i],
+                    init_values,
+                )
+                for i in range(depth)
+            ]
+        )
+        self.norm = nn.Identity()
+        head_dim = embed_dim * 4
+        if self.head_pooling == "flatten":
+            head_dim *= len(slots) * self.num_patches
+        self.fc_norm = nn.LayerNorm(head_dim)
+        self.final_layer = nn.Linear(head_dim, self.n_outputs)
+        self._init_parameters()
+
+    def _init_parameters(self):
+        nn.init.trunc_normal_(self.cls_token, std=0.02)
+        nn.init.trunc_normal_(self.pos_embed, std=0.02)
+        nn.init.trunc_normal_(self.time_embed, std=0.02)
+        trunc = partial(nn.init.trunc_normal_, std=0.02)
+        self.apply(partial(init_weights_, weights={(nn.Linear, nn.Conv2d): trunc}))
+        with torch.no_grad():
+            for i, block in enumerate(self.blocks, start=1):
+                block.attn.proj.weight.div_(math.sqrt(2.0 * i))
+                # block.mlp[2] is the MLP's output Linear (``mlp.fc2`` upstream).
+                block.mlp[2].weight.div_(math.sqrt(2.0 * i))
+
+    def _features(self, x: Tensor) -> Tensor:
+        if x.ndim != 3 or x.shape[1] != self.n_chans or x.shape[2] != self.n_times:
+            raise ValueError(
+                "Expected input shape (batch, {}, {}), got {}.".format(
+                    self.n_chans, self.n_times, list(x.shape)
+                )
+            )
+        if self._drops_channels:
+            x = x.index_select(1, self.channel_keep_ix)
+        x = self.resample(x)
+        # (batch, n_chans, num_patches, patch_size)
+        x = self.patch_tokenizer(x)
+        b1, b2, b3, b4 = self.patch_embed(x)
+        branches = [b1, b2, b3, b4]
+        if _stack_scales(x, self.training and self._dropout):
+            branches = [torch.cat(branches)]
+        scales = []
+        spatial_ix = self.spatial_embedding_ix.repeat_interleave(self.num_patches)
+        spatial_ix = F.pad(spatial_ix, (1, 0), value=0.0)
+        spatial = self.pos_embed[spatial_ix].unsqueeze(0)
+        temporal_ix = torch.arange(
+            self.max_patches - self.num_patches, self.max_patches, device=x.device
+        ).repeat(self.spatial_embedding_ix.numel())
+        temporal = self.time_embed[temporal_ix].unsqueeze(0)
+        cls = self.cls_token.expand(branches[0].shape[0], -1, -1)
+        for branch in branches:
+            branch = torch.cat((cls, branch), dim=1)
+            branch = branch + spatial
+            branch[:, 1:] = branch[:, 1:] + temporal
+            branch = self.pos_drop(branch)
+            for block in self.blocks:
+                branch = block(branch)
+            scales.append(self.norm(branch[:, 1:]))
+        tokens = torch.cat(torch.cat(scales).chunk(4), dim=-1)
+        return tokens.flatten(1) if self.head_pooling == "flatten" else tokens.mean(1)
+
+    def forward(
+        self, x: Tensor, return_features: bool = False
+    ) -> Union[Tensor, Dict[str, Optional[Tensor]]]:
+        features = self.fc_norm(self._features(x))
+        if return_features:
+            out: Dict[str, Optional[Tensor]] = {"features": features, "cls_token": None}
+            return out
+        return self.final_layer(features)
+
+    def reset_head(self, n_outputs: int) -> None:
+        self._set_n_outputs(n_outputs)
+        self.final_layer = nn.Linear(
+            self.fc_norm.normalized_shape[0],
+            n_outputs,
+            device=self.final_layer.weight.device,
+            dtype=self.final_layer.weight.dtype,
+        )

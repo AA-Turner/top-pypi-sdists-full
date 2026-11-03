@@ -1,10 +1,11 @@
-#! python3  # noqa: E265
+#! python3
 
 # ############################################################################
 # ########## Libraries #############
 # ##################################
 
 # standard library
+import html as html_module
 import json
 from copy import deepcopy
 from dataclasses import asdict
@@ -40,6 +41,7 @@ from mkdocs_rss_plugin.integrations.theme_material_social_plugin import (
 )
 from mkdocs_rss_plugin.models import MkdocsPageSubset, PageInformation, RssFeedBase
 from mkdocs_rss_plugin.util import Util
+
 
 # ############################################################################
 # ########## Globals #############
@@ -184,7 +186,6 @@ class GitRssPlugin(BasePlugin[RssPluginConfig]):
                     f"Shipped stylesheet will be referenced in RSS feeds: {self.config.stylesheet}"
                 )
             else:
-
                 base_feed.stylesheet = self.config.stylesheet
                 logger.debug(
                     f"Stylesheet will be referenced in RSS feeds: {self.config.stylesheet}"
@@ -357,7 +358,8 @@ class GitRssPlugin(BasePlugin[RssPluginConfig]):
                 ),
                 guid=page.canonical_url,
                 link=page_url_full,
-                title=page.title,
+                # MkDocs keeps HTML entities in titles extracted from the H1
+                title=html_module.unescape(page.title) if page.title else None,
                 updated=page_dates[1],
                 # for later fetch
                 _mkdocs_page_ref=MkdocsPageSubset.from_page(page),

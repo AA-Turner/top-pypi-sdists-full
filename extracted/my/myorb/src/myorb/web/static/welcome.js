@@ -1810,6 +1810,20 @@
     button.setAttribute("aria-pressed", "true");
     button.textContent = "… Preparing";
 
+    const withBrowser = async () => {
+      reading = { stop: () => speechSynthesis.cancel() };
+      let text;
+      try {
+        text = await textToRead(button, language);
+      } catch (error) {
+        return showError(error.message);
+      }
+      if (!reading || !text) return reset();
+      button.textContent = "■ Stop reading";
+      await window.myorbSpeech.speak(text, language.tag);
+      if (reading) reset();
+    };
+
     if (button.dataset.voice === "azure") {
       const audio = new Audio(`/brief/${button.dataset.brief}/audio?language=${language.code}`);
       reading = { stop: () => audio.pause() };
@@ -1817,22 +1831,16 @@
         button.textContent = "■ Stop reading";
       });
       audio.addEventListener("ended", reset);
-      audio.addEventListener("error", () => showError("Azure Speech could not read the brief. Check Integrations → Voice."));
+      audio.addEventListener("error", () => {
+        // The public demo reads with the browser's voice what Azure does not (its free quota
+        // used up, another language); elsewhere the error says where to fix it.
+        if (button.hasAttribute("data-voice-fallback")) withBrowser();
+        else showError("Azure Speech could not read the brief. Check Integrations → Voice.");
+      });
       audio.play().catch(() => {});
       return;
     }
-
-    reading = { stop: () => speechSynthesis.cancel() };
-    let text;
-    try {
-      text = await textToRead(button, language);
-    } catch (error) {
-      return showError(error.message);
-    }
-    if (!reading || !text) return reset();
-    button.textContent = "■ Stop reading";
-    await window.myorbSpeech.speak(text, language.tag);
-    if (reading) reset();
+    await withBrowser();
   }
 
 

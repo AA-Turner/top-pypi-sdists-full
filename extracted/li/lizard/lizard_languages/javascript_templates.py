@@ -6,10 +6,11 @@ from .js_style_regex_expression import REGEX_TOKEN
 from .token_pattern import compiled_token_pattern, tokens_in_span
 
 
-# Skip lexical units before interpreting their quotes, backticks or braces.
 # JavaScript line comments end at any line terminator, even after a backslash.
+LINE_COMMENT = r'//[^\r\n\u2028\u2029]*'
+# Skip lexical units before interpreting their quotes, backticks or braces.
 _OPAQUE_CODE = (
-    r'/\*.*?\*/|//[^\r\n\u2028\u2029]*'
+    r'/\*.*?\*/|' + LINE_COMMENT +
     r'|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''
     r'|' + REGEX_TOKEN
 )
@@ -91,6 +92,44 @@ def _converted_template(source, start, end, token_class, split):
             yield from _split_template(token, 0, token_end, expressions)
             return
     yield token
+
+
+def interpolation_code(source, in_expression=False):
+    """Spans of the code in the interpolations of a template, at any depth.
+
+    The source is a whole template, or the expression of an interpolation.
+    Nested templates split the code around them, so that each character is
+    scanned once.
+    """
+    if not (in_expression or (source.startswith('`') and '${' in source)):
+        return
+    stack, pos, code = ([1], 0, 0) if in_expression else ([0], 1, None)
+    while stack:
+        pattern = _TEMPLATE_SPECIAL if stack[-1] == 0 else _EXPRESSION_SPECIAL
+        match = pattern.search(source, pos)
+        if match is None:
+            break
+        token = match.group()
+        pos = match.end()
+        if stack[-1] == 0:
+            if token == '${':
+                stack.append(1)
+                code = pos
+            elif token == '`':
+                stack.pop()
+                code = pos
+        elif token == '`':
+            yield code, match.start()
+            stack.append(0)
+        elif token == '{':
+            stack[-1] += 1
+        elif token == '}':
+            stack[-1] -= 1
+            if stack[-1] == 0:
+                yield code, match.start()
+                stack.pop()
+    if stack and stack[-1]:
+        yield code, len(source)
 
 
 def template_tokens(source, addition='', token_class=None, split=True):

@@ -17,6 +17,7 @@ pub mod common;
 use std::fmt::Write;
 
 use insta_cmd::assert_cmd_snapshot;
+use test_case::test_case;
 
 use common::{CliTest, user_config_directory_env_var};
 
@@ -639,6 +640,38 @@ fn concise_diagnostics() -> anyhow::Result<()> {
     ");
 
     Ok(())
+}
+
+/// Check which CLI and environment settings force ANSI styling in a piped diagnostic.
+#[test_case(None,           &[]                                             => false; "automatic detection")]
+#[test_case(None,           &[("FORCE_COLOR", "0")]                         => true;  "force color")]
+#[test_case(None,           &[("FORCE_COLOR", ""), ("CLICOLOR_FORCE", "0")] => true;  "empty force color defers")]
+#[test_case(None,           &[("CLICOLOR_FORCE", "")]                       => false; "empty clicolor force")]
+#[test_case(None,           &[("CLICOLOR", "0")]                            => false; "clicolor requires a terminal")]
+#[test_case(None,           &[("NO_COLOR", "0"), ("CLICOLOR_FORCE", "1")]   => false; "no color beats clicolor force")]
+#[test_case(None,           &[("NO_COLOR", "0"), ("FORCE_COLOR", "0")]      => false; "no color wins")]
+#[test_case(Some("auto"),   &[("NO_COLOR", ""), ("FORCE_COLOR", "0")]       => true;  "empty no color")]
+#[test_case(Some("always"), &[("NO_COLOR", "0")]                            => true;  "explicit always")]
+#[test_case(Some("never"),  &[("FORCE_COLOR", "0")]                         => false; "explicit never")]
+fn color_in_piped_diagnostics(flag: Option<&str>, env: &[(&str, &str)]) -> bool {
+    let case = CliTest::with_file("test.py", "x: int = 'wrong'").unwrap();
+    let mut command = case.command();
+    if let Some(flag) = flag {
+        command.args(["--color", flag]);
+    }
+    let output = command
+        .arg("--output-format=concise")
+        .envs(env.iter().copied())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(1));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let diagnostic = stdout
+        .lines()
+        .find(|line| line.contains("invalid-assignment"))
+        .unwrap();
+    diagnostic.contains("\x1b[")
 }
 
 #[test]

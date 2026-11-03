@@ -49,6 +49,7 @@ def reload_workspace(
     reload_mode: (
         inplace_reload.ReloadMode | str
     ) = inplace_reload.ReloadMode.INVALIDATE,
+    reload_protos: bool = True,
 ) -> None:
   """Reload all modified files in the current workspace.
 
@@ -62,6 +63,7 @@ def reload_workspace(
     restrict: Same as `ecolab.adhoc`
     verbose: Same as `ecolab.adhoc`
     reload_mode: Same as `ecolab.adhoc`
+    reload_protos: Same as `ecolab.adhoc`
   """
 
   from etils import g3_utils  # pylint: disable=g-import-not-at-top
@@ -79,7 +81,7 @@ def reload_workspace(
   # Could detect all modules that are adhoc-imported (through the
   # `module.__file__` and reload them)
   if not isinstance(citc_info, g3_utils.Workspace):
-    if prev_modules := _find_modules_imported_in_different_source(source):
+    if prev_modules := _find_modules_imported_in_different_source(source):  # pyrefly: ignore[bad-argument-type]
       prev_module_name = next(iter(prev_modules))
       prev_source = sys.modules[prev_module_name]._etils_workspace_reload_source  # pylint: disable=protected-access
       raise ValueError(
@@ -107,11 +109,12 @@ def reload_workspace(
       reload_recursive=False,
       reload_mode=reload_mode,
       verbose=verbose,
+      reload_protos=reload_protos,
       collapse_prefix=f'Reload workspace ({len(modules_to_reload)} modules): ',
   ):
     for module_name in modules_to_reload:
       module = importlib.import_module(module_name)
-      module._etils_workspace_reload_source = source  # pylint: disable=protected-access
+      module._etils_workspace_reload_source = source  # pylint: disable=protected-access  # pyrefly: ignore[missing-attribute]
 
   # Step 3: Replace the reloaded modules in the Colab kernel.
   update_global_namespace(reload=modules_to_reload, verbose=verbose)
@@ -265,7 +268,7 @@ def mark_adhoc_imported_modules(
     adhoc_imported_modules = set(sys.modules) - old_modules
     for module_name in adhoc_imported_modules:
       # TODO(epot): Could check that the `source` and `.__file__` match
-      sys.modules[module_name]._etils_workspace_reload_source = source  # pylint: disable=protected-access
+      sys.modules[module_name]._etils_workspace_reload_source = source  # pylint: disable=protected-access  # pyrefly: ignore[missing-attribute]
 
 
 def update_global_namespace(
@@ -274,7 +277,7 @@ def update_global_namespace(
     verbose: bool,
 ) -> None:
   """Overwrite the imported modules in the current Colab global namespace."""
-  reload = set(reload)
+  reload = set(reload)  # pyrefly: ignore[bad-assignment]
 
   ip = IPython.get_ipython()
   user_ns = ip.kernel.shell.user_ns

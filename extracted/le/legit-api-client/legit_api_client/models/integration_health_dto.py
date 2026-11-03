@@ -25,6 +25,7 @@ from legit_api_client.models.integration_health_broker_dto import IntegrationHea
 from legit_api_client.models.integration_health_collection_dto import IntegrationHealthCollectionDto
 from legit_api_client.models.integration_health_connection_dto import IntegrationHealthConnectionDto
 from legit_api_client.models.integration_health_count_dto import IntegrationHealthCountDto
+from legit_api_client.models.integration_health_coverage_dto import IntegrationHealthCoverageDto
 from legit_api_client.models.integration_health_first_scan_dto import IntegrationHealthFirstScanDto
 from legit_api_client.models.integration_health_freshness_dto import IntegrationHealthFreshnessDto
 from legit_api_client.models.integration_health_lifecycle_dto import IntegrationHealthLifecycleDto
@@ -56,8 +57,9 @@ class IntegrationHealthDto(BaseModel):
     freshness: Optional[IntegrationHealthFreshnessDto] = None
     first_scan: Optional[IntegrationHealthFirstScanDto] = Field(default=None, alias="firstScan")
     counts: Optional[List[IntegrationHealthCountDto]] = None
+    coverage: Optional[IntegrationHealthCoverageDto] = None
     blockers: Optional[List[IntegrationHealthBlockerDto]] = None
-    __properties: ClassVar[List[str]] = ["id", "name", "provider", "authMethod", "url", "workspaceId", "workspaceName", "createdAt", "detailsUrl", "connection", "broker", "lifecycle", "permissions", "collection", "freshness", "firstScan", "counts", "blockers"]
+    __properties: ClassVar[List[str]] = ["id", "name", "provider", "authMethod", "url", "workspaceId", "workspaceName", "createdAt", "detailsUrl", "connection", "broker", "lifecycle", "permissions", "collection", "freshness", "firstScan", "counts", "coverage", "blockers"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -125,6 +127,9 @@ class IntegrationHealthDto(BaseModel):
             for _item_counts in self.counts:
                 _items.append(_item_counts.to_dict() if _item_counts is not None else None)
             _dict['counts'] = _items
+        # override the default output from pydantic by calling `to_dict()` of coverage
+        if self.coverage:
+            _dict['coverage'] = self.coverage.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in blockers (list)
         _items = []
         if self.blockers:
@@ -206,6 +211,11 @@ class IntegrationHealthDto(BaseModel):
         if self.counts is None and "counts" in self.model_fields_set:
             _dict['counts'] = None
 
+        # set to None if coverage (nullable) is None
+        # and model_fields_set contains the field
+        if self.coverage is None and "coverage" in self.model_fields_set:
+            _dict['coverage'] = None
+
         # set to None if blockers (nullable) is None
         # and model_fields_set contains the field
         if self.blockers is None and "blockers" in self.model_fields_set:
@@ -240,6 +250,7 @@ class IntegrationHealthDto(BaseModel):
             "freshness": IntegrationHealthFreshnessDto.from_dict(obj["freshness"]) if obj.get("freshness") is not None else None,
             "firstScan": IntegrationHealthFirstScanDto.from_dict(obj["firstScan"]) if obj.get("firstScan") is not None else None,
             "counts": [IntegrationHealthCountDto.from_dict(_item) for _item in obj["counts"]] if obj.get("counts") is not None else None,
+            "coverage": IntegrationHealthCoverageDto.from_dict(obj["coverage"]) if obj.get("coverage") is not None else None,
             "blockers": [IntegrationHealthBlockerDto.from_dict(_item) for _item in obj["blockers"]] if obj.get("blockers") is not None else None
         })
         return _obj

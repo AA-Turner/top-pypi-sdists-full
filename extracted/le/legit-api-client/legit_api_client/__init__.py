@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.5487"
+__version__ = "1.1.5491"
 
 # Define package exports
 __all__ = [
@@ -148,11 +148,20 @@ __all__ = [
     "GoogleContainerRegistryIntegrationEditDto",
     "IntegrationAssetType",
     "IntegrationBadResponseDto",
+    "IntegrationCapability",
+    "IntegrationCapabilityAccessDto",
+    "IntegrationCapabilityAccessStatus",
+    "IntegrationCapabilityCoverageDto",
+    "IntegrationCapabilityGroup",
+    "IntegrationCapabilityProgressDto",
+    "IntegrationCapabilityProgressStatus",
     "IntegrationCollectionState",
     "IntegrationCollectionStepDto",
     "IntegrationCollectionStepStage",
     "IntegrationCountBasis",
     "IntegrationCountScope",
+    "IntegrationCoverageGapDto",
+    "IntegrationCoverageGapReason",
     "IntegrationDataAvailability",
     "IntegrationDto",
     "IntegrationError",
@@ -165,6 +174,7 @@ __all__ = [
     "IntegrationHealthCollectionDto",
     "IntegrationHealthConnectionDto",
     "IntegrationHealthCountDto",
+    "IntegrationHealthCoverageDto",
     "IntegrationHealthDto",
     "IntegrationHealthFirstScanDto",
     "IntegrationHealthFreshnessDto",
@@ -174,6 +184,7 @@ __all__ = [
     "IntegrationHealthTypeCountDto",
     "IntegrationManagementDto",
     "IntegrationMissingPermissionDto",
+    "IntegrationPermissionImpactDto",
     "IntegrationStatus",
     "IntegrationType",
     "IssueActionType",
@@ -412,11 +423,20 @@ from legit_api_client.models.google_container_registry_integration_create_dto im
 from legit_api_client.models.google_container_registry_integration_edit_dto import GoogleContainerRegistryIntegrationEditDto as GoogleContainerRegistryIntegrationEditDto
 from legit_api_client.models.integration_asset_type import IntegrationAssetType as IntegrationAssetType
 from legit_api_client.models.integration_bad_response_dto import IntegrationBadResponseDto as IntegrationBadResponseDto
+from legit_api_client.models.integration_capability import IntegrationCapability as IntegrationCapability
+from legit_api_client.models.integration_capability_access_dto import IntegrationCapabilityAccessDto as IntegrationCapabilityAccessDto
+from legit_api_client.models.integration_capability_access_status import IntegrationCapabilityAccessStatus as IntegrationCapabilityAccessStatus
+from legit_api_client.models.integration_capability_coverage_dto import IntegrationCapabilityCoverageDto as IntegrationCapabilityCoverageDto
+from legit_api_client.models.integration_capability_group import IntegrationCapabilityGroup as IntegrationCapabilityGroup
+from legit_api_client.models.integration_capability_progress_dto import IntegrationCapabilityProgressDto as IntegrationCapabilityProgressDto
+from legit_api_client.models.integration_capability_progress_status import IntegrationCapabilityProgressStatus as IntegrationCapabilityProgressStatus
 from legit_api_client.models.integration_collection_state import IntegrationCollectionState as IntegrationCollectionState
 from legit_api_client.models.integration_collection_step_dto import IntegrationCollectionStepDto as IntegrationCollectionStepDto
 from legit_api_client.models.integration_collection_step_stage import IntegrationCollectionStepStage as IntegrationCollectionStepStage
 from legit_api_client.models.integration_count_basis import IntegrationCountBasis as IntegrationCountBasis
 from legit_api_client.models.integration_count_scope import IntegrationCountScope as IntegrationCountScope
+from legit_api_client.models.integration_coverage_gap_dto import IntegrationCoverageGapDto as IntegrationCoverageGapDto
+from legit_api_client.models.integration_coverage_gap_reason import IntegrationCoverageGapReason as IntegrationCoverageGapReason
 from legit_api_client.models.integration_data_availability import IntegrationDataAvailability as IntegrationDataAvailability
 from legit_api_client.models.integration_dto import IntegrationDto as IntegrationDto
 from legit_api_client.models.integration_error import IntegrationError as IntegrationError
@@ -429,6 +449,7 @@ from legit_api_client.models.integration_health_broker_dto import IntegrationHea
 from legit_api_client.models.integration_health_collection_dto import IntegrationHealthCollectionDto as IntegrationHealthCollectionDto
 from legit_api_client.models.integration_health_connection_dto import IntegrationHealthConnectionDto as IntegrationHealthConnectionDto
 from legit_api_client.models.integration_health_count_dto import IntegrationHealthCountDto as IntegrationHealthCountDto
+from legit_api_client.models.integration_health_coverage_dto import IntegrationHealthCoverageDto as IntegrationHealthCoverageDto
 from legit_api_client.models.integration_health_dto import IntegrationHealthDto as IntegrationHealthDto
 from legit_api_client.models.integration_health_first_scan_dto import IntegrationHealthFirstScanDto as IntegrationHealthFirstScanDto
 from legit_api_client.models.integration_health_freshness_dto import IntegrationHealthFreshnessDto as IntegrationHealthFreshnessDto
@@ -438,6 +459,7 @@ from legit_api_client.models.integration_health_summary_dto import IntegrationHe
 from legit_api_client.models.integration_health_type_count_dto import IntegrationHealthTypeCountDto as IntegrationHealthTypeCountDto
 from legit_api_client.models.integration_management_dto import IntegrationManagementDto as IntegrationManagementDto
 from legit_api_client.models.integration_missing_permission_dto import IntegrationMissingPermissionDto as IntegrationMissingPermissionDto
+from legit_api_client.models.integration_permission_impact_dto import IntegrationPermissionImpactDto as IntegrationPermissionImpactDto
 from legit_api_client.models.integration_status import IntegrationStatus as IntegrationStatus
 from legit_api_client.models.integration_type import IntegrationType as IntegrationType
 from legit_api_client.models.issue_action_type import IssueActionType as IssueActionType

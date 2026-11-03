@@ -46,13 +46,18 @@ class Scene(CancelableWaitElement, component='scene.js', esm={'nicegui-scene': '
     # pylint: disable=import-outside-toplevel
     from .objects.axes_helper import AxesHelper as axes_helper
     from .objects.box import Box as box
+    from .objects.capsule import Capsule as capsule
+    from .objects.cone import Cone as cone
     from .objects.curve import Curve as curve
     from .objects.cylinder import Cylinder as cylinder
     from .objects.extrusion import Extrusion as extrusion
     from .objects.gltf import Gltf as gltf
     from .objects.group import Group as group
+    from .objects.lathe import Lathe as lathe
     from .objects.line import Line as line
+    from .objects.plane import Plane as plane
     from .objects.point_cloud import PointCloud as point_cloud
+    from .objects.polyline import Polyline as polyline
     from .objects.quadratic_bezier_tube import QuadraticBezierTube as quadratic_bezier_tube
     from .objects.ring import Ring as ring
     from .objects.sphere import Sphere as sphere
@@ -61,13 +66,14 @@ class Scene(CancelableWaitElement, component='scene.js', esm={'nicegui-scene': '
     from .objects.text import Text as text
     from .objects.text3d import Text3d as text3d
     from .objects.texture import Texture as texture
+    from .objects.torus import Torus as torus
 
     @resolve_defaults
     def __init__(self,
                  width: int = DEFAULT_PROP | 400,
                  height: int = DEFAULT_PROP | 300,
                  # DEPRECATED: enforce keyword-only arguments in NiceGUI 4.0
-                 grid: bool | tuple[int, int] = DEFAULT_PROP | True,
+                 grid: bool | tuple[int, int] | None = DEFAULT_PROP | None,
                  camera: SceneCamera | None = None,
                  on_click: Handler[SceneClickEventArguments] | None = None,
                  click_events: list[str] = DEFAULT_PROP | ['click', 'dblclick'],
@@ -78,17 +84,18 @@ class Scene(CancelableWaitElement, component='scene.js', esm={'nicegui-scene': '
                  control_type: Literal['orbit', 'trackball', 'map'] = DEFAULT_PROP | 'orbit',
                  fps: int = DEFAULT_PROP | 20,
                  show_stats: bool = DEFAULT_PROP | False,
+                 polar_grid: tuple[float, int, int] | tuple[float, int, int, int] | None = DEFAULT_PROP | None,
                  ) -> None:
         """3D Scene
 
         Display a 3D scene using `three.js <https://threejs.org/>`_.
-        Currently NiceGUI supports boxes, spheres, cylinders/cones, extrusions, straight lines, curves and textured meshes.
+        It supports basic geometries like boxes, spheres and cylinders, lines and curves, point clouds, texts, textures as well as glTF and STL models.
         Objects can be translated, rotated and displayed with different color, opacity or as wireframes.
         They can also be grouped to apply joint movements.
 
         :param width: width of the canvas
         :param height: height of the canvas
-        :param grid: whether to display a grid (boolean or tuple of ``size`` and ``divisions`` for `Three.js' GridHelper <https://threejs.org/docs/#api/en/helpers/GridHelper>`_, default: 100x100)
+        :param grid: whether to display a grid (boolean or tuple of ``size`` and ``divisions`` for `Three.js' GridHelper <https://threejs.org/docs/#api/en/helpers/GridHelper>`_, default: 100x100 unless ``polar_grid`` is given)
         :param camera: camera definition, either instance of ``ui.scene.perspective_camera`` (default) or ``ui.scene.orthographic_camera``
         :param on_click: callback to execute when a 3D object is clicked (use ``click_events`` to specify which events to subscribe to)
         :param click_events: list of JavaScript click events to subscribe to (default: ``['click', 'dblclick']``)
@@ -99,13 +106,19 @@ class Scene(CancelableWaitElement, component='scene.js', esm={'nicegui-scene': '
         :param control_type: type of controls to use for navigating the scene, one of "orbit", "trackball", "map" (default: "orbit", *added in version 3.9.0*)
         :param fps: target frame rate for the scene in frames per second (default: 20, *added in version 3.2.0*)
         :param show_stats: whether to show performance stats (default: ``False``, *added in version 3.2.0*)
+        :param polar_grid: optional tuple of ``(radius, sectors, rings)`` or ``(radius, sectors, rings, divisions)`` for a `Three.js' PolarGridHelper <https://threejs.org/docs/#api/en/helpers/PolarGridHelper>`_ floor; ``divisions`` controls the visual smoothness of each ring (default: ``64``); cannot be combined with ``grid`` (default: ``None``, *added in version 3.19.0*)
         """
         super().__init__()
+        if grid is None:
+            grid = polar_grid is None
+        elif grid and polar_grid is not None:
+            raise ValueError('`grid` and `polar_grid` cannot be combined')
         self._props['width'] = width
         self._props['height'] = height
         self._props['fps'] = fps
         self._props['show-stats'] = show_stats
         self._props['grid'] = grid
+        self._props['polar-grid'] = polar_grid
         self._props['background-color'] = background_color
         self.camera = camera or self.perspective_camera()
         self._props['camera-type'] = self.camera.type
@@ -114,11 +127,13 @@ class Scene(CancelableWaitElement, component='scene.js', esm={'nicegui-scene': '
         self.stack: list[Object3D | SceneObject] = [SceneObject()]
         self._batched_calls: list[list[Any]] | None = None
         self._initialized_event = asyncio.Event()
+        self._settled_event = asyncio.Event()
         self._click_handlers = [on_click] if on_click else []
         self._props['click-events'] = click_events[:]
         self._drag_start_handlers = [on_drag_start] if on_drag_start else []
         self._drag_end_handlers = [on_drag_end] if on_drag_end else []
         self.on('init', self._handle_init)
+        self.on('init-failed', self._settled_event.set)
         self.on('click3d', self._handle_click)
         self.on('dragstart', self._handle_drag)
         self.on('dragend', self._handle_drag)
@@ -131,6 +146,9 @@ class Scene(CancelableWaitElement, component='scene.js', esm={'nicegui-scene': '
         self._props.add_rename('click_events', 'click-events')  # DEPRECATED: remove in NiceGUI 4.0
         self._props.add_rename('drag_constraints', 'drag-constraints')  # DEPRECATED: remove in NiceGUI 4.0
         self._props.add_rename('show_stats', 'show-stats')  # DEPRECATED: remove in NiceGUI 4.0
+
+    def _handles_event_while_ignoring(self, event_type: str) -> bool:
+        return event_type == 'init'
 
     def on_click(self, callback: Handler[SceneClickEventArguments]) -> Self:
         """Add a callback to be invoked when a 3D object is clicked."""
@@ -183,6 +201,7 @@ class Scene(CancelableWaitElement, component='scene.js', esm={'nicegui-scene': '
 
     def _handle_init(self) -> None:
         self._initialized_event.set()
+        self._settled_event.set()
         # the client starts with an empty scene graph, both on the first init (method calls issued before the component
         # was mounted are dropped, see `run_method`) and after a JS remount (e.g. after WebGL context loss);
         # re-send parents before children (dict order can deviate after attach())
@@ -221,8 +240,12 @@ class Scene(CancelableWaitElement, component='scene.js', esm={'nicegui-scene': '
 
         *Updated in version 3.17.0: Awaiting scene initialization cancels the awaiting task
         when the scene is deleted, e.g. because the client disconnected.*
+
+        *Updated in version 3.19.0: Raises a ``RuntimeError`` if the browser could not create a WebGL renderer.*
         """
-        await self._wait_for(self._initialized_event)
+        await self._wait_for(self._settled_event)
+        if not self._initialized_event.is_set():
+            raise RuntimeError('Could not create WebGL renderer.')
 
     def _handle_click(self, e: GenericEventArguments) -> None:
         arguments = SceneClickEventArguments(

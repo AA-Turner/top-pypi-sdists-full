@@ -311,6 +311,10 @@ class IntegerBase(ABC):
         """Return (self - term) mod modulus, for self and term smaller than the modulus"""
         return (self - term) % modulus
 
+    def _mul_mod(self, factor: Union[IntegerBase, int], modulus: Union[IntegerBase, int]) -> IntegerBase:
+        """Return (self * factor) mod modulus, for a non-negative factor"""
+        return (self * factor) % modulus
+
     def _resize(self, bits: int) -> IntegerBase:
         """Declare that the value is smaller than 2**bits (for IntegerNat, the
         operations then work on that many bits, whatever the value)"""
@@ -470,15 +474,33 @@ class IntegerBase(ABC):
 
         if max_inclusive is not None and max_exclusive is not None:
             raise ValueError("max_inclusive and max_exclusive cannot be both specified")
-        if max_exclusive is not None:
-            max_inclusive = max_exclusive - 1
-        if min_inclusive is None or max_inclusive is None:
+        upper = max_inclusive if max_exclusive is None else max_exclusive
+        if min_inclusive is None or upper is None:
             raise ValueError("Missing keyword to identify the interval")
 
         if randfunc is None:
             randfunc = Random.get_random_bytes
 
-        norm_maximum = cls(max_inclusive) - min_inclusive
+        def is_public(bound: Union[IntegerBase, int]) -> bool:
+            return isinstance(bound, int) or (isinstance(bound, IntegerBase) and bound._public)
+
+        if is_public(min_inclusive) and is_public(upper):
+            # Public bounds (the common case): compute the size of the interval
+            # with Python integers, which is much faster than with Integer
+            # objects. The candidate stays an Integer, as it is secret, and it is
+            # compared with the upper bound after the shift: the same test as
+            # below, without an Integer for the size of the interval.
+            norm_max_int = int(upper) - int(min_inclusive) - (max_exclusive is not None)
+            if norm_max_int < 0:
+                raise ValueError("The interval is empty")
+            bits_needed = max(1, norm_max_int.bit_length())
+            while True:
+                candidate = cls.random(max_bits=bits_needed, randfunc=randfunc) + min_inclusive
+                if (candidate < upper) if max_exclusive is not None else (candidate <= upper):
+                    return candidate
+
+        max_value = upper - 1 if max_exclusive is not None else upper
+        norm_maximum = cls(max_value) - min_inclusive
         bits_needed = norm_maximum.size_in_bits()
 
         while True:

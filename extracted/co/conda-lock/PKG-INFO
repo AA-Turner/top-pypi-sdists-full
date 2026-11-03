@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: conda_lock
-Version: 4.0.4
+Version: 4.0.5
 Summary: Lockfiles for conda
 Project-URL: Homepage, https://github.com/conda/conda-lock
 Project-URL: Repository, https://github.com/conda/conda-lock
@@ -45,7 +45,7 @@ Requires-Dist: charset-normalizer
 Requires-Dist: click-default-group
 Requires-Dist: click>=8.0
 Requires-Dist: crashtest<0.5.0,>=0.4.1
-Requires-Dist: dulwich<0.25,>=0.22.6
+Requires-Dist: dulwich<2,>=1.2.20
 Requires-Dist: ensureconda>=1.4.7
 Requires-Dist: fastjsonschema<3.0.0,>=2.18.0
 Requires-Dist: filelock

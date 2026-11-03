@@ -1,13 +1,18 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: install-playwright
-Version: 1.0.2
+Version: 1.0.3
 Summary: Execute `playwright install` from Python
+Project-URL: Documentation, https://egpl.dev/install-playwright-python/
+Project-URL: Issues, https://github.com/eggplants/install-playwright-python/issues
 Project-URL: Repository, https://github.com/eggplants/install-playwright-python
 Author-email: eggplants <w10776e8w@yahoo.co.jp>
 License-Expression: MIT
 License-File: LICENSE
-Keywords: browser,install,playwright
+Keywords: automation,browser,chromium,firefox,install,playwright,playwright-python,webkit
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
@@ -15,7 +20,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Python: <4,>=3.10
 Requires-Dist: playwright<2,>=1.49.1
@@ -65,6 +74,17 @@ async def main():
         install([p.chromium])
         browser = await p.chromium.launch()
         # ...
+```
+
+Skip the install when the browser is already downloaded:
+
+```python
+from install_playwright import install, is_installed
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    if not is_installed([p.chromium]):
+        install([p.chromium])
 ```
 
 ## License

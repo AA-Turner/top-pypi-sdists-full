@@ -39,7 +39,6 @@ use walkdir::WalkDir;
 use uv_cache::{Cache, CacheBucket};
 use uv_fs::Simplified;
 use uv_python_discovery::PythonInstallation;
-use uv_python_managed::ManagedPythonInstallations;
 use uv_python_types::{EnvironmentPreference, PythonPreference, PythonRequest, PythonVersion};
 use uv_static::EnvVars;
 
@@ -49,10 +48,10 @@ static TEST_TIMESTAMP: &str = "2024-03-25T00:00:00Z";
 pub const DEFAULT_PYTHON_VERSION: &str = "3.12";
 
 // The expected latest patch version for each Python minor version.
-const LATEST_PYTHON_3_16: &str = "3.16.0a1";
+pub const LATEST_PYTHON_3_16: &str = "3.16.0a1";
 const LATEST_PYTHON_3_15: &str = "3.15.2";
 const LATEST_PYTHON_3_14: &str = "3.14.10";
-const LATEST_PYTHON_3_13: &str = "3.13.18";
+pub const LATEST_PYTHON_3_13: &str = "3.13.18";
 pub const LATEST_PYTHON_3_12: &str = "3.12.16";
 const LATEST_PYTHON_3_11: &str = "3.11.18";
 const LATEST_PYTHON_3_10: &str = "3.10.22";
@@ -244,10 +243,12 @@ impl TestContext {
         self
     }
 
-    /// Configure one HTTP retry with a one-second timeout for all commands in this context.
+    /// Configure one immediate HTTP retry with a one-second timeout per attempt.
     #[must_use]
     pub fn with_fast_http_retry(self) -> Self {
-        self.with_http_timeout("1").with_http_retries("1")
+        self.with_http_timeout("1")
+            .with_http_retries("1")
+            .with_env(EnvVars::UV_INTERNAL__TEST_NO_HTTP_RETRY_DELAY, "true")
     }
 
     /// Omit incidental HTTP retries from a snapshot that asserts the eventual error.
@@ -2026,12 +2027,11 @@ impl TestContext {
 
     /// Create a new virtual environment named `.venv` in the test context.
     fn create_venv(&self) {
-        let executable = get_python(
-            self.python_version
-                .as_ref()
-                .expect("A Python version must be provided to create a test virtual environment"),
-        );
-        create_venv_from_executable(&self.venv, &self.cache_dir, &executable, &self.uv_bin);
+        let (_, executable) = self
+            .python_versions
+            .first()
+            .expect("A Python version must be provided to create a test virtual environment");
+        create_venv_from_executable(&self.venv, &self.cache_dir, executable, &self.uv_bin);
     }
 
     /// Copies the files from the ecosystem project given into this text
@@ -2229,23 +2229,6 @@ pub fn venv_bin_path(venv: impl AsRef<Path>) -> PathBuf {
     } else {
         unimplemented!("Only Windows and Unix are supported")
     }
-}
-
-/// Get the path to the python interpreter for a specific python version.
-fn get_python(version: &PythonVersion) -> PathBuf {
-    ManagedPythonInstallations::from_settings(None)
-        .map(|installed_pythons| {
-            installed_pythons
-                .find_version(version)
-                .expect("Tests are run on a supported platform")
-                .next()
-                .as_ref()
-                .map(|python| python.executable(false))
-        })
-        // We'll search for the request Python on the PATH if not found in the python versions
-        // We hack this into a `PathBuf` to satisfy the compiler but it's just a string
-        .unwrap_or_default()
-        .unwrap_or(PathBuf::from(version.to_string()))
 }
 
 /// Create a virtual environment at the given path.

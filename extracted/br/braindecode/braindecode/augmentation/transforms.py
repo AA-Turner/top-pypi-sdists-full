@@ -3,6 +3,7 @@
 #          Gustavo Rodrigues <gustavenrique01@gmail.com>
 #          Bruna Lopes <brunajaflopes@gmail.com>
 #          Sarthak Tayal <sarthaktayal2@gmail.com>
+#          Anton Soloviev <anton@praviel.com>
 #
 # License: BSD (3-clause)
 
@@ -13,8 +14,11 @@ import numpy as np
 import torch
 from mne.channels import make_standard_montage
 
+from braindecode.util import resolve_montage_name
+
 from .base import Transform
 from .functional import (
+    _max_float_dtype,
     amplitude_scale,
     band_rotation,
     bandstop_filter,
@@ -22,9 +26,11 @@ from .functional import (
     channels_permute,
     channels_rereference,
     channels_shuffle,
+    cutmix,
     frequency_shift,
     ft_surrogate,
     gaussian_noise,
+    label_smoothing,
     mask_encoding,
     mixup,
     segmentation_reconstruction,
@@ -490,6 +496,7 @@ class SmoothTimeMask(Transform):
                 size=X.shape[0],
             ),
             device=X.device,
+            dtype=_max_float_dtype(X.device),
         ) * (seq_length - mask_len_samples)
         return {
             "mask_start_per_sample": mask_start,
@@ -671,7 +678,11 @@ class FrequencyShift(Transform):
             return super().get_augmentation_params(*batch)
         X = batch[0]
 
-        u = torch.as_tensor(self.rng.uniform(size=X.shape[0]), device=X.device)
+        u = torch.as_tensor(
+            self.rng.uniform(size=X.shape[0]),
+            device=X.device,
+            dtype=_max_float_dtype(X.device),
+        )
         max_delta_freq = self.max_delta_freq
         if isinstance(max_delta_freq, torch.Tensor):
             max_delta_freq = max_delta_freq.to(X.device)
@@ -703,7 +714,7 @@ def _get_standard_10_20_positions(raw_or_epoch=None, ordered_ch_names=None):
     )
     if ordered_ch_names is None:
         ordered_ch_names = raw_or_epoch.info["ch_names"]
-    ten_twenty_montage = make_standard_montage("standard_1020")
+    ten_twenty_montage = make_standard_montage(resolve_montage_name("standard_1020"))
     positions_dict = ten_twenty_montage.get_positions()["ch_pos"]
     positions_subdict = {
         k: positions_dict[k] for k in ordered_ch_names if k in positions_dict
@@ -729,7 +740,7 @@ class SensorsRotation(Transform):
         `mne` through::
 
          >>> ten_twenty_montage = mne.channels.make_standard_montage(
-         ...    'standard_1020'
+         ...    'standard_1020'  # 'colin27_1020' on MNE >= 1.13
          ... ).get_positions()['ch_pos']
 
     axis : 'x' | 'y' | 'z', optional
@@ -829,7 +840,10 @@ class SensorsRotation(Transform):
         if isinstance(max_degrees, torch.Tensor):
             max_degrees = max_degrees.to(X.device)
         random_angles = (
-            torch.as_tensor(u, device=X.device) * 2 * max_degrees - max_degrees
+            torch.as_tensor(u, device=X.device, dtype=_max_float_dtype(X.device))
+            * 2
+            * max_degrees
+            - max_degrees
         )
         return {
             "sensors_positions_matrix": self.sensors_positions_matrix,
@@ -1093,6 +1107,148 @@ class Mixup(Transform):
         }
 
 
+class CutMix(Mixup):
+    """Implements CutMix for EEG data.
+
+    A random time region of each example is replaced by the same region of
+    a shuffled example of the batch, see [1]_. As in the reference code [2]_,
+    a coefficient ``lam`` is drawn from a Beta distribution, the region is
+    ``(1 - lam) * n_times`` long (the 1-D analogue of the cut area ratio
+    ``1 - lam``) around a uniformly drawn center, it is clipped at the trial
+    boundaries, and ``lam`` is then recomputed from the pasted length.
+
+    Like :class:`Mixup`, it applies to whole batches and returns targets
+    ``(y_a, y_b, lam)`` for :func:`braindecode.training.mixup_criterion`.
+
+    Parameters
+    ----------
+    alpha : float
+        Parameter of the Beta distribution of ``lam``. ``alpha <= 0`` cuts
+        nothing.
+    beta_per_sample : bool (default=False)
+        By default, one ``lam`` per batch is drawn. If True, one per sample.
+    random_state : int | numpy.random.Generator, optional
+        Seed to be used to instantiate numpy random number generator instance.
+        Defaults to None.
+
+    References
+    ----------
+    .. [1] Sangdoo Yun, Dongyoon Han, Seong Joon Oh, Sanghyuk Chun,
+       Junsuk Choe, Youngjoon Yoo (2019). CutMix: Regularization Strategy
+       to Train Strong Classifiers with Localizable Features. In 2019
+       IEEE/CVF International Conference on Computer Vision (ICCV)
+       Online: https://arxiv.org/abs/1905.04899
+    .. [2] https://github.com/clovaai/CutMix-PyTorch/blob/master/train.py
+    """
+
+    operation = staticmethod(cutmix)  # type: ignore[assignment]
+
+    def get_augmentation_params(self, *batch):
+        """Return idx_perm and the cut_t_start, cut_t_len of each region."""
+        params = super().get_augmentation_params(*batch)
+        lam = params.pop("lam")
+        n_times = batch[0].shape[-1]
+        half = ((1 - lam) * n_times).long() // 2
+        center = torch.as_tensor(self.rng.randint(n_times, size=len(lam)))
+        center = center.to(lam.device)
+        start = (center - half).clamp(min=0)
+        end = (center + half).clamp(max=n_times)
+        return dict(params, cut_t_start=start, cut_t_len=end - start)
+
+
+class LabelSmoothing(Transform):
+    """Label smoothing from Szegedy et al. (2016) [1]_.
+
+    Replaces each target with its convex combination with the uniform
+    distribution over the classes, penalizing over-confident predictions.
+    The signals are returned unchanged; only the targets change.
+
+    The smoothed targets are floating-point distributions of shape
+    ``batch_size, num_classes`` (each row sums to one), so the training
+    loss must accept target distributions, e.g. soft cross-entropy
+    ``-(y * torch.log_softmax(logits, dim=-1)).sum(-1).mean()`` or
+    ``torch.nn.KLDivLoss``. The transform composes before target-mixing
+    transforms such as :class:`braindecode.augmentation.Mixup`, whose
+    fractional-target path then mixes the smoothed distributions. The
+    fixed-expansion mode (``n_augmentation > 0``) of
+    :class:`braindecode.augmentation.AugmentedDataLoader` is not supported:
+    it cannot concatenate the unsmoothed original targets with the reshaped
+    smoothed copies and rejects the combination with a :class:`ValueError`
+    pointing to ``n_augmentation = 0``.
+
+    Parameters
+    ----------
+    epsilon : float
+        Smoothing parameter between 0 and 1: the weight of the uniform
+        distribution mixed into the targets. ``0`` disables smoothing.
+    num_classes : int | None, optional
+        Number of classes. Required when the targets are class indices;
+        when the targets are already distributions of shape
+        ``batch_size, num_classes``, it must match their last dimension.
+        Defaults to None.
+    random_state : int | numpy.random.Generator, optional
+        Seed to be used to instantiate numpy random number generator
+        instance. The transform is deterministic, so the seed only feeds
+        the application-probability machinery, which is inactive here.
+        Defaults to None.
+
+    References
+    ----------
+    .. [1] Christian Szegedy, Vincent Vanhoucke, Jonathon Shlens and
+       Zbigniew Wojna (2016). Rethinking the Inception Architecture for
+       Computer Vision. In 2016 IEEE Conference on Computer Vision and
+       Pattern Recognition (CVPR), pp. 2818-2826.
+       Online: https://arxiv.org/abs/1512.00567
+    """
+
+    operation = staticmethod(label_smoothing)  # type: ignore[assignment]
+
+    def __init__(self, epsilon, num_classes=None, random_state=None):
+        super().__init__(
+            probability=1.0,  # LabelSmoothing has to be applied to whole batches
+            random_state=random_state,
+        )
+        if not isinstance(epsilon, Real) or not 0.0 <= float(epsilon) <= 1.0:
+            raise ValueError(
+                f"epsilon should be a real number between 0 and 1. Got {epsilon!r}."
+            )
+        if num_classes is not None and (
+            not isinstance(num_classes, int)
+            or isinstance(num_classes, bool)
+            or num_classes < 2
+        ):
+            raise ValueError(
+                f"num_classes should be an integer of at least 2. Got {num_classes!r}."
+            )
+        self.epsilon = epsilon
+        self.num_classes = num_classes
+
+    def get_augmentation_params(self, *batch):
+        """Return transform parameters.
+
+        Parameters
+        ----------
+        X : tensor.Tensor
+            The data.
+        y : tensor.Tensor
+            The labels.
+
+        Returns
+        -------
+        params : dict
+            Contains
+
+            * epsilon : float
+                Smoothing parameter between 0 and 1.
+            * num_classes : int | None
+                The number of classes.
+        """
+        return {
+            "epsilon": self.epsilon,
+            "num_classes": self.num_classes,
+        }
+
+
 class SegmentationReconstruction(Transform):
     """Segmentation Reconstruction from Lotte (2015) [Lotte2015]_.
 
@@ -1281,7 +1437,7 @@ class MaskEncoding(Transform):
         )
 
         time_start = self.rng.randint(
-            0, n_times - segment_length, (batch_size, self.n_segments)
+            0, n_times - segment_length + 1, (batch_size, self.n_segments)
         )
         time_start = torch.from_numpy(time_start)
 
@@ -1455,3 +1611,188 @@ class BandRotation(Transform):
             "circular_jitter": self.circular_jitter,
             "random_state": self.rng,
         }
+
+
+class TrivialAugment(Transform):
+    """Apply one randomly sampled label-preserving augmentation per example.
+
+    For every example, independently samples one transform from the pool
+    below and one of ``num_bins`` strengths evenly spaced between that
+    transform's bounds, as in TrivialAugment [1]_. Examples that draw the
+    same transform and strength are transformed in one call; each pooled
+    transform still draws its own randomness per example.
+
+    Default pool (no assumption on the signal's unit, sampling frequency or
+    montage):
+
+    * :class:`TimeReverse` — no strength parameter.
+    * :class:`SignFlip` — no strength parameter.
+    * :class:`FTSurrogate` — phase noise magnitude, 0.2 to 1.
+    * :class:`ChannelsDropout` — channel drop probability, 0.05 to 0.4.
+    * :class:`ChannelsShuffle` — shuffle probability, 0.1 to 0.75.
+    * :class:`SmoothTimeMask` — mask length as a fraction of the window
+      length, 0.05 to 0.25.
+    * :class:`GaussianNoise` — noise standard deviation as a fraction of the
+      sub-batch standard deviation (volts or microvolts alike), 0.02 to 0.3.
+    * :class:`AmplitudeScale` — scale interval ``(1/s, s)``, ``s`` from 1.25
+      to 2.5.
+
+    ``sfreq`` adds :class:`BandstopFilter` (bandwidth 0.5 to 4 Hz, capped
+    2.5 Hz below Nyquist) and :class:`FrequencyShift` (maximum shift 0.5 to
+    2 Hz); ``sensors_positions_matrix`` adds :class:`SensorsRotation` around
+    the z axis (5 to 25 degrees).
+
+    Parameters
+    ----------
+    probability : float, optional
+        Probability of augmenting each example. Defaults to 1.0.
+    sfreq : float | None, optional
+        Sampling frequency of the signals, in Hz. Defaults to None.
+    sensors_positions_matrix : array-like | None, optional
+        Sensor positions of shape ``(3, n_channels)`` (see
+        :class:`SensorsRotation`). Defaults to None.
+    num_bins : int, optional
+        Number of strength levels per transform. Defaults to 10.
+    random_state : int | numpy.random.RandomState, optional
+        Seed shared by the per-example sampler and every pooled transform.
+        Defaults to None.
+
+    Attributes
+    ----------
+    op_names : list of str
+        Names of the transforms in the pool, in sampling order.
+
+    References
+    ----------
+    .. [1] Müller, S. G., & Hutter, F. (2021). TrivialAugment:
+       Tuning-free Yet State-of-the-Art Data Augmentation. Proceedings of
+       the IEEE/CVF International Conference on Computer Vision (ICCV),
+       pp. 774-782.
+    """
+
+    def __init__(
+        self,
+        probability=1.0,
+        sfreq=None,
+        sensors_positions_matrix=None,
+        num_bins=10,
+        random_state=None,
+    ):
+        super().__init__(probability=probability, random_state=random_state)
+        if not isinstance(num_bins, (int, np.integer)) or num_bins < 1:
+            raise ValueError(f"num_bins must be a positive integer, got {num_bins}")
+        self.num_bins = int(num_bins)
+        rng = self.rng
+        # (name, strength bounds or None, make(strength) or None: built per call)
+        specs = [
+            ("TimeReverse", None, lambda s: TimeReverse(1.0, random_state=rng)),
+            ("SignFlip", None, lambda s: SignFlip(1.0, random_state=rng)),
+            (
+                "FTSurrogate",
+                (0.2, 1.0),
+                lambda s: FTSurrogate(1.0, phase_noise_magnitude=s, random_state=rng),
+            ),
+            (
+                "ChannelsDropout",
+                (0.05, 0.4),
+                lambda s: ChannelsDropout(1.0, p_drop=s, random_state=rng),
+            ),
+            (
+                "ChannelsShuffle",
+                (0.1, 0.75),
+                lambda s: ChannelsShuffle(1.0, p_shuffle=s, random_state=rng),
+            ),
+            ("SmoothTimeMask", (0.05, 0.25), None),
+            ("GaussianNoise", (0.02, 0.3), None),
+            (
+                "AmplitudeScale",
+                (1.25, 2.5),
+                lambda s: AmplitudeScale(1.0, interval=(1.0 / s, s), random_state=rng),
+            ),
+        ]
+        if sfreq is not None:
+            nyquist = sfreq / 2.0
+            # BandstopFilter needs bandwidth < nyquist - 2; keep a margin
+            max_bandwidth = min(4.0, nyquist - 2.5)
+            if max_bandwidth <= 0.5:
+                raise ValueError(
+                    f"sfreq={sfreq} is too small to sample valid band-stop "
+                    "bandwidths (needs at least 6.0 Hz)."
+                )
+            specs += [
+                (
+                    "BandstopFilter",
+                    (0.5, max_bandwidth),
+                    lambda s: BandstopFilter(
+                        1.0,
+                        sfreq=sfreq,
+                        bandwidth=s,
+                        max_freq=nyquist,
+                        random_state=rng,
+                    ),
+                ),
+                (
+                    "FrequencyShift",
+                    (0.5, 2.0),
+                    lambda s: FrequencyShift(
+                        1.0, sfreq=sfreq, max_delta_freq=s, random_state=rng
+                    ),
+                ),
+            ]
+        if sensors_positions_matrix is not None:
+            specs.append(
+                (
+                    "SensorsRotation",
+                    (5.0, 25.0),
+                    lambda s: SensorsRotation(
+                        1.0,
+                        sensors_positions_matrix=sensors_positions_matrix,
+                        max_degrees=s,
+                        random_state=rng,
+                    ),
+                )
+            )
+
+        self._pool = []
+        for name, bounds, make in specs:
+            if bounds is None:
+                strengths = [None]
+            else:
+                strengths = np.linspace(*bounds, self.num_bins).tolist()
+            variants = None if make is None else [make(s) for s in strengths]
+            self._pool.append((name, strengths, variants))
+        # pre-built transforms as submodules (pickle, ``.to()``)
+        self._static_transforms = torch.nn.ModuleList(
+            v for _, _, variants in self._pool if variants for v in variants
+        )
+        self.op_names = [name for name, _, _ in self._pool]
+
+    def operation(self, X, y):
+        """Apply one sampled transform and strength to each example of X."""
+        n_strengths = np.array([len(strengths) for _, strengths, _ in self._pool])
+        op_ids = self.rng.randint(0, len(self._pool), size=X.shape[0])
+        bin_ids = self.rng.randint(0, self.num_bins, size=X.shape[0])
+        # magnitude-free transforms collapse all examples onto bin 0
+        bin_ids[n_strengths[op_ids] == 1] = 0
+        keys = op_ids * self.num_bins + bin_ids
+
+        out_X, out_y = X.clone(), y.clone()
+        for key in np.unique(keys):
+            group = torch.from_numpy(np.flatnonzero(keys == key)).to(X.device)
+            op_i, bin_j = divmod(int(key), self.num_bins)
+            name, strengths, variants = self._pool[op_i]
+            X_sub = X[group]
+            if variants is not None:
+                transform = variants[bin_j]
+            elif name == "SmoothTimeMask":
+                n_mask = max(1, int(round(strengths[bin_j] * X.shape[-1])))
+                transform = SmoothTimeMask(
+                    1.0, mask_len_samples=n_mask, random_state=self.rng
+                )
+            else:  # GaussianNoise, std relative to the sub-batch (unit-free)
+                std = strengths[bin_j] * X_sub.std().item()
+                transform = GaussianNoise(1.0, std=std, random_state=self.rng)
+            tr_X, tr_y = transform(X_sub, y[group])
+            out_X[group] = tr_X.to(out_X.dtype)
+            out_y[group] = tr_y
+        return out_X, out_y

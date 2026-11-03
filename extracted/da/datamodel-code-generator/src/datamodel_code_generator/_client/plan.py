@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections import Counter
 from dataclasses import dataclass, replace
 from functools import cached_property
@@ -12,50 +11,91 @@ from urllib.parse import urljoin, urlsplit
 
 from typing_extensions import TypeIs
 
-from datamodel_code_generator._api_types import Diagnostic, OperationRef
+from datamodel_code_generator._all_or_none import all_or_none
 from datamodel_code_generator._client.config import absolute
 from datamodel_code_generator._client.model_facts import ALIASES
 from datamodel_code_generator._client.naming import HELPER_ARGUMENTS, RESERVED_ARGUMENTS, RESERVED_MEMBERS
 from datamodel_code_generator._client.security import CredentialSpec, SecurityPlanner
-from datamodel_code_generator._openapi_codec_plan import takes_null
 from datamodel_code_generator._openapi_wire_plan import (
     body_kind,
     content_types,
-    declared_media,
     form_extras,
     form_styled,
     parameter_plans,
     property_members,
 )
 from datamodel_code_generator._runtime.client.media import most_specific
+from datamodel_code_generator._runtime.client.options import HTTP_SCHEMES
 from datamodel_code_generator._runtime.client.parts import PartPlan
-from datamodel_code_generator._runtime.model_codecs.media import media_kind, normalize_media_type
+from datamodel_code_generator._runtime.model_codecs.media import (
+    ERROR_STATUSES,
+    SUCCESS_STATUSES,
+    declaring,
+    essence,
+    media_kind,
+    media_range,
+    normalize_media_type,
+    normalized,
+    range_key,
+    status_key,
+)
+from datamodel_code_generator._runtime.model_codecs.parameters import parameter_key
 from datamodel_code_generator._target_contract import (
     BuiltinType,
     ConstructorType,
     LiteralScalar,
     LiteralSequence,
-    NoneType,
     PartFacts,
     PartSchema,
     SchemaSite,
     SourceLocation,
     TypeUseBinding,
-    UnionType,
+    children_of,
+    encoding_headers,
+    fact,
+    is_required,
+    label,
+    operation_literal,
+    parameter_place,
+    request_media,
+    schema_uses,
+    type_uses,
+    uses_by_id,
 )
 from datamodel_code_generator._target_naming import (
-    WINDOWS_DEVICES,
+    PATH_PLACEHOLDER,
     NameScope,
-    explicit_name,
-    operation_basis,
+    fold_key,
     path_placeholders,
+    windows_device,
 )
-from datamodel_code_generator._target_unicode import casefold
+from datamodel_code_generator._target_operations import (
+    CLIENT,
+    alias,
+    argument_names,
+    coded_use,
+    declared_by,
+    declared_media_type,
+    derived_name,
+    exact_status,
+    first_use,
+    group_tag,
+    json_null,
+    local,
+    placeholder_problems,
+    raise_planned,
+    resolve_settings,
+    response_bodyless,
+    type_names,
+)
+from datamodel_code_generator._target_types import present
+from datamodel_code_generator.reference import _rw_variant_flag
 
 if TYPE_CHECKING:
-    from collections.abc import Container, Iterable, Iterator, Mapping
+    from collections.abc import Container, Iterator, Mapping
 
     from datamodel_code_generator._api_generation import TargetRequest
+    from datamodel_code_generator._api_types import Diagnostic
     from datamodel_code_generator._client.config import (
         BodyArguments,
         BodyFieldName,
@@ -65,6 +105,7 @@ if TYPE_CHECKING:
     )
     from datamodel_code_generator._client.model_facts import ModelFacts
     from datamodel_code_generator._openapi_wire_plan import WirePlan
+    from datamodel_code_generator._runtime.client.retry import RetrySafety
     from datamodel_code_generator._runtime.client.security import SecurityBinding, SecuritySchemeEntry
     from datamodel_code_generator._runtime.model_codecs.media import FieldPlan, MediaKind
     from datamodel_code_generator._runtime.model_codecs.parameters import ParameterLocation, ParameterPlan
@@ -80,26 +121,12 @@ if TYPE_CHECKING:
         WireDeclaration,
     )
 
+_problem: Final = CLIENT.problem
 Role: TypeAlias = Literal["success", "error"]
 
-BODYLESS_STATUSES: Final = frozenset({204, 205, 304})
-_LOCATIONS: Final[dict[object, ParameterLocation]] = {
-    "path": "path",
-    "query": "query",
-    "querystring": "querystring",
-    "header": "header",
-    "cookie": "cookie",
-}
-_PLACEHOLDER: Final = re.compile(r"\{([^{}]*)\}")
-_SCHEMES: Final = frozenset({"http", "https"})
 _FORM_DATA: Final = "multipart/form-data"
 _NULL: Final = frozenset({"null"})
 _UNDECLARED: Final = PartFacts(object=True, members=(), extra=None)
-_MIN_SUCCESS: Final = 200
-_MAX_SUCCESS: Final = 299
-_MIN_ERROR: Final = 400
-_MAX_ERROR: Final = 599
-_CONFIG_CODES: Final = frozenset({"E_CONFIG_VALUE", "E_CONFIG_CONFLICT", "E_OPERATION_REF"})
 _DEFAULTS: Final = {"bool": ("bool",), "int": ("int",), "float": ("int", "float"), "str": ("str",)}
 
 
@@ -192,6 +219,12 @@ class ResponseSpec:
     error: bool
     bodyless: bool
 
+    @property
+    def json_use(self) -> TypeUseBinding | None:
+        """Return the use of the response's one media when it is JSON, or None."""
+        media = self.media
+        return media[0].use if len(media) == 1 and media[0].kind == "json" else None
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ServerSpec:
@@ -255,7 +288,7 @@ class OperationSpec:
     body_field_names: tuple[BodyFieldName, ...] = ()
     fields: tuple[FieldBranch, ...] = ()
     body_only: tuple[tuple[str, str], ...] = ()
-    retry_safety: Literal["method_default", "idempotent", "never"] = "method_default"
+    retry_safety: RetrySafety = "method_default"
     idempotency: IdempotencyMetadata | None = None
     retry_after_ms_header: str | None = None
     should_retry_header: str | None = None
@@ -287,7 +320,7 @@ class ResourceSpec:
     @property
     def parts(self) -> tuple[str, ...]:
         """Return the namespace's dotted parts."""
-        return tuple(self.namespace.split("."))
+        return _namespace_parts(self.namespace)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -303,43 +336,6 @@ class ClientPlan:
     def roots(self) -> tuple[ResourceSpec, ...]:
         """Return the top-level resources, which the clients expose as attributes."""
         return tuple(resource for resource in self.resources if "." not in resource.namespace)
-
-
-class PlanError(Exception):
-    """Report every failure of one planning phase."""
-
-    def __init__(self, diagnostics: list[Diagnostic]) -> None:
-        """Keep the ordered diagnostics."""
-        super().__init__(diagnostics[0].message)
-        self.diagnostics = tuple(diagnostics)
-
-
-def fact(declaration: WireDeclaration, name: str) -> object:
-    """Return one scalar wire fact of a declaration."""
-    return next(
-        (value.value for key, value in declaration.facts if key == name and isinstance(value, LiteralScalar)), None
-    )
-
-
-def _problem(
-    code: str, message: str, source: SourceLocation | None = None, option_path: str | None = None
-) -> Diagnostic:
-    return Diagnostic(
-        code=code,
-        severity="error",
-        stage="config" if code in _CONFIG_CODES else "target",
-        message=message,
-        source_pointer=None if source is None else source.pointer,
-        option_path=option_path,
-    )
-
-
-def _label(operation: OperationContract) -> str:
-    return f"{operation.method.upper()} {operation.path}"
-
-
-def _uses(declaration: WireDeclaration) -> tuple[TypeUseId, ...]:
-    return (*declaration.schemas, *(use for child in declaration.children for use in child.schemas))
 
 
 def _plain(value: FrozenLiteral) -> object:
@@ -365,11 +361,6 @@ def _strings(value: object) -> TypeIs[tuple[str, ...]]:
     return _is_tuple(value) and all(isinstance(item, str) for item in value)
 
 
-def _tags(operation: OperationContract) -> tuple[str, ...]:
-    tags = next((_plain(value) for key, value in operation.facts if key == "tags"), ())
-    return tuple(tag for tag in tags if isinstance(tag, str)) if _is_tuple(tags) else ()
-
-
 class Planner:
     """Plan every selected operation of one client target from the accepted batch and its wire plan."""
 
@@ -392,7 +383,7 @@ class Planner:
         self.config = config
         self.wire = wire
         self.facts = facts
-        self.uses = {use.id: use for use in request.batch.type_uses}
+        self.uses = uses_by_id(request.batch)
         self.parameter_plans = parameter_plans(wire)
         self.header_plans = dict(wire.headers)
         self.forms = {use: (fields, additional, encoded) for use, fields, additional, encoded in wire.forms}
@@ -402,7 +393,7 @@ class Planner:
         self.problems: list[Diagnostic] = []
         self.security = SecurityPlanner(request.batch, self.problems)
         self.settings = self.resolved()
-        tags = {found[0] for operation in request.operations if (found := _tags(operation))}
+        tags = {group_tag(operation) for operation in request.operations}
         self.problems.extend(
             _problem(
                 "E_CONFIG_VALUE",
@@ -422,26 +413,15 @@ class Planner:
 
     def raise_problems(self) -> None:
         """Stop the phase when it reported any failure."""
-        if self.problems:
-            raise PlanError(self.problems)
+        raise_planned(self.problems)
 
     def resolved(self) -> dict[str, ClientOperationConfig]:
         """Resolve each operation setting's reference to its operation key."""
-        resolved: dict[str, ClientOperationConfig] = {}
-        for index, item in enumerate(self.config.operations):
-            reference = OperationRef(pointer=item.ref) if isinstance(item.ref, str) else item.ref
-            option = f"operations[{index}].ref"
-            if (operation := self.request.resolve(reference)) is None:
-                from datamodel_code_generator._target_documents import named_document  # noqa: PLC0415
-
-                named = named_document(reference.document, reference.document)
-                message = f"The operation setting {reference.pointer!r}{named} {self.request.unresolved}"
-                self.problems.append(_problem("E_OPERATION_REF", message, option_path=option))
-            elif (key := operation.id.use_site.pointer) in resolved:
-                self.problems.append(_problem("E_CONFIG_CONFLICT", f"Two settings name {key!r}", option_path=option))
-            else:
-                resolved[key] = item
-        return resolved
+        entries = (
+            ("operation setting", f"operations[{index}].ref", item.ref, item)
+            for index, item in enumerate(self.config.operations)
+        )
+        return resolve_settings(CLIENT, self.request, entries, self.problems)
 
     def plan(self) -> ClientPlan:
         """Plan each selected operation, then its resource namespaces and the names they must keep apart."""
@@ -459,7 +439,7 @@ class Planner:
         setting = self.settings.get(operation.id.use_site.pointer)
         name = self.method(operation, setting)
         resource = self.resource(operation, setting)
-        scopes = (*resource.split("."), name)
+        scopes = (*_namespace_parts(resource), name)
         parameters = self.parameters(operation, setting, scopes)
         body = None if operation.request_body is None else self.body(operation, operation.request_body, setting)
         runtime = None if setting is None else setting.runtime
@@ -471,21 +451,13 @@ class Planner:
             self.response(operation, declaration, success_statuses) for declaration in operation.responses
         )
         self.check_statuses(operation, responses, success_statuses)
-        operation_id = next(
-            (
-                value.value
-                for key, value in operation.facts
-                if key == "operationId" and isinstance(value, LiteralScalar)
-            ),
-            None,
-        )
         return OperationSpec(
             contract=operation,
             index=index,
             resource=resource,
             name=name,
             pascal="",
-            operation_id=operation_id if isinstance(operation_id, str) and operation_id else None,
+            operation_id=operation.operation_id,
             parameters=parameters,
             body=body,
             responses=responses,
@@ -516,18 +488,17 @@ class Planner:
         """Reject ownership shared by the key contract and an effective request header or security scheme."""
         metadata = setting.runtime.idempotency
         assert metadata is not None
-        owners = {item.wire_name.lower() for item in parameters if item.location == "header"}
+        owners = {parameter_key(item.location, item.wire_name) for item in parameters}
         if security is not None:
             owners.update(
-                requirement.scheme.wire_name.lower()
+                parameter_key(requirement.scheme.location, requirement.scheme.wire_name)
                 for alternative in security.alternatives
                 for requirement in alternative
-                if requirement.scheme.location == "header"
             )
-        if metadata.header_name.lower() in owners:
+        if parameter_key("header", metadata.header_name) in owners:
             index = self.config.operations.index(setting)
             message = (
-                f"The idempotency header {metadata.header_name!r} of {_label(operation)} already has a request owner"
+                f"The idempotency header {metadata.header_name!r} of {label(operation)} already has a request owner"
             )
             self.problems.append(
                 _problem(
@@ -546,9 +517,9 @@ class Planner:
         """
         if setting is not None and setting.resource is not None:
             return setting.resource
-        if (tags := _tags(operation)) and (mapped := self.resource_names.get(tags[0])) is not None:
+        if (tag := group_tag(operation)) is not None and (mapped := self.resource_names.get(tag)) is not None:
             return mapped
-        return self.namespaces[tags[0] if tags else None]
+        return self.namespaces[tag]
 
     def tag_namespaces(self) -> dict[str | None, str]:
         """Name the resource of each first tag that no setting names, apart from the clients' members and each other.
@@ -561,7 +532,7 @@ class Planner:
         first: dict[str | None, OperationContract] = {}
         staying: dict[str | None, OperationContract] = {}
         for operation in self.request.operations:
-            if (tag := tags[0] if (tags := _tags(operation)) else None) not in self.resource_names:
+            if (tag := group_tag(operation)) not in self.resource_names:
                 first.setdefault(tag, operation)
                 setting = self.settings.get(operation.id.use_site.pointer)
                 if setting is None or setting.resource is None:
@@ -569,14 +540,11 @@ class Planner:
         bases = [self.names.function("default" if tag is None else tag) for tag in first]
         names = self.names.claim(
             NameScope(RESERVED_MEMBERS, folded=True, target_python_version=self.names.python_version),
-            [(base, _local(operation), ()) for operation, base in zip(first.values(), bases, strict=True)],
+            [(base, local(operation), ()) for operation, base in zip(first.values(), bases, strict=True)],
         )
         for tag, namespace in zip(first, names, strict=True):
-            if (
-                casefold(namespace, self.names.python_version) in WINDOWS_DEVICES
-                and (operation := staying.get(tag)) is not None
-            ):
-                message = f"The tag {tag!r} of {_label(operation)} needs an explicit resource name"
+            if windows_device(namespace, self.names.python_version) and (operation := staying.get(tag)) is not None:
+                message = f"The tag {tag!r} of {label(operation)} needs an explicit resource name"
                 self.problems.append(_problem("E_RESERVED_NAME", message, operation.id.use_site))
         return dict(zip(first, names, strict=True))
 
@@ -586,11 +554,9 @@ class Planner:
         The resource names derived names apart; an explicit name must not be a member the resource defines.
         """
         if setting is None or (name := setting.name) is None:
-            return self.names.function(
-                operation_basis(operation.method, operation.path, operation.operation_id, self.names.python_version)
-            )
+            return derived_name(self.names, operation)
         if name in RESERVED_MEMBERS:
-            message = f"The method name {name!r} of {_label(operation)} is reserved"
+            message = f"The method name {name!r} of {label(operation)} is reserved"
             self.problems.append(_problem("E_RESERVED_NAME", message, operation.id.use_site))
         return name
 
@@ -607,7 +573,7 @@ class Planner:
         members: dict[str, list[OperationSpec]] = {}
         for spec in specs:
             members.setdefault(spec.resource, []).append(spec)
-        namespaces = {".".join(parts[:size]) for parts in map(_parts_of, members) for size in range(1, len(parts) + 1)}
+        namespaces = {namespace for resource in members for namespace in _opened(resource)}
         named = list(specs)
         for namespace, operations in members.items():
             scope = NameScope(child.rpartition(".")[2] for child in namespaces if child.rpartition(".")[0] == namespace)
@@ -618,24 +584,19 @@ class Planner:
                     self.problems.append(_problem("E_NAME_COLLISION", message))
             for name in RESERVED_MEMBERS:
                 scope.take(name)
-            parts = tuple(namespace.split("."))
+            parts = _namespace_parts(namespace)
             derived = [spec for spec in operations if spec.index not in explicit]
             claimed = dict(
                 zip(
                     (spec.index for spec in derived),
-                    self.names.claim(scope, [(spec.name, _local(spec.contract), parts) for spec in derived]),
+                    self.names.claim(scope, [(spec.name, local(spec.contract), parts) for spec in derived]),
                     strict=True,
                 )
             )
             methods = [claimed.get(spec.index, spec.name) for spec in operations]
-            prefix = ("".join(map(self.names.pascal, parts)),)
-            pascals = self.names.claim(
-                NameScope(),
-                [
-                    (self.names.pascal(name), _local(spec.contract), prefix)
-                    for spec, name in zip(operations, methods, strict=True)
-                ],
-                camel=True,
+            prefix = (self._resource_pascal(namespace),)
+            pascals = type_names(
+                self.names, ((name, spec.contract, prefix) for spec, name in zip(operations, methods, strict=True))
             )
             for spec, name, pascal in zip(operations, methods, pascals, strict=True):
                 named[spec.index] = replace(spec, name=name, pascal=pascal)
@@ -656,41 +617,36 @@ class Planner:
         declared: list[tuple[WireDeclaration, ParameterLocation, str, ParameterPlan, str | None]] = []
         scope = NameScope()
         for declaration in operation.parameters:
-            location = _LOCATIONS[fact(declaration, "in")]
-            wire_name = declaration.name or ""
+            location, wire_name = parameter_place(declaration)
             if (plan := plans.get((location, wire_name))) is None:
                 continue
-            given = explicit.pop((location, wire_name), None) or self._alias(
-                operation, declaration, location, wire_name
+            given = explicit.pop((location, wire_name), None) or alias(
+                CLIENT, self.names, operation, location, wire_name, source=declaration.use_site, problems=self.problems
             )
             declared.append((declaration, location, wire_name, plan, given))
             if given is None:
                 continue
             if given in RESERVED_ARGUMENTS:
-                message = (
-                    f"The {location} parameter {wire_name!r} of {_label(operation)} cannot take the name {given!r}"
-                )
+                message = f"The {location} parameter {wire_name!r} of {label(operation)} cannot take the name {given!r}"
                 self.problems.append(_problem("E_RESERVED_NAME", message, declaration.use_site))
             elif not scope.take(given):
-                message = f"The arguments of {_label(operation)} take {given!r} twice"
+                message = f"The arguments of {label(operation)} take {given!r} twice"
                 self.problems.append(_problem("E_NAME_COLLISION", message, operation.id.use_site))
         for name in (*RESERVED_ARGUMENTS, *(HELPER_ARGUMENTS if operation.id in self.helpers else ())):
             scope.take(name)
-        bases = {index: self.names.argument(item[2]) for index, item in enumerate(declared) if item[4] is None}
-        claimed = dict(
-            zip(
-                bases,
-                self.names.claim(
-                    scope, [(base, _declared_by(declared[index][0], operation), path) for index, base in bases.items()]
-                ),
-                strict=True,
-            )
+        python_names = argument_names(
+            self.names,
+            scope,
+            [
+                (wire_name, given, declared_by(declaration, operation))
+                for declaration, _, wire_name, _, given in declared
+            ],
+            path,
         )
         specs: list[ParameterSpec] = []
-        for index, (declaration, location, wire_name, plan, given) in enumerate(declared):
-            python_name = given or claimed[index]
-            required = fact(declaration, "required") is True
-            use = self.use(_uses(declaration))
+        for (declaration, location, wire_name, plan, _), python_name in zip(declared, python_names, strict=True):
+            required = is_required(declaration)
+            use = self.use(type_uses(declaration))
             argument = None if use is None or use.type is None else self.facts.argument(use.type)
             specs.append(
                 ParameterSpec(
@@ -710,73 +666,31 @@ class Planner:
         self.problems.extend(
             _problem(
                 "E_CONFIG_VALUE",
-                f"The parameter name of the {location} parameter {name!r} of {_label(operation)} names no parameter",
+                f"The parameter name of the {location} parameter {name!r} of {label(operation)} names no parameter",
                 option_path="operations",
             )
             for location, name in explicit
         )
         paths = {spec.wire_name for spec in specs if spec.location == "path"}
-        template = path_placeholders(operation.path)
-        self.problems.extend(
-            _problem(
-                "E_METADATA_REQUIRED",
-                f"The path placeholder {placeholder!r} of {_label(operation)} has no path parameter",
-                operation.id.use_site,
-            )
-            for placeholder in dict.fromkeys(template)
-            if placeholder not in paths
-        )
-        self.problems.extend(
-            _problem(
-                "E_METADATA_REQUIRED",
-                f"The path parameter {declaration.name!r} of {_label(operation)} names no path placeholder",
-                declaration.use_site,
-            )
-            for declaration in operation.parameters
-            if fact(declaration, "in") == "path" and declaration.name not in template
-        )
+        self.problems.extend(placeholder_problems(CLIENT, operation, path_placeholders(operation.path), paths))
         return tuple(specs)
-
-    def _alias(
-        self, operation: OperationContract, declaration: WireDeclaration, location: str, wire_name: str
-    ) -> str | None:
-        """Return the `--aliases` entry naming a parameter's argument, which must be an identifier."""
-        if (alias := self.names.alias(wire_name)) is not None and not explicit_name(alias, self.names.python_version):
-            message = (
-                f"The --aliases entry {alias!r} of the {location} parameter {wire_name!r} of {_label(operation)} "
-                "is not an identifier"
-            )
-            self.problems.append(_problem("E_CONFIG_VALUE", message, declaration.use_site))
-        return alias
 
     def use(self, uses: tuple[TypeUseId, ...]) -> TypeUseBinding | None:
         """Return the first type use of a declaration."""
-        return next((self.uses[use] for use in uses if use in self.uses), None)
-
-    def _declared(self, operation: OperationContract, declaration: WireDeclaration) -> str:
-        """Return a media declaration's normalized type, reporting a key that no Content-Type header carries."""
-        media_type, problem = declared_media(declaration.name or "")
-        if problem is not None:
-            message = f"The media type {declaration.name!r} of {_label(operation)} {problem}"
-            self.problems.append(_problem("E_METADATA_REQUIRED", message, declaration.use_site))
-        return media_type
-
-    def _takes_null(self, use: TypeUseBinding | None) -> bool:
-        """Return whether a JSON body's type admits null, as the server decides it: no schema, or a type that does."""
-        return use is None or takes_null(use.type, self.facts.symbols, self.facts.members)
+        return first_use(self.uses, uses)
 
     def media(self, operation: OperationContract, declaration: WireDeclaration, *, request: bool) -> MediaSpec:
         """Return one media declaration with its normalized type, kind, type use, and form member plans."""
-        media_type = self._declared(operation, declaration)
+        media_type = declared_media_type(CLIENT, operation, declaration, self.problems)
         use = self.use(declaration.schemas)
         kind = body_kind(media_type, use)
-        essence = media_type.partition(";")[0]
-        if (reason := _unsupported(kind, essence, use, request=request)) is not None:
-            message = f"The {media_type} media of {_label(operation)} {reason}"
+        bare = essence(media_type)
+        if (reason := _unsupported(kind, bare, use, request=request)) is not None:
+            message = f"The {media_type} media of {label(operation)} {reason}"
             self.problems.append(_problem("E_CLIENT_UNSUPPORTED", message, declaration.use_site))
         if kind == "multipart" and not request and (encoding := _encoded(declaration)) is not None:
             message = (
-                f"The {encoding.name} encoding of the {media_type} media of {_label(operation)} is not supported yet"
+                f"The {encoding.name} encoding of the {media_type} media of {label(operation)} is not supported yet"
             )
             self.problems.append(_problem("E_CLIENT_UNSUPPORTED", message, encoding.use_site))
         fields, additional, encoded = (
@@ -790,7 +704,7 @@ class Planner:
         extra: PartSpec | None = None
         parts: tuple[PartPlan, ...] = ()
         additional_part: PartPlan | None = None
-        if reason is None and essence == _FORM_DATA and use is not None and use.schema is not None:
+        if reason is None and bare == _FORM_DATA and use is not None and use.schema is not None:
             if request:
                 members, extra, parts, additional_part = self._sent(use, media_of=media_of, styles_of=styles_of)
             else:
@@ -800,7 +714,7 @@ class Planner:
                 self.problems.extend(
                     _problem(
                         "E_CLIENT_UNSUPPORTED",
-                        f"The {encoding.name} encoding of the {media_type} media of {_label(operation)} requires a "
+                        f"The {encoding.name} encoding of the {media_type} media of {label(operation)} requires a "
                         "header only a body sent as parts carries",
                         encoding.use_site,
                     )
@@ -816,7 +730,7 @@ class Planner:
             media_type=media_type,
             kind=kind,
             use=use,
-            null=request and kind == "json" and self._takes_null(use),
+            null=request and json_null(kind, use, self.facts.symbols, self.facts.members),
             fields=fields,
             additional=additional,
             encoded=encoded,
@@ -842,23 +756,25 @@ class Planner:
         members = {} if use is None else {name: declared[name] for name, _, _ in _members(use)}
         media_of: dict[str, tuple[str, ...]] = {}
         headers_of: dict[str, tuple[HeaderSpec, ...]] = {}
-        for encoding in (child for child in declaration.children if child.kind == "encoding"):
+        for encoding in children_of(declaration, "encoding"):
             name = encoding.name or ""
-            label = f"The {name} encoding of the {media_type} media of {_label(operation)}"
-            if name in members and (headers := self._part_headers(encoding)):
+            subject = f"The {name} encoding of the {media_type} media of {label(operation)}"
+            if name in members and (headers := self._headers(encoding)):
                 headers_of[name] = headers
             styled = form_styled(encoding, self.wire.version, multipart=True)
             match content_types(encoding):
                 case _ if name not in members:
-                    self.problems.append(_problem("E_METADATA_REQUIRED", f"{label} names no member", encoding.use_site))
+                    self.problems.append(
+                        _problem("E_METADATA_REQUIRED", f"{subject} names no member", encoding.use_site)
+                    )
                 case _ if styled and members[name].file:
-                    message = f"{label} gives a style to a member holding files"
+                    message = f"{subject} gives a style to a member holding files"
                     self.problems.append(_problem("E_CLIENT_UNSUPPORTED", message, encoding.use_site))
                 case _ if styled:
                     pass
                 case None:
                     self.problems.append(
-                        _problem("E_METADATA_REQUIRED", f"{label} names no media type", encoding.use_site)
+                        _problem("E_METADATA_REQUIRED", f"{subject} names no media type", encoding.use_site)
                     )
                 case ():
                     pass
@@ -869,18 +785,16 @@ class Planner:
                 case types if members[name].file:
                     media_of[name] = types
                 case _:
-                    message = f"{label} has no builtin encoding for a member holding no files"
+                    message = f"{subject} has no builtin encoding for a member holding no files"
                     self.problems.append(_problem("E_CLIENT_UNSUPPORTED", message, encoding.use_site))
         return media_of, headers_of
 
-    def _part_headers(self, encoding: WireDeclaration) -> tuple[HeaderSpec, ...]:
-        """Return the headers with a schema an encoding declares, with the plans that read their values."""
+    def _headers(self, declaration: WireDeclaration) -> tuple[HeaderSpec, ...]:
+        """Return the headers with a schema a response or encoding declares, with the plans that read their values."""
         return tuple(
-            HeaderSpec(name=child.name or "", required=fact(child, "required") is True, use=use, plan=plan)
-            for child in encoding.children
-            if child.kind == "header"
-            and (use := self.use(_uses(child))) is not None
-            and (plan := self.header_plans.get(use.id)) is not None
+            HeaderSpec(name=child.name or "", required=is_required(child), use=use, plan=plan)
+            for child in children_of(declaration, "header")
+            if (use := self.use(type_uses(child))) is not None and (plan := self.header_plans.get(use.id)) is not None
         )
 
     def _sent(
@@ -979,8 +893,8 @@ class Planner:
                 member,
                 declared[name],
                 facts.type,
-                required=facts.required and not facts.write_only,
-                excluded=facts.write_only,
+                required=facts.required,
+                excluded=_rw_variant_flag("response", facts.read_only, facts.write_only),
             )
             for name, member, facts in members
         ), additional
@@ -996,7 +910,11 @@ class Planner:
         required: bool,
         excluded: bool = False,
     ) -> PartSpec:
-        """Return how a member's parts are read: a file's as bytes, any other in its kind by its or its items' use."""
+        """Return how a member's parts are read: a file's as bytes, any other in its kind by its or its items' use.
+
+        A member the response leaves out (``excluded``) is not required.
+        """
+        required = required and not excluded
         if part.file:
             return PartSpec(
                 plan=PartPlan(name, repeated=part.repeated), file=True, required=required, excluded=excluded
@@ -1050,21 +968,19 @@ class Planner:
         if setting is not None and setting.request_media_type is not None:
             default = normalize_media_type(setting.request_media_type)
             if default not in declared or media_range(default):
-                message = f"The request media type {default!r} of {_label(operation)} is not a declared concrete type"
+                message = f"The request media type {default!r} of {label(operation)} is not a declared concrete type"
                 self.problems.append(_problem("E_CONFIG_VALUE", message, operation.id.use_site, "operations"))
-        return BodySpec(required=fact(declaration, "required") is True, media=media, default=default)
+        return BodySpec(required=is_required(declaration), media=media, default=default)
 
     def media_list(
         self, operation: OperationContract, declaration: WireDeclaration, *, request: bool
     ) -> tuple[MediaSpec, ...]:
         """Return the declared media of a body or response, rejecting media types that normalize alike."""
-        media = tuple(
-            self.media(operation, child, request=request) for child in declaration.children if child.kind == "media"
-        )
+        media = tuple(self.media(operation, child, request=request) for child in children_of(declaration, "media"))
         self.problems.extend(
             _problem(
                 "E_NAME_COLLISION",
-                f"Several media types of {_label(operation)} normalize to {media_type!r}",
+                f"Several media types of {label(operation)} normalize to {media_type!r}",
                 declaration.use_site,
             )
             for media_type, count in Counter(item.media_type for item in media).items()
@@ -1077,30 +993,24 @@ class Planner:
     ) -> ResponseSpec:
         """Plan one declared response and classify it as a possible success or error."""
         status = (declaration.name or "default").upper() if declaration.name != "default" else "default"
-        headers = [
-            HeaderSpec(name=child.name or "", required=fact(child, "required") is True, use=use, plan=plan)
-            for child in declaration.children
-            if child.kind == "header"
-            and (use := self.use(_uses(child))) is not None
-            and (plan := self.header_plans.get(use.id)) is not None
-        ]
+        headers = self._headers(declaration)
         self.problems.extend(
             _problem(
                 "E_NAME_COLLISION",
-                f"Several headers of the {status} response of {_label(operation)} are named {name!r}",
+                f"Several headers of the {status} response of {label(operation)} are named {name!r}",
                 declaration.use_site,
             )
             for name, count in Counter(header.name.lower() for header in headers).items()
             if count > 1
         )
-        exact = int(status) if status.isdigit() else None
+        exact = exact_status(status)
         return ResponseSpec(
             status=status,
             media=self.media_list(operation, declaration, request=False),
-            headers=tuple(headers),
+            headers=headers,
             success=_success(status, success_statuses),
             error=_error(status),
-            bodyless=operation.method == "head" or exact in BODYLESS_STATUSES,
+            bodyless=response_bodyless(CLIENT, operation, exact),
         )
 
     def check_statuses(
@@ -1111,12 +1021,12 @@ class Planner:
         self.problems.extend(
             _problem(
                 "E_CONFIG_VALUE",
-                f"The success status {status} of {_label(operation)} selects no declared response",
+                f"The success status {status} of {label(operation)} selects no declared response",
                 operation.id.use_site,
                 "operations",
             )
             for status in success_statuses
-            if not keys & {str(status), f"{status // 100}XX", "default"}
+            if status_key(status, keys) is None
         )
 
     def response_media(
@@ -1130,15 +1040,15 @@ class Planner:
             return None
         media_type = normalize_media_type(setting.response_media_type)
         if media_type not in success_media(responses):
-            message = f"The response media type {media_type!r} of {_label(operation)} is not a declared success media"
+            message = f"The response media type {media_type!r} of {label(operation)} is not a declared success media"
             self.problems.append(_problem("E_CONFIG_VALUE", message, operation.id.use_site, "operations"))
         return media_type
 
     def servers(self, operation: OperationContract) -> tuple[ServerSpec, ...]:
         """Resolve the operation's effective servers to absolute URL templates."""
-        entries = _servers(next((value for key, value in operation.facts if key == "servers"), None))
+        entries = _servers(operation_literal(operation, "servers"))
         if entries is None:
-            message = f"The servers of {_label(operation)} are not server objects"
+            message = f"The servers of {label(operation)} are not server objects"
             self.problems.append(_problem("E_BASE_URL", message, operation.id.use_site))
             return ()
         if not entries:
@@ -1151,25 +1061,28 @@ class Planner:
             else self.request.batch.documents[0].id
         )
         source = self.documents[document]
-        base = self.config.server_base_url or (source if urlsplit(source).scheme in _SCHEMES else "")
+        base = self.config.server_base_url or (source if urlsplit(source).scheme in HTTP_SCHEMES else "")
         resolved: list[ServerSpec] = []
         for url, variables in entries:
             spec = ServerSpec(
                 url=url if absolute(_defaulted(url, variables)) else urljoin(base, url), variables=variables
             )
             if not absolute(_defaulted(spec.url, variables)) or not _declared(spec.url, variables):
-                message = f"A server of {_label(operation)} does not resolve to an absolute http or https URL"
+                message = f"A server of {label(operation)} does not resolve to an absolute http or https URL"
                 self.problems.append(_problem("E_BASE_URL", message, operation.id.use_site))
             resolved.append(spec)
         return tuple(resolved)
+
+    def _resource_pascal(self, namespace: str) -> str:
+        """Return the PascalCase name of a resource namespace: the class name of each of its parts, joined."""
+        return "".join(map(self.names.pascal, _namespace_parts(namespace)))
 
     def resources(self, specs: tuple[OperationSpec, ...]) -> tuple[ResourceSpec, ...]:
         """Group operations by namespace, with every parent namespace, and check the names each resource holds."""
         members: dict[str, list[OperationSpec]] = {}
         for spec in specs:
-            parts = spec.resource.split(".")
-            for size in range(1, len(parts) + 1):
-                members.setdefault(".".join(parts[:size]), [])
+            for namespace in _opened(spec.resource):
+                members.setdefault(namespace, [])
             members[spec.resource].append(spec)
         children: dict[str, list[str]] = {namespace: [] for namespace in members}
         for namespace in members:
@@ -1177,7 +1090,9 @@ class Planner:
                 children[namespace.rpartition(".")[0]].append(namespace)
         folded: dict[str, list[str]] = {}
         for namespace in members:
-            folded.setdefault(casefold(namespace, self.names.python_version), []).append(namespace)
+            folded.setdefault(
+                fold_key(namespace, self.names.python_version, rule="legacy-fold-without-nfc"), []
+            ).append(namespace)
         self.problems.extend(
             _problem(
                 "E_NAME_COLLISION",
@@ -1192,38 +1107,31 @@ class Planner:
                 namespace=namespace,
                 operations=tuple(operations),
                 children=tuple(children[namespace]),
-                pascal="".join(self.names.pascal(part) for part in namespace.split(".")),
+                pascal=self._resource_pascal(namespace),
             )
             for namespace, operations in members.items()
         )
 
 
-def _declared_by(declaration: WireDeclaration, operation: OperationContract) -> bool:
-    """Return whether the document that names an operation's path item declares one of its declarations."""
-    return declaration.declaration.location.document == operation.id.use_site.document
+def _namespace_parts(namespace: str) -> tuple[str, ...]:
+    """Return the names of a dotted resource namespace."""
+    return tuple(namespace.split("."))
 
 
-def _local(operation: OperationContract) -> bool:
-    """Return whether the document that names the operation's path item declares the operation itself."""
-    return operation.declaration.location.document == operation.id.use_site.document
-
-
-def _parts_of(namespace: str) -> list[str]:
-    return namespace.split(".")
+def _opened(namespace: str) -> Iterator[str]:
+    """Yield each namespace a resource namespace opens, its outermost first and itself last."""
+    parts = _namespace_parts(namespace)
+    for size in range(1, len(parts) + 1):
+        yield ".".join(parts[:size])
 
 
 def _default(use: TypeUseBinding | None, argument: TypeView | None) -> LiteralScalar | None:
     """Return the default the schema of a builtin scalar argument, or one or None, declares when it is of its type."""
     if argument is None or use is None:
         return None
-    present = (
-        tuple(member for member in argument.members if not isinstance(member, NoneType))
-        if isinstance(argument, UnionType)
-        else (argument,)
-    )
-    if len(present) != 1:
+    if len(members := present(argument)) != 1:
         return None
-    scalar = present[0].base if isinstance(present[0], ConstructorType) else present[0]
+    scalar = members[0].base if isinstance(members[0], ConstructorType) else members[0]
     if not isinstance(scalar, BuiltinType):
         return None
     literal = use.default
@@ -1231,13 +1139,25 @@ def _default(use: TypeUseBinding | None, argument: TypeView | None) -> LiteralSc
 
 
 def _success(status: str, success_statuses: tuple[int, ...]) -> bool:
-    if status in {"default", "2XX"} or (status.isdigit() and _MIN_SUCCESS <= int(status) <= _MAX_SUCCESS):
+    if status in {"default", "2XX"} or ((exact := exact_status(status)) is not None and exact in SUCCESS_STATUSES):
         return True
-    return any(status in {str(item), f"{item // 100}XX"} for item in success_statuses)
+    return any(status in {str(item), range_key(item)} for item in success_statuses)
 
 
 def _error(status: str) -> bool:
-    return status in {"default", "4XX", "5XX"} or (status.isdigit() and _MIN_ERROR <= int(status) <= _MAX_ERROR)
+    return status in {"default", "4XX", "5XX"} or (
+        (exact := exact_status(status)) is not None and exact in ERROR_STATUSES
+    )
+
+
+def success_response(operation: OperationSpec, status: int) -> ResponseSpec | None:
+    """Return the success response a success status selects, by its exact key, its hundreds range, or default, or None.
+
+    A success status is a 2XX one or one the operation configures as a success.
+    """
+    if not (status in SUCCESS_STATUSES or status in operation.success_statuses):
+        return None
+    return declaring(status, {response.status: response for response in operation.responses if response.success})
 
 
 def success_media(responses: tuple[ResponseSpec, ...]) -> tuple[str, ...]:
@@ -1259,11 +1179,6 @@ def success_media(responses: tuple[ResponseSpec, ...]) -> tuple[str, ...]:
 def reachable(concrete: str, media: tuple[str, ...]) -> tuple[str, ...]:
     """Return the media type of one response a concrete type dispatches to: itself, then type/*, then */*."""
     return tuple(found for found in (most_specific(concrete, media),) if found is not None)
-
-
-def media_range(media_type: str) -> bool:
-    """Return whether a media type is a range such as image/* or */*."""
-    return "*" in media_type.partition(";")[0]
 
 
 def _unsupported(kind: MediaKind, essence: str, use: TypeUseBinding | None, *, request: bool) -> str | None:
@@ -1293,15 +1208,6 @@ def _members(use: TypeUseBinding) -> list[tuple[str, SourceLocation, ModelFieldF
         for name, schema, member in property_members(use)
         if member.exclusion is None and (facts := member.model_facts) is not None
     ]
-
-
-def schema_uses(uses: Iterable[TypeUseBinding]) -> dict[tuple[SourceDocumentId, str, Direction], TypeUseBinding]:
-    """Index the value use of each schema occurrence by its location and the direction whose model it projects."""
-    return {
-        (use.id.use_site.document, use.id.use_site.pointer, use.id.direction): use
-        for use in uses
-        if use.id.role == "schema" and use.id.projection == "value"
-    }
 
 
 def schema_use(
@@ -1347,9 +1253,8 @@ def _encoded(media: WireDeclaration) -> WireDeclaration | None:
     return next(
         (
             child
-            for child in media.children
-            if child.kind == "encoding"
-            and (
+            for child in children_of(media, "encoding")
+            if (
                 bool(child.children)
                 or fact(child, "contentType") is not None
                 or fact(child, "style") not in {None, "form"}
@@ -1367,42 +1272,32 @@ def _servers(
     if value is None:
         return ()
     entries = _plain(value)
-    if not _is_tuple(entries):
+    return all_or_none(map(_server, entries)) if _is_tuple(entries) else None
+
+
+def _server(entry: object) -> tuple[str, tuple[tuple[str, str, tuple[str, ...]], ...]] | None:
+    if not _is_dict(entry) or not isinstance(url := entry.get("url"), str):
         return None
-    servers: list[tuple[str, tuple[tuple[str, str, tuple[str, ...]], ...]]] = []
-    for entry in entries:
-        if not _is_dict(entry) or not isinstance(url := entry.get("url"), str):
-            return None
-        if (variables := _variables(entry.get("variables", {}))) is None:
-            return None
-        servers.append((url, variables))
-    return tuple(servers)
+    return None if (variables := _variables(entry.get("variables", {}))) is None else (url, variables)
 
 
 def _variables(value: object) -> tuple[tuple[str, str, tuple[str, ...]], ...] | None:
-    if not _is_dict(value):
+    return all_or_none(starmap(_variable, value.items())) if _is_dict(value) else None
+
+
+def _variable(name: object, variable: object) -> tuple[str, str, tuple[str, ...]] | None:
+    if not isinstance(name, str) or not _is_dict(variable) or not isinstance(default := variable.get("default"), str):
         return None
-    variables: list[tuple[str, str, tuple[str, ...]]] = []
-    for name, variable in value.items():
-        if (
-            not isinstance(name, str)
-            or not _is_dict(variable)
-            or not isinstance(default := variable.get("default"), str)
-        ):
-            return None
-        if not _strings(enum := variable.get("enum", ())):
-            return None
-        variables.append((name, default, enum))
-    return tuple(variables)
+    return (name, default, enum) if _strings(enum := variable.get("enum", ())) else None
 
 
 def _defaulted(url: str, variables: tuple[tuple[str, str, tuple[str, ...]], ...]) -> str:
     defaults = {name: default for name, default, _ in variables}
-    return _PLACEHOLDER.sub(lambda match: defaults.get(match[1], match[0]), url)
+    return PATH_PLACEHOLDER.sub(lambda match: defaults.get(match[1], match[0]), url)
 
 
 def _declared(url: str, variables: tuple[tuple[str, str, tuple[str, ...]], ...]) -> bool:
-    return set(_PLACEHOLDER.findall(url)) <= {name for name, _, _ in variables}
+    return set(PATH_PLACEHOLDER.findall(url)) <= {name for name, _, _ in variables}
 
 
 def member_parts(media: MediaSpec) -> tuple[PartSpec, ...]:
@@ -1420,9 +1315,9 @@ def part_uses(plan: ClientPlan) -> Iterator[TypeUseBinding]:
         yield from (part.use for item in media for part in member_parts(item) if part.use is not None)
 
 
-def _coded(media: MediaSpec) -> bool:
-    """Return whether a body's codec reads or writes it: any but raw bytes the models leave unconstrained, or parts."""
-    return media.members is None and (media.kind != "binary" or (media.use is not None and media.use.checked))
+def _coded(media: MediaSpec) -> TypeUseBinding | None:
+    """Return the type use whose codec reads or writes a body, unless the body is sent or read as parts."""
+    return None if media.members is not None else coded_use(media.kind, media.use)
 
 
 def plan_uses(plan: ClientPlan) -> Iterator[TypeUseId]:
@@ -1430,10 +1325,10 @@ def plan_uses(plan: ClientPlan) -> Iterator[TypeUseId]:
     for spec in plan.operations:
         yield from (parameter.use.id for parameter in spec.parameters if parameter.use is not None)
         if spec.body is not None:
-            yield from (media.use.id for media in spec.body.media if media.use is not None and _coded(media))
+            yield from (use.id for media in spec.body.media if (use := _coded(media)) is not None)
         for response in spec.responses:
             if not response.bodyless:
-                yield from (media.use.id for media in response.media if media.use is not None and _coded(media))
+                yield from (use.id for media in response.media if (use := _coded(media)) is not None)
             yield from (header.use.id for header in response.headers if header.use is not None)
     yield from (use.id for use in part_uses(plan))
 
@@ -1441,9 +1336,7 @@ def plan_uses(plan: ClientPlan) -> Iterator[TypeUseId]:
 def encoding_header_uses(request: TargetRequest) -> Iterator[TypeUseId]:
     """Yield the uses of the headers the encodings of the selected operations' request bodies declare."""
     for operation in request.operations:
-        for media in () if operation.request_body is None else operation.request_body.children:
-            for encoding in (child for child in media.children if child.kind == "encoding"):
-                yield from (use for header in encoding.children if header.kind == "header" for use in _uses(header))
+        yield from (use for header in encoding_headers(operation) for use in type_uses(header))
 
 
 def style_uses(request: TargetRequest) -> Iterator[tuple[TypeUseId, tuple[WireDeclaration, ...]]]:
@@ -1453,12 +1346,10 @@ def style_uses(request: TargetRequest) -> Iterator[tuple[TypeUseId, tuple[WireDe
     """
     version = request.batch.openapi
     for operation in request.operations:
-        for media in () if operation.request_body is None else operation.request_body.children:
+        for media in request_media(operation):
             if _essence(media.name or "") == _FORM_DATA and (
                 encodings := tuple(
-                    child
-                    for child in media.children
-                    if child.kind == "encoding" and form_styled(child, version, multipart=True)
+                    child for child in children_of(media, "encoding") if form_styled(child, version, multipart=True)
                 )
             ):
                 yield from ((use, encodings) for use in media.schemas)
@@ -1472,12 +1363,10 @@ def form_uses(request: TargetRequest) -> Iterator[tuple[TypeUseId, tuple[WireDec
     for operation in request.operations:
         declarations = (*(() if operation.request_body is None else (operation.request_body,)), *operation.responses)
         for declaration in declarations:
-            for child in declaration.children:
-                if child.kind == "media" and _form(child.name or ""):
+            for child in children_of(declaration, "media"):
+                if _form(child.name or ""):
                     encodings = tuple(
-                        item
-                        for item in child.children
-                        if item.kind == "encoding" and declaration.kind == "request_body"
+                        item for item in children_of(child, "encoding") if declaration.kind == "request_body"
                     )
                     yield from ((use, encodings) for use in child.schemas)
 
@@ -1487,7 +1376,4 @@ def _form(media_type: str) -> bool:
 
 
 def _essence(media_type: str) -> str:
-    try:
-        return normalize_media_type(media_type).partition(";")[0]
-    except ValueError:
-        return ""
+    return essence(normalized(media_type) or "")

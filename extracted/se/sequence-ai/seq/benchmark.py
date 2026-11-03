@@ -25,12 +25,10 @@ _T = TypeVar("_T", bound=type)
 _ALLOWED_KWARGS = frozenset({
     "name", "image", "gpu", "cpu", "memory", "secrets",
 
-    "freeze",
-
     "assets",
 
 
-    "replay", "engine",
+    "replay",
 
 
 
@@ -45,8 +43,15 @@ _ALLOWED_KWARGS = frozenset({
     "init",
 })
 
+
+
+_GONE = {"engine": "the console draws its icon from the engine its replay names, seq.Replay(engine=...)"}
+
+
 def _reject_bad_kwargs(kwargs: dict[str, Any]) -> None:
     for name in kwargs:
+        if name in _GONE:
+            raise BenchmarkDefinitionError(f"@seq.benchmark({name}=) is gone: {_GONE[name]}")
         if name not in _ALLOWED_KWARGS:
             raise BenchmarkDefinitionError(
                 f"@seq.benchmark got unknown argument {name!r}; allowed: {', '.join(sorted(_ALLOWED_KWARGS))}"
@@ -106,9 +111,6 @@ def benchmark(*args: Any, **kwargs: Any) -> Callable[[_T], _T]:
 
         if bad is not None:
             return refused(cls, _BENCH_ATTR, bad)
-        from seq.freeze import declare
-
-        return build_benchmark_registration(declare(cls, kwargs, BenchmarkDefinitionError),
-                                            {k: v for k, v in kwargs.items() if k != "freeze"})
+        return build_benchmark_registration(cls, kwargs)
 
     return decorator

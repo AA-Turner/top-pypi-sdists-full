@@ -171,7 +171,10 @@ class OpenAICompletion(CompletionModel):
         """Stream the completion using an OpenAI Completion-like API."""
         payload: dict[str, Any] = {
             "model": self.model,
-            "messages": [message.model_dump(exclude_none=True) for message in request.messages],
+            "messages": [
+                message.model_dump(exclude_none=True, exclude={"reasoning_content"})
+                for message in request.messages
+            ],
             "stream": True,
             "stream_options": {"include_usage": True},
         }

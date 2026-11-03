@@ -115,7 +115,10 @@ def _read_item(buf, offset):
         while offset < limit:
             keylen, = unpack_from('>B', buf, offset)
             offset += 1
-            key = pstr_t(buf[offset:offset + keylen])
+            try:
+                key = pstr_t(buf[offset:offset + keylen])
+            except UnicodeDecodeError:
+                key = buf[offset:offset + keylen]
             offset += keylen
             val[key], offset = _read_item(buf, offset)
     # 'A': array
@@ -210,6 +213,7 @@ def loads(format, buf, offset):
             val = buf[offset:offset + slen].decode('utf-8', 'surrogatepass')
             offset += slen
         elif p == 'x':
+            bitcount = bits = 0
             blen, = unpack_from('>I', buf, offset)
             offset += 4
             val = buf[offset:offset + blen]
@@ -223,7 +227,10 @@ def loads(format, buf, offset):
             while offset < limit:
                 keylen, = unpack_from('>B', buf, offset)
                 offset += 1
-                key = pstr_t(buf[offset:offset + keylen])
+                try:
+                    key = pstr_t(buf[offset:offset + keylen])
+                except UnicodeDecodeError:
+                    key = buf[offset:offset + keylen]
                 offset += keylen
                 val[key], offset = _read_item(buf, offset)
         elif p == 'A':
@@ -321,6 +328,7 @@ def dumps(format, values):
             bitcount = _flushbits(bits, write)
             _write_array(val or [], write, bits)
         elif p == 'T':
+            bitcount = _flushbits(bits, write)
             write(pack('>Q', int(calendar.timegm(val.utctimetuple()))))
     _flushbits(bits, write)
 

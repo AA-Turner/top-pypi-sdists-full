@@ -1,5 +1,6 @@
 import asyncio
-from typing import Any, Callable, Optional, Text, Union, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 from ..quic import events
 from ..quic.connection import NetworkAddress, QuicConnection
@@ -11,21 +12,21 @@ QuicStreamHandler = Callable[[asyncio.StreamReader, asyncio.StreamWriter], None]
 
 class QuicConnectionProtocol(asyncio.DatagramProtocol):
     def __init__(
-        self, quic: QuicConnection, stream_handler: Optional[QuicStreamHandler] = None
+        self, quic: QuicConnection, stream_handler: QuicStreamHandler | None = None
     ):
         loop = asyncio.get_running_loop()
 
         self._closed = asyncio.Event()
         self._connected = False
-        self._connected_waiter: Optional[asyncio.Future[None]] = None
+        self._connected_waiter: asyncio.Future[None] | None = None
         self._loop = loop
         self._ping_waiters: dict[int, asyncio.Future[None]] = {}
         self._quic = quic
         self._stream_readers: dict[int, asyncio.StreamReader] = {}
-        self._timer: Optional[asyncio.TimerHandle] = None
-        self._timer_at: Optional[float] = None
-        self._transmit_task: Optional[asyncio.Handle] = None
-        self._transport: Optional[asyncio.DatagramTransport] = None
+        self._timer: asyncio.TimerHandle | None = None
+        self._timer_at: float | None = None
+        self._transmit_task: asyncio.Handle | None = None
+        self._transport: asyncio.DatagramTransport | None = None
 
         # callbacks
         self._connection_id_issued_handler: QuicConnectionIdHandler = lambda c: None
@@ -64,7 +65,7 @@ class QuicConnectionProtocol(asyncio.DatagramProtocol):
         )
         self.transmit()
 
-    def connect(self, addr: NetworkAddress, transmit=True) -> None:
+    def connect(self, addr: NetworkAddress, transmit: bool = True) -> None:
         """
         Initiate the TLS handshake.
 
@@ -152,7 +153,7 @@ class QuicConnectionProtocol(asyncio.DatagramProtocol):
         """:meta private:"""
         self._transport = cast(asyncio.DatagramTransport, transport)
 
-    def datagram_received(self, data: Union[bytes, Text], addr: NetworkAddress) -> None:
+    def datagram_received(self, data: bytes | str, addr: NetworkAddress) -> None:
         """:meta private:"""
         self._quic.receive_datagram(cast(bytes, data), addr, now=self._loop.time())
         self._process_events()
@@ -255,18 +256,18 @@ class QuicStreamAdapter(asyncio.Transport):
         if name == "stream_id":
             return self.stream_id
 
-    def write(self, data):
-        self.protocol._quic.send_stream_data(self.stream_id, data)
+    def write(self, data: bytes | bytearray | memoryview) -> None:
+        self.protocol._quic.send_stream_data(self.stream_id, bytes(data))
         self.protocol._transmit_soon()
 
-    def write_eof(self):
+    def write_eof(self) -> None:
         if self._closing:
             return
         self._closing = True
         self.protocol._quic.send_stream_data(self.stream_id, b"", end_stream=True)
         self.protocol._transmit_soon()
 
-    def close(self):
+    def close(self) -> None:
         if self.can_write_eof():
             self.write_eof()
         else:

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from .....tap_core.secrets import Finding, scan_quick
+from .....foundation.transcripts.credential_scan.credential_scan import Finding
+from .....foundation.transcripts.credential_scan.quick import scan_quick
 
 
 class QuickScanner:

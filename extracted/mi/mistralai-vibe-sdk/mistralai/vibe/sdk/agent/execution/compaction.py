@@ -514,6 +514,18 @@ async def run_compaction(
         )
         return CompactionOutcome(entry=failed, error=error)
 
+    if not result.summary.strip():
+        # A response with only a tool call yields no summary; committing it would drop the history.
+        error = f"{provider} compaction response from model {model} contained no summary"
+        failed = make_compaction_entry(
+            "failed",
+            threshold=threshold,
+            old_context_tokens=old_context_tokens,
+            error=error,
+            result=result,
+        )
+        return CompactionOutcome(entry=failed, error=error)
+
     # Estimate the post-compaction context using an entry without its own token count.
     new_context_tokens = estimate_context_tokens(
         state_with(

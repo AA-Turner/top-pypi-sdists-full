@@ -61,6 +61,7 @@ if _should_build_docs := os.getenv("BUILD_COGNITE_SDK_DOCS") == "true":
     from cognite.client._api.data_modeling.space_statistics import SpaceStatisticsAPI
     from cognite.client._api.data_modeling.spaces import SpacesAPI
     from cognite.client._api.data_modeling.statistics import StatisticsAPI
+    from cognite.client._api.data_modeling.stream_templates import StreamTemplatesAPI
     from cognite.client._api.data_modeling.streams import StreamsAPI
     from cognite.client._api.data_modeling.time_series import DataModelingTimeSeriesAPI
     from cognite.client._api.data_modeling.views import ViewsAPI
@@ -86,6 +87,7 @@ if _should_build_docs := os.getenv("BUILD_COGNITE_SDK_DOCS") == "true":
         TokenAPI,
     )
     from cognite.client._api.integrations.errors import IntegrationErrorsAPI
+    from cognite.client._api.integrations.history import IntegrationHistoryAPI
     from cognite.client._api.postgres_gateway.tables import TablesAPI
     from cognite.client._api.postgres_gateway.users import UsersAPI
     from cognite.client._api.raw import RawDatabasesAPI, RawRowsAPI, RawTablesAPI  # type: ignore[attr-defined]
@@ -462,6 +464,7 @@ def _make_accessors_for_building_docs() -> None:
     AsyncCogniteClient.data_modeling.statistics = StatisticsAPI  # type: ignore
     AsyncCogniteClient.data_modeling.statistics.spaces = SpaceStatisticsAPI  # type: ignore
     AsyncCogniteClient.data_modeling.streams = StreamsAPI  # type: ignore
+    AsyncCogniteClient.data_modeling.streams.templates = StreamTemplatesAPI  # type: ignore
     AsyncCogniteClient.data_modeling.records = RecordsAPI  # type: ignore
     AsyncCogniteClient.data_modeling.time_series = DataModelingTimeSeriesAPI  # type: ignore
     AsyncCogniteClient.documents = DocumentsAPI  # type: ignore
@@ -482,6 +485,7 @@ def _make_accessors_for_building_docs() -> None:
     AsyncCogniteClient.simulators.runs = SimulatorRunsAPI  # type: ignore
     AsyncCogniteClient.simulators.logs = SimulatorLogsAPI  # type: ignore
     AsyncCogniteClient.integrations = IntegrationsAPI  # type: ignore
+    AsyncCogniteClient.integrations.history = IntegrationHistoryAPI  # type: ignore
     AsyncCogniteClient.integrations.errors = IntegrationErrorsAPI  # type: ignore
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bluesky-tiled-plugins
-Version: 2.0.12
+Version: 2.0.13
 Summary: Integrations for using Tiled with Bluesky
 Project-URL: Homepage, https://github.com/bluesky/bluesky-tiled-plugins
 Project-URL: Bug Tracker, https://github.com/bluesky/bluesky-tiled-plugins/issues
@@ -16,23 +16,23 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: dask
 Requires-Dist: event-model
+Requires-Dist: httpx2
 Requires-Dist: mongoquery
 Requires-Dist: ndindex
 Requires-Dist: numpy
 Requires-Dist: pandas
 Requires-Dist: pyarrow
 Requires-Dist: pytz
-Requires-Dist: tiled[minimal-client]>=0.2.19
+Requires-Dist: tiled[minimal-client]>=0.2.21
 Requires-Dist: tzlocal
 Requires-Dist: xarray
 Provides-Extra: all

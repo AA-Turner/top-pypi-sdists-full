@@ -1,7 +1,7 @@
 """
 A planner, from a site's side: what only a planner reads - a site's
-iPad, an operator, audio - is observed into the planner, never into a policy. A robot connects straight to its own
-policy, `sequence_ai.connect(model=...)`, as ever.
+iPad, an operator, audio - is observed into the planner, never into a policy. A robot it plans for connects through it,
+`sequence_ai.connect("<planner>", policy="<its policy>")`: one connected to its policy alone is no planner's.
 
 In one sentence: `sequence_ai.planner(name, key=None)` is a handle, sending nothing → `.observe(data)` adds one thing to
 the planner's record (POST /v1/planners/{name}/observe), which its next plan reads in group.state["seq.observations"],

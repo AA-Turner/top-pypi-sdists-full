@@ -4,22 +4,23 @@ import logging
 import pickle
 import ssl
 import struct
-from typing import Optional, cast
+from typing import Any, cast
 
 from aioquic.asyncio.client import connect
 from aioquic.asyncio.protocol import QuicConnectionProtocol
 from aioquic.quic.configuration import QuicConfiguration
 from aioquic.quic.events import QuicEvent, StreamDataReceived
 from aioquic.quic.logger import QuicFileLogger
+from aioquic.tls import SessionTicket
 from dnslib.dns import QTYPE, DNSHeader, DNSQuestion, DNSRecord
 
 logger = logging.getLogger("client")
 
 
 class DnsClientProtocol(QuicConnectionProtocol):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._ack_waiter: Optional[asyncio.Future[DNSRecord]] = None
+        self._ack_waiter: asyncio.Future[DNSRecord] | None = None
 
     async def query(self, query_name: str, query_type: str) -> DNSRecord:
         # serialize query
@@ -52,7 +53,7 @@ class DnsClientProtocol(QuicConnectionProtocol):
                 waiter.set_result(answer)
 
 
-def save_session_ticket(ticket):
+def save_session_ticket(ticket: SessionTicket) -> None:
     """
     Callback which is invoked by the TLS engine when a new session ticket
     is received.
@@ -81,7 +82,7 @@ async def main(
         client = cast(DnsClientProtocol, client)
         logger.debug("Sending DNS query")
         answer = await client.query(query_name, query_type)
-        logger.info("Received DNS answer\n%s" % answer)
+        logger.info("Received DNS answer\n%s", answer)
 
 
 if __name__ == "__main__":

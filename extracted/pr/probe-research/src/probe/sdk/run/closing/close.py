@@ -114,6 +114,8 @@ class CloseMixin:
         timeout: float,
         deadline: float,
         verdict_sent: bool = False,
+        wait: bool = True,
+        wait_limit: float | None = None,
     ):
         from ...delivery.transport.deadlines import deadline_scope
 
@@ -132,6 +134,12 @@ class CloseMixin:
         # The ops `log()` left to the flusher go to disk now (plan T6), before the drain and
         # within its deadline (review of #3785, C2).
         flush_journal(deadline=drain_deadline, warn=True)
+        if self._delivers_by_worker():
+            # D1/D2: the detached worker sends this run's queued writes; the close waits on it.
+            return self._close_through_worker(
+                status, summary, verdict_sent=verdict_sent, should_warn=should_warn,
+                stuck=stuck, wait=wait, wait_limit=wait_limit, deadline=deadline,
+            )
         with deadline_scope(drain_deadline):
             pending, dead, delivered, auth_blocked = self._drain_until(
                 drain_deadline, strict=strict

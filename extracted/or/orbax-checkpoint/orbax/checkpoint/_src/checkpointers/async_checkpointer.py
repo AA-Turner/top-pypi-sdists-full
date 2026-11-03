@@ -446,6 +446,8 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
     current_operation_id = (
         synchronization.OperationIdGenerator.get_current_operation_id()
     )
+    # Captured synchronously; the callback runs in the background save thread.
+    signals_namespace = future.current_signals_namespace()
 
     def _callback() -> None:
       finalize_start_time = time.time()
@@ -501,9 +503,10 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
       # Clean up all awaitable signals for the current operation id as they are
       # no longer needed.
       if self._create_directories_asynchronously:
-        future.AwaitableSignalsContract.remove_all_awaitable_signals(
-            current_operation_id
-        )
+        with future.signals_namespace(signals_namespace):
+          future.AwaitableSignalsContract.remove_all_awaitable_signals(
+              current_operation_id
+          )
 
     return _callback
 
@@ -511,28 +514,23 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
       self, directory: epath.Path, *, force: bool
   ) -> None:
     """Removes existing destination if force=True, or checks for collisions."""
-    skip = self._file_options.skip_sync_file_validations
-
     # 1. Force overwrite: only the primary host performs cleanup.
     if force:
       if not utils.is_primary_host(self._primary_host):
         return
-      should_remove = skip or await async_path.exists(directory)
-      if should_remove:
+      if await async_path.exists(directory):
         logging.info(
             '[process=%s] Specified `force`: removing existing directory.',
             multihost.process_index(),
         )
         await async_path.rmtree(
             directory,
-            missing_ok=skip,
         )  # Post-sync handled by create_tmp_directory.
       return
 
     # 2. Collision validation: verify destination directory does not exist.
-    if not skip:
-      if await async_path.exists(directory):
-        raise ValueError(f'Destination {directory} already exists.')
+    if await async_path.exists(directory):
+      raise ValueError(f'Destination {directory} already exists.')
 
   async def _save(
       self,
@@ -542,15 +540,42 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
       **kwargs,
   ):
     directory = tmpdir.get_final()
-    await self._prepare_destination_async(directory, force=force)
+    # Opt-in: defer destination preparation to the background thread.
+    defer_preparation = (
+        self._create_directories_asynchronously
+        and self._file_options.skip_sync_file_validations
+    )
+    metric = (
+        '/jax/orbax/write/background_prepare_destination_secs'
+        if defer_preparation
+        else '/jax/orbax/write/blocking_prepare_destination_secs'
+    )
+
+    async def prepare_destination():
+      start = time.time()
+      await self._prepare_destination_async(directory, force=force)
+      # The create_all_async barriers block the main thread either way, so
+      # exists() and rmtree() are the only time saved by deferring.
+      if utils.is_primary_host(self._primary_host):
+        jax.monitoring.record_event_duration_secs(metric, time.time() - start)
+
+    if not defer_preparation:
+      await prepare_destination()
 
     commit_ops = []
     if self._create_directories_asynchronously:
+      # `STEP_DIRECTORY_CREATION` is sent only after `pre_create_fn` and
+      # `tmpdir.create()` finish, so commit futures wait for preparation.
+      # A deferred removal thus counts toward `timeout_secs` and the
+      # `*_directory_creation_secs` metrics.
       commit_ops.append(
           atomicity.create_all_async(
               [tmpdir],
               completion_signals=_DIRECTORY_CREATION_SIGNALS,
               multiprocessing_options=self._multiprocessing_options,
+              pre_create_fn=(
+                  prepare_destination if defer_preparation else None
+              ),
           )
       )
     else:
@@ -600,14 +625,18 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
         due to the need to delete any existing files.
       custom_metadata: a dictionary of custom metadata to be written to the
         checkpoint directory via StepMetadata.
-      save_context: optional blocking-phase context from a wrapping caller
-        (e.g. `CheckpointManager.save()`), used to measure the full blocking
-        save and to record each blocking metric exactly once per save.
+      save_context: optional blocking-phase context from a wrapping caller (e.g.
+        `CheckpointManager.save()`), used to measure the full blocking save and
+        to record each blocking metric exactly once per save.
       **kwargs: additional keyword args to provide to the CheckpointHandler's
         save method.
 
     Raises:
-      ValueError if the provided directory already exists.
+      ValueError: If the provided directory already exists. With
+        `FileOptions.skip_sync_file_validations=True` and
+        `AsyncOptions.create_directories_asynchronously=True`, this is raised
+        when the background save is awaited (e.g. by `wait_until_finished`)
+        rather than by `save`.
     """
     checkpoint_start_time = (
         save_context.checkpoint_start_time

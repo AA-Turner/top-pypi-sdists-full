@@ -25,7 +25,8 @@ def add_args(parser):
         "--resolution",
         type=str,
         default=None,
-        help="cell counts 'nx,ny,nz' (exactly one of --resolution/--cell-size)",
+        help="cell counts 'nx,ny,nz', or 'nx,ny' for 2-D pixels around a planar "
+        "polyline (exactly one of --resolution/--cell-size)",
     )
     parser.add_argument(
         "--cell-size",
@@ -65,6 +66,13 @@ def add_args(parser):
         help="how --fill=inside decides what is inside",
     )
     parser.add_argument(
+        "--plane",
+        type=str,
+        default="auto",
+        choices=["auto", "xy", "xz", "yz"],
+        help="plane of a 2-D skin ('auto': the axis of zero extent)",
+    )
+    parser.add_argument(
         "--attach-occupancy",
         action="store_true",
         help="attach the Int64 voxel:occupancy cell_data array",
@@ -86,8 +94,8 @@ def voxelize_cmd(args):
     resolution = None
     if args.resolution is not None:
         resolution = [int(x) for x in args.resolution.split(",")]
-        if len(resolution) != 3:
-            raise ValueError("voxelize: --resolution expects 'nx,ny,nz'")
+        if len(resolution) not in (2, 3):
+            raise ValueError("voxelize: --resolution expects 'nx,ny,nz' (or 'nx,ny')")
     bounds = None
     if args.bounds is not None:
         bounds = [float(x) for x in args.bounds.split(",")]
@@ -106,6 +114,7 @@ def voxelize_cmd(args):
         max_cells=args.max_cells,
         sign=args.sign,
         watertight_check="warn" if args.fill == "inside" else "off",
+        plane=args.plane,
         return_report=True,
     )
 

@@ -27,6 +27,8 @@ class MockLib:
     ghash_clmul = None
     ghash_expand_clmul = None
     ghash_destroy_clmul = None
+    AESNI_start_operation = None
+    AESNI_stop_operation = None
 
     def have_aes_ni(self):
         return True
@@ -41,6 +43,11 @@ class MockLib:
     have_bmi2 = have_avx2
     have_sha_ni = have_avx2
     have_adx = have_avx2
+    have_aes_armv8 = have_avx2
+    have_pmull = have_avx2
+    have_sha256_armv8 = have_avx2
+    have_sha512_armv8 = have_avx2
+    have_sha3_armv8 = have_avx2
     ec_nat_new_curve = lambda *x: 0
     ec_nat_free_curve = lambda *x: None
     ec_nat_new_point = lambda *x: 0
@@ -117,7 +124,7 @@ release = ".".join(str(x) for x in version_tuple)
 exclude_patterns = ["_build"]
 
 # The reST default role (used for this markup: `text`) to use for all documents.
-# default_role = None
+default_role = "py:obj"
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 # add_function_parentheses = True
@@ -199,6 +206,9 @@ html_title = "PyCryptodome"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+
+# Rank the guides first in the search results
+html_search_scorer = "_static/scorer.js"
 html_css_files = ["custom.css"]
 
 
@@ -320,3 +330,36 @@ texinfo_documents = [
 
 # How to display URL addresses: 'footnote', 'no', or 'inline'.
 # texinfo_show_urls = 'footnote'
+
+
+def _hide_cipher_mode_signature(app, what, name, obj, options, signature, return_annotation):
+    """The cipher objects of the modes of operation are created by the
+    ``new()`` function of the cipher module, never directly by the user:
+    do not show the internal parameters of their constructor."""
+
+    if what == "class" and name.startswith("Crypto.Cipher._mode_"):
+        return "", None
+    return None
+
+
+def _lower_search_priority_of_cipher_modes():
+    """The methods of the cipher objects (like ``GcmMode.encrypt``) would
+    otherwise be the first results when searching for common words
+    like "encrypt", ahead of the guides."""
+
+    from sphinx.domains.python import PythonDomain
+
+    get_objects = PythonDomain.get_objects
+
+    def patched_get_objects(self):
+        for name, dispname, objtype, docname, anchor, prio in get_objects(self):
+            if name.startswith("Crypto.Cipher._mode_"):
+                prio = 2  # "unimportant"
+            yield name, dispname, objtype, docname, anchor, prio
+
+    PythonDomain.get_objects = patched_get_objects
+
+
+def setup(app):
+    app.connect("autodoc-process-signature", _hide_cipher_mode_signature, priority=400)
+    _lower_search_priority_of_cipher_modes()

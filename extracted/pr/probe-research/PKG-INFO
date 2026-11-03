@@ -1,12 +1,11 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.362.1
+Version: 0.372.0
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
 Author-email: Probe <team@prbe.ai>
 License: Apache-2.0
-License-File: LICENSE
 Keywords: experiment-tracking,mcp,mlops,probe-research,reinforcement-learning
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
@@ -33,12 +32,14 @@ Provides-Extra: all
 Requires-Dist: anyio>=4.5; extra == 'all'
 Requires-Dist: cryptography>=3.4; extra == 'all'
 Requires-Dist: mcp<2,>=1.24; extra == 'all'
+Requires-Dist: probe-research-cli==0.372.0; extra == 'all'
 Requires-Dist: questionary<3,>=2.0; extra == 'all'
 Requires-Dist: tiktoken<0.14,>=0.8; extra == 'all'
 Requires-Dist: tomlkit>=0.12; extra == 'all'
 Requires-Dist: typer<1.0,>=0.12; extra == 'all'
 Provides-Extra: cli
 Requires-Dist: cryptography>=3.4; extra == 'cli'
+Requires-Dist: probe-research-cli==0.372.0; extra == 'cli'
 Requires-Dist: questionary<3,>=2.0; extra == 'cli'
 Requires-Dist: tomlkit>=0.12; extra == 'cli'
 Requires-Dist: typer<1.0,>=0.12; extra == 'cli'
@@ -117,7 +118,7 @@ Python experiments, and passive platform integrations all use it. CLI and SDK
 therefore have capability parity; they differ only in ergonomics.
 
 Codex packaging, transcript capture, and the three-layer release gate are
-documented in [docs/codex-integration.md](docs/codex-integration.md).
+documented in [src/probe/shared/harness/harnesses/codex/codex-integration.md](src/probe/shared/harness/harnesses/codex/codex-integration.md).
 
 | Surface | SDK | CLI | Intended caller |
 |---|---|---|---|
@@ -592,7 +593,7 @@ carry them.
 ### Harbor trial capture (`probe trial`)
 
 Capture a Harbor trial directory into a run, keyed to the training step —
-the sandbox↔step join (see `docs/2026-07-15-harbor-native-ownership-plan.md`
+the sandbox↔step join (see `src/probe/connectors/design/harbor-native-ownership-plan.md`
 for status: what's shipped vs parked):
 
 ```bash
@@ -967,7 +968,7 @@ Most earlier gaps are closed by Probe Research v0.4 (PR #13). Now wired:
   fold-in) with an honest keyword fallback on older backends; transcript
   evidence is not indexed yet. **Session hooks** remain later work.
 - **Harbor-native ownership Phases 1–3** (trial capture connector, capture-at-source,
-  platform surface): see `docs/2026-07-15-harbor-native-ownership-plan.md`.
+  platform surface): see `src/probe/connectors/design/harbor-native-ownership-plan.md`.
 
 (Previously listed here and since shipped: `RunPatch` `foreign_keys`/`env_ref` parity,
 asset `materialize`, upload `kind`/`meta`, and server-side artifact list filters
@@ -992,8 +993,8 @@ Refresh when the contract moves:
 ```bash
 make regen        # dump-openapi (RESEARCH_OS=../../research-os) + gen-models
 # or step by step:
-RESEARCH_OS=/path/to/research-os python scripts/dump_openapi.py
-python scripts/gen_models.py
+RESEARCH_OS=/path/to/research-os python tools/codegen/dump_openapi.py
+python tools/codegen/gen_models.py
 ```
 
 `RESEARCH_OS` points at a local checkout of the Probe Research backend source repo

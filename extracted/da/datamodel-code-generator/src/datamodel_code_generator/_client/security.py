@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Final, Literal, TypeAlias, TypeGuard
+from typing import TYPE_CHECKING, Final, Literal, TypeAlias
 
 from datamodel_code_generator._api_types import Diagnostic
+from datamodel_code_generator._client.config import _is_sequence
 from datamodel_code_generator._client.naming import CLIENT_KEYWORDS, token
 from datamodel_code_generator._runtime.client.security import (
     SecurityBinding,
@@ -14,8 +15,21 @@ from datamodel_code_generator._runtime.client.security import (
     SecurityScheme,
     UnavailableSecurityScheme,
 )
-from datamodel_code_generator._target_contract import LiteralMapping, LiteralScalar, LiteralSequence
+from datamodel_code_generator._runtime.model_codecs.parameters import parameter_key
+from datamodel_code_generator._target_contract import (
+    LiteralScalar,
+    api_key_place,
+    fact,
+    http_scheme,
+    label,
+    operation_literal,
+    operation_schemes,
+    requirement_alternatives,
+    scheme_catalogues,
+    unresolved_reference,
+)
 from datamodel_code_generator._target_naming import NameScope
+from datamodel_code_generator._target_operations import declared_in
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -49,13 +63,9 @@ class CredentialSpec:
     prefix: str = ""
 
 
-def _scope_items(value: object) -> TypeGuard[tuple[object, ...] | list[object]]:
-    return isinstance(value, (tuple, list))
-
-
 def _scope_tuple(value: object) -> tuple[str, ...]:
     """Copy explicit scope collections into sorted, distinct ASCII tokens."""
-    if not _scope_items(value):
+    if not _is_sequence(value):
         msg = "Scopes must be a tuple or list."
         raise ValueError(msg)
     normalized: set[str] = set()
@@ -65,23 +75,6 @@ def _scope_tuple(value: object) -> tuple[str, ...]:
             raise ValueError(msg)
         normalized.add(item)
     return tuple(sorted(normalized))
-
-
-def _facts(declaration: WireDeclaration) -> dict[str, object]:
-    return {name: value.value for name, value in declaration.facts if isinstance(value, LiteralScalar)}
-
-
-def _key_scheme(name: str, facts: dict[str, object]) -> SecuritySchemeEntry:
-    location, wire_name = facts.get("in"), facts.get("name")
-    if location not in {"header", "query", "cookie"} or not isinstance(wire_name, str) or not wire_name:
-        return UnavailableSecurityScheme(name=name)
-    if location == "query":
-        return SecurityScheme(name=name, kind="api_key", location="query", wire_name=wire_name)
-    if not token(wire_name):
-        return UnavailableSecurityScheme(name=name)
-    return SecurityScheme(
-        name=name, kind="api_key", location="header" if location == "header" else "cookie", wire_name=wire_name
-    )
 
 
 def _url(flow: object, *names: str) -> str | None:
@@ -113,7 +106,7 @@ def _flows(declaration: WireDeclaration) -> tuple[tuple[Flow, str | None], ...]:
     token renews, at the refresh URL or else the token URL of the first such flow declaring one.
     """
     facts = dict(declaration.facts)
-    kind = getattr(facts.get("type"), "value", None)
+    kind = fact(declaration, "type")
     if kind == "openIdConnect":
         return (("refresh_token", None),)
     if kind != "oauth2":
@@ -134,21 +127,18 @@ def _scheme(declaration: WireDeclaration) -> SecuritySchemeEntry:
     name = declaration.name
     assert name is not None
     unavailable = UnavailableSecurityScheme(name=name)
-    if any(reference.state != "resolved" for reference in declaration.references):
+    if unresolved_reference(declaration) is not None:
         return unavailable
-    facts = _facts(declaration)
-    kind = facts.get("type")
-    if kind == "apiKey":
-        return _key_scheme(name, facts)
-    scheme = facts.get("scheme")
-    if kind == "http" and isinstance(scheme, str) and scheme.lower() in {"basic", "bearer"}:
+    if (place := api_key_place(declaration)) is not None:
+        location, wire_name = place
+        if location != "query" and not token(wire_name):
+            return unavailable
+        return SecurityScheme(name=name, kind="api_key", location=location, wire_name=wire_name)
+    if (scheme := http_scheme(declaration)) in {"basic", "bearer"}:
         return SecurityScheme(
-            name=name,
-            kind="basic" if scheme.lower() == "basic" else "bearer",
-            location="header",
-            wire_name="Authorization",
+            name=name, kind="basic" if scheme == "basic" else "bearer", location="header", wire_name="Authorization"
         )
-    if kind in {"oauth2", "openIdConnect"}:
+    if fact(declaration, "type") in {"oauth2", "openIdConnect"}:
         return SecurityScheme(name=name, kind="bearer", location="header", wire_name="Authorization")
     return unavailable
 
@@ -161,11 +151,11 @@ class SecurityPlanner:
         self.catalogues: dict[SourceDocumentId, dict[str, SecuritySchemeEntry]] = {}
         self.declarations: dict[str, WireDeclaration] = {}
         root = batch.documents[0].id
-        for item in batch.security_schemes:
-            scheme = _scheme(item)
-            self.catalogues.setdefault(item.use_site.document, {})[scheme.name] = scheme
-            if item.use_site.document == root or scheme.name not in self.declarations:
-                self.declarations[scheme.name] = item
+        for document, schemes in scheme_catalogues(batch).items():
+            for name, item in schemes.items():
+                self.catalogues.setdefault(document, {})[name] = _scheme(item)
+                if document == root or name not in self.declarations:
+                    self.declarations[name] = item
         self.root = tuple(self.catalogues.get(root, {}).values())
         self.root_document = root
         self.problems = problems
@@ -186,7 +176,7 @@ class SecurityPlanner:
             for item in alternative
         }
         bases = {name: self.names.function(name) for name in used}
-        local = {name: self.declarations[name].declaration.location.document == self.root_document for name in used}
+        local = {name: declared_in(self.declarations[name].declaration, self.root_document) for name in used}
         arguments = self.names.claim(NameScope(_ARGUMENTS), [(base, local[name], ()) for name, base in bases.items()])
         flows = {name: _flows(self.declarations[name]) for name in used}
         provided = [(name, argument) for name, argument in zip(used, arguments, strict=True) if _provided(flows[name])]
@@ -213,46 +203,38 @@ class SecurityPlanner:
                 code="E_CONFIG_CONFLICT" if conflict else "E_METADATA_REQUIRED",
                 severity="error",
                 stage="target",
-                message=f"The security of {operation.method.upper()} {operation.path} {message}",
+                message=f"The security of {label(operation)} {message}",
                 source_pointer=operation.id.use_site.pointer,
             )
         )
 
     def binding(self, operation: OperationContract) -> SecurityBinding | None:
         """Preserve absent, empty, and ordered AND/OR requirements, naming schemes of the using document."""
-        value = next((value for name, value in operation.facts if name == "security"), None)
+        value = operation_literal(operation, "security")
         if value is None:
             return None
-        schemes = self.catalogues.get(operation.id.use_site.document, {})
-        if not isinstance(value, LiteralSequence):
+        schemes = operation_schemes(self.catalogues, operation)
+        if (declared := requirement_alternatives(value)) is None:
             self.problem(operation, "must be an array of requirement objects")
             return None
         alternatives: list[tuple[SecurityRequirement, ...]] = []
-        for alternative in value.items:
-            if not isinstance(alternative, LiteralMapping):
+        for alternative in declared:
+            if alternative is None:
                 self.problem(operation, "must contain only requirement objects")
                 continue
             requirements: list[SecurityRequirement] = []
             owners: set[tuple[str, str]] = set()
-            for key, scopes in alternative.entries:
-                name = key.value if isinstance(key, LiteralScalar) else None
+            for name, scopes in alternative:
                 scheme = schemes.get(name) if isinstance(name, str) else None
                 if not isinstance(scheme, SecurityScheme):
                     self.problem(operation, f"requires the unavailable scheme {name!r}")
                     continue
                 try:
-                    required = _scope_tuple(
-                        tuple(item.value if isinstance(item, LiteralScalar) else None for item in scopes.items)
-                        if isinstance(scopes, LiteralSequence)
-                        else None
-                    )
+                    required = _scope_tuple(scopes)
                 except ValueError:
                     self.problem(operation, f"requires valid scope tokens for scheme {name!r}")
                     continue
-                position = (
-                    scheme.location,
-                    scheme.wire_name.lower() if scheme.location == "header" else scheme.wire_name,
-                )
+                position = parameter_key(scheme.location, scheme.wire_name)
                 if position in owners:
                     self.problem(
                         operation, f"has overlapping {scheme.location} ownership in one AND alternative", conflict=True

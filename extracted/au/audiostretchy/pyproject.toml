@@ -1,9 +1,155 @@
+# this_file: pyproject.toml
 [build-system]
-# AVOID CHANGING REQUIRES: IT WILL BE UPDATED BY PYSCAFFOLD!
-requires = ["setuptools>=46.1.0", "setuptools_scm[toml]>=5"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.27", "hatch-vcs>=0.5"]
+build-backend = "hatchling.build"
 
-[tool.setuptools_scm]
-# For smarter version schemes and other configuration options,
-# check out https://github.com/pypa/setuptools_scm
-version_scheme = "no-guess-dev"
+[project]
+name = "audiostretchy"
+dynamic = ["version"]
+description = "AudioStretchy is a Python library and CLI tool for high-quality time-stretching of audio files without changing pitch. Uses David Bryant's audio-stretch C library with Pedalboard for versatile audio I/O."
+readme = "README.md"
+authors = [{name = "Adam Twardoch", email = "adam+github@twardoch.com"}]
+license = "BSD-3-Clause"
+license-files = ["LICENSE.txt", "AUTHORS.md", "src/audiostretchy/_vendor/audio-stretch/license.txt"]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: C",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Multimedia :: Sound/Audio :: Conversion",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+dependencies = [
+    "fire>=0.5.0",
+    "numpy>=1.23.0",
+    "pedalboard>=0.9.22",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0", 
+    "ruff>=0.1.0",
+    "build>=0.10.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "soundfile>=0.12.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/twardoch/audiostretchy"
+Repository = "https://github.com/twardoch/audiostretchy.git"
+Issues = "https://github.com/twardoch/audiostretchy/issues"
+
+[project.scripts]
+audiostretchy = "audiostretchy.__main__:main"
+
+# Hatch configuration
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
+tag_regex = '^v(?P<version>\d+\.\d+\.\d+)$'
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/audiostretchy"]
+exclude = ["/src/audiostretchy/c_interface/lib", "**/.DS_Store", "**/__pycache__"]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/scripts", "/hatch_build.py", "/publish.sh", "/test.sh", "/pyproject.toml", "/uv.lock", "/Makefile", "/README.md", "/LICENSE.txt", "/AUTHORS.md"]
+exclude = ["/src/audiostretchy/c_interface/lib", "**/.DS_Store", "**/__pycache__"]
+
+[tool.cibuildwheel]
+build = "cp310-*"
+skip = "*-musllinux_* *-win32 *-manylinux_i686"
+test-requires = ["pytest", "pytest-cov", "soundfile"]
+test-command = 'python -m pytest "{project}/tests" -o addopts='
+
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "11.0"
+
+# Development environment
+[tool.hatch.envs.default]
+dependencies = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "build>=0.10.0",
+]
+
+[tool.hatch.envs.test]
+dependencies = [
+    "pytest>=7.0.0", 
+    "pytest-cov>=4.0.0",
+    "soundfile>=0.12.0",
+]
+
+[tool.hatch.envs.hatch-test]
+extra-dependencies = [
+    "soundfile>=0.12.0",
+    "pytest-cov>=4.0.0",
+]
+
+# Testing configuration
+[tool.pytest.ini_options]
+addopts = "--cov=src/audiostretchy --cov-report=term-missing --verbose"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+markers = [
+    "performance: marks tests as performance benchmarks (may be slow)",
+]
+
+# Linting and formatting
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+extend-exclude = ["build", "dist"]
+
+[tool.ruff.lint]
+# A focused, enforceable set: pyflakes/pycodestyle correctness, import order,
+# pyupgrade modernization, bugbear, comprehensions, simplify, naming, pathlib.
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "N", "PTH", "PIE", "RUF"]
+# E501: line length is handled by the formatter; long prose comments are fine.
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests favour readability over strictness; the C-library build helper is a
+# standalone script that legitimately prints and shells out.
+"tests/**" = ["N", "B", "SIM", "PTH", "PIE"]
+"src/audiostretchy/c_interface/build.py" = ["PTH", "N"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+# build.py is a standalone C-library build helper, not part of the runtime API.
+exclude = ["build/", "dist/", "c_interface/build\\.py$"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312", "py313"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.3",
+    "soundfile>=0.14.0",
+]

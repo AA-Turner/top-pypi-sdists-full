@@ -7,7 +7,6 @@ import shlex
 import time
 from pathlib import Path
 
-from plato.utils.fuse_binary import ENSURE_FUSE3_COMMAND as ENSURE_FUSE3_COMMAND
 from plato.utils.pypi_index import plato_token_simple_index
 from plato.utils.subprocess import VM_PATH_EXPORT, VM_VENV_PYTHON, run_ssh
 
@@ -33,18 +32,14 @@ def build_agent_install_command(package_name: str, version: str | None, *, upgra
 
     The base image has plato-sdk-v2 and all dependencies pre-installed in
     /opt/plato-venv. At runtime we:
-    1. Optionally upgrade plato-sdk-v2 to latest from the Plato pypi-store
-       index (CodeArtifact, upstreams pypi.org for public deps).
+    1. Optionally upgrade plato-sdk-v2 to latest from real PyPI.
     2. Install the agent package with --no-deps from the agents index.
     """
     agents_url = plato_token_simple_index("agents")
-    store_url = plato_token_simple_index("pypi-store")
     pkg_spec = _pip_package_spec(package_name, version)
     commands: list[str] = []
     if upgrade_sdk:
-        commands.append(
-            f"uv pip install --python {VENV_PYTHON} plato-sdk-v2 --upgrade --index-url {shlex.quote(store_url)}"
-        )
+        commands.append(f"uv pip install --python {VENV_PYTHON} plato-sdk-v2 --upgrade")
     commands.append(
         f"uv pip install --python {VENV_PYTHON} --no-deps "
         f"{pkg_spec} "
@@ -76,10 +71,9 @@ def build_editable_install_commands(editable_paths: list[str]) -> list[str]:
 
 
 # VM setup commands shared by the chronos dev and test runners.
-# ENSURE_FUSE3_COMMAND lives in plato.utils.fuse_binary (also used by the
-# direct agent-VM fuse transport, which cannot import plato.agents) and is
-# re-exported here for the runners that historically imported it from this
-# module.
+ENSURE_FUSE3_COMMAND = (
+    "dpkg -s fuse3 > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq fuse3) > /dev/null 2>&1"
+)
 DISCOVER_WORLD_PACKAGES_COMMAND = (
     'python3 -c "import importlib.metadata; '
     "eps = importlib.metadata.entry_points(group='plato.worlds'); "
@@ -138,17 +132,14 @@ def build_editable_sdk_install_command(package_name: str, version: str | None, s
     """Build the uv commands to install editable SDK plus a published agent package.
 
     Two separate installs because:
-    - The SDK editable install needs an index for build deps (hatchling) —
-      the pypi-store index serves those via its pypi.org upstream.
+    - The SDK editable install needs PyPI for build deps (hatchling).
     - The agent install uses --no-deps from the agents-only index.
     """
     agents_url = plato_token_simple_index("agents")
-    store_url = plato_token_simple_index("pypi-store")
     pkg_spec = _pip_package_spec(package_name, version)
     return _with_vm_path(
         f"uv pip install --python {VENV_PYTHON} "
-        f"-e {shlex.quote(sdk_path)} --force-reinstall "
-        f"--index-url {shlex.quote(store_url)} && "
+        f"-e {shlex.quote(sdk_path)} --force-reinstall && "
         f"uv pip install --python {VENV_PYTHON} --no-deps "
         f"{pkg_spec} "
         f"--index-url {shlex.quote(agents_url)} "
@@ -186,10 +177,7 @@ async def install_production_agent(
         if check_rc == 0 and check_out.strip() == expected:
             logger.info("Agent package %s already pre-baked on %s, skipping install", expected, hostname)
             if upgrade_sdk:
-                store_url = plato_token_simple_index("pypi-store")
-                sdk_cmd = (
-                    f"uv pip install --python {VENV_PYTHON} plato-sdk-v2 --upgrade --index-url {shlex.quote(store_url)}"
-                )
+                sdk_cmd = f"uv pip install --python {VENV_PYTHON} plato-sdk-v2 --upgrade"
                 await run_ssh(ssh_key, hostname, sdk_cmd, user="root", timeout=300)
                 logger.info("Upgraded plato-sdk-v2 on %s (agent was pre-baked)", hostname)
             return

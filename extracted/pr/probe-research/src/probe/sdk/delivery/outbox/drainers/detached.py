@@ -7,11 +7,12 @@ import subprocess
 import sys
 import time
 
-from ....._shared import oscompat
+from .....foundation.os_backend import os_backend as oscompat
 from .....foundation.safe_warn import safe_warn as _diagnostics
 from probe.sdk.delivery.outbox.drainer import Drainer, DrainerKind
 from probe.sdk.delivery.outbox.lease import _lease_is_free
 from probe.sdk.delivery.outbox.linger import _has_queued_op
+from probe.sdk.delivery.status_fields import StatusField
 
 #: How long an auth block suppresses new workers before ONE re-probe: credentials come back
 #: (re-login, rotation), and delivery must resume on its own; one try per cooldown is no zombie.
@@ -120,7 +121,7 @@ def _held_is_fresh(status: dict) -> bool:
     from datetime import datetime, timezone
 
     try:
-        at = datetime.fromisoformat(str(status.get("held_at") or ""))
+        at = datetime.fromisoformat(str(status.get(StatusField.HELD_AT) or ""))
     except ValueError:
         return False
     if at.tzinfo is None:
@@ -172,7 +173,7 @@ SIDE_KICK_SECONDS = 1.0
 SIDE_SPAWN_GRACE_SECONDS = 5.0
 
 
-def maybe_spawn(directory: str | None = None) -> bool:
+def maybe_spawn(directory: str | None = None, *, credential_env: dict | None = None) -> bool:
     """Fork a detached worker when there is work and nobody owns the lease.
 
     O(1) by requirement: this runs after every enqueue and every CLI invocation (`probe log`
@@ -180,6 +181,8 @@ def maybe_spawn(directory: str | None = None) -> bool:
     (perf review: the old pending() parsed the whole queue), plus for adopted credential
     queues one stat and (with adoptions) one listing (`_adopted_credential_queues`). When
     status.json reads zero it also lists ``ops/`` to the first op (`_has_queued_op`).
+    ``credential_env``: a token the caller holds only in code, set in the worker's environment
+    alone, so its writes go out after the caller exits (R5, #2041); never sent to the service.
     Returns True when a worker was spawned.
     """
     from ...journal.journal import Journal
@@ -189,27 +192,31 @@ def maybe_spawn(directory: str | None = None) -> bool:
     status = Journal.read_status(directory, include_receipts=False) or {}
     # `waiting` comes from LISTING the waiting room, not status.json: an older worker rewrites
     # status.json from `ops/` alone and would read zero.
-    waiting = int(status.get("waiting") or 0)
+    waiting = int(status.get(StatusField.WAITING) or 0)
     # Plan (g): multipart uploads sit in their own queue, which status.json (rewritten by
     # older releases from `ops/` alone) never counts. Listed.
     from ..drain.lanes import _multipart_pending_count
 
     uploads = _multipart_pending_count(journal)
+    from ..held import has_due_held
+
     if (
-        not status.get("pending")
+        not status.get(StatusField.PENDING)
         and not _has_queued_op(journal)
         and not waiting
         and not uploads
         and not journal.recovery_file.exists()
-    ) or status.get("paused"):
+        # A write set aside after its run stalled is let out hourly by a worker (R9).
+        and not has_due_held(journal.dir)
+    ) or status.get(StatusField.PAUSED):
         return child_spawned
-    if _auth_block_is_fresh(status.get("auth_blocked_since")) and not waiting:
+    if _auth_block_is_fresh(status.get(StatusField.AUTH_BLOCKED_SINCE)) and not waiting:
         # Suppressed, but not forever -- see _AUTH_RETRY_COOLDOWN_SECONDS.
         return child_spawned
-    held = int(status.get("held") or 0)
+    held = int(status.get(StatusField.HELD) or 0)
     if (
         held
-        and int(status.get("pending") or 0) <= held
+        and int(status.get(StatusField.PENDING) or 0) <= held
         and not waiting
         and not uploads
         and _held_is_fresh(status)
@@ -227,7 +234,7 @@ def maybe_spawn(directory: str | None = None) -> bool:
         # promotes (see `run`).
         if not (waiting and _lease_is_free(journal, str(journal.promote_lease))):
             return child_spawned
-    else:
+    elif not credential_env:
         # A Probe service runs here and starts this worker as its own child (plan Q5): same
         # module, interpreter, folder and environment but no credential. The lease stays the
         # one-worker guard. STARTED is a spawn (the caller's kick throttle arms on it);
@@ -245,7 +252,7 @@ def maybe_spawn(directory: str | None = None) -> bool:
     # (`_worker_env`). PROBE_OUTBOX_WORKER marks the worker: its clients print no delivery
     # notices (plan 1.7) and no Kubernetes notice (1.5) into drainer.log. Then no worker:
     # the next kick, or `probe outbox drain`, delivers.
-    child = _spawn_detached(journal, [str(journal.dir)], _worker_env())
+    child = _spawn_detached(journal, [str(journal.dir)], {**_worker_env(), **(credential_env or {})})
     if child is False:
         return child_spawned
     return _spawn_took(child, journal) or child_spawned
@@ -262,8 +269,8 @@ class DetachedDrainer(Drainer):
 
     kind = DrainerKind.WORKER
 
-    def __init__(self, directory) -> None:
-        super().__init__(directory, can_fork=True)
+    def __init__(self, directory, *, credential_env: dict | None = None) -> None:
+        super().__init__(directory, can_fork=True, credential_env=credential_env)
         self.kick_interval = 1.0
         self.kicked_at = float("-inf")
         self.side_kicked_at = float("-inf")
@@ -285,7 +292,7 @@ class DetachedDrainer(Drainer):
                         # fork for it meanwhile (final review of #3794).
                         self.side_kicked_at = now + SIDE_SPAWN_GRACE_SECONDS
                 return
-            if maybe_spawn(self.directory):
+            if maybe_spawn(self.directory, **_with_credential(self.credential_env)):
                 self.kicked_at = time.monotonic()
         except Exception:  # noqa: BLE001 -- best-effort; run end is the barrier
             pass
@@ -485,3 +492,4 @@ def _spawn_took(child, journal) -> bool:
         return False
     except Exception:  # noqa: BLE001 -- a liveness probe may never break enqueue
         return True
+from probe.sdk.delivery.outbox.drainer import _with_credential  # noqa: E402 -- pieces need each other; the front door loads this one first

@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 # plugin, the `probe-research-mcp` binaries, and mcp.research.prbe.ai. The import
 # name (`probe`) and the CLI binary (`probe`) are unchanged.
 name = "probe-research"
-version = "0.362.1"
+version = "0.372.0"
 description = "CLI + SDK + read-only MCP client for Probe Research (experiment tracking)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -56,7 +56,7 @@ dependencies = [
     # IMPORTED LAZILY inside the command body -- see cli/wizard/wizard.py:run_menu.
     "questionary>=2.0,<3",
     # Hardware-rail floor (opt-in via run(hw=True)/PROBE_HW=1;
-    # docs/2026-08-05-hw-metrics-design.md).
+    # agent/src/probe/sdk/hardware/DESIGN.md).
     # Both IMPORTED LAZILY inside probe/sdk/hardware/resources/* behind availability
     # probes -- an absent import is a disabled source, never an error.
     # psutil: CPU/mem/disk/net sampling, universal wheels. nvidia-ml-py: the
@@ -91,7 +91,7 @@ dev = [
     # Build the real wheel/sdist in offline tokenizer packaging regression tests.
     "hatchling>=1.27",
     # Regenerates src/probe/generated/models.py from schema/openapi.json.
-    # See `make gen-models` / scripts/gen_models.py.
+    # See `make gen-models` / tools/codegen/gen_models.py.
     "datamodel-code-generator>=0.25",
     # `Run.log` flattens an OmegaConf DictConfig like a dict (plan (d)), and run
     # config coercion reads one (plan (c)). Test-only: the SDK never imports it.
@@ -130,7 +130,7 @@ mcp-http = ["uvicorn>=0.30"]
 # needs it. It came only through mcp -> pyjwt[crypto] before; a security check
 # never rests on another package's extra. Imported lazily (the service's start
 # path is stdlib-only). 3.4: pyjwt[crypto]'s floor; Ed25519 itself is older.
-cli = ["typer>=0.12,<1.0", "questionary>=2.0,<3", "tomlkit>=0.12", "cryptography>=3.4"]
+cli = ["probe-research-cli==0.372.0", "typer>=0.12,<1.0", "questionary>=2.0,<3", "tomlkit>=0.12", "cryptography>=3.4"]
 mcp = ["mcp>=1.24,<2", "anyio>=4.5", "tiktoken>=0.8,<0.14"]
 all = ["probe-research[cli,mcp]"]
 # `probe.integrations.lightning.ProbeLogger` (plan (a)). Brings torch: never a
@@ -181,7 +181,7 @@ path = "hatch_build.py"
 "skills" = "share/probe-research/skills"
 
 [tool.hatch.build.targets.sdist]
-include = ["src/probe", "skills", "tests", "README.md", "pyproject.toml", "hatch_build.py"]
+include = ["src/probe", "skills", "README.md", "pyproject.toml", "hatch_build.py"]
 
 [tool.hatch.build.targets.sdist.hooks.custom]
 path = "hatch_build.py"
@@ -198,6 +198,12 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# Pieces of ONE module each (tools/vendor.py `join`): a name one piece uses is defined in another.
+# Ruff checks the built modules, sdk/session_marker.py and sdk/probe_config.py, in full.
+"src/probe/sdk/marker/*.py" = ["F401", "F821"]
+"src/probe/sdk/recording_rules/probe_config/*.py" = ["F401", "F821"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

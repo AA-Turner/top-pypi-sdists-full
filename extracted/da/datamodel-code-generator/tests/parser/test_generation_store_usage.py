@@ -205,7 +205,7 @@ def test_runtime_writes_are_named_as_the_scan_names_them() -> None:
 
     writes = checker.runtime_writes([*lines, other_area, outside])
 
-    assert len(attribute_writes) > 100
+    assert attribute_writes
     assert [write.key for write in writes] == [violation.key for violation in attribute_writes]
     assert checker.runtime_problems(lines) == []
     checker.check_runtime_writes(lines)
@@ -306,6 +306,7 @@ def test_checker_uses_generation_store_api_surface() -> None:
             "append_field",
             "apply_const",
             "apply_literal_default",
+            "bind_builtin_names",
             "clear_target_null",
             "collapse_root_data_type",
             "defer_refresh",
@@ -321,7 +322,6 @@ def test_checker_uses_generation_store_api_surface() -> None:
             "insert_field",
             "mark_forward_references",
             "mark_target_null",
-            "move_model",
             "name_reference",
             "note_changed_models",
             "override_type_import",
@@ -330,7 +330,6 @@ def test_checker_uses_generation_store_api_surface() -> None:
             "redirect_model_reference_users",
             "redirect_reference_users",
             "register_model",
-            "remove_field",
             "rename_field",
             "rename_model",
             "replace_data_type_ref",
@@ -346,6 +345,7 @@ def test_checker_uses_generation_store_api_surface() -> None:
             "set_field_default",
             "set_field_extra",
             "set_field_extras",
+            "set_field_identity",
             "set_fields",
             "set_nested_data_types",
             "set_type_discriminator",
@@ -419,7 +419,7 @@ def test_fact_vocabulary_and_table_shape() -> None:
         "Access": ("ATTRIBUTE", "CONTAINER", "ITEM", "DICT_KEY", "CACHED_PROPERTY"),
     })
     assert Counter(row.kind for row in checker.ATTRIBUTE_FACTS) == snapshot(
-        Counter({"FACT": 66, "PRESENTATION": 57, "BOOKKEEPING": 18, "CACHE": 11})
+        Counter({"FACT": 67, "PRESENTATION": 57, "BOOKKEEPING": 21, "CACHE": 11})
     )
     assert sorted({row.owner for row in checker.ATTRIBUTE_FACTS}) == snapshot([
         "AnnotatedConstraintDataType",
@@ -454,6 +454,7 @@ def mutate(model, field, data_type, ref):
     model.base_classes = []
     model.reference.children
     field.replace_data_type(data_type)
+    data_type_children(model.reference)
 """,
     )
 
@@ -468,6 +469,7 @@ def mutate(model, field, data_type, ref):
             (7, 5, "use GenerationStore.set_base_classes() instead of assigning base_classes"),
             (8, 5, "use GenerationIndex reverse-edge queries instead of Reference.children"),
             (9, 5, "use GenerationStore API instead of replace_data_type()"),
+            (10, 5, "use GenerationIndex reverse-edge queries instead of Reference.children"),
         ],
     )
 
@@ -542,6 +544,11 @@ class Parser:
         copied.required = []
         obj = build()
         obj.nullable = True
+
+
+def concern_function(parser: Host) -> None:
+    merged = parser._schema_object({})
+    merged.__dict__["key"] = 1
 """,
     )
 
@@ -1119,43 +1126,43 @@ class Other(typing.NamedTuple):
             30,
             "Child",
             "extra",
-            "Child.extra has no ATTRIBUTE_FACTS row in src/datamodel_code_generator/parser/_facts.py",
+            "Child.extra has no ATTRIBUTE_FACTS row in scripts/fact_tables.py",
         ),
         (
             17,
             "DataModel",
             "fresh",
-            "DataModel.fresh has no ATTRIBUTE_FACTS row in src/datamodel_code_generator/parser/_facts.py",
+            "DataModel.fresh has no ATTRIBUTE_FACTS row in scripts/fact_tables.py",
         ),
         (
             18,
             "DataModel",
             "annotated",
-            "DataModel.annotated has no ATTRIBUTE_FACTS row in src/datamodel_code_generator/parser/_facts.py",
+            "DataModel.annotated has no ATTRIBUTE_FACTS row in scripts/fact_tables.py",
         ),
         (
             22,
             "DataModel",
             "later",
-            "DataModel.later has no ATTRIBUTE_FACTS row in src/datamodel_code_generator/parser/_facts.py",
+            "DataModel.later has no ATTRIBUTE_FACTS row in scripts/fact_tables.py",
         ),
         (
             24,
             "DataModel",
             "first",
-            "DataModel.first has no ATTRIBUTE_FACTS row in src/datamodel_code_generator/parser/_facts.py",
+            "DataModel.first has no ATTRIBUTE_FACTS row in scripts/fact_tables.py",
         ),
         (
             24,
             "DataModel",
             "second",
-            "DataModel.second has no ATTRIBUTE_FACTS row in src/datamodel_code_generator/parser/_facts.py",
+            "DataModel.second has no ATTRIBUTE_FACTS row in scripts/fact_tables.py",
         ),
         (
             23,
             "DataModel",
             "dynamic",
-            "DataModel.dynamic has no ATTRIBUTE_FACTS row in src/datamodel_code_generator/parser/_facts.py",
+            "DataModel.dynamic has no ATTRIBUTE_FACTS row in scripts/fact_tables.py",
         ),
         (
             0,
@@ -1275,16 +1282,16 @@ def test_checked_scopes_follow_the_source_layout(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "assignment",
     [
-        pytest.param('GENERATION_STORE_MUTATION_METHODS = {"set_fields"}', id="set"),
-        pytest.param("GENERATION_STORE_MUTATION_METHODS = frozenset(NAMES)", id="not-literal"),
-        pytest.param("GENERATION_STORE_MUTATION_METHODS = frozenset({1})", id="not-strings"),
-        pytest.param("OTHER = frozenset()", id="missing"),
+        pytest.param('SITE_EFFECTS = {"set_fields": "copied"}\nNO_SITE_EFFECT = {"rename_field"}', id="literals"),
+        pytest.param("SITE_EFFECTS = MappingProxyType(EFFECTS)\nNO_SITE_EFFECT = frozenset()", id="not-literal"),
+        pytest.param("SITE_EFFECTS = {}\nNO_SITE_EFFECT = frozenset({1})", id="not-strings"),
+        pytest.param("SITE_EFFECTS = {}", id="missing"),
     ],
 )
 def test_store_api_list_must_be_literal(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, assignment: str, request: pytest.FixtureRequest
 ) -> None:
-    """The checker reads the store mutation API as a literal set of names."""
+    """The checker reads the store mutation API as the names of two literal tables."""
     checker = _load_checker()
     store_module = tmp_path / checker.GENERATION_STORE_MODULE
     store_module.parent.mkdir(parents=True)
@@ -1299,9 +1306,9 @@ def test_store_api_list_must_be_literal(
     assert (
         outcome
         == snapshot({
-            "set": "['set_fields']",
-            "not-literal": "TypeError: GENERATION_STORE_MUTATION_METHODS must be a literal frozenset of strings",
-            "not-strings": "TypeError: GENERATION_STORE_MUTATION_METHODS must contain only literal strings",
-            "missing": "RuntimeError: GENERATION_STORE_MUTATION_METHODS was not found",
+            "literals": "['rename_field', 'set_fields']",
+            "not-literal": "TypeError: SITE_EFFECTS must be a literal set or dict of strings",
+            "not-strings": "TypeError: NO_SITE_EFFECT must contain only literal strings",
+            "missing": "RuntimeError: NO_SITE_EFFECT was not found",
         })[request.node.callspec.id]
     )

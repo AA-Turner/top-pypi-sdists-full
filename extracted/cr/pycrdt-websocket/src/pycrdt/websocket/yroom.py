@@ -60,6 +60,7 @@ class YRoom:
     _stopped: Event
     __start_lock: Lock | None = None
     _subscription: Subscription | None = None
+    _awareness_subscription: str | None = None
 
     def __init__(
         self,
@@ -106,7 +107,7 @@ class YRoom:
         self.provider_factory = provider_factory
         self.log = log or getLogger(__name__)
         self.awareness = Awareness(self.ydoc)
-        self.awareness.observe(self.send_server_awareness)
+        self._awareness_subscription = self.awareness.observe(self.send_server_awareness)
         self.clients = set()
         self._on_message = None
         self._on_message_error = None
@@ -309,6 +310,9 @@ class YRoom:
         self._task_group = None
         if self._subscription is not None:
             self.ydoc.unobserve(self._subscription)
+        # Break the YRoom -> Awareness -> bound method cycle
+        if self._awareness_subscription is not None:
+            self.awareness.unobserve(self._awareness_subscription)
 
     async def serve(self, channel: Channel):
         """Serve a client.
@@ -413,13 +417,19 @@ class YRoom:
             self.log.error("Cannot broadcast server awareness: YRoom not started")
 
     async def _send_server_awareness(self, state: bytes) -> None:
+        async with create_task_group() as tg:
+            for client in self.clients:
+                self.log.debug(
+                    "Sending awareness from server to client with endpoint: %s",
+                    client.path,
+                )
+                tg.start_soon(self._send_server_awareness_to_client, client, state)
+
+    async def _send_server_awareness_to_client(self, client: Channel, state: bytes) -> None:
         try:
-            async with create_task_group() as tg:
-                for client in self.clients:
-                    self.log.debug(
-                        "Sending awareness from server to client with endpoint: %s",
-                        client.path,
-                    )
-                    tg.start_soon(client.send, state)
-        except Exception as e:
-            self.log.error("Error while broadcasting awareness changes: %s", e)
+            await client.send(state)
+        except Exception:
+            self.log.exception(
+                "Error while broadcasting awareness changes to client with endpoint: %s",
+                client.path,
+            )

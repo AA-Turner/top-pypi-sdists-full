@@ -49,7 +49,7 @@ def ca_api() -> KiaUvoApiCA:
 
 
 def _vehicle(odometer: float, with_location: bool) -> Vehicle:
-    v = Vehicle()
+    v = Vehicle(id="test-id")
     v.id = "vid-1"
     v.engine_type = ENGINE_TYPES.PHEV
     v._odometer = odometer
@@ -148,3 +148,12 @@ class TestForceRefreshLocationGate:
         ca_api.force_refresh_vehicle_state(_token(), vehicle)
         ca_api.force_refresh_vehicle_state(_token(), vehicle)
         ca_api._get_location.assert_called_once()
+
+
+def test_force_refresh_without_last_status_date_skips_timezone_guess(ca_api):
+    """A forced state without lastStatusDate keeps the default timezone
+    instead of raising on the timezone-guess arithmetic."""
+    ca_api._get_forced_vehicle_state.return_value = {"status": {}}
+    vehicle = _vehicle(odometer=100, with_location=True)
+    ca_api.force_refresh_vehicle_state(_token(), vehicle)
+    assert vehicle.timezone is dt.UTC

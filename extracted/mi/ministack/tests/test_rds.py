@@ -1234,6 +1234,208 @@ def test_rds_reset_db_parameters(rds):
     assert max_connections["ParameterValue"] == "151"
 
 
+def test_rds_default_cluster_parameter_groups_exist_for_aurora_families(rds):
+    """Each Aurora engine family has a default cluster parameter group, which a new cluster uses."""
+    rds.create_db_cluster(
+        DBClusterIdentifier="default-pg-cluster",
+        Engine="aurora-postgresql",
+        EngineVersion="16.8",
+        MasterUsername="admin",
+        MasterUserPassword="password1",
+    )
+    cluster = rds.describe_db_clusters(DBClusterIdentifier="default-pg-cluster")["DBClusters"][0]
+    assert cluster["DBClusterParameterGroup"] == "default.aurora-postgresql16"
+    group = rds.describe_db_cluster_parameter_groups(
+        DBClusterParameterGroupName="default.aurora-postgresql16")["DBClusterParameterGroups"][0]
+    assert group["DBParameterGroupFamily"] == "aurora-postgresql16"
+    assert rds.describe_db_cluster_parameters(DBClusterParameterGroupName="default.aurora-mysql8.0")
+    with pytest.raises(ClientError) as exc:
+        rds.describe_db_cluster_parameter_groups(DBClusterParameterGroupName="default.not-a-family")
+    assert exc.value.response["Error"]["Code"] == "DBParameterGroupNotFound"
+
+def _settled_cluster(client, cid):
+    """Describe a cluster until its major upgrade has finished (it takes two describes)."""
+    for _ in range(3):
+        cluster = client.describe_db_clusters(DBClusterIdentifier=cid)["DBClusters"][0]
+        if "PendingModifiedValues" not in cluster:
+            return cluster
+    raise AssertionError("upgrade never settled")
+
+
+def test_rds_default_cluster_parameter_groups_listed_once_materialized_and_follow_major_upgrade():
+    """Real AWS (us-west-2): a default group is listed only once described by name or used by a cluster."""
+    rds = boto3.client("rds", endpoint_url=os.environ.get("MINISTACK_ENDPOINT", "http://localhost:4566"),
+                       aws_access_key_id="424242424242", aws_secret_access_key="test", region_name="us-west-2")
+    def listed():
+        return {g["DBClusterParameterGroupName"]
+                for g in rds.describe_db_cluster_parameter_groups()["DBClusterParameterGroups"]}
+
+    assert not any(n.startswith("default.") for n in listed())
+    rds.describe_db_cluster_parameter_groups(DBClusterParameterGroupName="default.aurora-postgresql16")
+    assert {n for n in listed() if n.startswith("default.")} == {"default.aurora-postgresql16"}
+    rds.create_db_cluster(DBClusterIdentifier="mat-pg15", Engine="aurora-postgresql", EngineVersion="15.13",
+                          MasterUsername="admin", MasterUserPassword="password1")
+    assert {n for n in listed() if n.startswith("default.")} == {
+        "default.aurora-postgresql15", "default.aurora-postgresql16"}
+
+    rds.create_db_cluster_parameter_group(
+        DBClusterParameterGroupName="keep-me", DBParameterGroupFamily="aurora-mysql8.0", Description="x")
+    for cid in ("up-default", "up-custom"):
+        rds.create_db_cluster(DBClusterIdentifier=cid, Engine="aurora-mysql", EngineVersion="5.7.mysql_aurora.2.12.6",
+                              MasterUsername="admin", MasterUserPassword="password1",
+                              **({"DBClusterParameterGroupName": "keep-me"} if cid == "up-custom" else {}))
+        rds.modify_db_cluster(DBClusterIdentifier=cid, EngineVersion="8.0.mysql_aurora.3.10.3",
+                              AllowMajorVersionUpgrade=True, ApplyImmediately=True)
+    got = {cid: _settled_cluster(rds, cid)["DBClusterParameterGroup"] for cid in ("up-default", "up-custom")}
+    assert got == {"up-default": "default.aurora-mysql8.0", "up-custom": "keep-me"}
+    assert "default.aurora-mysql8.0" in listed()
+
+
+def test_rds_default_cluster_parameter_group_follows_prefix_and_global_upgrades(rds):
+    def make(cid, **kw):
+        rds.create_db_cluster(DBClusterIdentifier=cid, Engine="aurora-postgresql", EngineVersion="16.8",
+                              MasterUsername="admin", MasterUserPassword="password1", **kw)
+
+    def group(cid):
+        return _settled_cluster(rds, cid)["DBClusterParameterGroup"]
+
+    make("pfx-up")
+    rds.modify_db_cluster(DBClusterIdentifier="pfx-up", EngineVersion="17",
+                          AllowMajorVersionUpgrade=True, ApplyImmediately=True)
+    assert group("pfx-up") == "default.aurora-postgresql17"
+
+    rds.create_global_cluster(GlobalClusterIdentifier="gl-up", Engine="aurora-postgresql", EngineVersion="16.8")
+    make("gl-member", GlobalClusterIdentifier="gl-up")
+    rds.modify_global_cluster(GlobalClusterIdentifier="gl-up", EngineVersion="17",
+                              AllowMajorVersionUpgrade=True)
+    assert group("gl-member") == "default.aurora-postgresql17"
+
+
+def test_rds_major_upgrade_reports_pending_then_upgrading_then_new_family(rds):
+    """Real AWS (us-west-2, Aurora PostgreSQL 15.19 -> 16.15): available+pending, upgrading+pending, then done."""
+    rds.create_db_cluster(DBClusterIdentifier="seq-up", Engine="aurora-postgresql", EngineVersion="15.13",
+                          MasterUsername="admin", MasterUserPassword="password1")
+    rds.create_db_instance(DBInstanceIdentifier="seq-up-1", DBInstanceClass="db.r6g.large",
+                           Engine="aurora-postgresql", DBClusterIdentifier="seq-up")
+    rds.create_db_instance(DBInstanceIdentifier="seq-up-custom", DBInstanceClass="db.r6g.large",
+                           Engine="aurora-postgresql", DBClusterIdentifier="seq-up")
+    rds.create_db_parameter_group(DBParameterGroupName="seq-up-pg", DBParameterGroupFamily="aurora-postgresql15",
+                                  Description="x")
+    rds.modify_db_instance(DBInstanceIdentifier="seq-up-custom", DBParameterGroupName="seq-up-pg",
+                           ApplyImmediately=True)
+    # With Docker the cluster's engine is still starting.
+    for _ in range(120):
+        if rds.describe_db_clusters(DBClusterIdentifier="seq-up")["DBClusters"][0]["Status"] == "available":
+            break
+        time.sleep(1)
+
+    def steps(c):
+        return (c["Status"], c["EngineVersion"], c["DBClusterParameterGroup"], c.get("PendingModifiedValues"))
+
+    resp = rds.modify_db_cluster(DBClusterIdentifier="seq-up", EngineVersion="16.8",
+                                 AllowMajorVersionUpgrade=True, ApplyImmediately=True)["DBCluster"]
+    old = ("15.13", "default.aurora-postgresql15")
+    assert steps(resp) == ("available", *old, {"EngineVersion": "16.8"})
+    first = rds.describe_db_clusters(DBClusterIdentifier="seq-up")["DBClusters"][0]
+    assert steps(first) == ("upgrading", *old, {"EngineVersion": "16.8"})
+    rds.create_db_instance(DBInstanceIdentifier="seq-other", DBInstanceClass="db.t3.micro", Engine="postgres")
+    rds.delete_db_instance(DBInstanceIdentifier="seq-other", SkipFinalSnapshot=True)  # refreshes every cluster
+    with pytest.raises(ClientError) as exc:
+        rds.stop_db_cluster(DBClusterIdentifier="seq-up")
+    assert exc.value.response["Error"]["Code"] == "InvalidDBClusterStateFault"
+    last = rds.describe_db_clusters(DBClusterIdentifier="seq-up")["DBClusters"][0]
+    assert steps(last) == ("available", "16.8", "default.aurora-postgresql16", None)
+    assert steps(rds.describe_db_clusters(DBClusterIdentifier="seq-up")["DBClusters"][0]) == steps(last)
+
+    groups = {i["DBInstanceIdentifier"]: i["DBParameterGroups"][0]
+              for i in rds.describe_db_instances()["DBInstances"] if i["DBInstanceIdentifier"].startswith("seq-up-")}
+    assert groups["seq-up-1"] == {"DBParameterGroupName": "default.aurora-postgresql16",
+                                  "ParameterApplyStatus": "in-sync"}
+    assert groups["seq-up-custom"]["DBParameterGroupName"] == "seq-up-pg"
+    assert {i["EngineVersion"] for i in rds.describe_db_instances()["DBInstances"]
+            if i["DBInstanceIdentifier"].startswith("seq-up-")} == {"16.8"}
+
+
+def test_rds_major_upgrade_of_a_cluster_without_a_stored_parameter_group():
+    """Clusters made by CloudFormation carry no DBClusterParameterGroup; an upgrade must not fail."""
+    from ministack.services import rds as rds_service
+
+    cluster = {"Engine": "aurora-postgresql", "EngineVersion": "15.13", "DBClusterIdentifier": "no-pg-field"}
+    rds_service._set_cluster_engine_version(cluster, "16.8")
+    assert cluster["EngineVersion"] == "16.8"
+    assert "DBClusterParameterGroup" not in cluster
+
+
+def test_rds_pending_upgrade_does_not_leak_to_a_recreated_cluster_and_survives_status_refresh():
+    from ministack.services import rds as rds_service
+
+    arn = "arn:aws:rds:us-east-1:000000000000:cluster:leak"
+    old = {"DBClusterArn": arn, "Engine": "aurora-postgresql", "EngineVersion": "15.13", "Status": "available",
+           "DBClusterIdentifier": "leak"}
+    rds_service._set_cluster_engine_version(old, "16.8")
+    assert rds_service._upgrade_view(old, True)["Status"] == "upgrading"
+    assert old["Status"] == "upgrading"
+    new = {"DBClusterArn": arn, "Engine": "aurora-postgresql", "EngineVersion": "17.7", "Status": "available"}
+    assert rds_service._upgrade_view(new, True) is new
+    restored = json.loads(json.dumps(old))  # as persisted and loaded
+    assert rds_service._upgrade_view(restored, True)["Status"] == "available"
+    assert "_major_upgrade_pending" not in restored
+
+
+def test_rds_major_upgrade_needs_allow_major_version_upgrade(rds):
+    """AWS (Aurora in-place upgrade tutorial): a major version change without the flag is refused."""
+    rds.create_db_cluster(DBClusterIdentifier="amvu", Engine="aurora-postgresql", EngineVersion="15.13",
+                          MasterUsername="admin", MasterUserPassword="password1")
+    try:
+        with pytest.raises(ClientError) as exc:
+            rds.modify_db_cluster(DBClusterIdentifier="amvu", EngineVersion="16.8", ApplyImmediately=True)
+        assert exc.value.response["Error"]["Code"] == "InvalidParameterCombination"
+        assert exc.value.response["Error"]["Message"] == (
+            "The AllowMajorVersionUpgrade flag must be present when upgrading to a new major version.")
+        assert rds.describe_db_clusters(DBClusterIdentifier="amvu")["DBClusters"][0]["EngineVersion"] == "15.13"
+    finally:
+        rds.delete_db_cluster(DBClusterIdentifier="amvu", SkipFinalSnapshot=True)
+
+
+def test_rds_default_cluster_parameter_groups_are_immutable(rds):
+    """Captured on AWS (us-east-1): a default group cannot be modified or deleted; a reset succeeds."""
+    name = "default.aurora-mysql8.0"
+    with pytest.raises(ClientError) as exc:
+        rds.modify_db_cluster_parameter_group(DBClusterParameterGroupName=name, Parameters=[
+            {"ParameterName": "long_query_time", "ParameterValue": "100", "ApplyMethod": "immediate"}])
+    assert exc.value.response["Error"]["Code"] == "InvalidParameterValue"
+    assert exc.value.response["Error"]["Message"] == "Cannot modify a default parameter group."
+    with pytest.raises(ClientError) as exc:
+        rds.delete_db_cluster_parameter_group(DBClusterParameterGroupName=name)
+    assert exc.value.response["Error"]["Code"] == "InvalidDBParameterGroupState"
+    assert exc.value.response["Error"]["Message"] == f"Default DBClusterParameterGroup cannot be deleted: {name}"
+    resp = rds.reset_db_cluster_parameter_group(DBClusterParameterGroupName=name, ResetAllParameters=True)
+    assert resp["DBClusterParameterGroupName"] == name
+    rds.describe_db_cluster_parameter_groups(DBClusterParameterGroupName=name)
+    with pytest.raises(ClientError) as exc:
+        rds.delete_db_cluster_parameter_group(DBClusterParameterGroupName="never-created-cpg")
+    assert exc.value.response["Error"]["Code"] == "DBParameterGroupNotFound"
+    assert exc.value.response["Error"]["Message"] == "DBClusterParameterGroup not found: never-created-cpg"
+
+
+def test_rds_global_upgrade_materializes_default_group_in_each_members_region():
+    def client(region):
+        return boto3.client("rds", endpoint_url=ENDPOINT, aws_access_key_id="434343434343",
+                            aws_secret_access_key="test", region_name=region)
+
+    east, west = client("us-east-1"), client("us-west-2")
+    east.create_global_cluster(GlobalClusterIdentifier="gl-xr", Engine="aurora-postgresql", EngineVersion="16.8")
+    west.create_db_cluster(DBClusterIdentifier="xr-member", Engine="aurora-postgresql", EngineVersion="16.8",
+                           MasterUsername="admin", MasterUserPassword="password1",
+                           GlobalClusterIdentifier="gl-xr")
+    east.modify_global_cluster(GlobalClusterIdentifier="gl-xr", EngineVersion="17", AllowMajorVersionUpgrade=True)
+    cluster = _settled_cluster(west, "xr-member")
+    assert cluster["DBClusterParameterGroup"] == "default.aurora-postgresql17"
+    names = {g["DBClusterParameterGroupName"]
+             for g in west.describe_db_cluster_parameter_groups()["DBClusterParameterGroups"]}
+    assert "default.aurora-postgresql17" in names
+
+
 def test_rds_modify_and_describe_cluster_parameters(rds):
     """ModifyDBClusterParameterGroup stores ApplyMethod; DescribeDBClusterParameters returns it."""
     rds.create_db_cluster_parameter_group(
@@ -4728,6 +4930,61 @@ def test_rds_modify_cluster_password(rds):
     resp = rds.describe_db_clusters(DBClusterIdentifier="pw-mod-cluster")
     cluster = resp["DBClusters"][0]
     assert cluster["DBClusterIdentifier"] == "pw-mod-cluster"
+
+
+def test_rds_cluster_password_reset_is_visible_before_it_settles(rds):
+    """Real AWS (us-west-2): pending ****, then resetting-master-credentials, then available."""
+    rds.create_db_cluster(
+        DBClusterIdentifier="pw-reset-status",
+        Engine="aurora-postgresql",
+        MasterUsername="admin",
+        MasterUserPassword="old_pass",
+    )
+    modified = rds.modify_db_cluster(
+        DBClusterIdentifier="pw-reset-status", MasterUserPassword="new_pass")["DBCluster"]
+    assert modified["Status"] == "available"
+    assert modified["PendingModifiedValues"] == {"MasterUserPassword": "****"}
+    seen = [(c["Status"], c.get("PendingModifiedValues", {}))
+            for c in (rds.describe_db_clusters(DBClusterIdentifier="pw-reset-status")["DBClusters"][0]
+                      for _ in range(4))]
+    pending = {"MasterUserPassword": "****"}
+    assert seen == [("available", pending), ("resetting-master-credentials", pending),
+                    ("available", {}), ("available", {})]
+
+
+def test_rds_cluster_password_reset_does_not_leak_to_a_recreated_cluster(rds):
+    kw = dict(DBClusterIdentifier="pw-reset-recreate", Engine="aurora-postgresql",
+              MasterUsername="admin", MasterUserPassword="old_pass")
+    rds.create_db_cluster(**kw)
+    rds.modify_db_cluster(DBClusterIdentifier="pw-reset-recreate", MasterUserPassword="new_pass")
+    rds.delete_db_cluster(DBClusterIdentifier="pw-reset-recreate", SkipFinalSnapshot=True)
+    rds.create_db_cluster(**kw)
+    assert rds.describe_db_clusters(DBClusterIdentifier="pw-reset-recreate")["DBClusters"][0]["Status"] == "available"
+
+
+def test_rds_cluster_password_reset_on_stopped_cluster_is_rejected(rds):
+    """Real AWS: a stopped cluster refuses a password change; a stop clears a pending reset."""
+    rds.create_db_cluster(
+        DBClusterIdentifier="pw-reset-stop",
+        Engine="aurora-postgresql",
+        MasterUsername="admin",
+        MasterUserPassword="old_pass",
+    )
+    def status():
+        return rds.describe_db_clusters(DBClusterIdentifier="pw-reset-stop")["DBClusters"][0]["Status"]
+    rds.modify_db_cluster(DBClusterIdentifier="pw-reset-stop", MasterUserPassword="new_pass")
+    rds.stop_db_cluster(DBClusterIdentifier="pw-reset-stop")
+    assert status() != "resetting-master-credentials"
+    for _ in range(60):
+        if status() == "stopped":
+            break
+        time.sleep(0.5)
+    assert status() == "stopped"
+    with pytest.raises(ClientError) as exc:
+        rds.modify_db_cluster(DBClusterIdentifier="pw-reset-stop", MasterUserPassword="newer_pass")
+    assert exc.value.response["Error"]["Code"] == "InvalidDBClusterStateFault"
+    assert exc.value.response["Error"]["Message"] == "Db cluster pw-reset-stop cannot be in the stopped state."
+    assert status() == "stopped"
 
 
 def test_rds_modify_instance_password(rds):

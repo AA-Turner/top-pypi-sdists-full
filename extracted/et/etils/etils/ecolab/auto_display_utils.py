@@ -222,16 +222,16 @@ else:
 
 
 def _reraise_error(fn: _T) -> _T:
-  @functools.wraps(fn)
+  @functools.wraps(fn)  # pyrefly: ignore[bad-argument-type]
   def decorated(self, node: ast.AST):
     try:
-      return fn(self, node)  # pytype: disable=wrong-arg-types
+      return fn(self, node)  # pyrefly: ignore[not-callable]
     except Exception as e:  # pylint: disable=broad-exception-caught
       code = '\n'.join(self.lines_recorder.last_lines)
       print(f'Error for code:\n-----\n{code}\n-----')
       traceback.print_exception(e)
 
-  return decorated
+  return decorated  # pyrefly: ignore[bad-return]
 
 
 class _AddDisplayStatement(ast.NodeTransformer):
@@ -260,8 +260,8 @@ class _AddDisplayStatement(ast.NodeTransformer):
         if line_info.print_line:
           fn_kwargs.append(ast.keyword('line_code', _unparse_line(node)))
 
-        node.value = ast.Call(  # pytype: disable=wrong-arg-types
-            func=_parse_expr('ecolab.auto_display_utils._display_and_return'),
+        node.value = ast.Call(
+            func=_parse_expr('ecolab.auto_display_utils._display_and_return'),  # pyrefly: ignore[bad-argument-type]
             args=[node.value],
             keywords=fn_kwargs,
         )
@@ -281,7 +281,7 @@ class _AddDisplayStatement(ast.NodeTransformer):
     if any(l not in _Options.all_letters for l in name):
       return False
     # The alias is not in the same line as a trailing `;`
-    if node.end_lineno - 1 not in self.lines_recorder.trailing_stmt_line_nums:
+    if node.end_lineno - 1 not in self.lines_recorder.trailing_stmt_line_nums:  # pyrefly: ignore[unsupported-operation]
       return False
     return True
 
@@ -289,16 +289,16 @@ class _AddDisplayStatement(ast.NodeTransformer):
   def visit_Assert(self, node: ast.Assert) -> None:  # pylint: disable=invalid-name
     # Wrap assert so the `node.value` match the expected API
     node = _WrapAssertNode(node)
-    node = self._maybe_display(node)  # pytype: disable=wrong-arg-types
+    node = self._maybe_display(node)  # pyrefly: ignore[bad-argument-type, bad-assignment]
     assert isinstance(node, _WrapAssertNode)
     node = node._node  # Unwrap  # pylint: disable=protected-access
-    return node
+    return node  # pyrefly: ignore[bad-return]
 
   # pylint: disable=invalid-name
   visit_Assign = _reraise_error(_maybe_display)
   visit_AnnAssign = _reraise_error(_maybe_display)
   visit_Expr = _reraise_error(_maybe_display)
-  visit_Return = _reraise_error(_maybe_display)
+  visit_Return = _reraise_error(_maybe_display)  # pyrefly: ignore[bad-override]
   # pylint: enable=invalid-name
 
 
@@ -323,7 +323,7 @@ class _WrapAssertNode(ast.Assert):
 
   @value.setter
   def value(self, value: ast.AST) -> None:
-    self._node.test = value
+    self._node.test = value  # pyrefly: ignore[bad-assignment]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -351,12 +351,12 @@ def _has_trailing_semicolon(
     )
 
   # Extract the lines of the statement
-  line_num = node.end_lineno - 1  # pytype: disable=attribute-error
+  line_num = node.end_lineno - 1  # pyrefly: ignore[missing-attribute]
   last_line = code_lines[line_num]  # lineno starts at `1`
 
   # `node.end_col_offset` is in bytes, so UTF-8 characters count 3.
   last_part_of_line = last_line.encode('utf-8')
-  last_part_of_line = last_part_of_line[node.end_col_offset :]  # pytype: disable=attribute-error
+  last_part_of_line = last_part_of_line[node.end_col_offset :]
   last_part_of_line = last_part_of_line.decode('utf-8')
 
   # Check if the last character is a `;` token
@@ -386,7 +386,7 @@ def _detect_trailing_regex() -> re.Pattern[str]:
   # * `; a; b`
   # * `; a=1`
 
-  available_letters = ''.join(sorted(_Options.all_letters))  # pytype: disable=wrong-arg-types
+  available_letters = ''.join(sorted(_Options.all_letters))
   return re.compile(
       ' *; *'  # Trailing `;` (surrounded by spaces)
       f'(?P<options>[{available_letters}]*)?'  # Optionally a `option` letter
@@ -397,7 +397,7 @@ def _detect_trailing_regex() -> re.Pattern[str]:
 def _unparse_line(node: ast.AST) -> ast.Constant:
   """Extract the line code."""
   if isinstance(node, ast.Assign):
-    node = node.targets
+    node = node.targets  # pyrefly: ignore[bad-assignment]
   elif isinstance(node, ast.AnnAssign):
     node = node.target
   return ast.Constant(ast.unparse(node))
@@ -427,13 +427,13 @@ def _display_and_return(
 ) -> _T:
   """Print `x` and return `x`."""
   x_origin = x
-  options = {_Options(o) for o in options}
+  options = {_Options(o) for o in options}  # pyrefly: ignore[bad-assignment]
 
   if _Options.QUIET in options:  # Do not display anything
     return x_origin
 
   if _Options.SPEC in options:  # Convert to spec
-    x = etree.spec_like(x)
+    x = etree.spec_like(x)  # pyrefly: ignore[bad-assignment]
 
   repr_fn = pretty.pretty
   display_fn = IPython.display.display

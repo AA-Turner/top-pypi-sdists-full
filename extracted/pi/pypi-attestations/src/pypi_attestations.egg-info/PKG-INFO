@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypi-attestations
-Version: 0.0.30
+Version: 0.0.31
 Summary: A library to convert between Sigstore Bundles and PEP-740 Attestation objects
 Author-email: Trail of Bits <opensource@trailofbits.com>
 Maintainer-email: PyPI Admins <admin@pypi.org>
@@ -13,9 +13,8 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: cryptography
+Requires-Dist: cryptography>=47.0.0
 Requires-Dist: packaging
-Requires-Dist: pyasn1~=0.6
 Requires-Dist: pydantic>=2.10.0
 Requires-Dist: requests
 Requires-Dist: rfc3986

@@ -14,6 +14,7 @@ use etcetera::AppStrategy as _;
 use crate::config::Config;
 use crate::finding::Persona;
 use crate::github::{GitHubHost, GitHubToken};
+use crate::registry::input::InputKind;
 use crate::utils;
 
 const STYLES: Styles = Styles::styled()
@@ -83,6 +84,14 @@ pub(crate) struct InputArgs {
     /// in collected inputs.
     #[arg(long)]
     pub(crate) strict_collection: bool,
+
+    /// Ignore each collected input's lockfile, if present.
+    /// This does not stop lockfile loading, it just stops zizmor from using
+    /// the lockfile's state from informing audit results.
+    ///
+    /// NOTE: This is an experimental flag, and may be removed at any point.
+    #[arg(long, hide = true)]
+    pub(crate) ignore_lockfile: bool,
 }
 
 #[derive(Debug, Args)]
@@ -496,21 +505,38 @@ impl From<ColorMode> for anstream::ColorChoice {
 }
 
 /// How `zizmor` collects inputs from local and remote repository sources.
+///
+/// When `zizmor` is given a local directory, this mode is also affected
+/// by whether that directory is a Git repository root (e.g. `zizmor .`
+/// where `.` is the Git root).
+///
+/// When a source is a local Git root or a remote repository, `zizmor` collects
+/// that source's inputs in "root-aware" mode. Only the following root-relative
+/// patterns are collected:
+/// - `{root}/.github/workflows/*.{yml,yaml}`
+/// - `{root}/**/action.{yml,yaml}`
+/// - `{root}/.github/dependabot.{yml,yaml}`
+/// - `{root}/.pre-commit-config.yaml`
+/// - `{root}/.pre-commit-hooks.yaml`
+///
+/// Those patterns are also subject to the mode itself. For example, actions will not
+/// be collected if the mode does not specify them, regardless of whether the
+/// directory source is a repository root or not.
 #[derive(Copy, Clone, Debug, Default, ValueEnum, Eq, PartialEq, Hash)]
 pub(crate) enum CliCollectionMode {
     /// Collect all possible inputs, ignoring `.gitignore` files.
     All,
-    /// Collect all possible inputs, respecting `.gitignore` files.
+    /// Collect all inputs, respecting `.gitignore` files.
     #[default]
     Default,
-    /// Collect workflows.
+    /// Collect GitHub Actions workflows.
     Workflows,
-    /// Collect action definitions (i.e. `action.yml`).
+    /// Collect GitHub Actions action definitions (i.e. `action.yml`).
     Actions,
     /// Collect Dependabot configuration files (i.e. `dependabot.yml`).
     Dependabot,
     /// Collect pre-commit configuration and hooks files,
-    /// i.e. `.pre-commit-config.yml` and `.pre-commit-hooks.yml`.
+    /// i.e. `.pre-commit-config.yaml` and `.pre-commit-hooks.yaml`.
     PreCommit,
 }
 
@@ -545,55 +571,29 @@ impl From<&[CliCollectionMode]> for CollectionModeSet {
 }
 
 impl CollectionModeSet {
+    /// Whether or not to collect the given kind of input.
+    pub(crate) fn collects(&self, kind: InputKind) -> bool {
+        let mode = match kind {
+            InputKind::Workflow => CollectionMode::Workflows,
+            InputKind::Action => CollectionMode::Actions,
+            InputKind::Dependabot => CollectionMode::Dependabot,
+            InputKind::PreCommitConfig | InputKind::PreCommitHooks => CollectionMode::PreCommit,
+        };
+
+        self.0.contains(&CollectionMode::All)
+            || self.0.contains(&CollectionMode::Default)
+            || self.0.contains(&mode)
+    }
+
     /// Does our collection mode respect `.gitignore` files?
     pub(crate) fn respects_gitignore(&self) -> bool {
         // All modes except 'all' respect .gitignore files.
         !self.0.contains(&CollectionMode::All)
     }
 
-    /// Should we collect workflows?
-    pub(crate) fn workflows(&self) -> bool {
-        self.0.iter().any(|mode| {
-            matches!(
-                mode,
-                CollectionMode::All | CollectionMode::Default | CollectionMode::Workflows
-            )
-        })
-    }
-
     /// Should we collect *only* workflows?
     pub(crate) fn workflows_only(&self) -> bool {
         self.0.len() == 1 && self.0.contains(&CollectionMode::Workflows)
-    }
-
-    /// Should we collect actions?
-    pub(crate) fn actions(&self) -> bool {
-        self.0.iter().any(|mode| {
-            matches!(
-                mode,
-                CollectionMode::All | CollectionMode::Default | CollectionMode::Actions
-            )
-        })
-    }
-
-    /// Should we collect Dependabot configuration files?
-    pub(crate) fn dependabot(&self) -> bool {
-        self.0.iter().any(|mode| {
-            matches!(
-                mode,
-                CollectionMode::All | CollectionMode::Default | CollectionMode::Dependabot
-            )
-        })
-    }
-
-    /// Shouldn we collect pre-commit files?
-    pub(crate) fn pre_commit(&self) -> bool {
-        self.0.iter().any(|mode| {
-            matches!(
-                mode,
-                CollectionMode::All | CollectionMode::Default | CollectionMode::PreCommit
-            )
-        })
     }
 }
 
@@ -622,6 +622,7 @@ pub(crate) struct CollectionOptions {
     pub(crate) mode_set: CollectionModeSet,
     pub(crate) strict: bool,
     pub(crate) no_config: bool,
+    pub(crate) ignore_lockfile: bool,
     /// Global configuration, if any.
     pub(crate) global_config: Option<Config>,
 }

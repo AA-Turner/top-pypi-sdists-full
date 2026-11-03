@@ -1917,6 +1917,72 @@ def test_s3_put_object_with_tagging_header_no_value(s3):
     resp = s3.get_object_tagging(Bucket=bkt, Key="tagged-without-value.txt")
     assert resp["TagSet"] == [{"Key": "tagging-hdr-no-value", "Value": ""}]
 
+def _complete_one_part_upload(s3, bkt, key, **create_kwargs):
+    upload_id = s3.create_multipart_upload(Bucket=bkt, Key=key, **create_kwargs)["UploadId"]
+    part = s3.upload_part(Bucket=bkt, Key=key, UploadId=upload_id, PartNumber=1, Body=b"x" * 10)
+    return s3.complete_multipart_upload(
+        Bucket=bkt, Key=key, UploadId=upload_id,
+        MultipartUpload={"Parts": [{"ETag": part["ETag"], "PartNumber": 1}]},
+    )
+
+def test_s3_multipart_upload_with_tagging_header(s3):
+    """Tagging on CreateMultipartUpload lands on the completed object, as on
+    real S3 (us-east-1): GetObjectTagging returns the set and GetObject reports
+    TagCount."""
+    bkt = "intg-s3-mpu-tag-hdr"
+    s3.create_bucket(Bucket=bkt)
+    _complete_one_part_upload(s3, bkt, "mpu", Tagging="env=prod&empty=")
+    resp = s3.get_object_tagging(Bucket=bkt, Key="mpu")
+    assert sorted(resp["TagSet"], key=lambda t: t["Key"]) == [
+        {"Key": "empty", "Value": ""},
+        {"Key": "env", "Value": "prod"},
+    ]
+    assert s3.get_object(Bucket=bkt, Key="mpu")["TagCount"] == 2
+
+def test_s3_multipart_upload_rejects_more_than_ten_tags(s3):
+    """Real S3 (us-east-1) refuses 11 tags at CreateMultipartUpload with 400
+    BadRequest, the same error PutObject returns."""
+    bkt = "intg-s3-mpu-tag-limit"
+    s3.create_bucket(Bucket=bkt)
+    with pytest.raises(ClientError) as exc:
+        s3.create_multipart_upload(Bucket=bkt, Key="k", Tagging="&".join(f"k{i}=v{i}" for i in range(11)))
+    assert exc.value.response["ResponseMetadata"]["HTTPStatusCode"] == 400
+    assert exc.value.response["Error"]["Code"] == "BadRequest"
+    assert exc.value.response["Error"]["Message"] == "Object tags cannot be greater than 10"
+    assert s3.list_multipart_uploads(Bucket=bkt).get("Uploads", []) == []
+
+def test_s3_untagged_multipart_upload_clears_overwritten_tags(s3):
+    """On real S3 (us-east-1) an untagged multipart upload that overwrites a
+    tagged object leaves the key with no tags."""
+    bkt = "intg-s3-mpu-tag-overwrite"
+    s3.create_bucket(Bucket=bkt)
+    s3.put_object(Bucket=bkt, Key="k", Body=b"x", Tagging="old=1")
+    _complete_one_part_upload(s3, bkt, "k")
+    assert s3.get_object_tagging(Bucket=bkt, Key="k")["TagSet"] == []
+
+def test_s3_multipart_upload_tags_are_per_version(s3):
+    """On real S3 (us-east-1) each multipart upload to a versioned key tags only
+    the version it creates."""
+    bkt = "intg-s3-mpu-tag-versions"
+    s3.create_bucket(Bucket=bkt)
+    s3.put_bucket_versioning(Bucket=bkt, VersioningConfiguration={"Status": "Enabled"})
+    v1 = _complete_one_part_upload(s3, bkt, "k", Tagging="gen=1")["VersionId"]
+    v2 = _complete_one_part_upload(s3, bkt, "k", Tagging="gen=2")["VersionId"]
+    assert s3.get_object_tagging(Bucket=bkt, Key="k", VersionId=v1)["TagSet"] == [{"Key": "gen", "Value": "1"}]
+    assert s3.get_object_tagging(Bucket=bkt, Key="k", VersionId=v2)["TagSet"] == [{"Key": "gen", "Value": "2"}]
+
+def test_s3_untagged_put_object_clears_overwritten_tags_and_acl(s3):
+    """An overwrite is a new object: the old one's tags and ACL do not carry over (as #2511 captured for multipart)."""
+    bkt = f"intg-s3-put-overwrite-{_uuid_mod.uuid4().hex[:8]}"
+    s3.create_bucket(Bucket=bkt)
+    s3.put_bucket_ownership_controls(Bucket=bkt, OwnershipControls={"Rules": [{"ObjectOwnership": "ObjectWriter"}]})
+    s3.put_object(Bucket=bkt, Key="k", Body=b"1", Tagging="old=1", ACL="authenticated-read")
+    s3.put_object(Bucket=bkt, Key="k", Body=b"2")
+    assert s3.get_object_tagging(Bucket=bkt, Key="k")["TagSet"] == []
+    grants = s3.get_object_acl(Bucket=bkt, Key="k")["Grants"]
+    assert [g["Permission"] for g in grants] == ["FULL_CONTROL"]
+
+
 def test_s3_default_retention_applied(s3):
     bkt = "intg-s3-default-ret"
     s3.create_bucket(Bucket=bkt, ObjectLockEnabledForBucket=True)
@@ -10030,6 +10096,21 @@ def test_s3_replication_tag_filter_and(crr_pair):
     assert _replicated_keys(euw1, dst) == ["logs/both"]
 
 
+def test_s3_replication_tag_filter_multipart_upload(crr_pair):
+    """Tags given at CreateMultipartUpload decide a tag-filtered rule, as
+    PutObject's do, and the replica carries them: on real S3 (us-east-1
+    same-region replication) only the tagged upload replicated, with its tags."""
+    use1, src, euw1, dst = crr_pair
+    _replicate(use1, src, dst, Filter={"Tag": {"Key": "replicate", "Value": "yes"}},
+               DeleteMarkerReplication={"Status": "Disabled"})
+    _complete_one_part_upload(use1, src, "mpu-tagged", Tagging="replicate=yes")
+    _complete_one_part_upload(use1, src, "mpu-untagged")
+    assert _replicated_keys(euw1, dst) == ["mpu-tagged"]
+    assert euw1.get_object_tagging(Bucket=dst, Key="mpu-tagged")["TagSet"] == [
+        {"Key": "replicate", "Value": "yes"}
+    ]
+
+
 def test_s3_two_way_replication_has_no_loop():
     use1, a = _versioned_bucket("us-east-1", "a")
     euw1, b = _versioned_bucket("eu-west-1", "b")
@@ -11311,6 +11392,71 @@ def test_access_point_control_same_name_in_another_region(bucket):
     finally:
         use1.delete_access_point(AccountId=ACCOUNT, Name=name)
         euw1_s3.delete_bucket(Bucket=euw1_bucket)
+
+
+# The account-level block applies to every bucket of its account, so these tests use their own account.
+_PAB_ACCOUNT = "777788889999"
+
+
+def test_account_public_access_block_round_trip():
+    """GET/PUT/DELETE the account-level public access block via s3control.
+
+    Wire shapes pinned from real AWS (us-east-2, 2026-10-30): 404 carries
+    <AccountId>, 405 names ResourceType ACCOUNT_PUBLIC_ACCESS_BLOCK, GET's
+    payload root is http://-namespaced.
+    """
+    ctl = _client("s3control", "us-east-1", _PAB_ACCOUNT)
+    with pytest.raises(ClientError) as exc:
+        ctl.get_public_access_block(AccountId=_PAB_ACCOUNT)
+    assert exc.value.response["ResponseMetadata"]["HTTPStatusCode"] == 404
+    assert exc.value.response["Error"]["Code"] == "NoSuchPublicAccessBlockConfiguration"
+    assert exc.value.response["Error"]["AccountId"] == _PAB_ACCOUNT
+
+    cfg = {"BlockPublicAcls": True, "IgnorePublicAcls": True,
+           "BlockPublicPolicy": False, "RestrictPublicBuckets": True}
+    ctl.put_public_access_block(AccountId=_PAB_ACCOUNT, PublicAccessBlockConfiguration=cfg)
+    try:
+        assert ctl.get_public_access_block(AccountId=_PAB_ACCOUNT)["PublicAccessBlockConfiguration"] == cfg
+        # The setting applies in every region.
+        other = _client("s3control", "eu-west-1", _PAB_ACCOUNT)
+        assert other.get_public_access_block(AccountId=_PAB_ACCOUNT)["PublicAccessBlockConfiguration"] == cfg
+    finally:
+        ctl.delete_public_access_block(AccountId=_PAB_ACCOUNT)
+    with pytest.raises(ClientError) as exc:
+        ctl.get_public_access_block(AccountId=_PAB_ACCOUNT)
+    assert exc.value.response["Error"]["Code"] == "NoSuchPublicAccessBlockConfiguration"
+
+
+def test_account_block_public_policy_refuses_a_public_bucket_policy():
+    """The account's BlockPublicPolicy applies to a bucket with no block of its own."""
+    ctl = _client("s3control", "us-east-1", _PAB_ACCOUNT)
+    s3 = _client("s3", "us-east-1", _PAB_ACCOUNT)
+    bkt = f"intg-s3-acct-bpp-{_uuid_mod.uuid4().hex[:8]}"
+    s3.create_bucket(Bucket=bkt)
+    public = json.dumps({"Version": "2012-10-17", "Statement": [{
+        "Effect": "Allow", "Principal": "*", "Action": "s3:GetObject", "Resource": f"arn:aws:s3:::{bkt}/*"}]})
+    ctl.put_public_access_block(AccountId=_PAB_ACCOUNT, PublicAccessBlockConfiguration={
+        "BlockPublicAcls": False, "IgnorePublicAcls": False, "BlockPublicPolicy": True, "RestrictPublicBuckets": False})
+    try:
+        with pytest.raises(ClientError) as exc:
+            s3.put_bucket_policy(Bucket=bkt, Policy=public)
+        assert exc.value.response["Error"]["Code"] == "AccessDenied"
+        ctl.delete_public_access_block(AccountId=_PAB_ACCOUNT)
+        s3.put_bucket_policy(Bucket=bkt, Policy=public)
+    finally:
+        ctl.delete_public_access_block(AccountId=_PAB_ACCOUNT)
+        s3.delete_bucket_policy(Bucket=bkt)
+        s3.delete_bucket(Bucket=bkt)
+
+
+def test_account_public_access_block_unserved_method():
+    """An unsupported method on the configuration path answers the real 405."""
+    resp = requests.post(
+        f"{ENDPOINT}/v20180820/configuration/publicAccessBlock",
+        headers={"x-amz-account-id": ACCOUNT}, timeout=10)
+    assert resp.status_code == 405
+    assert "<Code>MethodNotAllowed</Code>" in resp.text
+    assert "<ResourceType>ACCOUNT_PUBLIC_ACCESS_BLOCK</ResourceType>" in resp.text
 
 
 def test_access_point_control_policy_round_trip(access_point):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pyserde
-Version: 0.34.0
+Version: 0.35.0
 Summary: Yet another serialization library on top of dataclasses
 Project-URL: Repository, https://github.com/yukinarit/pyserde
 Project-URL: Homepage, https://github.com/yukinarit/pyserde
@@ -44,7 +44,7 @@ Requires-Dist: plum-dispatch>=2.3
 Requires-Dist: typing-extensions<4.17.0,>=4.13.0
 Provides-Extra: all
 Requires-Dist: jaxtyping; extra == 'all'
-Requires-Dist: msgpack; extra == 'all'
+Requires-Dist: msgpack>=1.2.3; extra == 'all'
 Requires-Dist: numpy<3.0.0,>1.22.0; extra == 'all'
 Requires-Dist: orjson; extra == 'all'
 Requires-Dist: pyyaml; extra == 'all'
@@ -53,7 +53,7 @@ Requires-Dist: tomli-w; extra == 'all'
 Provides-Extra: jaxtyping
 Requires-Dist: jaxtyping; extra == 'jaxtyping'
 Provides-Extra: msgpack
-Requires-Dist: msgpack; extra == 'msgpack'
+Requires-Dist: msgpack>=1.2.3; extra == 'msgpack'
 Provides-Extra: numpy
 Requires-Dist: numpy<3.0.0,>1.22.0; extra == 'numpy'
 Provides-Extra: orjson
@@ -75,8 +75,8 @@ Description-Content-Type: text/markdown
   <a href="https://pypi.org/project/pyserde/">
     <img alt="pypi" src="https://img.shields.io/pypi/pyversions/pyserde.svg">
   </a>
-  <a href="https://github.com/yukinarit/pyserde/actions/workflows/test.yml">
-    <img alt="GithubActions" src="https://github.com/yukinarit/pyserde/actions/workflows/test.yml/badge.svg">
+  <a href="https://github.com/yukinarit/pyserde/actions/workflows/check.yml">
+    <img alt="GithubActions" src="https://github.com/yukinarit/pyserde/actions/workflows/check.yml/badge.svg">
   </a>
 </p>
 <p align="center">

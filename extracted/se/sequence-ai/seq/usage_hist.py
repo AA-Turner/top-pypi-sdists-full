@@ -30,7 +30,9 @@ from urllib.parse import urlencode
 
 BAR = 28
 
-_KIND = {"serving": "policy workers", "eval": "evals", "check": "build checks", "weights": "weight copies"}
+
+_KIND = {"serving": "policy workers", "eval": "evals", "check": "build checks", "weights": "weight copies",
+         "build": "builds"}
 
 CSV_COLUMNS = ("start", "group", "card_hours", "cost_usd")
 

@@ -1,0 +1,19 @@
+[package]
+name = "resiliparse-py"
+version.workspace = true
+edition.workspace = true
+publish = false
+exclude = ["build/**", "*.egg-info/**", "resiliparse_common/**", "resiliparse_inc/**", ".mypy_cache/**"]
+readme = "README.md"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+resiliparse.workspace = true
+pyo3 = { workspace = true, features = ["extension-module"] }
+libc = "0.2"
+
+[build-dependencies]
+pyo3-build-config.workspace = true

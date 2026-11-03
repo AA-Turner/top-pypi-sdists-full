@@ -6,7 +6,8 @@ import pickle
 import ssl
 import time
 from collections import deque
-from typing import AsyncIterator, Deque, Optional, cast
+from collections.abc import AsyncIterator
+from typing import Any, cast
 from urllib.parse import urlparse
 
 import httpx
@@ -17,6 +18,7 @@ from aioquic.h3.events import DataReceived, H3Event, Headers, HeadersReceived
 from aioquic.quic.configuration import QuicConfiguration
 from aioquic.quic.events import QuicEvent
 from aioquic.quic.logger import QuicFileLogger
+from aioquic.tls import SessionTicket
 
 logger = logging.getLogger("client")
 
@@ -31,11 +33,11 @@ class H3ResponseStream(httpx.AsyncByteStream):
 
 
 class H3Transport(QuicConnectionProtocol, httpx.AsyncBaseTransport):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         self._http = H3Connection(self._quic)
-        self._read_queue: dict[int, Deque[H3Event]] = {}
+        self._read_queue: dict[int, deque[H3Event]] = {}
         self._read_ready: dict[int, asyncio.Event] = {}
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
@@ -81,14 +83,14 @@ class H3Transport(QuicConnectionProtocol, httpx.AsyncBaseTransport):
             },
         )
 
-    def http_event_received(self, event: H3Event):
+    def http_event_received(self, event: H3Event) -> None:
         if isinstance(event, (HeadersReceived, DataReceived)):
             stream_id = event.stream_id
             if stream_id in self._read_queue:
                 self._read_queue[event.stream_id].append(event)
                 self._read_ready[event.stream_id].set()
 
-    def quic_event_received(self, event: QuicEvent):
+    def quic_event_received(self, event: QuicEvent) -> None:
         #  pass event to the HTTP layer
         if self._http is not None:
             for http_event in self._http.handle_event(event):
@@ -139,7 +141,7 @@ class H3Transport(QuicConnectionProtocol, httpx.AsyncBaseTransport):
         return event
 
 
-def save_session_ticket(ticket):
+def save_session_ticket(ticket: SessionTicket) -> None:
     """
     Callback which is invoked by the TLS engine when a new session ticket
     is received.
@@ -153,9 +155,9 @@ def save_session_ticket(ticket):
 async def main(
     configuration: QuicConfiguration,
     url: str,
-    data: Optional[str],
+    data: str | None,
     include: bool,
-    output_dir: Optional[str],
+    output_dir: str | None,
 ) -> None:
     # parse URL
     parsed = urlparse(url)
@@ -192,8 +194,10 @@ async def main(
         # print speed
         octets = len(response.content)
         logger.info(
-            "Received %d bytes in %.1f s (%.3f Mbps)"
-            % (octets, elapsed, octets * 8 / elapsed / 1000000)
+            "Received %d bytes in %.1f s (%.3f Mbps)",
+            octets,
+            elapsed,
+            octets * 8 / elapsed / 1000000,
         )
 
         # output response
@@ -268,7 +272,7 @@ if __name__ == "__main__":
     )
 
     if args.output_dir is not None and not os.path.isdir(args.output_dir):
-        raise Exception("%s is not a directory" % args.output_dir)
+        raise Exception(f"{args.output_dir} is not a directory")
 
     # prepare configuration
     configuration = QuicConfiguration(is_client=True, alpn_protocols=H3_ALPN)

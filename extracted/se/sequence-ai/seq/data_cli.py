@@ -30,11 +30,10 @@ import base64
 import json
 import os
 import re
-import struct
 from collections import defaultdict
 from typing import Any
 
-from seq import storage_note
+from seq import safe_path, storage_note
 from seq.deployments_cli import _call
 from seq.errors import MissingPackage, raise_for, unreachable
 from sequence_ai._core.direct_observe import PROMPT_KEYS
@@ -118,13 +117,17 @@ def _listed(name: str, base_url: str | None) -> tuple[list[dict], float | None]:
 
 def load(name: str, base_url: str | None = None, *, fetch=None,
          listing: list[dict] | None = None) -> tuple[dict[str, list[dict]], dict[str, dict]]:
-    """Every captured sample of the deployment grouped by episode (in time order), and every episode's label."""
+    """Every captured sample of the deployment grouped by episode (in time order), and every episode's label - what
+    is under ckpt/ left out: the states saved as its episodes ran, a standby's to read back by (each episode's
+    state.json, its keys' objects, each a value as it is, and its record's chunks), none of them a record."""
     fetch = fetch or (lambda path: _download(name, path, base_url))
     files = listing if listing is not None else _listing(name, base_url)
     episodes: dict[str, list[dict]] = defaultdict(list)
     labels: dict[str, dict] = {}
     for f in files:
         path = f["path"]
+        if path.startswith("ckpt/"):
+            continue
         data = fetch(path)
         if path.startswith("labels/") and path.endswith(".json"):
             label = json.loads(data)
@@ -175,11 +178,12 @@ def export(name: str, out: str, *, fmt: str = "lerobot", base_url: str | None = 
     if fmt == "jsonl":
         files = listing if listing is not None else _listing(name, base_url)
         fetch = fetch or (lambda path: _download(name, path, base_url))
-        for f in files:
-            dest = os.path.join(out, f["path"])
-            os.makedirs(os.path.dirname(dest), exist_ok=True)
-            with open(dest, "wb") as fh:
-                fh.write(fetch(f["path"]))
+
+
+        dests = [(f, safe_path.under(out, f["path"])) for f in files]
+        for f, dest in dests:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(fetch(f["path"]))
         echo(f"wrote {len(files)} file(s) to {out}")
         if live:
 

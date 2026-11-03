@@ -5,26 +5,30 @@ Generates Python models using msgspec.Struct for high-performance serialization.
 
 from __future__ import annotations
 
-import keyword
 from ast import literal_eval
 from fractions import Fraction
-from functools import wraps
-from math import ceil, floor, isfinite
-from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, ClassVar, Final, NamedTuple, Optional, TypeVar, cast
+from functools import partial, wraps
+from operator import itemgetter
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, Optional, TypeVar, cast
 
 from typing_extensions import Sentinel, final, override
 
 from datamodel_code_generator import Error
 from datamodel_code_generator import _constraint_applicability as _applicability
+from datamodel_code_generator._container_kinds import MAPPINGS
+from datamodel_code_generator._document_reader import as_mapping
+from datamodel_code_generator._graph_links import clear_parents
+from datamodel_code_generator._mro import resolve_members
+from datamodel_code_generator._python_syntax import call_text, keyword_argument, subscript_text
 from datamodel_code_generator._records import record
-from datamodel_code_generator._reference_graph import EdgeKind, GraphSnapshot, graph_answer, walk_graph
+from datamodel_code_generator._reference_graph import EdgeKind, GraphSnapshot, walk_graph
 from datamodel_code_generator._target_unicode import is_identifier
 from datamodel_code_generator.imports import IMPORT_UNION, Import
 from datamodel_code_generator.model import DataModel, DataModelFieldBase, _rebuild_model_with_datamodel_namespace
 from datamodel_code_generator.model._constraints import PatternConstraints as _Constraints
 from datamodel_code_generator.model._decisions.assignment import (
     MsgspecWritten,
+    requires_value,
     struct_assigned,
     struct_construction_assigned,
     written_data,
@@ -35,7 +39,17 @@ from datamodel_code_generator.model._decisions.tag_value import (
     struct_tag_options,
     struct_tag_refused,
 )
+from datamodel_code_generator.model._decisions.union_assembly import join_union
 from datamodel_code_generator.model._render_plan import (
+    ANNOTATED_ANNOTATION,
+    BARE_DEFAULT,
+    DEFAULT_VALUE,
+    EXPLICIT_ALIAS,
+    MUTABLE_FACTORY,
+    NESTED_MODEL_FACTORY,
+    PLAIN_ANNOTATION,
+    REQUIRED_FIELD,
+    UNTAKEN_BY_TYPE,
     CallArguments,
     CallPlan,
     FieldDefault,
@@ -44,7 +58,7 @@ from datamodel_code_generator.model._render_plan import (
     Omitted,
     RuleId,
     Why,
-    field_call_text,
+    _FieldCallWriter,
     written_argument_names,
     written_text,
 )
@@ -54,11 +68,15 @@ from datamodel_code_generator.model.base import (
     BaseLayoutView,
     _apply_literal_default,
     _default_factory_type_name,
+    _default_state,
+    _find_base_classes,
+    _has_opaque_custom_base,
     _keeps_stripped_place,
     _model_key_of_model,
     _ModelKeys,
     _nested_model_factory,
     _NestedModelFactory,
+    _normalized_constraint_kwargs,
     _ValueFactory,
     linearize_data_models,
 )
@@ -74,7 +92,7 @@ from datamodel_code_generator.model.imports import (
 from datamodel_code_generator.model.type_alias import TypeAliasBase
 from datamodel_code_generator.model.types import DataTypeManager as _DataTypeManager
 from datamodel_code_generator.python_literal import (
-    _normalize_string,
+    _normalized_safe_python_name,
     represent_python_value,
     represent_untrusted_python_value,
 )
@@ -82,13 +100,12 @@ from datamodel_code_generator.reference import FieldNameResolver, ModelType
 from datamodel_code_generator.types import (
     NONE,
     DataType,
+    _copy_data_type,
     _create_context_data_type,
     _is_value_literal,
     _qualified_type_path,
     build_union,
     chain_as_tuple,
-    merge_normalized_constraint,
-    normalize_integer_constraint,
     union_members,
 )
 
@@ -109,19 +126,15 @@ _UNCONSTRAINED_UNION_MEMBERS_KEY = "_unconstrained_union_members"
 
 
 def _integer_bounds(constraints: tuple[tuple[str, Any], ...]) -> tuple[int | None, int | None]:
-    """Return the least and the greatest integer that numeric constraints admit, None where they set no bound."""
+    """Return the least and the greatest integer that numeric constraints admit, None where they set no bound.
+
+    Row ``legacy-msgspec-float-bounds``: it reads each bound as the number it is, a float as its binary value.
+    """
     lowers: list[int] = []
     uppers: list[int] = []
     for name, value in constraints:
-        match name:
-            case "ge":
-                lowers.append(ceil(value))
-            case "gt":
-                lowers.append(floor(value) + 1)
-            case "le":
-                uppers.append(floor(value))
-            case "lt":
-                uppers.append(ceil(value) - 1)
+        if (bound := _applicability.integer_bound(name, value, arithmetic="float")) is not None:
+            (lowers if bound[0] == "ge" else uppers).append(bound[1])
     return max(lowers, default=None), min(uppers, default=None)
 
 
@@ -145,29 +158,6 @@ def _admits_integers_of(constraints: tuple[tuple[str, Any], ...], other: tuple[t
     )
 
 
-def _is_non_finite(value: float) -> bool:
-    """Return whether a number has no finite float: an infinity, NaN, or an int beyond the float range.
-
-    msgspec.Meta takes finite numbers only: an int beyond the float range fails when the module is imported.
-    """
-    try:
-        return not isfinite(value)
-    except OverflowError:
-        return True
-
-
-def _is_exact_float_divisor(value: Any) -> bool:
-    """Return whether a float represents a divisor exactly as a dyadic rational, so msgspec checks multiples exactly.
-
-    msgspec checks `multiple_of` on a float by its floating-point remainder, which rejects multiples of a divisor
-    such as 0.01 that a float only approximates.
-    """
-    divisor = Fraction(str(value))
-    return not divisor.denominator & (divisor.denominator - 1) and Fraction(float(value)) == divisor
-
-
-_PLAIN_ANNOTATION = Why(RuleId("D11.annotation.plain"))
-_ANNOTATED = Why(RuleId("D11.annotation.annotated"), option="--use-annotated")
 _CLASS_VAR = Why(RuleId("D7.tag.class-var"), keyword="discriminator")
 """A tag field of a tagged Struct: msgspec writes the tag itself, and the built-in template skips the field."""
 _FIELD_CALL = Why(RuleId("D11.msgspec.field-call"))
@@ -175,39 +165,21 @@ _FIELD_CALL = Why(RuleId("D11.msgspec.field-call"))
 _META_CALL = Why(RuleId("D11.msgspec.meta"), option="--use-annotated")
 _FIELD_ARGUMENT = RuleId("D11.msgspec.field-argument")
 _META_ARGUMENT = RuleId("D11.msgspec.meta-argument")
-_ALIAS = Why(RuleId("D9.alias.explicit"), keyword="alias")
-_DEFAULT = Why(RuleId("D4.default.value"), keyword="default")
-_BARE_DEFAULT = Why(RuleId("D4.default.bare"), keyword="default")
-"""The field writes its default alone after the annotation."""
 _UNSET_DEFAULT = Why(RuleId("D4.default.msgspec-unset"), keyword="required")
 """An optional field without a default writes ``UNSET``, or ``None`` when it is nullable: a Struct always writes one."""
 _NONE_DEFAULT = Why(RuleId("D4.default.msgspec-none"), keyword="nullable")
-_REQUIRED = Why(RuleId("D4.default.required"), keyword="required")
 _STRUCT_CONVERSION = Why(RuleId("D4.default.msgspec-convert"), keyword="default")
 """A default holding Structs is written as a factory that converts it with ``msgspec.convert``."""
-_MUTABLE_FACTORY = Why(RuleId("D4.default.mutable-factory"), keyword="default")
-_NESTED_MODEL_FACTORY = Why(
-    RuleId("D4.default.nested-model-factory"), option="--use-default-factory-for-optional-nested-models"
-)
 _CONSTRAINT = RuleId("D2.msgspec.constraint")
 _NON_FINITE = RuleId("D2.msgspec.non-finite-bound")
 _MULTIPLE_OF_ONE = RuleId("D2.msgspec.integer-multiple-of-one")
 _STRONGER_BOUND = RuleId("D2.msgspec.stronger-bound")
 _ITEMS_AS_LENGTH = RuleId("D2.msgspec.items-as-length")
-_UNTAKEN = RuleId("D2.untaken-by-type")
 _LITERAL_DECIDED = RuleId("D2.msgspec.literal-decided")
 """The values of the field's ``Literal`` decide the constraint (``_applicability.literal_check``)."""
 _INEXACT = RuleId("D2.msgspec.inexact-float-divisor")
 _INT64_LIMIT = RuleId("D2.msgspec.int64-limit")
-"""msgspec takes the number constraints of an int only within the 64-bit range (``_INT_META_LIMITS``)."""
-_INT_META_LIMITS: Final = MappingProxyType({
-    "ge": (-(2**63), 2**63 - 1),
-    "le": (-(2**63), 2**63 - 1),
-    "gt": (-(2**63), 2**63 - 2),
-    "lt": (-(2**63) + 1, 2**63 - 1),
-    "multiple_of": (-(2**63), 2**63 - 1),
-})
-"""The values msgspec.Meta takes on an int: 64-bit ones, a ``gt`` or ``lt`` whose ``ge`` or ``le`` is one too."""
+"""msgspec takes the number constraints of an int only within the 64-bit range (``MSGSPEC_OUTPUT.int_values``)."""
 _NONE_VALUE = Why(RuleId("D11.msgspec.none-unset"))
 _NEEDS_ANNOTATED = Why(RuleId("D11.msgspec.meta-needs-annotated"), option="--use-annotated")
 
@@ -232,7 +204,7 @@ class _StructConversion:
         """Return the factory as the field's call writes it."""
         name = _default_factory_type_name(self.target)
         if self.of_list:
-            type_text = f"list[{name}]"
+            type_text = subscript_text("list", (name,))
         elif self.container is not None:
             type_text = self.container.type_hint.replace(self.target.alias or name, name)
         else:
@@ -240,18 +212,9 @@ class _StructConversion:
         return f"lambda: {self.method}({represent_python_value(self.default)},  type={type_text})"
 
 
-def _beyond_int_limits(keyword: str, value: object) -> bool:
-    """Return whether msgspec.Meta refuses a number constraint of an int: one beyond the 64-bit range."""
-    return (
-        isinstance(value, int)
-        and (limits := _INT_META_LIMITS.get(keyword)) is not None
-        and not limits[0] <= value <= limits[1]
-    )
-
-
 def _meta_call_text(call: CallPlan) -> str:
     """Write a ``Meta(...)`` call: its arguments sorted by their text."""
-    return f"Meta({', '.join(sorted(f'{k.name}={represent_python_value(k.value)}' for k in call.kwargs))})"
+    return call_text("Meta", sorted(keyword_argument(k.name, represent_python_value(k.value)) for k in call.kwargs))
 
 
 class _MetaAnnotatedType(DataType):
@@ -267,7 +230,7 @@ class _MetaAnnotatedType(DataType):
     @override
     def type_hint(self) -> str:
         """Write ``Annotated`` over the hint of the copied type, ``None`` when it writes nothing, and the ``Meta()``."""
-        return f"Annotated[{self.data_types[0].type_hint or NONE}, {_meta_call_text(self.meta)}]"
+        return subscript_text("Annotated", (self.data_types[0].type_hint or NONE, _meta_call_text(self.meta)))
 
     @property
     @override
@@ -292,7 +255,7 @@ class _UnionLeaf(NamedTuple):
 
 if TYPE_CHECKING:
     from collections import defaultdict
-    from collections.abc import Callable, Collection, Iterator, Mapping
+    from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
     from pathlib import Path
 
     from datamodel_code_generator._model_keys import ModelKey
@@ -319,9 +282,13 @@ def _is_never_opaque(model: DataModel) -> bool:  # noqa: ARG001
 _FINAL_LAYOUT_VIEW = BaseLayoutView(_is_instance_field, _same_model, _is_never_opaque)
 
 
+def _user_struct_option_items(model: DataModel) -> Iterable[tuple[str, Any]]:
+    return _user_struct_options(model).items()
+
+
 def _user_struct_options(model: DataModel) -> dict[str, Any]:
     """Return the struct options that template data gives a model, which builtin templates read only from a dict."""
-    return options if isinstance(options := model.extra_template_data.get("base_class_kwargs"), dict) else {}
+    return as_mapping(model.extra_template_data.get("base_class_kwargs"))
 
 
 def has_field_assignment(field: DataModelFieldBase) -> bool:
@@ -329,7 +296,7 @@ def has_field_assignment(field: DataModelFieldBase) -> bool:
 
     A Struct writes a default for every optional field, ``UNSET`` or ``None``, with ``--strip-default-none`` too.
     """
-    return struct_assigned(required=field.required and not field.use_default_with_required)
+    return struct_assigned(required=requires_value(field))
 
 
 def _construction_order_key(field: DataModelFieldBase) -> bool:
@@ -339,7 +306,7 @@ def _construction_order_key(field: DataModelFieldBase) -> bool:
     without one, unless ``--order-constructor-fields-by written-defaults`` is given.
     """
     return struct_construction_assigned(
-        required=field.required and not field.use_default_with_required,
+        required=requires_value(field),
         keeps_stripped_place=_keeps_stripped_place(field),
     )
 
@@ -465,31 +432,18 @@ class Struct(DataModel):
         return ""
 
     @staticmethod
-    def _has_opaque_layout_base(model: DataModel) -> bool:
-        """Identify effective configured bases whose inherited slots are unknown."""
-        return (
-            (custom_base_class := model.custom_base_class) is not None
-            and custom_base_class not in (Struct.BASE_CLASS, [Struct.BASE_CLASS])
-            and any(not base.reference for base in model.base_classes)
-        )
-
-    @staticmethod
     def _layout_parents(model: DataModel, view: BaseLayoutView) -> list[DataModel]:
         """Return the generated Struct bases of a model as the view of the layouts sees them."""
-        return [
-            view.layout_model(parent.reference.source)
-            for parent in model.base_classes
-            if parent.reference and isinstance(parent.reference.source, Struct)
-        ]
+        return [view.layout_model(parent) for parent in _struct_bases(model)]
 
     @staticmethod
     def _has_unknown_layout(model: DataModel, view: BaseLayoutView) -> bool:
         """Return whether a configured base or the view hides the slots a model has."""
-        return Struct._has_opaque_layout_base(model) or view.is_opaque(model)
+        return _has_opaque_custom_base(model, Struct.BASE_CLASS) or view.is_opaque(model)
 
     @staticmethod
     def _find_layout_conflict(
-        bases: list[DataModel], view: BaseLayoutView = _FINAL_LAYOUT_VIEW
+        bases: Sequence[DataModel], view: BaseLayoutView = _FINAL_LAYOUT_VIEW
     ) -> tuple[DataModel, DataModel] | None:
         """Find independent slot owners with linear storage for compatible graphs.
 
@@ -500,7 +454,7 @@ class Struct(DataModel):
         model key.
         """
         pending = [(view.layout_model(base), False) for base in bases]
-        keys = _ModelKeys("struct layout")
+        keys = _ModelKeys()
         visited: dict[ModelKey, int] = {}
         owner_depths: dict[ModelKey, int] = {}
         field_depths: dict[str | None, int] = {}
@@ -575,13 +529,9 @@ class Struct(DataModel):
                 conflict = other, base
         return conflict
 
-    def _generated_layout_bases(self) -> list[DataModel]:
+    def _generated_layout_bases(self) -> list[Struct]:
         """Return the generated Struct bases in the order the layout of the bases is diagnosed in."""
-        return [
-            base.reference.source
-            for base in reversed(self.base_classes)
-            if base.reference and isinstance(base.reference.source, Struct)
-        ]
+        return _struct_bases(self)[::-1]
 
     @override
     def flatten_conflicting_base_layouts(self, view: BaseLayoutView, flatten: Callable[[DataModel], None]) -> None:
@@ -597,11 +547,10 @@ class Struct(DataModel):
 
         msgspec makes a struct take each option from the first class in its method resolution order that sets it.
         """
-        inherited_options: dict[str, Any] = {}
-        for model in reversed(linearize_data_models([self])[1:]):
-            inherited_options.update(_user_struct_options(model))
         options = _user_struct_options(self)
-        for name, value in inherited_options.items():
+        for _, (name, value) in resolve_members(
+            linearize_data_models([self])[1:], _user_struct_option_items, itemgetter(0)
+        ).values():
             options.setdefault(name, value)
         return self.order_fields_for_construction(super().flatten_base_layouts(adopt_field))
 
@@ -619,23 +568,16 @@ class Struct(DataModel):
 
     def add_base_class_kwarg(self, name: str, value: str) -> None:
         """Add keyword argument to base class constructor."""
-        if isinstance((base_class_kwargs := self.extra_template_data.get("base_class_kwargs")), dict):
-            base_class_kwargs[name] = value
+        _user_struct_options(self)[name] = value
         self._internal_template_data["base_class_kwargs"][name] = value
 
     @override
     def _builtin_template_data(self) -> dict[str, Any]:
         """Serialize user msgspec options while retaining generator-owned syntax."""
         template_data = super()._builtin_template_data()
-        raw_base_class_kwargs = self.extra_template_data.get("base_class_kwargs")
         base_class_kwargs: dict[str, str] = {}
-        if isinstance(raw_base_class_kwargs, dict):
-            for key, value in raw_base_class_kwargs.items():
-                if not isinstance(key, str):
-                    continue
-                normalized_key = _normalize_string(key)
-                if not normalized_key.isidentifier() or keyword.iskeyword(normalized_key):
-                    continue
+        for key, value in _user_struct_options(self).items():
+            if (normalized_key := _normalized_safe_python_name(key)) is not None:
                 base_class_kwargs[normalized_key] = represent_untrusted_python_value(value)
         base_class_kwargs.update(self._internal_template_data["base_class_kwargs"])
         return {**template_data, "base_class_kwargs": base_class_kwargs}
@@ -672,9 +614,8 @@ class Struct(DataModel):
 
     def _own_tag_options(self, bases: list[tuple[Any, Any]]) -> tuple[Any, Any]:
         """Return the tag and tag_field options of the struct, given those of its generated bases."""
-        options = self.extra_template_data.get("base_class_kwargs")
         options = {
-            **(options if isinstance(options, dict) else {}),
+            **_user_struct_options(self),
             **{
                 key: literal_eval(value)
                 for key, value in self._internal_template_data["base_class_kwargs"].items()
@@ -698,17 +639,7 @@ class Struct(DataModel):
                 options[key] = walk.node_of[key]._own_tag_options([  # noqa: SLF001
                     options[base] for base in graph.ordered_targets(key, EdgeKind.BASE) if base not in component
                 ])
-        return graph_answer(
-            GraphSnapshot.STRUCT_TAGS,
-            options[walk.starts[0]],
-            lambda: (
-                options[walk.starts[0]] if graph.acyclic_order((EdgeKind.BASE,)) is None else self._walked_tag_options()
-            ),
-        )
-
-    def _walked_tag_options(self) -> tuple[Any, Any]:
-        """Return the tag and tag_field options of the struct by walking its generated bases."""
-        return self._own_tag_options([base._walked_tag_options() for base in _struct_bases(self)])  # noqa: SLF001
+        return options[walk.starts[0]]
 
     @property
     @override
@@ -721,8 +652,7 @@ class Struct(DataModel):
         """Return whether msgspec's class declaration already enables keyword-only fields."""
         if self._internal_template_data["base_class_kwargs"].get("kw_only") == "True":
             return True
-        base_class_kwargs = self.extra_template_data.get("base_class_kwargs")
-        return isinstance(base_class_kwargs, dict) and base_class_kwargs.get("kw_only") in {True, "True"}
+        return _user_struct_options(self).get("kw_only") in {True, "True"}
 
     @override
     def enable_model_keyword_only(self) -> None:
@@ -771,13 +701,9 @@ class Struct(DataModel):
         return base_model
 
 
-def _struct_bases(struct: Struct) -> list[Struct]:
-    """Return the generated structs that ``struct`` inherits from, in the order its base classes list them."""
-    return [
-        base
-        for base_class in struct.base_classes
-        if base_class.reference and isinstance(base := base_class.reference.source, Struct)
-    ]
+def _struct_bases(model: DataModel) -> list[Struct]:
+    """Return the generated structs that ``model`` inherits from, in the order its base classes list them."""
+    return [base for base in _find_base_classes(model) if isinstance(base, Struct)]
 
 
 class Constraints(_Constraints):
@@ -785,10 +711,11 @@ class Constraints(_Constraints):
 
 
 @import_extender
-class DataModelField(DataModelFieldBase):
+class DataModelField(_FieldCallWriter, DataModelFieldBase):
     """Field implementation for msgspec Struct models."""
 
     _FIELD_ASSIGNMENT_ROW: ClassVar[AssignmentRow] = "msgspec"
+    _FREEZES_RENDER_PLAN: ClassVar[bool] = True
 
     SUPPORTS_ANNOTATED_CONSTRAINTS: ClassVar[bool] = True
     ANNOTATED_CONSTRAINTS_CONTEXT: ClassVar[object | None] = _ANNOTATED_CONSTRAINTS_CONTEXT
@@ -813,7 +740,7 @@ class DataModelField(DataModelFieldBase):
         # 'unique_items', # not supported by msgspec
     }
     _PARSE_METHOD = "convert"
-    _COMPARE_EXPRESSIONS: ClassVar[set[str]] = {"gt", "ge", "lt", "le", "multiple_of"}
+    _COMPARE_EXPRESSIONS: ClassVar[set[str]] = set(_applicability.NUMBER_FIELD_KEYWORDS)
     constraints: Optional[Constraints] = None  # noqa: UP045
 
     @override
@@ -862,18 +789,6 @@ class DataModelField(DataModelFieldBase):
         ))
 
     @staticmethod
-    def _data_type_has_container(data_type: DataType) -> bool:
-        return any((
-            data_type.is_dict,
-            data_type.is_list,
-            data_type.is_set,
-            data_type.is_frozen_set,
-            data_type.is_mapping,
-            data_type.is_sequence,
-            data_type.is_tuple,
-        ))
-
-    @staticmethod
     def _data_type_is_plain_union(data_type: DataType) -> bool:
         return bool(union_members(data_type))
 
@@ -884,18 +799,8 @@ class DataModelField(DataModelFieldBase):
         """
         return any(self._data_type_writes_hint(member) for member in union_members(data_type))
 
-    def _copy_data_type(self, data_type: DataType) -> DataType:
-        copied = data_type.model_copy()
-        copied.parent = None
-        copied.children = []
-        copied.data_types = [self._copy_data_type(child) for child in data_type.data_types]
-        copied.literals = list(data_type.literals)
-        copied.enum_member_literals = list(data_type.enum_member_literals)
-        if data_type.dict_key:
-            copied.dict_key = self._copy_data_type(data_type.dict_key)
-        if data_type.kwargs:
-            copied.kwargs = dict(data_type.kwargs)
-        return copied
+    _copy_data_type = staticmethod(partial(_copy_data_type, register_references=False, link_parents=False))
+    """Copy a data type tree whose copies keep no parents and register no references."""
 
     def _copy_data_type_without_top_level_none(self, data_type: DataType) -> DataType:
         """Copy a data type without its top-level None, for a hint that writes None itself.
@@ -912,21 +817,15 @@ class DataModelField(DataModelFieldBase):
         if self._data_type_renders_none(self.data_type):
             return self._ordered_union_data_type([], null=True, unset=True)
 
-        data_types = []
         has_none = self._field_has_top_level_none()
-        match (has_none, self._data_type_spreads_members(self.data_type)):
-            case (False, True):
-                data_types.extend(self._copy_data_type(child) for child in self.data_type.data_types)
-            case (True, _):
-                if self._data_type_has_renderable_structure(
-                    base_data_type := self._copy_data_type_without_top_level_none(self.data_type)
-                ) and not self._data_type_renders_none(base_data_type):
-                    data_types.append(base_data_type)
-            case _:
-                if self._data_type_has_renderable_structure(
-                    base_data_type := self._copy_data_type(self.data_type)
-                ) and not self._data_type_renders_none(base_data_type):
-                    data_types.append(base_data_type)
+        if not has_none and self._data_type_spreads_members(self.data_type):
+            data_types = [self._copy_data_type(child) for child in self.data_type.data_types]
+        elif self._data_type_has_renderable_structure(
+            base_data_type := self._annotated_base_data_type()
+        ) and not self._data_type_renders_none(base_data_type):
+            data_types = [base_data_type]
+        else:
+            data_types = []
         return self._ordered_union_data_type(data_types, null=has_none, unset=True)
 
     def _annotated_base_data_type(self) -> DataType:
@@ -962,8 +861,7 @@ class DataModelField(DataModelFieldBase):
             written = self._unset_union_data_type()
         else:
             return None
-        for node in written.all_data_types:
-            node.parent = None
+        clear_parents(written)
         return written
 
     def _get_simple_unset_base_type(self) -> str | None:  # noqa: PLR0911
@@ -980,9 +878,7 @@ class DataModelField(DataModelFieldBase):
             return None
         if data_type.literals or data_type.enum_member_literals or data_type.kwargs or data_type.alias:
             return None
-        if data_type.is_dict or data_type.is_list or data_type.is_set or data_type.is_frozen_set:
-            return None
-        if data_type.is_mapping or data_type.is_sequence or data_type.is_tuple:
+        if data_type._is_container:  # noqa: SLF001
             return None
         data_type_class = type(data_type)
         if data_type_class is not DataType and data_type_class is not _create_context_data_type(
@@ -1016,12 +912,7 @@ class DataModelField(DataModelFieldBase):
         if (type_hint := self._get_simple_unset_base_type()) is None:
             return None
 
-        match self._use_union_operator:
-            case True:
-                return f"{type_hint} | UnsetType"
-            case _:
-                pass
-        return f"Union[{type_hint}, UnsetType]"
+        return join_union((type_hint, "UnsetType"), union_operator=self._use_union_operator)
 
     def _imports_data_type(self, plan: FieldRenderPlan) -> DataType:
         """Return the type imports collect from: the one the annotation of ``plan`` writes, else the field's own.
@@ -1031,29 +922,6 @@ class DataModelField(DataModelFieldBase):
         if plan.annotated_call is not None and not (self.required or self.nullable or self._not_required):
             return self.data_type
         return cast("DataType | None", plan.written_type) or self.data_type
-
-    def _has_numeric_data_type(self, type_name: str) -> bool:
-        """Return whether any field data type is the given numeric type."""
-        return any(data_type.type == type_name for data_type in self.data_type.all_data_types)
-
-    def _get_strict_field_constraint(
-        self, constraint: str, value: Any, *, is_float_type: bool, is_int_type: bool
-    ) -> tuple[str, Any] | None:
-        """Return a constraint normalized for the field's numeric type.
-
-        Non-finite bounds are dropped because msgspec Meta only accepts finite values (``_is_non_finite``).
-        """
-        if value is None or constraint not in self._COMPARE_EXPRESSIONS:
-            return constraint, value
-        if _is_non_finite(value):
-            return None
-        if is_float_type:
-            return constraint, float(value)
-        if is_int_type:
-            return normalize_integer_constraint(constraint, value)
-        if isinstance(value, float) and value.is_integer():
-            return constraint, int(value)
-        return constraint, value
 
     @property
     @override
@@ -1069,19 +937,18 @@ class DataModelField(DataModelFieldBase):
                 args.put(key, value, Why(_FIELD_ARGUMENT, key), (f"extra:{key}",))
         converts = False
         if self.alias is not None:
-            args.put("name", self.alias, _ALIAS, ("alias",))
+            args.put("name", self.alias, EXPLICIT_ALIAS, ("alias",))
 
-        if self.default is not UNDEFINED and self.default is not None:
-            args.put("default", self.default, _DEFAULT)
+        if _default_state(self.default) == "value":
+            args.put("default", self.default, DEFAULT_VALUE)
         elif self._not_required and "default_factory" not in args:
             args.put("default", None if self.nullable else UNSET, _NONE_DEFAULT if self.nullable else _UNSET_DEFAULT)
 
-        if self.required and not self.use_default_with_required:
-            args.pop("default", "factory-not-applicable", _REQUIRED)
-            args.pop("default_factory", "factory-not-applicable", _REQUIRED)
+        if requires_value(self):
+            args.pop("default", "factory-not-applicable", REQUIRED_FIELD)
+            args.pop("default_factory", "factory-not-applicable", REQUIRED_FIELD)
         elif (
-            self.default is not UNDEFINED
-            and self.default is not None
+            _default_state(self.default) == "value"
             and "default_factory" not in args
             and (conversion := self._get_default_as_struct_model()) is not None
         ):
@@ -1095,15 +962,15 @@ class DataModelField(DataModelFieldBase):
             and "default_factory" not in args
         ):
             args.take("default")
-            args.put("default_factory", _ValueFactory(entry.value), _MUTABLE_FACTORY, entry.items)
+            args.put("default_factory", _ValueFactory(entry.value), MUTABLE_FACTORY, entry.items)
 
         if (
             self._takes_nested_model_factory()
             and "default_factory" not in args
             and (nested := self._get_default_factory_for_optional_nested_model()) is not None
         ):
-            args.put("default_factory", nested, _NESTED_MODEL_FACTORY)
-            args.pop("default", "superseded", _NESTED_MODEL_FACTORY)
+            args.put("default_factory", nested, NESTED_MODEL_FACTORY)
+            args.pop("default", "superseded", NESTED_MODEL_FACTORY)
         return args, converts
 
     @override
@@ -1118,10 +985,6 @@ class DataModelField(DataModelFieldBase):
         return MsgspecWritten(data=data, text=written_text(self, writes=data.any))
 
     @override
-    def _build_frozen_render_plan(self) -> FieldRenderPlan:
-        return self._render_plan()
-
-    @override
     def _build_render_plan(self) -> FieldRenderPlan:
         """Build the plan: ``Meta(...)`` inside ``Annotated``, then ``field(...)``, the default alone, or nothing.
 
@@ -1132,10 +995,10 @@ class DataModelField(DataModelFieldBase):
         meta = self._build_meta_call(omitted)
         kwargs = args.kwargs()
         call: CallPlan | None = None
-        default = FieldDefault(self.default, missing_sentinel=False, why=_DEFAULT)
+        default = FieldDefault(self.default, missing_sentinel=False, why=DEFAULT_VALUE)
         bare_default = False
         if len(kwargs) == 1 and kwargs[0].name == "default":
-            default = FieldDefault(kwargs[0].value, missing_sentinel=False, why=_BARE_DEFAULT, items=kwargs[0].items)
+            default = FieldDefault(kwargs[0].value, missing_sentinel=False, why=BARE_DEFAULT, items=kwargs[0].items)
             bare_default = True
         elif kwargs:
             call = CallPlan(None, None, kwargs, default_keyword=False, why=_FIELD_CALL, callee="field")
@@ -1152,9 +1015,9 @@ class DataModelField(DataModelFieldBase):
         form, why = (
             ("classvar", _CLASS_VAR)
             if self.is_class_var
-            else ("plain", _PLAIN_ANNOTATION)
+            else ("plain", PLAIN_ANNOTATION)
             if meta is None
-            else ("annotated", _ANNOTATED)
+            else ("annotated", ANNOTATED_ANNOTATION)
         )
         return FieldRenderPlan(
             annotation_form=form,
@@ -1168,13 +1031,6 @@ class DataModelField(DataModelFieldBase):
             bare_default=bare_default,
             written_type=self._written_type(meta),
         )
-
-    @staticmethod
-    def _plan_text(plan: FieldRenderPlan) -> str:
-        """Write what follows the annotation from ``plan``: ``field(...)``, the default alone, or nothing."""
-        if (call := plan.call) is not None:
-            return field_call_text(call)
-        return represent_python_value(plan.default.value) if plan.bare_default else ""
 
     def _render_plan_text(self, plan: FieldRenderPlan) -> tuple[object, ...]:
         """Return what the field writes from ``plan``, to compare a frozen plan with a rebuilt one."""
@@ -1199,23 +1055,6 @@ class DataModelField(DataModelFieldBase):
                 f"constraint:{key}" for key, value in self.constraints.model_dump().items() if value is not None
             )
         return frozenset(items)
-
-    def _get_field_data(self) -> dict[str, Any]:
-        """Return the ``field()`` arguments the field writes, its default factory as text."""
-        plan = self._render_plan()
-        if plan.bare_default:
-            return {"default": plan.default.value}
-        if (call := plan.call) is None:
-            return {}
-        return {
-            argument.name: str(argument.value) if argument.name == "default_factory" else argument.value
-            for argument in call.kwargs
-        }
-
-    @override
-    def __str__(self) -> str:
-        """Generate field() call or default value representation."""
-        return self._plan_text(self._render_plan())
 
     @property
     @override
@@ -1294,7 +1133,7 @@ class DataModelField(DataModelFieldBase):
     def _shape_meta_keywords(self, data_type: DataType) -> frozenset[str] | None:
         """Return the keywords a mapping, a fixed tuple or a union takes, or None for a type of another shape."""
         return _applicability.shape_meta_keywords(
-            mapping=data_type.is_dict or data_type.is_mapping,
+            mapping=data_type in MAPPINGS,
             unconstrained=data_type.is_tuple or self._data_type_is_plain_union(data_type),
         )
 
@@ -1322,7 +1161,7 @@ class DataModelField(DataModelFieldBase):
                 return None
             return self._meta_type(alias_field.data_type, seen | {id(source)})
         if len(data_type.data_types) == 1 and not (
-            data_type.type or data_type.reference or data_type.python_type or self._data_type_has_container(data_type)
+            data_type.type or data_type.reference or data_type.python_type or data_type._is_container  # noqa: SLF001
         ):
             return self._meta_type(data_type.data_types[0], seen)
         return data_type
@@ -1350,7 +1189,7 @@ class DataModelField(DataModelFieldBase):
             if name in untaken:
                 literal = name in decided
                 reason: OmitReason = "consumed-by-type" if literal else "untaken-by-type"
-                why = Why(_LITERAL_DECIDED if literal else _UNTAKEN, name)
+                why = Why(_LITERAL_DECIDED if literal else UNTAKEN_BY_TYPE, name)
                 warns = not literal
             else:
                 reason, why, warns = "inexact-float-divisor", Why(_INEXACT, name), True
@@ -1403,31 +1242,31 @@ class DataModelField(DataModelFieldBase):
             and (target := self._meta_type(self._annotated_base_data_type())) is not None
             and self._names_int(target)
         )
-        values: dict[str, Any] = {}
-        sources: dict[str, tuple[str, ...]] = {}
-        for k, v in declared.items():
-            item = f"constraint:{k}"
+
+        def drop(item: str, k: str, v: Any, normalized: tuple[str, Any] | None) -> Omitted | None:
             if k not in self._META_FIELD_KEYS:
-                omitted.append(Omitted(item, v, "backend-cannot-express", Why(_CONSTRAINT, k)))
-                continue
-            normalized = self._get_strict_field_constraint(k, v, is_float_type=is_float_type, is_int_type=is_int_type)
-            if annotates_int and _beyond_int_limits(*(constraint := normalized or (k, v))):
-                omitted.append(
-                    Omitted(item, constraint[1], "backend-cannot-express", Why(_INT64_LIMIT, constraint[0]), warns=True)
+                return Omitted(item, v, "backend-cannot-express", Why(_CONSTRAINT, k))
+            if annotates_int and _applicability.int_constraint_beyond_values(
+                _applicability.MSGSPEC_OUTPUT, *(constraint := normalized or (k, v))
+            ):
+                return Omitted(
+                    item, constraint[1], "backend-cannot-express", Why(_INT64_LIMIT, constraint[0]), warns=True
                 )
-                continue
-            if normalized is None:
-                if _is_non_finite(v):
-                    omitted.append(Omitted(item, v, "backend-cannot-express", Why(_NON_FINITE, k)))
-                else:
-                    omitted.append(Omitted(item, v, "consumed-by-type", Why(_MULTIPLE_OF_ONE, k)))
-                continue
-            merge_normalized_constraint(values, normalized[0], normalized[1])
-            sources[normalized[0]] = (*sources.get(normalized[0], ()), item)
-        return {
-            key: Kwarg(key, value, Why(_CONSTRAINT, sources[key][0].removeprefix("constraint:")), sources[key])
-            for key, value in values.items()
-        }
+            if normalized is not None:
+                return None
+            if _applicability.is_non_finite(v):
+                return Omitted(item, v, "backend-cannot-express", Why(_NON_FINITE, k))
+            return Omitted(item, v, "consumed-by-type", Why(_MULTIPLE_OF_ONE, k))
+
+        return _normalized_constraint_kwargs(
+            declared,
+            omitted,
+            _applicability.MSGSPEC_OUTPUT,
+            _CONSTRAINT,
+            drop,
+            is_float_type=is_float_type,
+            is_int_type=is_int_type,
+        )
 
     def _names_int(self, data_type: DataType) -> bool:
         """Return whether a type is int, also where an annotation names the int that Annotated or Final qualifies."""
@@ -1438,8 +1277,7 @@ class DataModelField(DataModelFieldBase):
     def _dropped_meta_keywords(self, data: dict[str, Any]) -> tuple[frozenset[str], bool]:
         """Return the constraints msgspec.Meta does not take on the type, and whether a float multiple_of is inexact.
 
-        msgspec checks `multiple_of` on a float by its floating-point remainder, so a divisor a float only
-        approximates, such as 0.01, rejects its own multiples.
+        msgspec checks `multiple_of` on a float inexactly (``_applicability.inexact_float_divisor``).
         """
         if not (
             constrained := {k for k, v in data.items() if v is not None and k in _applicability.META_SCHEMA_KEYWORDS}
@@ -1449,7 +1287,7 @@ class DataModelField(DataModelFieldBase):
         inexact = (
             "multiple_of" in constrained - untaken
             and self._has_numeric_data_type("float")
-            and not _is_exact_float_divisor(data["multiple_of"])
+            and _applicability.inexact_float_divisor(data["multiple_of"])
         )
         return untaken, inexact
 
@@ -1462,12 +1300,17 @@ class DataModelField(DataModelFieldBase):
         """
         if not _is_value_literal(base := self._annotated_base_data_type()):
             return frozenset()
-        checks = {
-            meta: _applicability.literal_check(base.literals, {schema: data[meta]})
-            for meta, schema in _applicability.META_SCHEMA_KEYWORDS.items()
-            if schema in _applicability.LITERAL_DECIDABLE_KEYWORDS and data.get(meta) is not None
-        }
-        return frozenset(meta for meta, (decided, met) in checks.items() if decided and (all(met) or not any(met)))
+        return _applicability.meta_keywords(
+            _applicability.literal_met_keywords(
+                base.literals,
+                {
+                    schema: data[meta]
+                    for meta, schema in _applicability.META_SCHEMA_KEYWORDS.items()
+                    if schema in _applicability.LITERAL_DECIDABLE_KEYWORDS and data.get(meta) is not None
+                },
+                unmet_too=True,
+            )
+        )
 
     def _union_leaves(
         self,
@@ -1511,10 +1354,7 @@ class DataModelField(DataModelFieldBase):
                 return
             data_type = alias_field.data_type
         if (
-            data_type.data_types
-            or data_type.is_optional
-            or data_type.enum_member_literals
-            or self._data_type_has_container(data_type)
+            data_type.data_types or data_type.is_optional or data_type.enum_member_literals or data_type._is_container  # noqa: SLF001
         ):
             return
         kinds = {type(literal).__name__ for literal in data_type.literals} or {data_type.type}
@@ -1524,13 +1364,7 @@ class DataModelField(DataModelFieldBase):
 
     def _non_none_members(self, data_type: DataType) -> list[DataType]:
         """Return the members of a type other than None, spreading the unions and wrappers that render as them."""
-        if (
-            data_type.type is None
-            and data_type.reference is None
-            and data_type.alias is None
-            and data_type.data_types
-            and not self._data_type_has_container(data_type)
-        ):
+        if data_type.data_types and data_type._writes_nothing_of_its_own:  # noqa: SLF001
             return [member for child in data_type.data_types for member in self._non_none_members(child)]
         return [] if self._data_type_renders_none(data_type) else [data_type]
 
@@ -1689,7 +1523,9 @@ class DataModelField(DataModelFieldBase):
         if beyond:
             reasons.append(
                 "msgspec.Meta takes the number constraints of an int only within the 64-bit range, not "
-                + ", ".join(f"{name}={represent_python_value(value)}" for name, value in sorted(beyond.items()))
+                + ", ".join(
+                    keyword_argument(name, represent_python_value(value)) for name, value in sorted(beyond.items())
+                )
             )
         if inexact is not None:
             reasons.append(
@@ -1748,8 +1584,8 @@ class DataModelField(DataModelFieldBase):
         if self.extras.get("is_classvar"):  # pragma: no cover
             meta = self._get_meta_string()
             if self.use_annotated and meta:
-                return f"ClassVar[Annotated[{self.type_hint}, {meta}]]"
-            return f"ClassVar[{self.type_hint}]"
+                return subscript_text("ClassVar", (subscript_text("Annotated", (self.type_hint, meta)),))
+            return subscript_text("ClassVar", (self.type_hint,))
 
         if not self.use_annotated or (plan := self._render_plan()).annotated_call is None:
             return None

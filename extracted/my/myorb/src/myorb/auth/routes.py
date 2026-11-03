@@ -64,6 +64,10 @@ async def setup(
     await store.set_password(db, state, password)
     if name.strip() or assistant.strip():
         await save_profile_values(request, db, name=name, assistant=assistant)
+    # First a tour of a made-up day, then the steps to set myOrb up (tour.py). Not in a demo,
+    # whose day is made up already.
+    if request.app.state.tour is not None:
+        await request.app.state.tour.set(request.app, True)
     response = RedirectResponse("/", status_code=303)
     start_session(response, request, state)
     return response

@@ -23,16 +23,15 @@ class CreateTrafficMirrorFilterRulesRequest(DaraModel):
     ):
         # The client token that is used to ensure the idempotence of the request.
         # 
-        # You can use the client to generate the token, but you must make sure that the token is unique among different requests. The client token can contain only ASCII characters.
+        # You can use the client to generate the value, but you must ensure that it is unique among different requests. The client token can contain only ASCII characters.
         # 
-        # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may be different for each API request.
+        # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** of each API request may be different.
         self.client_token = client_token
-        # Specifies whether to perform only a dry run, without performing the actual request. Valid values:
+        # Specifies whether to perform a dry run. Valid values:
         # 
-        # - **true**: performs only a dry run. The system checks the request for potential issues, including missing parameter values, incorrect request syntax, and service limits. If the request fails the dry run, an error code is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
+        # - **true**: performs a dry run and does not create the inbound or outbound rules. The system checks whether required parameters are specified, the request format, and the limits. If the request fails the dry run, an error message is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
         # 
-        # 
-        # - **false** (default): performs a dry run and performs the actual request. If the request passes the dry run, inbound or outbound rules are created.
+        # - **false** (default): sends a normal request and creates the inbound or outbound rules if the request passes the check.
         self.dry_run = dry_run
         # The details of the outbound rules.
         self.egress_rules = egress_rules
@@ -42,7 +41,7 @@ class CreateTrafficMirrorFilterRulesRequest(DaraModel):
         self.owner_id = owner_id
         # The region ID of the traffic mirror.
         # 
-        # You can call [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) to query the most recent region list. For more information about regions that support traffic mirroring, see [Traffic mirroring overview](https://help.aliyun.com/document_detail/207513.html).
+        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the most recent region list. For more information about the regions that support traffic mirroring, see [Traffic mirroring overview](https://help.aliyun.com/document_detail/207513.html).
         # 
         # This parameter is required.
         self.region_id = region_id
@@ -161,11 +160,11 @@ class CreateTrafficMirrorFilterRulesRequestIngressRules(DaraModel):
         # - **accept**: collects network traffic.
         # - **drop**: does not collect network traffic.
         self.action = action
-        # The destination CIDR block of network traffic for the inbound rule.
+        # The destination CIDR block of the network traffic for the inbound rule.
         self.destination_cidr_block = destination_cidr_block
-        # The destination port range of network traffic for the inbound rule. Valid values for a port: **1** to **65535**. Separate the start port and stop port with a forward slash (/). Format: **1/200** or **80/80**.
+        # The destination port range of the network traffic for the inbound rule. Valid values are **1** to **65535**. Separate the start port and the end port with a forward slash (/). Examples: **1/200** and **80/80**.
         # 
-        # > If IngressRules.N.Protocol is set to **ALL** or **ICMP**, you do not need to configure this parameter. Settings are not required because all ports are available.
+        # > If **IngressRules.N.Protocol** is set to **ALL** or **ICMP**, you do not need to specify this parameter, which indicates that all ports are allowed.
         self.destination_port_range = destination_port_range
         # The IP version of the instance. Valid values:
         # 
@@ -174,18 +173,18 @@ class CreateTrafficMirrorFilterRulesRequestIngressRules(DaraModel):
         self.ip_version = ip_version
         # The priority of the inbound rule. A smaller value indicates a higher priority. The maximum value of **N** is **10**, which means that you can configure up to 10 inbound rules for a traffic mirror filter.
         self.priority = priority
-        # The protocol type of network traffic to be mirrored for the inbound rule. Valid values:
+        # The protocol type of the network traffic to be mirrored for the inbound rule. Valid values:
         # 
         # - **ALL**: all protocols.
-        # - **ICMP**: Internet Control Message Protocol.
-        # - **TCP**: Transmission Control Protocol.
-        # - **UDP**: User Datagram Protocol.
+        # - **ICMP**: Internet Control Message Protocol (ICMP).
+        # - **TCP**: Transmission Control Protocol (TCP).
+        # - **UDP**: User Datagram Protocol (UDP).
         self.protocol = protocol
-        # The source CIDR block of network traffic for the inbound rule.
+        # The source CIDR block of the network traffic for the inbound rule.
         self.source_cidr_block = source_cidr_block
-        # The source port range of network traffic for the inbound rule. Valid values for a port: **1** to **65535**. Separate the start port and stop port with a forward slash (/). Format: **1/200** or **80/80**. A value of **-1/-1** cannot be configured independently and indicates that all ports are available.
+        # The source port range of the network traffic for the inbound rule. Valid values are **1** to **65535**. Separate the start port and the end port with a forward slash (/). Examples: **1/200** and **80/80**. You cannot specify only **-1/-1** for this parameter. **-1/-1** indicates that all ports are allowed.
         # 
-        # > If IngressRules.N.Protocol is set to **ALL** or **ICMP**, you do not need to configure this parameter. Settings are not required because all ports are available.
+        # > If **IngressRules.N.Protocol** is set to **ALL** or **ICMP**, you do not need to specify this parameter, which indicates that all ports are allowed.
         self.source_port_range = source_port_range
 
     def validate(self):
@@ -267,11 +266,11 @@ class CreateTrafficMirrorFilterRulesRequestEgressRules(DaraModel):
         # - **accept**: collects network traffic.
         # - **drop**: does not collect network traffic.
         self.action = action
-        # The destination CIDR block of network traffic for the outbound rule.
+        # The destination CIDR block of the network traffic for the outbound rule.
         self.destination_cidr_block = destination_cidr_block
-        # The destination port range of network traffic for the outbound rule. Valid values for a port: **1** to **65535**. Separate the start port and stop port with a forward slash (/). Format: **1/200** or **80/80**. A value of **-1/-1** cannot be configured independently and indicates that all ports are available.
+        # The destination port range of the network traffic for the outbound rule. Valid values are **1** to **65535**. Separate the start port and the end port with a forward slash (/). Examples: **1/200** and **80/80**. You cannot specify only **-1/-1** for this parameter. **-1/-1** indicates that all ports are allowed.
         # 
-        # > If EgressRules.N.Protocol is set to **ALL** or **ICMP**, you do not need to configure this parameter. Settings are not required because all ports are available.
+        # > If **EgressRules.N.Protocol** is set to **ALL** or **ICMP**, you do not need to specify this parameter, which indicates that all ports are allowed.
         self.destination_port_range = destination_port_range
         # The IP version of the instance. Valid values:
         # 
@@ -280,18 +279,18 @@ class CreateTrafficMirrorFilterRulesRequestEgressRules(DaraModel):
         self.ip_version = ip_version
         # The priority of the outbound rule. A smaller value indicates a higher priority. The maximum value of **N** is **10**, which means that you can configure up to 10 outbound rules for a traffic mirror filter.
         self.priority = priority
-        # The protocol type of network traffic to be mirrored for the outbound rule. Valid values:
+        # The protocol type of the network traffic to be mirrored for the outbound rule. Valid values:
         # 
         # - **ALL**: all protocols.
-        # - **ICMP**: Internet Control Message Protocol.
-        # - **TCP**: Transmission Control Protocol.
-        # - **UDP**: User Datagram Protocol.
+        # - **ICMP**: Internet Control Message Protocol (ICMP).
+        # - **TCP**: Transmission Control Protocol (TCP).
+        # - **UDP**: User Datagram Protocol (UDP).
         self.protocol = protocol
-        # The source CIDR block of network traffic for the outbound rule.
+        # The source CIDR block of the network traffic for the outbound rule.
         self.source_cidr_block = source_cidr_block
-        # The source port range of network traffic for the outbound rule. Valid values for a port: **1** to **65535**. Separate the start port and stop port with a forward slash (/). Format: **1/200** or **80/80**. A value of **-1/-1** cannot be configured independently and indicates that all ports are available.
+        # The source port range of the network traffic for the outbound rule. Valid values are **1** to **65535**. Separate the start port and the end port with a forward slash (/). Examples: **1/200** and **80/80**. You cannot specify only **-1/-1** for this parameter. **-1/-1** indicates that all ports are allowed.
         # 
-        # > If EgressRules.N.Protocol is set to **ALL** or **ICMP**, you do not need to configure this parameter. Settings are not required because all ports are available.
+        # > If **EgressRules.N.Protocol** is set to **ALL** or **ICMP**, you do not need to specify this parameter, which indicates that all ports are allowed.
         self.source_port_range = source_port_range
 
     def validate(self):

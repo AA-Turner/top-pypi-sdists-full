@@ -15,6 +15,7 @@ from datamodel_code_generator.deprecations import warn_deprecated
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from pathlib import Path
+    from types import ModuleType
 
     from datamodel_code_generator._format_types import PythonVersion
 
@@ -37,11 +38,27 @@ def load_toml(path: Path) -> dict[str, Any]:
         return _get_toml_loader()(f)
 
 
-def record_watch_dependency(path: Path) -> None:
-    """Record an active watch dependency without importing watch support on normal paths."""
+def _find_pyproject_toml(settings_path: Path) -> Path | None:
+    """Return the nearest pyproject.toml in ``settings_path`` or one of its parents."""
+    for path in (settings_path, *settings_path.parents):
+        pyproject_toml = path / "pyproject.toml"
+        if pyproject_toml.is_file():
+            return pyproject_toml
+    return None
+
+
+def _collecting_watch_dependencies() -> ModuleType | None:
+    """Return watch support while it collects dependencies, without importing it on normal paths; else None."""
     if (watch_dependencies := sys.modules.get("datamodel_code_generator.watch_dependencies")) is not None and (
         watch_dependencies.collector_is_active()
     ):
+        return watch_dependencies
+    return None
+
+
+def record_watch_dependency(path: Path) -> None:
+    """Record an active watch dependency without importing watch support on normal paths."""
+    if (watch_dependencies := _collecting_watch_dependencies()) is not None:
         watch_dependencies.record_local_dependency(path)
 
 

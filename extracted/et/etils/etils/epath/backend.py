@@ -26,7 +26,7 @@ import pathlib
 import shutil
 import stat as stat_lib
 import typing
-from typing import Callable, Iterator, NoReturn, Optional, Union
+from typing import Any, Callable, Iterator, NoReturn, Optional, Union
 
 from etils.epath import stat_utils
 from etils.epath.typing import PathLike  # pylint: disable=g-importing-member
@@ -143,7 +143,7 @@ class _OsPathBackend(Backend):
     return [p for p in os.listdir(path) if not p.endswith('~')]
 
   def glob(self, path: PathLike) -> list[str]:
-    return glob_lib.glob(path)
+    return glob_lib.glob(path)  # pyrefly: ignore[bad-return, bad-specialization]
 
   def walk(
       self,
@@ -251,7 +251,7 @@ class _TfBackend(Backend):
   @property
   def tf(self):
     try:
-      import tensorflow  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
+      import tensorflow  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-source-for-stubs]
     except ImportError as e:
       raise ImportError(
           f'{e}. To use epath.Path with gs://, TensorFlow should be installed.'
@@ -263,12 +263,12 @@ class _TfBackend(Backend):
     return self.tf.io.gfile
 
   @contextlib.contextmanager
-  def open(
+  def open(  # pyrefly: ignore[bad-override]
       self,
       path: PathLike,
       mode: str,
   ) -> Iterator[typing.IO[Union[str, bytes]]]:
-    with self.gfile.GFile(path, mode) as f:  # pytype: disable=bad-return-type
+    with self.gfile.GFile(path, mode) as f:
       try:
         yield f
       except self.tf.errors.NotFoundError as e:
@@ -430,6 +430,8 @@ class _FileSystemSpecBackend(Backend):
       raise ImportError(
           "To use epath.Path with gs://, fsspec should be installed.'"
       ) from e
+    if name in ('gcs', 'gs'):
+      return fsspec.filesystem(name, finalize_on_close=True)
     return fsspec.filesystem(name)
 
   def fs(self, path: PathLike) -> fsspec.AbstractFileSystem:
@@ -470,13 +472,11 @@ class _FileSystemSpecBackend(Backend):
       top_down: bool = True,
       on_error: Callable[[OSError], object] | None = None,
   ) -> Iterator[tuple[PathLike, list[str], list[str]]]:
-
-    if on_error is None:
-      on_error = 'omit'  # default behavior for pathlib.Path.walk
-    yield from self.fs(top).walk(  # pytype: disable=bad-return-type
+    yield from self.fs(top).walk(
         top,
         topdown=top_down,
-        on_error=on_error,
+        # default behavior for pathlib.Path.walk
+        on_error='omit' if on_error is None else on_error,
         max_depth=None,
     )
 
@@ -507,6 +507,11 @@ class _FileSystemSpecBackend(Backend):
       raise NotImplementedError(
           'mkdir with custom `mode=` not supported for FileSystemSpec backend.'
           ' Please open an issue.'
+      )
+    # fsspec mkdir is a no-op on existing dirs; explicitly check here.
+    if not exist_ok and self.exists(path):
+      raise FileExistsError(
+          f'The operation failed because the specified {path=} already exists.'
       )
     try:
       return self.fs(path).mkdir(path, create_parents=False)
@@ -574,16 +579,16 @@ class _FileSystemSpecBackend(Backend):
     # Stringify paths, because PosixPaths do not implement len:
     path, dst = os.fspath(path), os.fspath(dst)
     chunksize = 1024 * 1024  # 1 MB
-    with self.open(path, mode='rb') as src:
-      with self.open(dst, mode='wb') as dst:
+    with self.open(path, mode='rb') as src_buf:
+      with self.open(dst, mode='wb') as dst_buf:
         while True:
-          data = src.read(chunksize)
+          data = src_buf.read(chunksize)
           if not data:
             break
-          dst.write(data)
+          dst_buf.write(data)
 
   def stat(self, path: PathLike) -> stat_utils.StatResult:
-    info = self.fs(path).info(path)
+    info: dict[str, Any] = self.fs(path).info(path)
 
     mtime_obj = info.get('mtime')
     if mtime_obj is None:
@@ -600,7 +605,7 @@ class _FileSystemSpecBackend(Backend):
 
     return stat_utils.StatResult(
         is_directory=info.get('type') == 'directory',
-        length=info.get('size'),
+        length=info.get('size'),  # pyrefly: ignore[bad-argument-type]
         mtime=mtime,
         owner=info.get('owner'),
         group=info.get('group'),

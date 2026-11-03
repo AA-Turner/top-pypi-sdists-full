@@ -30,9 +30,11 @@ class Drainer:
 
     kind = DrainerKind.NONE
 
-    def __init__(self, directory, *, can_fork: bool) -> None:
+    def __init__(self, directory, *, can_fork: bool, credential_env: dict | None = None) -> None:
         self.directory = str(directory)
         self.can_fork = can_fork
+        #: A credential held only in code, handed to the worker it starts (R5).
+        self.credential_env = credential_env
 
     def wake(self) -> None:
         """After an enqueue: make sure someone delivers it soon. Runs per `log()`."""
@@ -44,13 +46,18 @@ class Drainer:
         from .. import outbox as outbox_worker
 
         try:
-            outbox_worker.maybe_spawn(self.directory)
-        except Exception:  # noqa: BLE001 -- best-effort; run end is the barrier
+            outbox_worker.maybe_spawn(self.directory, **_with_credential(self.credential_env))
+        except Exception:  # noqa: BLE001 -- best-effort; finish() waits for the worker
             pass
 
     def close(self, timeout: float | None = None) -> bool:
         """Stop delivering through this process; True when something was stopped."""
         return False
+
+
+def _with_credential(credential_env: dict | None) -> dict:
+    """`maybe_spawn`'s keyword, only when there is a code credential to hand over."""
+    return {"credential_env": credential_env} if credential_env else {}
 
 
 def export_interval_from_env() -> float | None:
@@ -69,9 +76,11 @@ def export_interval_from_env() -> float | None:
 
 
 def pick_drainer(client) -> Drainer:
-    """The client's drainer, picked once at construction: the in-process thread when it has a
-    ``drain_interval`` (a token passed in code, `PROBE_EXPORT_INTERVAL_SEC`, auto_drain=False
-    on the default transport), else the detached worker when it may auto-drain, else none."""
+    """The client's drainer, picked once at construction (D1): the detached worker for every
+    client on the default transport, a token passed in code riding its spawn (R5); the
+    in-process thread only for an injected transport with a ``drain_interval`` (the worker
+    cannot replay one); else none (`flush()` delivers)."""
+    credential_env = getattr(client, "_worker_credentials", None)
     if client._drain_interval is not None:
         from .drainers.in_process import ThreadDrainer
 
@@ -79,8 +88,8 @@ def pick_drainer(client) -> Drainer:
     if client._auto_drain:
         from .drainers.detached import DetachedDrainer
 
-        return DetachedDrainer(client.journal.dir)
-    return Drainer(client.journal.dir, can_fork=client._default_transport)
+        return DetachedDrainer(client.journal.dir, credential_env=credential_env)
+    return Drainer(client.journal.dir, can_fork=client._default_transport, credential_env=credential_env)
 
 
 def _at_exit(callback) -> None:
@@ -109,6 +118,7 @@ class DrainerMixin:
         self._waiting_exit_armed = True
         journal_dir = str(self.journal.dir)
         spawn = self._default_transport and self._auto_drain
+        credentials = getattr(self, "_worker_credentials", None)
         budget = self._EXIT_PROMOTE_SECONDS
 
         def promote() -> None:
@@ -125,7 +135,7 @@ class DrainerMixin:
                         break
                     promoted += journal.promote_waiting(run_ref=ref, timeout=left)
                 if spawn and (promoted or journal.waiting()):
-                    outbox_worker.maybe_spawn(journal_dir)
+                    outbox_worker.maybe_spawn(journal_dir, **_with_credential(credentials))
             except Exception:  # noqa: BLE001 -- exit must not raise; items stay queued
                 pass
 

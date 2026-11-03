@@ -112,14 +112,32 @@ class SchemaManager:
         sql = f"CREATE INDEX IF NOT EXISTS {name} ON {table_sql} ({column_sql})"
         self.db.execute(sql)
 
+    def create_spiders_table(self):
+        table = self.settings.db_spiders_table
+        uq_name = self._uq(table, "name")
+        sql = f"""
+        CREATE TABLE IF NOT EXISTS {table} (
+            id INTEGER NOT NULL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            class_path VARCHAR(512),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP,
+            {uq_name}
+        ){self._suffix}
+        """
+        self.db.execute(sql)
+        logger.info("Spiders table %s created/verified", table)
+
     def create_jobs_table(self):
         jobs = self.settings.db_jobs_table
+        spiders = self.settings.db_spiders_table
         uq_job_id = self._uq(jobs, "job_id")
+        fk_spider = self._fk(jobs, "spider_id", spiders)
         sql = f"""
         CREATE TABLE IF NOT EXISTS {jobs} (
             id {self._pk},
             job_id VARCHAR(255) NOT NULL,
-            spider_name VARCHAR(255),
+            spider_id INTEGER NOT NULL,
             status VARCHAR(32),
             started_at TIMESTAMP,
             finished_at TIMESTAMP,
@@ -132,13 +150,32 @@ class SchemaManager:
             errors_count INTEGER DEFAULT 0,
             items_per_min FLOAT DEFAULT 0,
             elapsed_seconds FLOAT DEFAULT 0,
-            stats {self._json},
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            {uq_job_id}
+            {uq_job_id},
+            {fk_spider}
         ){self._suffix}
         """
         self.db.execute(sql)
         logger.info("Jobs table %s created/verified", jobs)
+
+    def create_job_meta_table(self):
+        jobs = self.settings.db_jobs_table
+        meta = self.settings.db_job_meta_table
+        fk = self._fk(meta, "job_id", jobs, on_delete="CASCADE")
+        uq = self._uq(meta, "job_id")
+        sql = f"""
+        CREATE TABLE IF NOT EXISTS {meta} (
+            id {self._pk},
+            job_id INTEGER NOT NULL,
+            spider_args {self._json},
+            crawl_settings {self._json},
+            stats {self._json},
+            updated_at TIMESTAMP,
+            {uq},
+            {fk}
+        ){self._suffix}
+        """
+        self.db.execute(sql)
+        logger.info("Job meta table %s created/verified", meta)
 
     def create_items_table(self):
         jobs = self.settings.db_jobs_table
@@ -212,7 +249,7 @@ class SchemaManager:
         logs = self.settings.db_logs_table
 
         specs = [
-            (jobs, "spider_name"),
+            (jobs, "spider_id"),
             (jobs, "status"),
             (jobs, "started_at"),
             (items, "job_id"),
@@ -238,6 +275,117 @@ class SchemaManager:
         self.db.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
         self.db.execute(f"SET search_path TO {schema}")
 
+    def _table_columns(self, table: str) -> set[str]:
+        if self._dialect == "sqlite":
+            rows = self.db.fetchall(f"PRAGMA table_info({table})")
+            return {str(r[1]) for r in rows or ()}
+        if self._dialect == "mysql":
+            rows = self.db.fetchall(
+                "SELECT COLUMN_NAME FROM information_schema.COLUMNS "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s",
+                (table,),
+            )
+        else:
+            schema = getattr(self.settings, "db_schema", "public") or "public"
+            rows = self.db.fetchall(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = %s AND table_name = %s",
+                (schema, table),
+            )
+        return {str(r[0]) for r in rows or ()}
+
+    def _add_column_if_missing(self, table: str, ddl: str) -> None:
+        if ddl.split()[0] in self._table_columns(table):
+            return
+        self.db.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
+
+    def _upgrade_spider_metadata(self) -> None:
+        table = self.settings.db_spiders_table
+        self._add_column_if_missing(table, "class_path VARCHAR(512)")
+        self._add_column_if_missing(table, "updated_at TIMESTAMP")
+
+    def _upgrade_jobs_spider_link(self) -> None:
+        jobs = self.settings.db_jobs_table
+        spiders = self.settings.db_spiders_table
+        cols = self._table_columns(jobs)
+        if "spider_id" in cols and "spider_name" not in cols:
+            return
+        if "spider_id" not in cols:
+            self.db.execute(f"ALTER TABLE {jobs} ADD COLUMN spider_id INTEGER")
+        if "spider_name" in cols:
+            rows = self.db.fetchall(
+                f"SELECT DISTINCT spider_name FROM {jobs} "
+                f"WHERE spider_name IS NOT NULL AND spider_name != ''"
+            )
+            for (name,) in rows or ():
+                name = str(name).strip()[:255]
+                row = self.db.execute(
+                    f"SELECT id FROM {spiders} WHERE name = %s", (name,)
+                )
+                if not row:
+                    sid = int(
+                        self.db.execute(f"SELECT COALESCE(MAX(id), 0) FROM {spiders}")[0]
+                    ) + 1
+                    self.db.execute(
+                        f"INSERT INTO {spiders} (id, name) VALUES (%s, %s)",
+                        (sid, name),
+                    )
+                else:
+                    sid = int(row[0])
+                self.db.execute(
+                    f"UPDATE {jobs} SET spider_id = %s WHERE spider_name = %s",
+                    (sid, name),
+                )
+            if self._dialect == "sqlite":
+                self.db.execute(f"ALTER TABLE {jobs} DROP COLUMN spider_name")
+            else:
+                self.db.execute(f"ALTER TABLE {jobs} DROP COLUMN spider_name")
+        if self._dialect != "sqlite":
+            fk = self._fk_name(jobs, "spider_id")
+            try:
+                self.db.execute(
+                    f"ALTER TABLE {jobs} ADD CONSTRAINT {fk} "
+                    f"FOREIGN KEY (spider_id) REFERENCES {spiders}(id)"
+                )
+            except Exception as exc:
+                logger.debug("Spider FK on %s: %s", jobs, exc)
+
+    def _backfill_job_meta_stats(self) -> None:
+        meta = self.settings.db_job_meta_table
+        jobs = self.settings.db_jobs_table
+        if "job_id" not in self._table_columns(meta):
+            return
+        if "stats" not in self._table_columns(jobs):
+            return
+        rows = self.db.fetchall(
+            f"SELECT j.id, j.stats FROM {jobs} j "
+            f"LEFT JOIN {meta} m ON m.job_id = j.id "
+            f"WHERE j.stats IS NOT NULL AND m.id IS NULL"
+        )
+        for job_pk, stats in rows or ():
+            self.db.execute(
+                f"INSERT INTO {meta} (job_id, stats) VALUES (%s, %s)",
+                (int(job_pk), stats),
+            )
+
+    def _upgrade_drop_jobs_stats(self) -> None:
+        jobs = self.settings.db_jobs_table
+        if "stats" not in self._table_columns(jobs):
+            return
+        self._backfill_job_meta_stats()
+        self.db.execute(f"ALTER TABLE {jobs} DROP COLUMN stats")
+
+    def _upgrade_drop_jobs_created_at(self) -> None:
+        jobs = self.settings.db_jobs_table
+        if "created_at" not in self._table_columns(jobs):
+            return
+        if "started_at" in self._table_columns(jobs):
+            self.db.execute(
+                f"UPDATE {jobs} SET started_at = created_at "
+                f"WHERE started_at IS NULL AND created_at IS NOT NULL"
+            )
+        self.db.execute(f"ALTER TABLE {jobs} DROP COLUMN created_at")
+
     def ensure_tables_exist(self):
         if not self.settings.create_tables:
             logger.info("Table creation disabled. Skipping table creation.")
@@ -245,10 +393,16 @@ class SchemaManager:
 
         try:
             self._prepare_postgres()
+            self.create_spiders_table()
             self.create_jobs_table()
+            self.create_job_meta_table()
             self.create_items_table()
             self.create_requests_table()
             self.create_logs_table()
+            self._upgrade_spider_metadata()
+            self._upgrade_jobs_spider_link()
+            self._upgrade_drop_jobs_stats()
+            self._upgrade_drop_jobs_created_at()
             self.ensure_indexes()
             self.db.commit()
             logger.info("All tables created/verified successfully")

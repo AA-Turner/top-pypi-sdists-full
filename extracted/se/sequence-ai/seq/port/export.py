@@ -44,7 +44,7 @@ from typing import Any, Callable, NamedTuple
 import numpy as np
 
 from seq.port.motion import ROLLOUT, ROLLOUT_SEED, STEPS, rollout
-from seq.port.mujoco import (STATE_FIELDS, PortError, _mujoco, find_model, model_diff, physics_signature,
+from seq.port.mujoco import (SAVED_RTOL, STATE_FIELDS, PortError, _mujoco, find_model, model_diff, physics_signature,
                              reference, rewrite_assets, same_structure, with_xml)
 
 
@@ -142,11 +142,16 @@ def export(ref: str, out: str, *, trials: int | None = None, tasks: list[str] | 
                     models[key]["merged"].append(sha)
                     say(f"model {sha}: {key} with other numbers "
                         f"({', '.join(model_diff(own, models[key]['compiled']))}), kept per episode")
-        lost = [f for f in model_diff(m, own) if f not in STATE_FIELDS]
+
+
+
+        saved = found.source == "mj_saveLastXML"
+        lost = [f for f in model_diff(m, own, rtol=SAVED_RTOL if saved else 0.0) if f not in STATE_FIELDS]
         if lost:
+            dropped = (", or the save dropped them (mujoco 3.2.3's mj_saveLastXML drops <compiler inertiagrouprange>)"
+                       if saved and mujoco.__version__ == "3.2.3" else "")
             raise PortError(f"the exported MJCF does not reproduce the model reset() built ({found.source}): "
-                            f"{', '.join(lost)} differ. The simulator changed them after compiling, or the save "
-                            "dropped them (mujoco 3.2.3's mj_saveLastXML drops <compiler inertiagrouprange>)")
+                            f"{', '.join(lost)} differ. The simulator changed them after compiling{dropped}")
 
 
         changed = model_diff(m, models[key]["compiled"])

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .... import errors
-from .....foundation.durable.durable import fsync_directory, try_clone
+from .....foundation.durable.durable import file_lock, fsync_directory, try_clone
 from probe.sdk.artifact.storage_handlers.multipart.queue import _live_op_ids
 #: An orphaned staged copy (its op gone) is kept this long before gc.
 _ORPHAN_GRACE_SECONDS = 3600
@@ -132,7 +132,13 @@ def gc_staging(journal: Any, *, now: float | None = None) -> int:
     except FileNotFoundError:
         return 0
     now = time.time() if now is None else now
-    live = _live_op_ids(journal)
+    # Under the queue's append lock, as `outbox/held` moves an op between ops/ and held/: a move
+    # between this scan's two listings would read as no op at all and lose the copy (R9).
+    with file_lock(Path(journal.dir) / ".append.lock"):
+        return _remove_unread(directory, names, _live_op_ids(journal), now)
+
+
+def _remove_unread(directory: Path, names: list, live: set, now: float) -> int:
     removed = 0
     for name in names:
         partial = name.startswith(".") and name.endswith(".tmp")

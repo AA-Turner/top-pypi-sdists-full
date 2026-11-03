@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dotted_notation
-Version: 0.52.0
+Version: 0.53.0
 Summary: Dotted notation for safe nested data traversal with optional chaining, pattern matching, and transforms
 Author-email: Frey Waid <logophage1@gmail.com>
 License-Expression: MIT
@@ -277,6 +277,24 @@ Several Python libraries handle nested data access. Here's how dotted compares:
 
 <a id="breaking-changes"></a>
 ## Breaking Changes
+
+### v0.53.0
+- **`!` negates the whole path.** `!(metadata.*)` yields everything
+  outside `metadata.*`, and `!a.b` is the complement of `a.b`; it no
+  longer negates `a` and continues into `b`, which is written `(!a).b`.
+  A guard or filter after it applies to what it yields: `!a.b=5` is
+  `(!a.b)=5`. See [Negation](#negation-not).
+- **A `?` group picks first, then continues.** `(a,b)?.c` is `.c` of the
+  first of `a`, `b`; `(a,b)?=5` is that first match if it equals 5, as
+  `*?=5` is. They were the first of `a.c`, `b.c` and of `a=5`, `b=5`;
+  write those `(a.c,b.c)?` and `((a,b)=5)?`. See [First match](#first-match).
+- **A group with one branch and no pattern is not a pattern.** `get(d,
+  '(a.b)')` returns the value, as `get(d, 'a.b')` does, where it returned
+  a 1-tuple. Write `(a.b,)` for the tuple.
+- **`~` on a group covers only the group.** `~(a.b)` is `~a.~b`:
+  `update` through `~(a.b).c` writes `.c`, where it wrote nothing, and
+  `remove` through `~(a.b)` leaves `a.b`. See
+  [The NOP `~` operator](#the-nop--operator).
 
 ### v0.50.0
 - **Nothing is read through `[+]` or `[+?]`.** They are the slot past the
@@ -2141,7 +2159,9 @@ At top level, bare keys infer `.`, so `(a,b)` is equivalent to `(.a,.b)`:
     (2, 3)
 
 Parentheses are needed to continue after the group (`(a,b).c`) or to
-nest groups inside paths.
+nest groups inside paths. A group with one branch and no pattern in it is
+not a pattern, `(a.b)` is `a.b`; write a trailing comma, `(a.b,)`, for one
+that is (see [Why do I get a tuple for my get?](#why-do-i-get-a-tuple-for-my-get)).
 
 #### Mid-path groups
 
@@ -2258,6 +2278,20 @@ fallback as disjunction—first concrete path (last to first):
     >>> dotted.update({'a': {}}, 'a(.x,.y)?', 99)    # nothing matches → creates last (.y)
     {'a': {'y': 99}}
 
+What follows the `?` acts on the match it picks, as with `*?`: a path
+continues from it, and a guard, filter or transform tests it. To test
+first and then pick, put the guard inside: `((a,b)=5)?`.
+
+    >>> d = {'a': {}, 'b': {'c': 2}}
+    >>> dotted.get(d, '(a,b)?.c')        # picks a, which has no c
+    ()
+    >>> dotted.get(d, '(a.c,b.c)?')      # first that has a c
+    (2,)
+    >>> dotted.get({'a': 6, 'b': 5}, '(a,b)?=5')      # picks a; 6 is not 5
+    ()
+    >>> dotted.get({'a': 6, 'b': 5}, '((a,b)=5)?')    # first equal to 5
+    (5,)
+
 #### Packing
 
 A group yields its matches one by one. A `;` just inside either paren
@@ -2361,6 +2395,22 @@ Updates and removes apply to all non-matching keys:
     >>> dotted.remove(d, 'a(!.x)')
     {'a': {'x': 1}}
 
+`!` negates a whole path. `!P` yields the largest subtrees that hold no
+match of `P`: a subtree `P` runs through is split, one `P` ends at is
+dropped, and one `P` never reaches is yielded whole:
+
+    >>> d = {'metadata': {'modfin': {'hello': 'there'}, 'x': 1}, 'stuff': 7}
+    >>> dotted.pluck(d, '!(metadata.modfin)')
+    (('metadata.x', 1), ('stuff', 7))
+    >>> dotted.pluck(d, '!(metadata.*)')
+    (('stuff', 7),)
+    >>> dotted.remove(d, '!(metadata.modfin)')
+    {'metadata': {'modfin': {'hello': 'there'}}}
+
+The complement is of what `P` actually matches, so `!(a#,b)` excludes
+only `a` when `a` is there. To negate one segment and continue past it,
+parenthesize the negation: `(!a).b`.
+
 **Note**: For De Morgan's law with filter expressions, see the Filters section below.
 
 <a id="precedence"></a>
@@ -2380,8 +2430,10 @@ A guard, filter or transform applies to the whole expression on its left:
 an access path (on its last segment), a `!` expression (on what it
 yields), or a parenthesized group, where it is shorthand for writing it on
 every branch: `(a,b)=5` is `(a=5,b=5)` and `(a,b)|int` is `(a|int,b|int)`,
-which is also how `assemble` writes them. A [packed](#packing) group
-yields one value, so `(a,b;)|sum` applies to that tuple once.
+which is also how `assemble` writes them. After a `?` group it tests the
+match `?` picks, as `*?=5` does: `(a,b)?=5` is the first match, if it
+equals 5. A [packed](#packing) group yields one value, so `(a,b;)|sum`
+applies to that tuple once.
 
     >>> d = {'a': 1, 'b': 2, 'c': 3}
     >>> dotted.get(d, '!a&b,c')       # ((!a)&b), c
@@ -2395,14 +2447,16 @@ yields one value, so `(a,b;)|sum` applies to that tuple once.
     >>> dotted.get({'a': '1', 'b': '2'}, 'a,b|int')
     ('1', 2)
 
-Since access ops bind tightest, `!a.b` negates `a` and continues into `b`
-from every other key, and `!a.b&x` conjoins that with `x`:
+Since access ops bind tightest, `!a.b` negates the whole path `a.b`;
+`(!a).b` negates `a` and continues into `b` from every other key. `~` is
+the exception: it wraps only the next segment, so `~a.b` is `(~a).b` (see
+[The NOP `~` operator](#the-nop--operator)):
 
     >>> d = {'a': {'b': 1}, 'c': {'b': 2}, 'x': 3}
     >>> dotted.get(d, '!a.b')
+    ({'b': 2}, 3)
+    >>> dotted.get(d, '(!a).b')
     (2,)
-    >>> dotted.get(d, '!a.b&x')
-    (2, 3)
 
 A `:` after a transform name is always a parameter, `a|int:16`; to type a
 transformed value, parenthesize: `(a|int):int`.
@@ -2499,11 +2553,16 @@ The NOP operator means "match but don't update." At `update` and `remove` time, 
 marked with `~` are matched for traversal but the mutation is skipped at that segment.
 NOP applies only to the segment it wraps; child segments are unaffected.
 
+`~` is special: unlike `!`, it does not take the whole path. `!a.b` is
+`!(a.b)`, but `~a.b` is `(~a).b`. On a group, `~` applies to every
+segment in it and to nothing after it: `~(a.b)` is `~a.~b`, so update
+and remove leave `a.b` alone, and `~(a.b).c` still writes `.c`.
+
 | Syntax | Meaning |
 |--------|---------|
 | `~a.b` | NOP at `a`, then `.b` |
 | `a.~b` | NOP at `b` (dot segment) |
-| `~(name.first)` | NOP on grouped path |
+| `~(name.first)` | NOP on every segment of the group |
 | `[~*]` or `~[*]` | NOP on slot (canonical: `[~stuff]`) |
 | `@~attr` or `~@attr` | NOP on attr |
 
@@ -4112,6 +4171,16 @@ See [Recursive Traversal](#recursive-traversal), [Filters](#filters), and
 
 - Any path segment is a pattern (e.g. wildcard `*`, regex), or
 - The path uses path grouping: disjunction `(a,b)`, conjunction `(a&b)`, or negation `(!a)`.
+
+Parentheses alone do not make a pattern: `(a)` and `(a.b)` are the same as
+`a` and `a.b`. A trailing comma does, as in a Python tuple: `(a,)` yields
+`(value,)`.
+
+    >>> d = {'a': {'b': 1}}
+    >>> dotted.get(d, '(a.b)')
+    1
+    >>> dotted.get(d, '(a.b,)')
+    (1,)
 
 Filters (e.g. `key=value`, `*=None`) can use patterns but do **not** make the path a pattern; only the path segments and path-level operators do. So `name.first&first=None` is non-pattern (single value), while `name.*&first=None` is pattern (tuple), even though both can express "when name.first is None." Value guards (e.g. `name.first=None`) also preserve the pattern/non-pattern status of the underlying path segment.
 

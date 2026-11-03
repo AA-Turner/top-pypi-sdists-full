@@ -7,15 +7,16 @@
 
 import copy
 import logging
-from typing import Optional, Sequence
+from functools import partial
+from typing import Dict, Optional, Sequence, Union
 
 import torch
-from einops import rearrange
-from einops.layers.torch import Rearrange
 from torch import Tensor, nn
 
+from braindecode.functional import init_weights_, spectral_input
 from braindecode.models.base import EEGModuleMixin
 from braindecode.modules import CrissCrossTransformerEncoderLayer
+from braindecode.modules.blocks import PatchTokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +124,9 @@ class CBraMod(EEGModuleMixin, nn.Module):
 
     Parameters
     ----------
+    on_non_divisible : {"pad", "crop", "error"}, default="pad"
+        How :class:`~braindecode.modules.PatchTokenizer` treats a time axis that
+        is not a multiple of ``patch_size`` (right zero-pad, crop, or raise).
     patch_size : int, default=200
         Temporal patch size in samples (200 samples = 1 second at 200 Hz).
     dim_feedforward : int, default=800
@@ -173,6 +177,9 @@ class CBraMod(EEGModuleMixin, nn.Module):
         ),
         drop_prob: float = 0.1,
         return_encoder_output: bool = False,
+        on_non_divisible: str = "pad",
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
         super().__init__(
             n_outputs=n_outputs,
@@ -181,12 +188,22 @@ class CBraMod(EEGModuleMixin, nn.Module):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_chans, chs_info, n_times, input_window_seconds, sfreq, n_outputs
-        self.rearrange = Rearrange(
-            "batch n_chans (n_patch patch_size) -> batch n_chans n_patch patch_size",
+        # Shared tokenizer: (batch, n_chans, n_times) -> (batch, n_chans, n_patch, patch_size),
+        # padding/cropping a non-divisible time axis at forward time.
+        try:
+            tokenizer_n_times = self.n_times
+        except ValueError:  # unknown length: nothing to check at construction
+            tokenizer_n_times = patch_size
+        self.rearrange = PatchTokenizer(
             patch_size=patch_size,
+            n_times=tokenizer_n_times,
+            on_non_divisible=on_non_divisible,
         )
+        self._on_non_divisible = on_non_divisible
         self.patch_embedding = _PatchEmbedding(
             patch_size,
             channels_kernel_stride_padding_norm,
@@ -207,13 +224,13 @@ class CBraMod(EEGModuleMixin, nn.Module):
 
         self._emb_dim = emb_dim
         self._patch_size = patch_size
-        self._weights_init()
+        self._init_parameters()
 
         if return_encoder_output:
             self.final_layer = nn.Identity()
-        elif self._n_times is not None and self._n_chans is not None:
-            n_patch = self._n_times // patch_size
-            flat_dim = self._n_chans * n_patch * emb_dim
+        elif self._knows_geometry():
+            n_patch = self._n_patch()
+            flat_dim = self.n_chans * n_patch * emb_dim
             self.final_layer = nn.Sequential(
                 nn.Flatten(), nn.Linear(flat_dim, self.n_outputs)
             )
@@ -224,32 +241,56 @@ class CBraMod(EEGModuleMixin, nn.Module):
 
     def reset_head(self, n_outputs):
         self._n_outputs = n_outputs
-        if self._n_times is not None and self._n_chans is not None:
-            n_patch = self._n_times // self._patch_size
-            flat_dim = self._n_chans * n_patch * self._emb_dim
+        self._update_init_kwargs(n_outputs=n_outputs)
+        # A head implies a classifier, also when built with return_encoder_output.
+        self._update_init_kwargs(return_encoder_output=False)
+        if self._knows_geometry():
+            n_patch = self._n_patch()
+            flat_dim = self.n_chans * n_patch * self._emb_dim
             self.final_layer = nn.Sequential(
                 nn.Flatten(), nn.Linear(flat_dim, n_outputs)
             )
         else:
             self.final_layer = nn.Sequential(nn.Flatten(), nn.LazyLinear(n_outputs))
 
-    def _weights_init(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
-            elif isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
-            elif isinstance(m, nn.BatchNorm1d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+    def _knows_geometry(self):
+        """True when n_chans and n_times are known (given or derivable), so the
+        head can be a real Linear instead of a LazyLinear that cannot be saved
+        or loaded before a forward pass."""
+        try:
+            self.n_chans, self.n_times
+        except ValueError:
+            return False
+        return True
 
-    def forward(self, x, mask=None, return_features=False):
+    def _n_patch(self):
+        if self._on_non_divisible == "pad":
+            return -(-self.n_times // self._patch_size)
+        return self.n_times // self._patch_size
+
+    def _init_parameters(self):
+        kaiming = partial(nn.init.kaiming_normal_, mode="fan_out", nonlinearity="relu")
+        self.apply(
+            partial(
+                init_weights_,
+                weights={(nn.Linear, nn.Conv1d): (kaiming, None)},
+                norms=(nn.BatchNorm1d,),
+            )
+        )
+
+    def forward(
+        self,
+        x: Tensor,
+        mask: Optional[Tensor] = None,
+        return_features: bool = False,
+    ) -> Union[Tensor, Dict[str, Optional[Tensor]]]:
         x = self.rearrange(x)
         patch_emb = self.patch_embedding(x, mask)
         feats = self.encoder(patch_emb)
         out = self.proj_out(feats)
         if return_features:
-            return {"features": out, "cls_token": None}
+            features: Dict[str, Optional[Tensor]] = {"features": out, "cls_token": None}
+            return features
         return self.final_layer(out)
 
 
@@ -312,7 +353,7 @@ class _PatchEmbedding(nn.Module):
             patch_size = int((patch_size + 2 * padding - kernel) / stride + 1)
         return last_channels * patch_size
 
-    def forward(self, x, mask=None):
+    def forward(self, x: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         bz, ch_num, patch_num, patch_size = x.shape
         if mask is None:
             mask_x = x
@@ -320,23 +361,24 @@ class _PatchEmbedding(nn.Module):
             mask_x = x.clone()
             mask_x[mask == 1] = self.mask_encoding
 
-        mask_x = rearrange(mask_x, "b c n p -> b 1 (c n) p")
-        patch_emb = self.proj_in(mask_x)
-        patch_emb = rearrange(patch_emb, "b d (c n) p2 -> b c n (d p2)", c=ch_num)
-
-        mask_x = rearrange(mask_x, "b 1 (c n) p -> (b c n) p", c=ch_num)
-        spectral = torch.fft.rfft(mask_x, dim=-1, norm="forward")
-        spectral = rearrange(
-            torch.abs(spectral), "(b c n) p -> b c n p", b=bz, c=ch_num, p=101
+        mask_x = mask_x.reshape(bz, 1, ch_num * patch_num, patch_size)
+        patch_emb = self.proj_in(mask_x)  # (b, d, c * n, p2)
+        d, p2 = patch_emb.shape[1], patch_emb.shape[3]
+        patch_emb = (
+            patch_emb.reshape(bz, d, ch_num, patch_num, p2)
+            .permute(0, 2, 3, 1, 4)
+            .reshape(bz, ch_num, patch_num, d * p2)
         )
+
+        mask_x = mask_x.reshape(-1, patch_size)
+        spectral = torch.fft.rfft(spectral_input(mask_x), dim=-1, norm="forward")
+        spectral = torch.abs(spectral).to(mask_x).reshape(bz, ch_num, patch_num, -1)
         spectral_emb = self.spectral_proj(spectral)
 
         patch_emb = patch_emb + spectral_emb
 
-        positional_embedding = self.positional_encoding(
-            rearrange(patch_emb, "b c n p -> b p c n", p=self.d_model)
-        )  # d for sanity check
-        positional_embedding = rearrange(positional_embedding, "b p c n -> b c n p")
+        positional_embedding = self.positional_encoding(patch_emb.permute(0, 3, 1, 2))
+        positional_embedding = positional_embedding.permute(0, 2, 3, 1)
 
         patch_emb = patch_emb + positional_embedding
 

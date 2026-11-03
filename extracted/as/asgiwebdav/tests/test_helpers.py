@@ -1,5 +1,9 @@
+from pathlib import Path
+
 import pytest
+from asgiref.typing import ASGIReceiveEvent
 from icecream import ic
+from pytest_mock import MockerFixture
 
 from asgi_webdav.config import get_global_config
 from asgi_webdav.constants import AppEntryParameters
@@ -10,6 +14,7 @@ from asgi_webdav.helpers import (
     get_timezone,
     guess_type,
     is_browser_user_agent,
+    receive_all_data_in_one_call,
 )
 
 from .kits.common import (
@@ -21,7 +26,33 @@ from .kits.common import (
 )
 
 
-def test_guess_type():
+class _ScriptedReceive:
+    """Yield scripted ASGI receive events in order."""
+
+    def __init__(self, *events: ASGIReceiveEvent) -> None:
+        self.events = list(events)
+
+    async def __call__(self) -> ASGIReceiveEvent:
+        return self.events.pop(0)
+
+
+async def test_receive_all_data_in_one_call_chunks() -> None:
+    receive = _ScriptedReceive(
+        {"type": "http.request", "body": b"abc", "more_body": True},
+        {"type": "http.request", "body": b"def", "more_body": False},
+    )
+    assert await receive_all_data_in_one_call(receive) == b"abcdef"
+
+
+async def test_receive_all_data_in_one_call_disconnect() -> None:
+    receive = _ScriptedReceive(
+        {"type": "http.request", "body": b"abc", "more_body": True},
+        {"type": "http.disconnect"},
+    )
+    assert await receive_all_data_in_one_call(receive) is None
+
+
+def test_guess_type() -> None:
     config = get_global_config()
     config.update_from_app_args_and_env_and_default_value(AppEntryParameters())
 
@@ -43,7 +74,7 @@ detect_charset_content = {
 }
 
 
-def detect_charset_init():
+def detect_charset_init() -> None:
     for encoding, content in detect_charset_content.items():
         filename = detect_charset_filename_template.format(encoding)
         with open(filename, "w", encoding=encoding) as fp:
@@ -54,7 +85,7 @@ def detect_charset_init():
 
 
 @pytest.mark.asyncio
-async def test_detect_charset(tmp_path):
+async def test_detect_charset(tmp_path: Path) -> None:
     for encoding, content in detect_charset_content.items():
         file_path = tmp_path / f"charset-{encoding}.txt"
         file_path.write_text(content, encoding=encoding)
@@ -74,7 +105,7 @@ async def test_detect_charset(tmp_path):
     #     assert charset == encoding
 
 
-def test_is_browser_user_agent():
+def test_is_browser_user_agent() -> None:
     browser_user_agent_data = [
         CLIENT_UA_FIREFOX,
         CLIENT_UA_SAFARI,
@@ -96,14 +127,14 @@ def test_is_browser_user_agent():
     for user_agent in browser_user_agent_data:
         assert is_browser_user_agent(user_agent)
 
-    for user_agent in browser_user_agent_data_bytes:
-        assert is_browser_user_agent(user_agent)
+    for user_agent_bytes in browser_user_agent_data_bytes:
+        assert is_browser_user_agent(user_agent_bytes)
 
-    for user_agent in other_user_agent_data:
-        assert not is_browser_user_agent(user_agent)
+    for user_agent_other in other_user_agent_data:
+        assert not is_browser_user_agent(user_agent_other)
 
 
-def test_get_dav_property_data_from_xml():
+def test_get_dav_property_data_from_xml() -> None:
     # all good
     assert get_dict_from_xml(
         data=b'<?xml version="1.0" encoding="utf-8" ?>\n<D:propertyupdate xmlns:D="DAV:"><D:set><D:prop><random xmlns="http://webdav.org/neon/litmus/">foobar</random></D:prop></D:set>\n</D:propertyupdate>\n',
@@ -132,7 +163,7 @@ def test_get_dav_property_data_from_xml():
     )
 
 
-def test_get_timezone(mocker):
+def test_get_timezone(mocker: MockerFixture) -> None:
     # normal
     mocker.patch("asgi_webdav.helpers.getenv", return_value="Asia/Shanghai")
     timezone = get_timezone()
@@ -152,7 +183,7 @@ def test_get_timezone(mocker):
     assert timezone.key == "UTC"
 
 
-def test_get_str_from_first_brackets():
+def test_get_str_from_first_brackets() -> None:
     assert get_str_from_first_brackets("a[b]c", "[", "]") == "b"
     assert get_str_from_first_brackets("a<b>c", "<", ">") == "b"
 

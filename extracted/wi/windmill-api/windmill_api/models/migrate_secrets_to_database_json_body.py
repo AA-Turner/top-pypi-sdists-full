@@ -13,7 +13,8 @@ class MigrateSecretsToDatabaseJsonBody:
     """
     Attributes:
         address (str): HashiCorp Vault server address (e.g., https://vault.company.com:8200)
-        mount_path (str): KV v2 secrets engine mount path (e.g., windmill)
+        mount_path (Union[Unset, str]): KV v2 secrets engine mount path (e.g., windmill). Empty to test the connection
+            used for `$external:vault://` references, which checks only that Vault accepts Windmill's token.
         kv_secret_path_prefix (Union[Unset, str]): Optional path prefix inserted between the KV data/metadata segment
             and the workspace id (e.g., "apps/windmill"). When set, secrets are stored at
             `<mount>/data/<prefix>/<workspace>/<secret>`, allowing a Vault policy scoped to exactly
@@ -23,6 +24,10 @@ class MigrateSecretsToDatabaseJsonBody:
         jwt_mount_path (Union[Unset, str]): Mount path for the JWT auth method in Vault (optional, defaults to "jwt").
             Set this when the JWT auth method is mounted at a non-default path, e.g. via `vault auth enable -path=<mount>
             jwt`.
+        approle_role_id (Union[Unset, str]): AppRole role_id (optional). When set and no static token is given, Windmill
+            logs in with AppRole; the secret_id is read from the `VAULT_APPROLE_SECRET_ID` environment variable of servers
+            and workers.
+        approle_mount_path (Union[Unset, str]): Mount path of the AppRole auth method (optional, defaults to "approle").
         namespace (Union[Unset, str]): Vault Enterprise namespace (optional)
         token (Union[Unset, str]): Static Vault token for testing/development (optional, if provided this is used
             instead of JWT authentication)
@@ -31,10 +36,12 @@ class MigrateSecretsToDatabaseJsonBody:
     """
 
     address: str
-    mount_path: str
+    mount_path: Union[Unset, str] = UNSET
     kv_secret_path_prefix: Union[Unset, str] = UNSET
     jwt_role: Union[Unset, str] = UNSET
     jwt_mount_path: Union[Unset, str] = UNSET
+    approle_role_id: Union[Unset, str] = UNSET
+    approle_mount_path: Union[Unset, str] = UNSET
     namespace: Union[Unset, str] = UNSET
     token: Union[Unset, str] = UNSET
     skip_ssl_verify: Union[Unset, bool] = UNSET
@@ -46,6 +53,8 @@ class MigrateSecretsToDatabaseJsonBody:
         kv_secret_path_prefix = self.kv_secret_path_prefix
         jwt_role = self.jwt_role
         jwt_mount_path = self.jwt_mount_path
+        approle_role_id = self.approle_role_id
+        approle_mount_path = self.approle_mount_path
         namespace = self.namespace
         token = self.token
         skip_ssl_verify = self.skip_ssl_verify
@@ -55,15 +64,20 @@ class MigrateSecretsToDatabaseJsonBody:
         field_dict.update(
             {
                 "address": address,
-                "mount_path": mount_path,
             }
         )
+        if mount_path is not UNSET:
+            field_dict["mount_path"] = mount_path
         if kv_secret_path_prefix is not UNSET:
             field_dict["kv_secret_path_prefix"] = kv_secret_path_prefix
         if jwt_role is not UNSET:
             field_dict["jwt_role"] = jwt_role
         if jwt_mount_path is not UNSET:
             field_dict["jwt_mount_path"] = jwt_mount_path
+        if approle_role_id is not UNSET:
+            field_dict["approle_role_id"] = approle_role_id
+        if approle_mount_path is not UNSET:
+            field_dict["approle_mount_path"] = approle_mount_path
         if namespace is not UNSET:
             field_dict["namespace"] = namespace
         if token is not UNSET:
@@ -78,13 +92,17 @@ class MigrateSecretsToDatabaseJsonBody:
         d = src_dict.copy()
         address = d.pop("address")
 
-        mount_path = d.pop("mount_path")
+        mount_path = d.pop("mount_path", UNSET)
 
         kv_secret_path_prefix = d.pop("kv_secret_path_prefix", UNSET)
 
         jwt_role = d.pop("jwt_role", UNSET)
 
         jwt_mount_path = d.pop("jwt_mount_path", UNSET)
+
+        approle_role_id = d.pop("approle_role_id", UNSET)
+
+        approle_mount_path = d.pop("approle_mount_path", UNSET)
 
         namespace = d.pop("namespace", UNSET)
 
@@ -98,6 +116,8 @@ class MigrateSecretsToDatabaseJsonBody:
             kv_secret_path_prefix=kv_secret_path_prefix,
             jwt_role=jwt_role,
             jwt_mount_path=jwt_mount_path,
+            approle_role_id=approle_role_id,
+            approle_mount_path=approle_mount_path,
             namespace=namespace,
             token=token,
             skip_ssl_verify=skip_ssl_verify,

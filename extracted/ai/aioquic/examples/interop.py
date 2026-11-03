@@ -9,9 +9,10 @@ import asyncio
 import logging
 import ssl
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Flag
-from typing import Optional, cast
+from typing import TextIO, cast
 
 import httpx
 from aioquic.asyncio import connect
@@ -20,6 +21,7 @@ from aioquic.h3.connection import H3_ALPN, H3Connection
 from aioquic.h3.events import DataReceived, HeadersReceived, PushPromiseReceived
 from aioquic.quic.configuration import QuicConfiguration
 from aioquic.quic.logger import QuicFileLogger, QuicLogger
+from aioquic.tls import SessionTicket
 from http3_client import HttpClient
 
 
@@ -46,7 +48,7 @@ class Result(Flag):
     d = 0x020000
     p = 0x040000
 
-    def __str__(self):
+    def __str__(self) -> str:
         flags = sorted(
             map(
                 lambda x: getattr(Result, x),
@@ -69,15 +71,15 @@ class Server:
     host: str
     port: int = 4433
     http3: bool = True
-    http3_port: Optional[int] = None
-    retry_port: Optional[int] = 4434
+    http3_port: int | None = None
+    retry_port: int | None = 4434
     path: str = "/"
-    push_path: Optional[str] = None
+    push_path: str | None = None
     result: Result = field(default_factory=lambda: Result(0))
-    session_resumption_port: Optional[int] = None
+    session_resumption_port: int | None = None
     structured_logging: bool = False
-    throughput_path: Optional[str] = "/%(size)d"
-    verify_mode: Optional[int] = None
+    throughput_path: str | None = "/%(size)d"
+    verify_mode: int | None = None
 
 
 SERVERS = [
@@ -125,7 +127,9 @@ SERVERS = [
 ]
 
 
-async def test_version_negotiation(server: Server, configuration: QuicConfiguration):
+async def test_version_negotiation(
+    server: Server, configuration: QuicConfiguration
+) -> None:
     # force version negotiation
     configuration.supported_versions.insert(0, 0x1A2A3A4A)
 
@@ -143,7 +147,9 @@ async def test_version_negotiation(server: Server, configuration: QuicConfigurat
                 server.result |= Result.V
 
 
-async def test_handshake_and_close(server: Server, configuration: QuicConfiguration):
+async def test_handshake_and_close(
+    server: Server, configuration: QuicConfiguration
+) -> None:
     async with connect(
         server.host, server.port, configuration=configuration
     ) as protocol:
@@ -152,7 +158,7 @@ async def test_handshake_and_close(server: Server, configuration: QuicConfigurat
     server.result |= Result.C
 
 
-async def test_retry(server: Server, configuration: QuicConfiguration):
+async def test_retry(server: Server, configuration: QuicConfiguration) -> None:
     # skip test if there is not retry port
     if server.retry_port is None:
         return
@@ -171,7 +177,9 @@ async def test_retry(server: Server, configuration: QuicConfiguration):
                 server.result |= Result.S
 
 
-async def test_quantum_readiness(server: Server, configuration: QuicConfiguration):
+async def test_quantum_readiness(
+    server: Server, configuration: QuicConfiguration
+) -> None:
     configuration.quantum_readiness_test = True
     async with connect(
         server.host, server.port, configuration=configuration
@@ -180,7 +188,7 @@ async def test_quantum_readiness(server: Server, configuration: QuicConfiguratio
         server.result |= Result.Q
 
 
-async def test_http_0(server: Server, configuration: QuicConfiguration):
+async def test_http_0(server: Server, configuration: QuicConfiguration) -> None:
     if server.path is None:
         return
 
@@ -194,14 +202,12 @@ async def test_http_0(server: Server, configuration: QuicConfiguration):
         protocol = cast(HttpClient, protocol)
 
         # perform HTTP request
-        events = await protocol.get(
-            "https://{}:{}{}".format(server.host, server.port, server.path)
-        )
+        events = await protocol.get(f"https://{server.host}:{server.port}{server.path}")
         if events and isinstance(events[0], HeadersReceived):
             server.result |= Result.D
 
 
-async def test_http_3(server: Server, configuration: QuicConfiguration):
+async def test_http_3(server: Server, configuration: QuicConfiguration) -> None:
     port = server.http3_port or server.port
     if server.path is None:
         return
@@ -216,9 +222,7 @@ async def test_http_3(server: Server, configuration: QuicConfiguration):
         protocol = cast(HttpClient, protocol)
 
         # perform HTTP request
-        events = await protocol.get(
-            "https://{}:{}{}".format(server.host, server.port, server.path)
-        )
+        events = await protocol.get(f"https://{server.host}:{server.port}{server.path}")
         if events and isinstance(events[0], HeadersReceived):
             server.result |= Result.D
             server.result |= Result.three
@@ -226,7 +230,7 @@ async def test_http_3(server: Server, configuration: QuicConfiguration):
         # perform more HTTP requests to use QPACK dynamic tables
         for i in range(2):
             events = await protocol.get(
-                "https://{}:{}{}".format(server.host, server.port, server.path)
+                f"https://{server.host}:{server.port}{server.path}"
             )
         if events and isinstance(events[0], HeadersReceived):
             http = cast(H3Connection, protocol._http)
@@ -251,9 +255,7 @@ async def test_http_3(server: Server, configuration: QuicConfiguration):
         # check push support
         if server.push_path is not None:
             protocol.pushes.clear()
-            await protocol.get(
-                "https://{}:{}{}".format(server.host, server.port, server.push_path)
-            )
+            await protocol.get(f"https://{server.host}:{server.port}{server.push_path}")
             await asyncio.sleep(0.5)
             for push_id, events in protocol.pushes.items():
                 if (
@@ -272,11 +274,13 @@ async def test_http_3(server: Server, configuration: QuicConfiguration):
                     server.result |= Result.p
 
 
-async def test_session_resumption(server: Server, configuration: QuicConfiguration):
+async def test_session_resumption(
+    server: Server, configuration: QuicConfiguration
+) -> None:
     port = server.session_resumption_port or server.port
     saved_ticket = None
 
-    def session_ticket_handler(ticket):
+    def session_ticket_handler(ticket: SessionTicket) -> None:
         nonlocal saved_ticket
         saved_ticket = ticket
 
@@ -307,7 +311,7 @@ async def test_session_resumption(server: Server, configuration: QuicConfigurati
                 server.result |= Result.Z
 
 
-async def test_key_update(server: Server, configuration: QuicConfiguration):
+async def test_key_update(server: Server, configuration: QuicConfiguration) -> None:
     async with connect(
         server.host, server.port, configuration=configuration
     ) as protocol:
@@ -323,7 +327,9 @@ async def test_key_update(server: Server, configuration: QuicConfiguration):
         server.result |= Result.U
 
 
-async def test_server_cid_change(server: Server, configuration: QuicConfiguration):
+async def test_server_cid_change(
+    server: Server, configuration: QuicConfiguration
+) -> None:
     async with connect(
         server.host, server.port, configuration=configuration
     ) as protocol:
@@ -339,7 +345,7 @@ async def test_server_cid_change(server: Server, configuration: QuicConfiguratio
         server.result |= Result.M
 
 
-async def test_nat_rebinding(server: Server, configuration: QuicConfiguration):
+async def test_nat_rebinding(server: Server, configuration: QuicConfiguration) -> None:
     async with connect(
         server.host, server.port, configuration=configuration
     ) as protocol:
@@ -370,7 +376,9 @@ async def test_nat_rebinding(server: Server, configuration: QuicConfiguration):
             server.result |= Result.B
 
 
-async def test_address_mobility(server: Server, configuration: QuicConfiguration):
+async def test_address_mobility(
+    server: Server, configuration: QuicConfiguration
+) -> None:
     async with connect(
         server.host, server.port, configuration=configuration
     ) as protocol:
@@ -404,7 +412,7 @@ async def test_address_mobility(server: Server, configuration: QuicConfiguration
             server.result |= Result.A
 
 
-async def test_spin_bit(server: Server, configuration: QuicConfiguration):
+async def test_spin_bit(server: Server, configuration: QuicConfiguration) -> None:
     async with connect(
         server.host, server.port, configuration=configuration
     ) as protocol:
@@ -420,14 +428,14 @@ async def test_spin_bit(server: Server, configuration: QuicConfiguration):
             server.result |= Result.P
 
 
-async def test_throughput(server: Server, configuration: QuicConfiguration):
+async def test_throughput(server: Server, configuration: QuicConfiguration) -> None:
     failures = 0
     if server.throughput_path is None:
         return
 
     for size in [5000000, 10000000]:
         path = server.throughput_path % {"size": size}
-        print("Testing %d bytes download: %s" % (size, path))
+        print(f"Testing {size} bytes download: {path}")
 
         # perform HTTP request over TCP
         start = time.time()
@@ -453,7 +461,7 @@ async def test_throughput(server: Server, configuration: QuicConfiguration):
             protocol = cast(HttpClient, protocol)
 
             http_events = await protocol.get(
-                "https://{}:{}{}".format(server.host, server.port, path)
+                f"https://{server.host}:{server.port}{path}"
             )
             quic_elapsed = time.time() - start
             quic_octets = 0
@@ -462,8 +470,8 @@ async def test_throughput(server: Server, configuration: QuicConfiguration):
                     quic_octets += len(http_event.data)
         assert quic_octets == size, "HTTP/QUIC response size mismatch"
 
-        print(" - HTTP/TCP  completed in %.3f s" % tcp_elapsed)
-        print(" - HTTP/QUIC completed in %.3f s" % quic_elapsed)
+        print(f" - HTTP/TCP  completed in {tcp_elapsed:.3f} s")
+        print(f" - HTTP/QUIC completed in {quic_elapsed:.3f} s")
 
         if quic_elapsed > 1.1 * tcp_elapsed:
             failures += 1
@@ -478,15 +486,21 @@ async def test_throughput(server: Server, configuration: QuicConfiguration):
 def print_result(server: Server) -> None:
     result = str(server.result).replace("three", "3")
     result = result[0:8] + " " + result[8:16] + " " + result[16:]
-    print("%s%s%s" % (server.name, " " * (20 - len(server.name)), result))
+    print(f"{server.name:<20}{result}")
 
 
-async def main(servers, tests, quic_log=False, secrets_log_file=None) -> None:
+async def main(
+    *,
+    servers: list[Server],
+    tests: list[tuple[str, Callable[[Server, QuicConfiguration], Awaitable[None]]]],
+    quic_log: str | None = None,
+    secrets_log_file: TextIO | None = None,
+) -> None:
     for server in servers:
         if server.structured_logging:
             server.result |= Result.L
         for test_name, test_func in tests:
-            print("\n=== %s %s ===\n" % (server.name, test_name))
+            print(f"\n=== {server.name} {test_name} ===\n")
             configuration = QuicConfiguration(
                 alpn_protocols=H3_ALPN + H0_ALPN,
                 is_client=True,

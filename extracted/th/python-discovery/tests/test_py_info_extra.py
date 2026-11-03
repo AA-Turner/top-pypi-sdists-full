@@ -168,15 +168,46 @@ def test_resolve_to_system_single_prefix_self_link(mocker: MockerFixture, caplog
     assert any("links back to itself" in r.message for r in caplog.records)
 
 
+def test_resolve_to_system_repeated_prefix_with_parent_segments(tmp_path: Path, mocker: MockerFixture) -> None:
+    (tmp_path / "child").mkdir()
+    target = PythonInfo()
+    target.system_executable = target.real_prefix = None
+    target.base_prefix = str(tmp_path)
+    repeated = PythonInfo()
+    repeated.system_executable = repeated.real_prefix = None
+    repeated.base_prefix = str(tmp_path / "child" / "..")
+    mocker.patch.object(PythonInfo, "discover_exe", return_value=repeated)
+
+    result = PythonInfo.resolve_to_system(None, target)
+
+    assert result.system_executable == repeated.executable
+
+
 def test_discover_exe_cache_hit() -> None:
     info = copy.deepcopy(CURRENT)
     cached = copy.deepcopy(CURRENT)
-    PythonInfo._cache_exe_discovery["/some/prefix", True] = cached
+    PythonInfo._cache_exe_discovery["/some/prefix", True, info.version_info] = cached
     try:
         result = info.discover_exe(MagicMock(), prefix="/some/prefix", exact=True)
         assert result is cached
     finally:
-        del PythonInfo._cache_exe_discovery["/some/prefix", True]
+        del PythonInfo._cache_exe_discovery["/some/prefix", True, info.version_info]
+
+
+def test_discover_exe_cache_keeps_requested_version(tmp_path: Path) -> None:
+    prefix = CURRENT.prefix
+    assert prefix is not None
+    cache = DiskCache(tmp_path)
+    PythonInfo.clear_cache(cache)
+    try:
+        found = CURRENT.discover_exe(cache, prefix)
+        assert found.version_info == CURRENT.version_info
+        other = copy.deepcopy(CURRENT)
+        other.version_info = other.version_info._replace(major=0)
+        with pytest.raises(RuntimeError):
+            other.discover_exe(cache, prefix)
+    finally:
+        PythonInfo.clear_cache(cache)
 
 
 def test_check_exe_none_path(tmp_path: Path) -> None:
@@ -223,6 +254,7 @@ def test_satisfies_version_specifier_unparsable_version() -> None:
         pytest.param(VersionInfo(3, 15, 0, "alpha", 6), ">=3.15.0", False, id="prerelease_not_match_full_precision"),
         pytest.param(VersionInfo(3, 15, 0, "alpha", 5), "<3.15.0a6", True, id="earlier_prerelease_less_than"),
         pytest.param(VersionInfo(3, 15, 0, "alpha", 6), "<3.15.0a6", False, id="prerelease_not_less_than_itself"),
+        pytest.param(VersionInfo(3, 12, 0, "candidate", 1), "<3.12.0", False, id="prerelease_not_below_final_bound"),
         pytest.param(VersionInfo(3, 15, 0, "alpha", 6), ">=3.15.0a6", True, id="prerelease_match_itself"),
         pytest.param(VersionInfo(3, 15, 0, "alpha", 6), ">=3.15.0a7", False, id="prerelease_not_match_later"),
         pytest.param(VersionInfo(3, 15, 0, "final", 0), ">=3.15.0a6", True, id="final_greater_than_prerelease"),
@@ -261,7 +293,7 @@ def test_satisfies_path_not_abs_basename_no_match() -> None:
 def test_satisfies_path_win32(mocker: MockerFixture) -> None:
     info = copy.deepcopy(CURRENT)
     mocker.patch.object(sys, "platform", "win32")
-    info.original_executable = "/some/path/python.exe"
+    info.executable = "/some/path/python.exe"
     spec = PythonSpec.from_string_spec("python")
     spec.path = "python"
     assert info.satisfies(spec, impl_must_match=False) is True
@@ -271,16 +303,39 @@ def test_install_path() -> None:
     assert isinstance(CURRENT.install_path("purelib"), str)
 
 
+def test_install_path_rejects_format_width() -> None:
+    info = copy.deepcopy(CURRENT)
+    info.distutils_install = {}
+    info.sysconfig_paths["purelib"] = "{base:>1000000}/lib"
+    with pytest.raises(ValueError, match="format specifiers"):
+        info.install_path("purelib")
+
+
 def test_system_include() -> None:
     result = CURRENT.system_include
     assert isinstance(result, str)
 
 
-def test_system_include_fallback(mocker: MockerFixture) -> None:
+@pytest.mark.parametrize(
+    ("distutils_install", "existing", "expected"),
+    [
+        pytest.param({}, [], "include", id="no-headers-path"),
+        pytest.param({"headers": "headers/UNKNOWN"}, ["headers"], "headers", id="headers"),
+        pytest.param({"headers": "headers/UNKNOWN"}, [], "include", id="headers-missing"),
+        pytest.param({"headers": "headers/UNKNOWN"}, ["include", "headers"], "include", id="include-present"),
+    ],
+)
+def test_system_include_fallback(
+    tmp_path: Path, distutils_install: dict[str, str], existing: list[str], expected: str
+) -> None:
     info = copy.deepcopy(CURRENT)
-    mocker.patch("os.path.exists", side_effect=lambda p: "include" not in p or "dist" in p.lower())
-    result = info.system_include
-    assert isinstance(result, str)
+    info.prefix, info.base_prefix, info.real_prefix = str(tmp_path), None, None
+    info.sysconfig_vars = {"base": str(tmp_path)}
+    info.sysconfig_paths = {"include": "{base}/include"}
+    info.distutils_install = distutils_install
+    for name in existing:
+        (tmp_path / name).mkdir()
+    assert info.system_include == str(tmp_path / expected)
 
 
 def test_sysconfig_path_missing_key() -> None:
@@ -441,6 +496,55 @@ def test_resolve_to_system_resolved_from_exe(mocker: MockerFixture, caplog: pyte
     mocker.patch.object(PythonInfo, "from_exe", return_value=resolved)
     result = PythonInfo.resolve_to_system(None, target)
     assert result.executable == "/some/venv/python"
+
+
+def test_from_exe_uses_supplied_environment_for_base_probe(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PYTHONPATH", "process-only")
+    target = copy.deepcopy(CURRENT)
+    target.executable = "venv"
+    target.system_executable = "system"
+    mapped = copy.deepcopy(CURRENT)
+    mapped.executable = mapped.system_executable = "system"
+    mapped.path = ["mapped"]
+    process_only = copy.deepcopy(mapped)
+    process_only.path = ["process-only"]
+    mocker.patch(
+        "python_discovery._cached_py_info.from_exe",
+        side_effect=lambda _cls, _cache, exe, **kwargs: {
+            "venv": target,
+            "system": mapped if kwargs["env"] == {"PYTHONPATH": "mapped"} else process_only,
+        }[exe],
+    )
+
+    info = PythonInfo.from_exe("venv", env={"PYTHONPATH": "mapped"})
+
+    assert info is not None
+    assert info.path == ["mapped"]
+
+
+def test_resolve_to_system_uses_supplied_environment_for_prefix_probe(mocker: MockerFixture) -> None:
+    target = copy.deepcopy(CURRENT)
+    target.system_executable = None
+    target.real_prefix = None
+    target.base_prefix = "/prefix"
+
+    mapped = copy.deepcopy(CURRENT)
+    mapped.path = ["mapped"]
+    mapped.system_executable = mapped.executable
+    fallback = copy.deepcopy(CURRENT)
+    fallback.path = ["process"]
+    fallback.system_executable = fallback.executable
+    mocker.patch.object(
+        PythonInfo,
+        "discover_exe",
+        side_effect=lambda _cache, **kwargs: mapped if kwargs.get("env") == {"PYTHONPATH": "mapped"} else fallback,
+    )
+
+    resolved = PythonInfo.resolve_to_system(None, target, env={"PYTHONPATH": "mapped"})
+
+    assert resolved.path == ["mapped"]
 
 
 def test_resolve_to_system_from_exe_returns_none(mocker: MockerFixture) -> None:

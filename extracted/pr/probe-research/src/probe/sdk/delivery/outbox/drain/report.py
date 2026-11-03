@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 
 class OpHeldHere(Exception):
@@ -51,6 +53,12 @@ class LaneStall:
     #: Seconds after which the run must be looked at again whatever its
     #: backoff says (a close hold that expires then), or None.
     wake_by: float | None = None
+    #: The run's head write itself failed (an answer, or one lost response): the clock of the
+    #: stall rule runs while this repeats with no progress (R12). Not a hold, not an upload
+    #: waiting on the server, not an unknown kind.
+    failing: bool = False
+    #: That write's file, which the worker sets aside once the run stalls (`outbox/held`).
+    path: "Path | None" = None
 
 
 @dataclass
@@ -145,6 +153,27 @@ class DrainReport:
     #: What each held run holds, by lane: a `LaneLoad`, so a drainer's sleep wakes early once
     #: new writes fill a POST (`CollectWindow.wait`).
     deferred_loads: dict = field(default_factory=dict)
+    #: Per run (``run_ref``, not lane: a multipart upload rides a lane of its own): writes
+    #: delivered this pass, and every run that moved at all (a delivery, a dead letter, a
+    #: superseded write, a slice of an upload). The worker's progress record reads these (R1).
+    delivered_by_run: dict = field(default_factory=dict)
+    progressed_refs: set = field(default_factory=set)
+    #: Lane -> ``run_ref`` for every op the pass read, so a lane's stall names its run.
+    lane_refs: dict = field(default_factory=dict)
+    #: Writes set aside to ``held/`` this pass: a write let out of it that failed again (R9).
+    held_again: int = 0
+    #: Ops left queued because their run's lane is held (`outbox/held`): nothing of that run passes
+    #: its stuck write. Counted in ``remaining``.
+    lane_held: int = 0
+
+    def note_run_progress(self, op: Any, *, delivered: bool) -> None:
+        """One write of ``op``'s run moved: counted per run for the progress record."""
+        ref = op.get("run_ref") if isinstance(op, dict) else None
+        if ref is not None and not isinstance(ref, str):
+            return
+        self.progressed_refs.add(ref)
+        if delivered:
+            self.delivered_by_run[ref] = self.delivered_by_run.get(ref, 0) + 1
 
     @property
     def clean(self) -> bool:

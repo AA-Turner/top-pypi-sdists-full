@@ -31,9 +31,18 @@ class Settings(BaseSettings):
     # The demo on a public address: open to everyone without signing in, with nothing to change
     # but Ask, and the made-up day back each morning. Turns demo on too.
     public_demo: bool = False
+    # The public demo inside myOrb that shows the tour after setup (tour.py); set by myOrb.
+    tour: bool = False
+    # Azure Speech for the public demo, which reads only its own brief with it (voice.py). Use a
+    # resource of its own on the free tier (F0): once its monthly quota is used up, Azure turns
+    # requests down and the browser's voice reads instead, so the demo can never cost anything.
+    demo_azure_speech_key: str | None = None
+    demo_azure_speech_region: str | None = None
 
     @model_validator(mode="after")
     def _public_demo_is_a_demo(self) -> "Settings":
+        if self.tour:
+            self.public_demo = True
         if self.public_demo:
             self.demo = True
         return self

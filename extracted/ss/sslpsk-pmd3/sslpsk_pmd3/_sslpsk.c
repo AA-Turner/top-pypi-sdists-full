@@ -16,7 +16,27 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
-#include <openssl/ssl.h>
+#include <stdint.h>
+
+/*
+ * OpenSSL is not linked. The SSL* objects belong to the OpenSSL that the
+ * interpreter's _ssl module uses, so the functions operating on them must come
+ * from that same library; any other copy may have a different struct layout.
+ * sslpsk.py resolves them from _ssl's OpenSSL and passes them to sslpsk_bind().
+ * These signatures are unchanged from OpenSSL 1.0 through 4.x and LibreSSL.
+ */
+typedef struct ssl_st SSL;
+
+typedef unsigned int (*psk_client_cb_t)(SSL*, const char*, char*, unsigned int,
+                                        unsigned char*, unsigned int);
+typedef unsigned int (*psk_server_cb_t)(SSL*, const char*, unsigned char*,
+                                        unsigned int);
+
+static void (*SSL_set_psk_client_callback)(SSL*, psk_client_cb_t);
+static void (*SSL_set_psk_server_callback)(SSL*, psk_server_cb_t);
+static int (*SSL_use_psk_identity_hint)(SSL*, const char*);
+static void (*SSL_set_accept_state)(SSL*);
+static int (*SSL_set_session_id_context)(SSL*, const unsigned char*, unsigned int);
 
 /* Copy PySSLObject/PySSLSocket from _ssl.c to expose the SSL*. */
 #if !defined(PY_MAJOR_VERSION) || (PY_VERSION_HEX < 0x02070000)
@@ -60,12 +80,44 @@ static PyObject* python_psk_client_callback;
 static PyObject* python_psk_server_callback;
 
 /*
+ * Called from Python with the addresses of the OpenSSL functions used above.
+ */
+static PyObject* sslpsk_bind(PyObject* self, PyObject* args)
+{
+    unsigned long long set_client_cb, set_server_cb, use_hint, set_accept, set_sid_ctx;
+
+    if (!PyArg_ParseTuple(args, "KKKKK", &set_client_cb, &set_server_cb, &use_hint, &set_accept, &set_sid_ctx)) {
+        return NULL;
+    }
+    if (!set_client_cb || !set_server_cb || !use_hint || !set_accept || !set_sid_ctx) {
+        PyErr_SetString(PyExc_ValueError, "OpenSSL function address must not be NULL");
+        return NULL;
+    }
+    SSL_set_psk_client_callback = (void (*)(SSL*, psk_client_cb_t)) (uintptr_t) set_client_cb;
+    SSL_set_psk_server_callback = (void (*)(SSL*, psk_server_cb_t)) (uintptr_t) set_server_cb;
+    SSL_use_psk_identity_hint = (int (*)(SSL*, const char*)) (uintptr_t) use_hint;
+    SSL_set_accept_state = (void (*)(SSL*)) (uintptr_t) set_accept;
+    SSL_set_session_id_context = (int (*)(SSL*, const unsigned char*, unsigned int)) (uintptr_t) set_sid_ctx;
+
+    Py_RETURN_NONE;
+}
+
+static int sslpsk_check_bound(void)
+{
+    if (SSL_set_accept_state == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "sslpsk_bind() has not been called");
+        return 0;
+    }
+    return 1;
+}
+
+/*
  * Returns the index for an SSL socket, used to identity the socket across the
  * C/Python interface.
  */
-long ssl_id(SSL* ssl)
+static Py_ssize_t ssl_id(SSL* ssl)
 {
-    return (long) ssl;
+    return (Py_ssize_t) (uintptr_t) ssl;
 }
 
 /*
@@ -129,7 +181,7 @@ static unsigned int sslpsk_psk_client_callback(SSL* ssl,
     }
 
     // Call python callback
-    result = PyObject_CallFunction(python_psk_client_callback, "l"BYTESFMT, ssl_id(ssl), hint);
+    result = PyObject_CallFunction(python_psk_client_callback, "n"BYTESFMT, ssl_id(ssl), hint);
     if (result == NULL) {
         goto release;
     }
@@ -158,6 +210,10 @@ static unsigned int sslpsk_psk_client_callback(SSL* ssl,
     Py_DECREF(result);
 
  release:
+    /* OpenSSL aborts the handshake on 0; report the Python error like CPython 3.13 does */
+    if (PyErr_Occurred()) {
+        PyErr_WriteUnraisable(NULL);
+    }
     PyGILState_Release(gstate);
 
     return ret;
@@ -187,7 +243,7 @@ static unsigned int sslpsk_psk_server_callback(SSL* ssl,
     }
 
     // Call python callback
-    result = PyObject_CallFunction(python_psk_server_callback, "l"BYTESFMT, ssl_id(ssl), identity);
+    result = PyObject_CallFunction(python_psk_server_callback, "n"BYTESFMT, ssl_id(ssl), identity);
     if (result == NULL) {
         goto release;
     }
@@ -209,6 +265,10 @@ static unsigned int sslpsk_psk_server_callback(SSL* ssl,
     Py_DECREF(result);
 
  release:
+    /* OpenSSL aborts the handshake on 0; report the Python error like CPython 3.13 does */
+    if (PyErr_Occurred()) {
+        PyErr_WriteUnraisable(NULL);
+    }
     PyGILState_Release(gstate);
 
     return ret;
@@ -227,10 +287,19 @@ static PyObject* sslpsk_set_psk_client_callback(PyObject* self, PyObject* args)
         return NULL;
     }
 
+    if (!sslpsk_check_bound()) {
+        return NULL;
+    }
+
     ssl = ((PySSLSocket*) socket)->ssl;
+    /*
+     * CPython < 3.13 also sets the server-only session id context on client SSL objects
+     * (gh-105293), which makes OpenSSL reject TLS 1.3 PSK sessions; clear it like 3.13 does.
+     */
+    SSL_set_session_id_context(ssl, NULL, 0);
     SSL_set_psk_client_callback(ssl, sslpsk_psk_client_callback);
 
-    return Py_BuildValue("l", ssl_id(ssl));
+    return Py_BuildValue("n", ssl_id(ssl));
 }
 
 /*
@@ -246,10 +315,14 @@ static PyObject* sslpsk_set_psk_server_callback(PyObject* self, PyObject* args)
         return NULL;
     }
 
+    if (!sslpsk_check_bound()) {
+        return NULL;
+    }
+
     ssl = ((PySSLSocket*) socket)->ssl;
     SSL_set_psk_server_callback(ssl, sslpsk_psk_server_callback);
 
-    return Py_BuildValue("l", ssl_id(ssl));
+    return Py_BuildValue("n", ssl_id(ssl));
 }
 
 /*
@@ -266,10 +339,14 @@ static PyObject* sslpsk_use_psk_identity_hint(PyObject* self, PyObject* args)
         return NULL;
     }
 
+    if (!sslpsk_check_bound()) {
+        return NULL;
+    }
+
     ssl = ((PySSLSocket*) socket) ->ssl;
     SSL_use_psk_identity_hint(ssl, hint);
 
-    return Py_BuildValue("l", ssl_id(ssl));
+    return Py_BuildValue("n", ssl_id(ssl));
 }
 
 /*
@@ -285,14 +362,19 @@ static PyObject* sslpsk_set_accept_state(PyObject* self, PyObject* args)
         return NULL;
     }
 
+    if (!sslpsk_check_bound()) {
+        return NULL;
+    }
+
     ssl = ((PySSLSocket*) socket) ->ssl;
     SSL_set_accept_state(ssl);
 
-    return Py_BuildValue("l", ssl_id(ssl));
+    return Py_BuildValue("n", ssl_id(ssl));
 }
 
 static PyMethodDef sslpsk_methods[] =
 {
+    {"sslpsk_bind", sslpsk_bind, METH_VARARGS, ""},
     {"sslpsk_set_python_psk_client_callback", sslpsk_set_python_psk_client_callback, METH_VARARGS, ""},
     {"sslpsk_set_python_psk_server_callback", sslpsk_set_python_psk_server_callback, METH_VARARGS, ""},
     {"sslpsk_set_psk_client_callback", sslpsk_set_psk_client_callback, METH_VARARGS, ""},
@@ -302,13 +384,10 @@ static PyMethodDef sslpsk_methods[] =
     {NULL, NULL, 0, NULL}
 };
 
-#define STRINGIFY(x) #x
-#define STRINGIFY_MACRO(x) STRINGIFY(x)
-
 #if PY_MAJOR_VERSION >= 3
 static struct PyModuleDef sslpsk_moduledef = {
     PyModuleDef_HEAD_INIT,
-    "sslpsk_" STRINGIFY_MACRO(OPENSSL_VER),
+    "_sslpsk",
     NULL,
     0,
     sslpsk_methods,
@@ -320,15 +399,15 @@ static struct PyModuleDef sslpsk_moduledef = {
 #endif
 
 #if PY_MAJOR_VERSION >= 3
-PyMODINIT_FUNC PYINIT_SSLPSK_OPENSSL(void)
+PyMODINIT_FUNC PyInit__sslpsk(void)
 #else
-void INIT_SSLPSK_OPENSSL(void)
+void init_sslpsk(void)
 #endif
 {
 #if PY_MAJOR_VERSION >= 3
     PyObject* m = PyModule_Create(&sslpsk_moduledef);
 #else
-    PyObject* m = Py_InitModule("_sslpsk_" STRINGIFY_MACRO(OPENSSL_VER), sslpsk_methods);
+    PyObject* m = Py_InitModule("_sslpsk", sslpsk_methods);
 #endif
 
     if (m == NULL) {
@@ -338,6 +417,15 @@ void INIT_SSLPSK_OPENSSL(void)
         return ;
 #endif
     }
+
+#ifdef Py_GIL_DISABLED
+    /*
+     * Safe without the GIL: the Python callbacks and the OpenSSL function pointers are
+     * set once (at import / under sslpsk.py's bind lock) before any use, and the OpenSSL
+     * callbacks attach with PyGILState_Ensure().
+     */
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+#endif
 
 #if PY_MAJOR_VERSION >= 3
     return m;

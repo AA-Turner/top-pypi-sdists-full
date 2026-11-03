@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Flask-SocketIO
-Version: 5.7.1
+Version: 5.7.2
 Summary: Socket.IO integration for Flask applications
 Author-email: Miguel Grinberg <miguel.grinberg@gmail.com>
 License-Expression: MIT

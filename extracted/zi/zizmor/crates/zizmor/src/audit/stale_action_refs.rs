@@ -8,7 +8,6 @@ use super::{Audit, AuditLoadError, audit_meta};
 use crate::{
     Persona,
     audit::AuditError,
-    config::Config,
     finding::{Confidence, Finding, Severity, location::Locatable},
     github,
     models::{
@@ -57,6 +56,7 @@ impl StaleActionRefs {
                     .confidence(Confidence::High)
                     .severity(Severity::Low)
                     .persona(Persona::Pedantic)
+                    .add_location(parent.location().hidden())
                     .add_location(
                         parent
                             .location()
@@ -105,7 +105,7 @@ impl Audit for StaleActionRefs {
     async fn audit_step<'w>(
         &self,
         step: &Step<'w>,
-        _config: &Config,
+        _group: &crate::registry::input::InputGroup,
     ) -> Result<Vec<Finding<'w>>, AuditError> {
         Ok(self.process_step(step).await?.into_iter().collect())
     }
@@ -113,7 +113,7 @@ impl Audit for StaleActionRefs {
     async fn audit_composite_step<'a>(
         &self,
         step: &CompositeStep<'a>,
-        _config: &Config,
+        _group: &crate::registry::input::InputGroup,
     ) -> Result<Vec<Finding<'a>>, AuditError> {
         Ok(self.process_step(step).await?.into_iter().collect())
     }
@@ -121,7 +121,7 @@ impl Audit for StaleActionRefs {
     async fn audit_reusable_job<'doc>(
         &self,
         job: &ReusableWorkflowCallJob<'doc>,
-        _config: &Config,
+        _group: &crate::registry::input::InputGroup,
     ) -> Result<Vec<Finding<'doc>>, AuditError> {
         let Uses::Repository(uses) = &job.uses else {
             return Ok(vec![]);

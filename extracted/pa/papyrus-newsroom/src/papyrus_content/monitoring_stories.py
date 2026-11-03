@@ -5,8 +5,13 @@ that has none yet: the library behind ``papyrus ideas monitor-stories`` (``ideas
 ``limit=None``, so nothing but a real constraint stops it. A draft is a private Item at the ``idea`` stage; one soft review request per
 publication and run asks the editors to look, and links the Idea column of the Stories board. Nothing is published, and a Reference is never drafted twice.
 
-It is on for every publication. A publication's router entry turns it off with ``"monitorStories": {"enabled": false}``, and shapes it with two more
-keys (no numeric knob):
+It is on for every publication. A publication's router entry turns it off with ``"monitorStories": {"enabled": false}``, and shapes it with the keys below (no numeric knob).
+
+There is one standard, and no setting for it: an idea is filed only if it says more than a summary of its Reference (it rests on
+something the newsroom already knows, and a model judge finds a claim in it that its sources do not make), and a Reference with nothing to add is skipped
+before the model is asked. A Reference or pack whose draft was rejected is written again only when a new connection appears for it
+(``ideas/retry_memory.py``; the router keeps the memory in its own table). A stored config that still has the retired ``minimumStandard`` key loads,
+and the key is ignored (``RETIRED_POLICY_FIELDS``).
 
 * ``singleItem`` (default true): draft a single idea for an accepted Reference that the signals single out.
 * ``contextPacks`` (default ``{"enabled": true}``): ``enabled`` builds context packs from the newsroom's own activity (Messages, accepts) and drafts up to
@@ -30,12 +35,14 @@ The real constraints, in the order they can stop a publication (``stoppedBy`` in
   starts from the same ranking (best first) and skips what is already drafted.
 * ``cost``: the model spend of one publication's run, ``MAXIMUM_COST_USD``. At the model's price it is far above what the time budget lets a
   run spend; it is only a backstop against a runaway loop, and a run that reaches it says so.
-* ``file_error``: a draft could not be filed (usually a missing grant). The run stops rather than pay for drafts that cannot be kept.
+* ``file_error``: the same filing error twice in a row (usually a missing grant or a scope mismatch). The run stops rather than pay for drafts that cannot be kept; a single failure is recorded (``fileErrors``) and the run goes on.
 
 Never raises into the router: a publication that fails is logged as ``failed`` and the others go on.
 """
 from __future__ import annotations
 
+import time
+import json
 import os
 import re
 from collections.abc import Callable
@@ -46,6 +53,7 @@ from typing import Any
 # monitor-stories task needs them.
 
 POLICY_KEYS = ("enabled", "store", "singleItem", "contextPacks", "suggestions", "vectorIndexArn", "storageBucketName")
+RETIRED_POLICY_FIELDS = ("minimumStandard",)   # there is one standard now (more than a summary); a stored copy of the old setting is ignored, whatever it says
 VECTOR_INDEX_ARN = re.compile(r"arn:aws:s3vectors:[a-z0-9-]+:\d{12}:bucket/[A-Za-z0-9.-]+/index/[A-Za-z0-9.-]+")
 BUCKET_NAME = re.compile(r"[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]")
 PACK_KEYS = ("enabled", "signals")
@@ -70,7 +78,10 @@ def validate_monitor_stories(publication_id: str, raw: Any) -> dict[str, Any]:
         return defaults
     if not isinstance(raw, dict):
         raise ValueError(f"router publication {publication_id} has an invalid monitorStories (an object is needed)")
-    unknown = sorted(set(raw) - set(POLICY_KEYS))
+    retired = sorted(key for key in RETIRED_POLICY_FIELDS if key in raw)
+    if retired:   # an old config still loads, so deploy order does not matter (the same pattern as monitoring_router.RETIRED_ROUTER_FIELDS)
+        print(json.dumps({"router": "ignored_retired_config", "publicationId": publication_id, "monitorStories": retired}))
+    unknown = sorted(set(raw) - set(POLICY_KEYS) - set(RETIRED_POLICY_FIELDS))
     if unknown:
         raise ValueError(f"router publication {publication_id} monitorStories has unknown keys: {', '.join(unknown)}")
     enabled = raw.get("enabled", True)
@@ -84,7 +95,8 @@ def validate_monitor_stories(publication_id: str, raw: Any) -> dict[str, Any]:
     single_item = raw.get("singleItem", True)
     if not isinstance(single_item, bool):
         raise ValueError(f"router publication {publication_id} monitorStories.singleItem must be true or false")
-    return {"enabled": enabled, "store": store, "singleItem": single_item, "contextPacks": validate_context_packs(publication_id, raw.get("contextPacks")),
+    return {"enabled": enabled, "store": store, "singleItem": single_item,
+            "contextPacks": validate_context_packs(publication_id, raw.get("contextPacks")),
             "suggestions": validate_suggestions(publication_id, raw.get("suggestions")),
             "vectorIndexArn": validate_text_setting(publication_id, "vectorIndexArn", raw.get("vectorIndexArn"), VECTOR_INDEX_ARN),
             "storageBucketName": validate_text_setting(publication_id, "storageBucketName", raw.get("storageBucketName"), BUCKET_NAME)}
@@ -170,13 +182,38 @@ def lambda_judgment_key(environment: dict[str, str] | None = None, *, ssm: Any =
         return None
 
 
+VECTOR_LINE_KEYS = ("indexed", "conceptCardsWritten", "suggestionsWritten", "suggestionsSkippedReason")
+
+
+def vector_summary(vectors: dict[str, Any]) -> dict[str, Any]:
+    """The vector pass's part of a publication's log line; what is left to do is there too (``suggestionsRemaining``), so a big first run shows how many runs it needs."""
+    line = {key: vectors[key] for key in VECTOR_LINE_KEYS}
+    for key in ("indexSkippedReason", "newlyAccepted", "newlyPending", "suggestionsFailed", "suggestionsWithoutVector", "watermarkError", "suggestionsRemaining"):
+        if vectors.get(key):
+            line[key] = vectors[key]
+    return line
+
+
+def merge_vector_passes(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
+    """Two passes of one run: the work adds up, the counts of what the run started with are the first's, the rest (where it stopped, what is left) is the second's."""
+    merged = {**first, **{key: value for key, value in second.items() if key not in ("newlyAccepted", "newlyPending")}}
+    for key in ("indexed", "conceptCardsWritten", "linkExplanationsWritten", "suggestionsWritten", "suggestionsFailed", "suggestionsWithoutVector", "costUsd"):
+        merged[key] = (first.get(key) or 0) + (second.get(key) or 0)
+    return merged
+
+
 def run_publication(client: Any, publication: dict[str, Any], *, transport: Callable, now: datetime, out_of_time: Callable[[], bool],
                     fetch: Any = None, explorer: Any = REAL_EXPLORER, maximum_cost_usd: float = MAXIMUM_COST_USD,
                     handled_references: Any = (), gate: Any = None, embedding_key: str | None = None,
-                    read_watermark: Callable[[], str | None] = lambda: None, write_watermark: Callable[[str], None] = lambda value: None) -> dict[str, Any]:
+                    read_watermark: Callable[[], str | None] = lambda: None, write_watermark: Callable[[str], None] = lambda value: None,
+                    retry_memory: Any = None, vector_out_of_time: Callable[[], bool] | None = None, signal_out_of_time: Callable[[], bool] | None = None) -> dict[str, Any]:
     """Drafts one publication's undrafted accepted monitored References and returns its log record (the shape the router prints).
     ``fetch`` and ``explorer`` default to the real page reader and link explorer; tests pass fakes. ``handled_references`` are the ids of the References
-    an Automation has a procedure run recorded or in progress for (the router reads them from its trigger rows); those are left to it."""
+    an Automation has a procedure run recorded or in progress for (the router reads them from its trigger rows); those are left to it. ``retry_memory`` (``ideas/retry_memory.py``)
+    remembers the Reference and pack drafts that were rejected, and against which connections; the router keeps it in its own table.
+    The vector pass (index sync, suggestions) comes first but may use only up to ``vector_out_of_time`` (the router gives it the first half of the publication's
+    time), so a big backlog of vectors cannot starve the drafting; its progress is saved as it goes (``monitoring_vectors``). When drafting ends with time to
+    spare and the pass was stopped by time, the pass continues for the time left."""
     from .ideas import monitor_stories
     from .ideas.context import load_context
     from .ideas.items import ItemStore
@@ -184,34 +221,53 @@ def run_publication(client: Any, publication: dict[str, Any], *, transport: Call
     from .ideas.signal_queue import prepare_signal_run
     from .ideas.store import legacy_story_drafts
 
-    from .monitoring_vectors import run_vector_pass, vector_provider_for
+    from .monitoring_vectors import run_vector_pass, signal_lineages, vector_provider_for
 
     policy = validate_monitor_stories(publication["publicationId"], publication.get("monitorStories"))
-    vectors = run_vector_pass(client, publication, policy, now=now, out_of_time=out_of_time, maximum_cost_usd=maximum_cost_usd, embedding_key=embedding_key,
-                              read_watermark=read_watermark, write_watermark=write_watermark)
-    vector_line = {key: vectors[key] for key in ("indexed", "conceptCardsWritten", "suggestionsWritten", "suggestionsSkippedReason")}
-    for key in ("indexSkippedReason", "newlyAccepted", "suggestionsFailed", "suggestionsWithoutVector", "watermarkError"):
-        if vectors.get(key):
-            vector_line[key] = vectors[key]
-    if not policy["contextPacks"]["enabled"] and not policy["singleItem"]:
-        return {**EMPTY_LINE, **vector_line, "publicationId": publication["publicationId"], "status": "complete", "costUsd": vectors["costUsd"], "stoppedBy": vectors["stoppedBy"]}
+    def vector_pass(stop: Callable[[], bool], spent_usd: float = 0.0) -> dict[str, Any]:
+        return run_vector_pass(client, publication, policy, now=now, out_of_time=stop, maximum_cost_usd=max(maximum_cost_usd - spent_usd, 0.0), embedding_key=embedding_key,
+                               read_watermark=read_watermark, write_watermark=write_watermark)
+
+    drafting = policy["contextPacks"]["enabled"] or policy["singleItem"]
+    started = time.monotonic()
+    timings: dict[str, float] = {}
+    vectors = vector_pass((vector_out_of_time or out_of_time) if drafting else out_of_time)
+    timings["vectorsSeconds"] = round(time.monotonic() - started, 1)
+    # Suggestions still to write: the editors' "nothing to connect to" is not yet true of a Reference whose suggestions have not been written.
+    suggestions_waiting = bool(vectors["suggestionsRemaining"]) and bool(policy["suggestions"]["enabled"]) and not vectors.get("indexSkippedReason")
+    if not drafting:
+        return {**EMPTY_LINE, **vector_summary(vectors), "publicationId": publication["publicationId"], "status": "stopped" if vectors["stoppedBy"] else "complete",
+                "costUsd": vectors["costUsd"], "stoppedBy": vectors["stoppedBy"]}
 
     # Each idea passes the same Humanus gate as `ideas monitor-stories --store items`, through this publication's own API.
     gate = gate if gate is not None else HumanusGate.for_client(client, judgment_key=lambda_judgment_key())
+    mark = time.monotonic()
     context = load_context(client, now=now)
     signal_run = None
     if policy["contextPacks"]["enabled"]:
         signals = policy["contextPacks"]["signals"]
         signal_run = prepare_signal_run(
             client, site=publication["corpusKey"], context=context, now=now, signals=tuple(signals) if signals else None, single_items=policy["singleItem"], gate=gate,
-            vector_provider=vector_provider_for(policy), out_of_time=out_of_time)
+            vector_provider=vector_provider_for(policy), out_of_time=signal_out_of_time or out_of_time)
+    timings["signalsSeconds"] = round(time.monotonic() - mark, 1)
+    mark = time.monotonic()
 
     run = monitor_stories.draft_monitor_stories(
         client=client, site=publication["publicationId"], corpus_key=publication["corpusKey"],
         context=context, json_store=None, idea_store=ItemStore(client, legacy=lambda: legacy_story_drafts(client), gate=gate), review_client=client,
         transport=transport, limit=None, dry_run=False, now=now, fetch=fetch or monitor_stories.fetch_source,
         explorer=monitor_stories.explore_item if explorer is REAL_EXPLORER else explorer, out_of_time=out_of_time,
-        maximum_cost_usd=max(maximum_cost_usd - vectors["costUsd"], 0.0), read_workers=READ_WORKERS, automation_handled=handled_references, signal_run=signal_run)
+        maximum_cost_usd=max(maximum_cost_usd - vectors["costUsd"], 0.0), read_workers=READ_WORKERS, automation_handled=handled_references, signal_run=signal_run,
+        retry_memory=retry_memory, suggestions_waiting=suggestions_waiting, count_pending=False,
+        priority_lineages=signal_lineages(client) | {vote.lineage_id for vote in (signal_run.inputs.votes if signal_run else ())})
+    timings["draftingSeconds"] = round(time.monotonic() - mark, 1)
+    timings.update(run.get("timings") or {})
+    if vectors["stoppedBy"] == "time" and not run["stoppedBy"] and not out_of_time():
+        # Drafting finished with time to spare: the vector pass picks up where it stopped (its progress was saved) for the time that is left.
+        mark = time.monotonic()
+        vectors = merge_vector_passes(vectors, vector_pass(out_of_time, vectors["costUsd"] + (run.get("usage") or {}).get("costUsd", 0.0)))
+        timings["vectorsAfterSeconds"] = round(time.monotonic() - mark, 1)
+    vector_line = vector_summary(vectors)
     inputs, usage = run["inputs"], run.get("usage") or {}
     packs = run.get("packs") or []
     return {
@@ -221,8 +277,9 @@ def run_publication(client: Any, publication: dict[str, Any], *, transport: Call
         "attempted": run["attempted"], "failedTheCheck": len(run["invalid"]),
         "refusedByEditorialCheck": sum(1 for entry in run["invalid"] if entry.get("reason") == "editorial_check_failed"), "duplicates": len(run["duplicates"]),
         "handledByAutomation": inputs.get("handledByAutomation", 0), "costUsd": round((usage.get("costUsd") or 0) + vectors["costUsd"], 6) if (usage.get("costUsd") is not None or vectors["costUsd"]) else None, **vector_line,
+        "nothingToAdd": run.get("nothingToAdd", 0), "alreadyRejected": run.get("alreadyRejected", 0), "retriedWithNewConnections": len(run.get("retriedWithNewConnections") or []), "connectionsUsed": run.get("connectionsUsed", {}), "curationFlag": (run.get("curationFlag") or {}).get("status"),
         "packs": len(packs), "ideasFromPacks": sum(1 for draft in run["drafts"] if draft.get("origin") == "context-pack"),
         "packsSkippedNoNewEvidence": run.get("packsSkippedNoNewEvidence", 0),
         "packDetails": [{"signal": pack["signal"], "anchor": pack["anchor"], "correctedPValue": pack["correctedPValue"], "ideas": pack["ideas"]} for pack in packs if pack["attempted"]],
-        "review": (run.get("review") or {}).get("status"), **({"fileError": run["fileError"]} if run.get("fileError") else {}),
+        "timings": timings, "review": (run.get("review") or {}).get("status"), **({"fileError": run["fileError"], "fileErrors": len(run.get("fileErrors") or []), **({"fileErrorReason": run["fileErrorReason"]} if run.get("fileErrorReason") else {})} if run.get("fileError") else {}),
     }

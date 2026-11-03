@@ -23,12 +23,19 @@ from ....delivery.transport.transport import Page
 from ...resource import Resource
 
 from .... import errors
-from ....delivery.transport.deadlines import without_patience
+from ....delivery.transport.deadlines import pause_patience, without_patience
 
 
 # Late import to avoid a cycle at module load (Run needs Client, Client returns Run).
 from ....run.run import Run  # noqa: E402
 from probe.sdk.client.resources.projects.experiment_locator import _walks_once
+from probe.sdk.client.resources.runs.home import (
+    explain_missing_home,
+    find_missing_home,
+    mark_home_source,
+    print_notice,
+    resolve_run_home,
+)
 
 
 class RunsMixin:
@@ -140,7 +147,7 @@ class RunsMixin:
         before anything is created when you have none. ``hw=True`` (or ``PROBE_HW=1``) also
         starts the opt-in hardware collector when this process is the
         node-local leader. Best-effort by contract: a broken collector never
-        touches the run (docs/2026-08-05-hw-metrics-design.md). ``snapshot``
+        touches the run (agent/src/probe/sdk/hardware/DESIGN.md). ``snapshot``
         controls the open-time auto-snapshot: ``None`` follows
         ``PROBE_AUTO_SNAPSHOT`` (default on), ``False`` skips, ``True`` forces.
 
@@ -152,8 +159,10 @@ class RunsMixin:
         nothing: this process is not the work.
 
         Every run has a home. With NEITHER ``experiment`` NOR ``project`` it opens in
-        this computer's project (``PROBE_PROJECT``, else ``probe project use``); with
-        none set it raises ``ProjectRequired`` before any request. ``intent`` is free
+        ``PROBE_PROJECT``, else this session's project (``probe session home``), else
+        ``probe project use`` (``home.py``); with none set it waits for this session's
+        daemon to pick one, asks the person at a terminal, or raises ``ProjectRequired``
+        before any request. ``intent`` is free
         text saying what the run is meant to show; it rides in the run's
         ``metadata.intent`` (the run schema has no field for it), and the daemon
         files and describes the run by it.
@@ -250,14 +259,25 @@ class RunsMixin:
     ) -> Run:
         """Open a run inside an experiment or straight under a project. Resolution,
         ``question=``, ``on_conflict`` and ``snapshot``: DESIGN.md."""
-        if not experiment and not project:
-            # This computer's project, only when NEITHER is named: filling it beside an
-            # experiment would scope that tenant-wide lookup to the wrong project.
-            project = self.settings.project
+        # With NEITHER named: PROBE_PROJECT, this session's project, `probe project use` (home.py).
+        home = resolve_run_home(project, experiment, self.settings)
+        project, experiment = home.project, home.experiment
         _check_run_arguments(on_conflict, experiment, question, project, experiment_name)
+        if home.source is None:
+            # Still none: the daemon's pick (waited for), the person's (asked), or ProjectRequired.
+            # Waiting on them is not waiting on the server: init's retry budget stands still.
+            with pause_patience():
+                home = find_missing_home(self)
+            project, experiment = home.project, home.experiment
         self.ensure_authenticated()
-        project_id = self._resolve_run_project(project, experiment, question, workspace, run_kw)
-        if not experiment:
+        mark_home_source(home, run_kw)
+        with explain_missing_home(home):
+            project_row = self._resolve_run_project(project, experiment, question, workspace, run_kw)
+            project_id = project_row["id"] if project_row is not None else None
+            exp = None if not experiment else self._resolve_run_experiment(
+                experiment, experiment_name, question, project, project_id, run_kw
+            )
+        if exp is None:
             # Project-direct (0054): the run attaches straight to the project.
             _refuse_group_without_experiment(run_kw, "a project-direct run")
             self._maybe_attach_retry_parent(run_kw, project_id=project_id)
@@ -269,11 +289,9 @@ class RunsMixin:
                 experiment_id=None,
                 project_id=project_id,
             )
+            print_notice(home, (project_row or {}).get("slug"))
             self._maybe_auto_snapshot(handle, snapshot, ignore)
             return handle
-        exp = self._resolve_run_experiment(
-            experiment, experiment_name, question, project, project_id, run_kw
-        )
         self._maybe_attach_retry_parent(run_kw, experiment_id=exp["id"])
         handle = self._create_run_with_policy(
             lambda kw, nm: self.create_run(exp["id"], nm, project_id=exp.get("project_id"), **kw),
@@ -283,6 +301,7 @@ class RunsMixin:
             experiment_id=exp["id"],
             project_id=None,
         )
+        print_notice(home, exp.get("slug"))
         self._maybe_auto_snapshot(handle, snapshot, ignore)
         return handle
 
@@ -293,8 +312,8 @@ class RunsMixin:
         question: str | None,
         workspace: str | None,
         run_kw: dict,
-    ) -> str | None:
-        """The project id a run opens under; created only with ``question=`` (DESIGN.md)."""
+    ) -> dict | None:
+        """The project a run opens under; created only with ``question=`` (DESIGN.md)."""
         # A project named by an id must exist: never created, whatever `question=` says.
         by_id, slug = self._project_named(project) if project else (None, None)
         # Refuse an uncreatable experiment slug BEFORE ensure_project commits a parent,
@@ -312,15 +331,15 @@ class RunsMixin:
             return None
         # Only a question unlocks creation; `workspace` files a NEW project (DESIGN.md).
         return (
-            by_id["id"]
+            by_id
             if by_id is not None
             else self.ensure_project(
                 slug,
                 authored_by=run_kw.get("authored_by"),
                 **({"workspace_id": workspace} if workspace else {}),
-            )["id"]
+            )
             if question is not None
-            else self.resolve_or_raise("project", slug)["id"]
+            else self.resolve_or_raise("project", slug)
         )
 
     def _resolve_run_experiment(
@@ -511,8 +530,6 @@ def _check_run_arguments(
             "something: what do you expect this to show? Pass a real "
             "question, or drop the argument to open an existing experiment."
         )
-    if not experiment and not project:
-        raise errors.ProjectRequired()
 
 
 def _refuse_group_without_experiment(run_kw: dict, who: str) -> None:

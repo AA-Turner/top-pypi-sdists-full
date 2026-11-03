@@ -18,7 +18,6 @@ import os
 import re
 import time
 from typing import Any, Callable
-from urllib.parse import urlsplit
 
 from sequence_base.contract import BenchmarkRegisterRequest, BenchmarkStatusResponse, DeploymentState, EvalReport
 
@@ -54,7 +53,6 @@ RETRY_MAX_S = 60.0
 
 
 EVAL_TERMINAL = _EVAL_TERMINAL = ("completed", "failed", "canceled")
-_VIDEO_PATH = re.compile(r"/v1/eval/[0-9A-Za-z_-]+/videos/\d+\.mp4")
 
 
 def _page(limit: int, cursor: str | None) -> dict:
@@ -295,21 +293,14 @@ class EvalGatewayClient:
         declared, and the templates it is made from."""
         return self._request("GET", f"/v1/benchmarks/{segment(name)}/io")
 
-    def video(self, url: str) -> bytes:
-        """One recording the report links. Only its path is taken from the link and it is fetched from this
-        client's own gateway, so the API key never goes to a host the report named."""
-        path = urlsplit(url).path
-        if not _VIDEO_PATH.fullmatch(path):
-            raise InvalidRequest(f"not a recording link: {url!r}")
-        return self._get("GET", path, timeout=120.0).content
-
-    def trajectory(self, eval_id: str, index: int) -> bytes:
-        """One episode's trajectory (gzip JSONL of its states and actions), from this client's own gateway — the path
-        is built here, never taken from a response."""
+    def record(self, eval_id: str, index: int) -> bytes:
+        """One episode's record - what its policy was sent, its cameras as video, and each answer: a zstd frame of
+        msgpack entries - from this client's own gateway, the path built
+        here, never taken from a response.
+"""
         if not re.fullmatch(r"[0-9A-Za-z_-]+", eval_id) or int(index) < 0:
             raise InvalidRequest(f"not an eval episode: {eval_id!r} #{index}")
-        return self._get("GET", f"/v1/eval/{segment(eval_id)}/trajectories/{int(index)}.jsonl.gz",
-                         timeout=120.0).content
+        return self._get("GET", f"/v1/eval/{segment(eval_id)}/episodes/{int(index)}/record", timeout=300.0).content
 
     def replay(self, eval_id: str, index: int) -> bytes:
         """One episode's 3D replay (a .seqreplay file, gzip), from this client's own gateway - the path is built here,

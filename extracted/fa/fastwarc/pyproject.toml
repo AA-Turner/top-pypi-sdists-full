@@ -1,16 +1,10 @@
 [build-system]
-requires = [
-    "setuptools>=77.0",
-    "packaging>=24.2",
-    "setuptools-rust>=1.10",
-    "Cython>=0.29.33",
-    "tomli>=2.0.0; python_version < '3.11'",
-    "tomli-w>=1.1.0"]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "FastWARC"
-version = "1.1.0"
+dynamic = ["version"]
 description = "The world's fastest WARC parsing library written in Rust with bindings for Python."
 authors = [
     { name = "Janek Bevendorff" }
@@ -47,11 +41,12 @@ test = [
 [project.scripts]
 fastwarc = "fastwarc.cli:main"
 
-[tool.setuptools.packages.find]
-include = ["fastwarc", "fastwarc.legacy"]
-
-[tool.setuptools.package-data]
-"*" = ["*.pyi"]
+[tool.maturin]
+module-name = "fastwarc._fastwarc"
+bindings = "pyo3"
+sdist-generator = "cargo"
+manifest-path = "fastwarc-py/Cargo.toml"
+python-source = "python"
 
 [tool.cibuildwheel]
 archs = "native"
@@ -60,7 +55,10 @@ build-frontend = "build"
 test-extras = ["all", "test"]
 
 [tool.mypy]
-exclude = ["fastwarc/cli\\.py", "fastwarc/legacy/.*"]
+exclude = [
+    "python/fastwarc/cli\\.py",
+    "tests/.*",
+]
 
 [[tool.mypy.overrides]]
 module = ["fsspec.*"]

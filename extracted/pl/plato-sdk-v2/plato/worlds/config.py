@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import json
-from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, JsonValue, PrivateAttr, TypeAdapter, field_validator, model_validator
+from pydantic import BaseModel, Field, JsonValue
 
 from plato._generated.models import (
     EnvFromArtifact,
@@ -26,8 +25,6 @@ EnvConfig = EnvFromArtifact | EnvFromSimulator | EnvFromResource
 __all__ = [
     "ChronosConfig",
     "DevConfig",
-    "TailscaleConfig",
-    "TailscaleScope",
     "WorkspaceSourceSpec",
 ]
 
@@ -46,14 +43,6 @@ class LLMConfig(BaseModel):
             Per-call kwargs override these defaults.
         emit_input_span: When true, attach the full structured input messages
             payload to emitted ATIF spans.
-        aws_access_key_id / aws_secret_access_key / aws_session_token / aws_region_name:
-            AWS credentials for Bedrock models (model starts with "bedrock/"),
-            e.g. "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0". Forwarded to
-            litellm only for Bedrock models. When left blank, litellm falls back to
-            the standard AWS resolution chain (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
-            / AWS_SESSION_TOKEN env vars, then ~/.aws, then instance profile), so
-            env-var auth works without setting these fields. Region resolves from
-            aws_region_name, else AWS_REGION_NAME / AWS_REGION / AWS_DEFAULT_REGION.
     """
 
     model: str
@@ -64,33 +53,6 @@ class LLMConfig(BaseModel):
     concurrency: int = 0
     litellm_kwargs: dict[str, JsonValue] = Field(default_factory=dict)
     emit_input_span: bool = False
-    aws_access_key_id: str = ""
-    aws_secret_access_key: str = ""
-    aws_session_token: str = ""
-    aws_region_name: str = ""
-
-
-class DecisionConfig(BaseModel):
-    """Configuration for TypeSafe System One (Jev) decisions used by a world.
-
-    Attributes:
-        model: System One model; ``jev-latest`` tracks TypeSafe's flagship.
-        api_key: TypeSafe API key. Empty falls back to the ``JEV_API_KEY``, then
-            ``TYPESAFE_API_KEY`` env vars. In Chronos configs use ``"${JEV_API_KEY}"``
-            (an org secret).
-        api_base: API root; empty uses the SDK default (``https://api.typesafe.ai``).
-        timeout: Per-request timeout in seconds.
-        max_retries: Retries on 429/5xx and connection errors, with backoff.
-        input_cost_per_mtok: USD per million input tokens, for trace cost
-            attribution (TypeSafe bills input only; jev-1.13 is $0.042/Mtok).
-    """
-
-    model: str = "jev-latest"
-    api_key: str = ""
-    api_base: str = ""
-    timeout: float = 30.0
-    max_retries: int = Field(default=3, ge=0)
-    input_cost_per_mtok: float = 0.042
 
 
 class DevConfig(BaseModel):
@@ -162,9 +124,6 @@ class AgentConfig(BaseModel):
     Attributes:
         package: Agent package name with optional version (e.g. "claude-code:latest").
             Resolved to a Docker image URI by the Chronos backend before launch.
-        agent_name: Registered agent to run when the package registers several
-            (the agent-side twin of ``world.world_name``), e.g. "exploration-agent"
-            inside ``computer-use-agent``. Defaults to the package name.
         image: Docker image URI for the agent (set by Chronos after resolving package,
             or provided directly for local/test runs).
         runtime: Runtime configuration (VM resources)
@@ -176,21 +135,9 @@ class AgentConfig(BaseModel):
     """
 
     package: str | None = None
-    agent_name: str | None = None
     image: str = ""
     runtime: RuntimeConfig = Field(default_factory=VMRuntimeConfig)
     config: dict[str, Any] = Field(default_factory=dict)
-    computer_use_artifact_id: str | None = Field(
-        default=None,
-        min_length=1,
-        description=(
-            "Provision an isolated Ubuntu desktop from this artifact for each agent execution. "
-            "The SDK enables computer-use MCP and injects its URL, then removes the desktop "
-            "after execution (including continuations). Requires a VM runtime and session. "
-            "Overrides computer_use_vm_url / computer_use_mcp_enabled for that execution. "
-            "The desktop is an additional environment, outside the agent warm-pool budget."
-        ),
-    )
     max_parallel: int = Field(
         default=1,
         ge=1,
@@ -232,23 +179,6 @@ class AgentConfig(BaseModel):
     pre_login_flow: str = Field(
         default="login",
         description=("Name of the flow to replay for pre-agent login. Only honored when ``browser_tooling`` is True."),
-    )
-    runtime_idle_release_seconds: float | None = Field(
-        default=None,
-        gt=0,
-        description=(
-            "When set, the pooled runtime acquired for a task stays bound to "
-            "that task after each successful run; after this many seconds "
-            "without a new run (or on a failed run / shutdown) the VM is "
-            "DESTROYED — idle lanes shed capacity entirely while the pool's "
-            "warm floor replenishes independently for fast first-acquires. "
-            "Interactive lanes get a stable VM across "
-            "turns instead of paying a pool acquire per message. Process-safe "
-            "by construction: agent runners exit at the end of every run, so "
-            "no agent process exists between runs, and the idle timer is "
-            "cancelled before a run starts so it can never fire mid-run. "
-            "None (default) keeps the release-after-every-run behavior."
-        ),
     )
 
 
@@ -307,19 +237,6 @@ class GitTransportConfig(BaseModel):
         description="Timeout in seconds for seeding the bare repo with initial workspace contents. "
         "Increase for large workspaces (e.g., 1000+ files over FUSE).",
     )
-    worktree_git_off_fuse: bool = Field(
-        default=False,
-        description="Keep the repo/ working tree's git dir on local VM disk (a .git gitfile "
-        "pointing at /tmp/plato-git/<digest>/.repo-git) instead of a .git directory inside "
-        "the FUSE workspace mount. Git pack writes through the FUSE overlay (post-receive "
-        "fetches, post-merge worktree refreshes) get truncated when the workspace-commit "
-        "machinery runs concurrently — same overlay bug as plato.workflows.journal — and the "
-        "corrupt pack is then persisted by the checkpoint and re-served on every restore. "
-        "With this on, only checked-out tree files traverse FUSE; git object/ref/index I/O "
-        "stays on local disk, and a restored legacy in-FUSE .git dir is discarded and "
-        "rebuilt from the local bare (healing any corruption persisted by old checkpoints). "
-        "Off by default: existing worlds (e.g. webclone) tune around the in-FUSE layout.",
-    )
 
 
 class WorkspaceSourceSpec(BaseModel):
@@ -331,43 +248,23 @@ class WorkspaceSourceSpec(BaseModel):
 
     repo: str = Field(description="Full source repo name, e.g. 'webclone/stripe/code'")
     ref: str = Field(description="Resume ref in 'session_id:step_name' format")
-    token: str | None = Field(
-        default=None,
-        description=(
-            "Scoped Chronos workspace download token (``wdt_…``) that reads the source "
-            "instead of the session's own API key. Use it to seed a workspace from a repo "
-            "the launching principal cannot see — typically another org's. The restored "
-            "tree is materialized so the first checkpoint copies every blob into this "
-            "world's own repo; no lineage pointer to the source is recorded."
-        ),
-    )
 
 
 class StateConfig(BaseModel):
-    """Configuration for world state and workspace resume.
+    """Configuration for world state persistence.
 
-    ``enabled`` gates ``load_state()`` / ``_try_resume()`` (workspace refs,
-    ``resume_from``). Uploading the ``WorldState`` dump itself to Chronos on
-    every checkpoint is **off by default** (``persist``): resumable state
-    belongs in ``@durable`` functions and tracked workspaces, and the Chronos
-    ``/sessions/{id}/state`` endpoint answers 410.
+    State is persisted to the Chronos DB after each step. Worlds can call
+    ``load_state()`` to fetch the latest state for the current session
+    or a different session (cross-session resume).
 
     Attributes:
-        enabled: Whether resume/load of state is enabled (default: True).
-        persist: Upload the WorldState dump to Chronos on ``save_state()``
-            (default: False, legacy behaviour).
+        enabled: Whether to enable state persistence (default: True).
         path: Path to the local state/workspace directory (default: /state).
     """
 
     enabled: bool = True
-    persist: bool = Field(
-        default=False,
-        description="Upload the whole WorldState dump to Chronos on every checkpoint. "
-        "Off by default: large dumps (the exploration graph was ~50 MB) stalled Chronos "
-        "workers, and the endpoint now answers 410. Keep state in @durable/workspaces.",
-    )
     path: str = "/state"
-    resume_from: str = ""  # default source session for step-only state.workspaces refs
+    resume_from: str = ""  # session_id to load pipeline state from (cross-session resume)
     resume_workspaces: dict[str, str] = Field(
         default_factory=dict,
         description="Map workspace name → repo name for cross-session resume, "
@@ -393,155 +290,6 @@ class CheckpointConfig(BaseModel):
     enabled: bool = False
     interval: int = 1
     exclude_envs: list[str] = Field(default_factory=lambda: ["runtime"])
-
-
-class TailscaleScope(StrEnum):
-    """Which VMs of a session join the tailnet."""
-
-    WORLD = "world"
-    """Only the world VM joins."""
-    AGENTS = "agents"
-    """Only the agent VMs join."""
-    BOTH = "both"
-    """The world VM and every agent VM join."""
-
-
-TAILSCALE_TAG_PREFIX = "tag:"
-
-# A domain entry also covers its subdomains.
-TAILSCALE_DEFAULT_NO_PROXY: tuple[str, ...] = (
-    "localhost",
-    "127.0.0.1",
-    "::1",
-    "runtime.plato.internal",
-    "plato.so",
-    "anthropic.com",
-    "openai.com",
-    "amazonaws.com",
-)
-
-
-class TailscaleConfig(BaseModel):
-    """Join the session's VMs to the Tailscale tailnet. Off by default.
-
-    The reference and an example launch config are in docs/worlds/agent.md, section 8.
-    """
-
-    enabled: bool = False
-    scope: TailscaleScope = TailscaleScope.WORLD
-    auth_key: str | None = Field(
-        default=None,
-        description="Tailscale OAuth client secret (``tskey-client-...``) or an auth key. "
-        "An OAuth client secret stays on the world VM: the world mints a one-off auth key from "
-        "it per joining VM (reusable=false, ephemeral=true, preauthorized=true, the configured "
-        "tags, short expiry) and passes only that minted key to ``tailscale up`` (agent VMs get "
-        "it over SSH; the secret never leaves the world VM). A plain auth key is used as given. "
-        'Use "${TAILSCALE_OAUTH_CLIENT_SECRET}".',
-    )
-    tags: list[str] = Field(
-        default_factory=lambda: ["tag:chronos"],
-        description="ACL tags the node advertises. An OAuth client secret requires at least one tag.",
-    )
-    required: bool = Field(
-        default=True,
-        description="True: a VM that cannot join fails the session (or the agent run). "
-        "False: log a warning and continue without the tailnet.",
-    )
-    require_kernel_mode: bool = Field(
-        default=False,
-        description="True: a VM without /dev/net/tun (userspace mode) fails the join before the "
-        "install and before tailscaled starts. Set it when the code that talks to tailnet peers "
-        "cannot use the local userspace proxy, for example yt-dlp or curl with their own --proxy. "
-        "With required, the session (or the agent run) then stops. False: such a VM joins in "
-        "userspace mode.",
-    )
-    hostname_prefix: str = Field(
-        default="chronos",
-        min_length=1,
-        description="Node hostname is ``<prefix>-<session id first 8 chars>-<role>``.",
-    )
-    join_timeout_s: int = Field(default=30, ge=1, description="Timeout for ``tailscale up``.")
-    daemon_start_timeout_s: int = Field(
-        default=15,
-        ge=1,
-        description="Seconds to wait for a started ``tailscaled`` to open its socket.",
-    )
-    leave_timeout_s: int = Field(default=15, ge=1, description="Timeout for ``tailscale logout`` on cleanup.")
-    install_timeout_s: int = Field(
-        default=180,
-        ge=1,
-        description="Timeout for the runtime install of the pinned Tailscale build (download, "
-        "SHA-256 check, extract) on a VM whose image has no ``tailscale`` binary.",
-    )
-    command_timeout_s: int = Field(
-        default=30,
-        ge=1,
-        description="Timeout for the short checks (binary, /dev/net/tun, status, /etc/hosts).",
-    )
-    mint_key_expiry_s: int = Field(
-        default=600,
-        ge=60,
-        le=86400,
-        description="Expiry of each one-off auth key the world mints from the OAuth client "
-        "secret, one per joining VM. Short on purpose: the key is used for a single "
-        "``tailscale up`` and is useless after. Only applies when auth_key is an OAuth "
-        "client secret (``tskey-client-...``); a plain auth key is used as given.",
-    )
-    mint_timeout_s: int = Field(
-        default=30,
-        ge=1,
-        description="Timeout for each Tailscale API call the world makes to mint a one-off auth key.",
-    )
-    accept_dns: bool = Field(
-        default=False,
-        description="Pass ``--accept-dns``. Off by default: MagicDNS does not reliably configure "
-        "the resolver in VMs, so peers go into a managed /etc/hosts block instead.",
-    )
-    write_hosts: bool = Field(default=True, description="Write tailnet peers into a managed /etc/hosts block.")
-    proxy_port: int = Field(
-        default=1055,
-        ge=1,
-        le=65535,
-        description="Local SOCKS5 + HTTP proxy port that tailscaled opens in userspace mode "
-        "(a VM without /dev/net/tun).",
-    )
-    export_proxy_env: bool = Field(
-        default=True,
-        description="In userspace mode only, make the proxy environment (ALL_PROXY, NO_PROXY). "
-        "Agent VMs get it in a managed /etc/environment block. The world VM does NOT export it "
-        "into its own process: worlds read BaseWorld.tailscale_proxy_env and give it only to the "
-        "code that talks to tailnet peers. Kernel mode never sets it.",
-    )
-    no_proxy: list[str] = Field(
-        default_factory=lambda: list(TAILSCALE_DEFAULT_NO_PROXY),
-        description="Hosts that bypass the userspace proxy (NO_PROXY). A domain also covers its "
-        "subdomains. The default keeps Chronos, LLM and S3 traffic on its direct route.",
-    )
-
-    @field_validator("tags")
-    @classmethod
-    def _tags_have_prefix(cls, tags: list[str]) -> list[str]:
-        for tag in tags:
-            if not tag.startswith(TAILSCALE_TAG_PREFIX) or len(tag) == len(TAILSCALE_TAG_PREFIX):
-                raise ValueError(f"Tailscale tag {tag!r} must look like '{TAILSCALE_TAG_PREFIX}<name>'")
-        return tags
-
-    @model_validator(mode="after")
-    def _enabled_needs_auth_key(self) -> TailscaleConfig:
-        if self.enabled and not self.auth_key:
-            raise ValueError(
-                "tailscale.enabled is true but tailscale.auth_key is empty; "
-                'set it to "${TAILSCALE_OAUTH_CLIENT_SECRET}"'
-            )
-        return self
-
-    @property
-    def joins_world(self) -> bool:
-        return self.enabled and self.scope in (TailscaleScope.WORLD, TailscaleScope.BOTH)
-
-    @property
-    def joins_agents(self) -> bool:
-        return self.enabled and self.scope in (TailscaleScope.AGENTS, TailscaleScope.BOTH)
 
 
 class RunConfig(BaseModel):
@@ -592,15 +340,6 @@ class RunConfig(BaseModel):
         "Default: 43200 (12 hours).",
     )
 
-    # Idle timeout for warm-pooled agent VMs (default: off)
-    warmpool_idle_timeout: int | None = Field(
-        default=None,
-        gt=0,
-        description="Destroy a warm-pooled agent VM once it has sat idle in its pool for this many "
-        "seconds; a later acquire provisions a fresh one. None (default) keeps idle VMs until the "
-        "session ends or the shared agent-VM budget evicts them.",
-    )
-
     # Checkpoint configuration for automatic snapshots after steps
     checkpoint: CheckpointConfig = Field(default_factory=CheckpointConfig)
 
@@ -609,8 +348,6 @@ class RunConfig(BaseModel):
 
     # Preview mode settings
     preview: PreviewConfig = Field(default_factory=PreviewConfig)
-
-    tailscale: TailscaleConfig = Field(default_factory=TailscaleConfig)
 
     # Review specification — defines how this session should be reviewed.
     # When set, the world runs verify() instead of the normal reset/step loop.
@@ -621,22 +358,6 @@ class RunConfig(BaseModel):
     )
 
     model_config = {"extra": "allow"}
-
-    # The world VM's own runtime config (the `world.runtime` block of the launch
-    # config). Populated by `from_file`; a private attr so it stays out of the
-    # world's config schema and serialized dumps.
-    _world_runtime: RuntimeConfig | None = PrivateAttr(default=None)
-
-    @property
-    def world_vm_timeout(self) -> int | None:
-        """The world VM's own sandbox timeout in seconds, when known.
-
-        None when the config was not loaded through ``from_file`` or the launch
-        config carried no ``world.runtime`` block (e.g. non-VM runtimes).
-        """
-        if isinstance(self._world_runtime, VMRuntimeConfig):
-            return self._world_runtime.vm.timeout
-        return None
 
     @classmethod
     def get_field_annotations(cls) -> dict[str, FieldMarker | WorkspaceMarker | None]:
@@ -677,12 +398,7 @@ class RunConfig(BaseModel):
 
         # Read from world.config if present
         data = full
-        world_runtime_data: Any = None
         if "world" in data and isinstance(data["world"], dict) and "config" in data["world"]:
-            world_runtime_data = data["world"].get("runtime")
             data = data["world"]["config"]
 
-        config = cls.model_validate(data)
-        if world_runtime_data is not None:
-            config._world_runtime = TypeAdapter(RuntimeConfig).validate_python(world_runtime_data)
-        return config
+        return cls.model_validate(data)

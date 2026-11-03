@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: curies
-Version: 0.15.6
+Version: 0.15.7
 Summary: Idiomatic conversion between URIs and compact URIs (CURIEs)
 Keywords: snekpack,cookiecutter,semantic web,compact uniform resource identifiers,uniform resource identifiers,curies,IRIs,URIs
 Author: Charles Tapley Hoyt
@@ -31,6 +31,7 @@ Requires-Dist: defusedxml ; extra == 'fastapi'
 Requires-Dist: uvicorn ; extra == 'fastapi'
 Requires-Dist: flask ; extra == 'flask'
 Requires-Dist: defusedxml ; extra == 'flask'
+Requires-Dist: networkx ; extra == 'networkx'
 Requires-Dist: pandas ; extra == 'pandas'
 Requires-Dist: rdflib ; extra == 'rdflib'
 Requires-Dist: sqlalchemy ; extra == 'sqlalchemy'
@@ -46,6 +47,7 @@ Project-URL: Documentation, https://curies.readthedocs.io
 Project-URL: Funding, https://github.com/sponsors/cthoyt
 Provides-Extra: fastapi
 Provides-Extra: flask
+Provides-Extra: networkx
 Provides-Extra: pandas
 Provides-Extra: rdflib
 Provides-Extra: sqlalchemy

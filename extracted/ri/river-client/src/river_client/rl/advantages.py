@@ -1,9 +1,11 @@
 """Advantage estimators and explicit normalization of River's sum loss."""
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
 
+from .batch import TrainingBatch, _Build, _Item, decouple_datum
 from .config import Truncation
 
 
@@ -136,6 +138,41 @@ def build_batch(
     include_loss_mask=False,
     loss=None,
 ):
+    data, metrics = _build_batch(
+        groups,
+        estimator=estimator,
+        normalize=normalize,
+        truncation=truncation,
+        min_members=min_members,
+        current_step=current_step,
+        max_staleness=max_staleness,
+        defer_normalization=defer_normalization,
+        advantages=advantages,
+        include_loss_mask=include_loss_mask,
+        loss=loss,
+    )
+    return list(data), metrics
+
+
+def _build_batch(
+    groups,
+    *,
+    estimator,
+    normalize,
+    truncation: Truncation,
+    min_members,
+    current_step,
+    max_staleness,
+    defer_normalization=False,
+    advantages=None,
+    include_loss_mask=False,
+    loss=None,
+):
+    """``build_batch`` returning a ``TrainingBatch``: datums built on access.
+
+    Validation that needs only span lengths and policy steps happens here;
+    checks on array contents happen when each datum is built.
+    """
     if normalize not in {"token", "prompt", "sequence", "batch", "sum"}:
         raise ValueError(
             "normalize must be explicitly 'token', 'prompt', 'sequence', 'batch', or 'sum'"
@@ -170,24 +207,28 @@ def build_batch(
                         stale += len(span)
             if reward is None or truncation.policy(traj.truncated) == "drop":
                 continue
-            # One pass builds each datum and the positions it trains.
-            data, masks = traj._data(
-                advantage,
-                current_step=current_step,
-                max_staleness=max_staleness,
-                requirements=None if loss is None else loss.requirements,
-                masks=True,
+            if not math.isfinite(advantage):
+                raise ValueError("advantage must be finite")
+            layout = traj._layout(
+                current_step=current_step, max_staleness=max_staleness
             )
-            if include_loss_mask:
-                for datum, mask in zip(data, masks, strict=True):
-                    datum["loss_mask"] = mask
-            n_tokens = sum(float(mask.sum(dtype=np.float64)) for mask in masks)
+            n_tokens = float(sum(trained for _, _, trained, _, _ in layout))
             if n_tokens:
-                records.append((data, n_tokens, group_index))
+                records.append(
+                    (traj._datum_source(), advantage, layout, n_tokens, group_index)
+                )
                 group_token_counts[group_index] += n_tokens
     token_count = sum(group_token_counts)
     group_count = sum(count > 0 for count in group_token_counts)
-    for data, count, group_index in records:
+    build = _Build(
+        current_step=current_step,
+        max_staleness=max_staleness,
+        requirements=None if loss is None else loss.requirements,
+        include_loss_mask=include_loss_mask,
+        loss=loss,
+    )
+    items = []
+    for source, advantage, layout, count, group_index in records:
         if normalize == "prompt":
             # A completed group's length is known before the batch is ready.
             denominator = group_token_counts[group_index] * (
@@ -201,13 +242,26 @@ def build_batch(
             denominator = token_count
         else:
             denominator = len(records)
-        for datum in data:
-            # Divide in float64 and round once, as the wire float32 cast did.
-            datum["advantages"] = (
-                datum["advantages"].astype(np.float64) / denominator
-            ).astype(np.float32)
-    signal = "loss_mask" if include_loss_mask else "advantages"
-    data = [d for record in records for d in record[0] if np.any(d[signal])]
+        # The datum's advantage at trained positions, as built and divided.
+        scaled = np.float32(np.float64(np.float32(advantage)) / denominator)
+        for run, length, trained, routing_handle, recovered in layout:
+            advantaged = bool(trained and scaled)
+            # Keep datums that train any position.
+            if advantaged or (include_loss_mask and trained):
+                items.append(
+                    _Item(
+                        source=source,
+                        run=run,
+                        advantage=advantage,
+                        denominator=denominator,
+                        length=length,
+                        advantaged=advantaged,
+                        routing_handle=routing_handle,
+                        recovered=recovered,
+                        build=build,
+                    )
+                )
+    data = TrainingBatch(items)
     flat = [t for group in groups for t in group]
     flat_rewards = [t.reward for t in flat if not t.dropped]
     scored_advantages = [
@@ -256,7 +310,7 @@ def build_batch(
         )
     for key in {key for t in flat for key in t.metrics}:
         metrics[f"rollout/{key}"] = sum(t.metrics.get(key, 0) for t in flat)
-    return (data if loss is None else loss.encode_metadata(data)), metrics
+    return data, metrics
 
 
 def decouple_ppo(data, proximal_logprobs, *, max_importance_weight: float):
@@ -271,46 +325,42 @@ def decouple_ppo(data, proximal_logprobs, *, max_importance_weight: float):
         proximal_logprobs: Logprobs from the policy used for this update.
         max_importance_weight: Upper bound on the correction ratio.
     """
+    output, metrics, _ = _decouple(
+        data, proximal_logprobs, max_importance_weight=max_importance_weight
+    )
+    return output, metrics
+
+
+def _decouple(data, proximal_logprobs, *, max_importance_weight):
+    """``decouple_ppo`` that also counts nonzero corrected advantages.
+
+    A ``TrainingBatch`` stays lazy: its datums apply the correction when
+    built. The metrics still read each datum once here.
+    """
     if not np.isfinite(max_importance_weight) or max_importance_weight <= 0:
         raise ValueError("max_importance_weight must be finite and positive")
     if proximal_logprobs is None or len(proximal_logprobs) != len(data):
         raise ValueError("forward did not return one proximal logprob row per datum")
-    output, ratios = [], []
+    output, ratios, nonzero = [], [], 0
     for datum, row in zip(data, proximal_logprobs, strict=True):
-        # Copies: restored journal arrays are read-only and shared.
-        old = np.array(datum["old_logprobs"], dtype=np.float64)
-        adv = np.array(datum["advantages"], dtype=np.float64)
-        prox = np.asarray(row, dtype=np.float64)
-        # River predicts n-1 tokens; some forward transports retain a trailing
-        # masked position. Both forms have the same prediction alignment.
-        if prox.shape == (len(old) - 1,):
-            prox = np.concatenate((prox, [0.0]))
-        if prox.shape != old.shape or not np.all(np.isfinite(prox[adv != 0])):
-            raise ValueError(
-                "proximal logprobs do not align with generated prediction positions"
-            )
-        mask = adv != 0
-        ratio = np.exp(
-            np.minimum(prox[mask] - old[mask], np.log(max_importance_weight))
-        )
+        corrected, ratio = decouple_datum(datum, row, max_importance_weight)
         ratios.extend(ratio.tolist())
-        adv[mask] *= ratio
-        new_old = old.copy()
-        new_old[mask] = prox[mask]
-        output.append(
-            {
-                **datum,
-                "old_logprobs": new_old.astype(np.float32),
-                "advantages": adv.astype(np.float32),
-            }
-        )
-    return output, {
-        "loss/behavior_importance_mean": float(np.mean(ratios)) if ratios else 0.0,
-        "loss/behavior_importance_capped_frac": sum(
-            r >= max_importance_weight for r in ratios
-        )
-        / max(1, len(ratios)),
-    }
+        nonzero += int(np.count_nonzero(corrected["advantages"]))
+        if not isinstance(data, TrainingBatch):
+            output.append(corrected)
+    if isinstance(data, TrainingBatch):
+        output = data.with_proximal(proximal_logprobs, max_importance_weight)
+    return (
+        output,
+        {
+            "loss/behavior_importance_mean": float(np.mean(ratios)) if ratios else 0.0,
+            "loss/behavior_importance_capped_frac": sum(
+                r >= max_importance_weight for r in ratios
+            )
+            / max(1, len(ratios)),
+        },
+        nonzero,
+    )
 
 
 def accumulation_scale(

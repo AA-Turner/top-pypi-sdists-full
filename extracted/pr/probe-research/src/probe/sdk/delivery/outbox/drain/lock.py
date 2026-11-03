@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from ....._shared import oscompat
+from .....foundation.os_backend import os_backend as oscompat
 from .... import errors
 
 
@@ -61,6 +61,22 @@ def _wanting(path: Path | None):
         except OSError:
             pass
         handle.close()
+
+
+@contextmanager
+def holding_run_lock(journal: "Journal", lane: Any):
+    """Yield True while this process holds ``lane``'s run lock, taken without waiting; False when
+    another drain holds it: it is sending that run's upload with the drain lock let go (#3618),
+    so the file must not move under it. Taken under the drain lock, as every drain takes it."""
+    hold = _DrainHold(journal, None, urgent=False)
+    if not hold._keep({lane}):
+        hold._drop()
+        yield False
+        return
+    try:
+        yield True
+    finally:
+        hold._drop()
 
 
 class _LockNotBack(errors.DeadlineExceeded):

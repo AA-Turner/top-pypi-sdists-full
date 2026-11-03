@@ -1,11 +1,15 @@
-"""Unique job_id generation when the user does not set JOB_ID."""
+"""Job id helpers: ``spider_id/run`` format and legacy fallbacks."""
 
 import time
 import uuid
 
 
+def format_session_job(session_id: int, run_seq: int) -> str:
+    return f"{int(session_id)}/{int(run_seq)}"
+
+
 def generate_job_id(spider_name):
-    """Return a unique id like ``my_spider-1735123456-a1b2``."""
+    """Legacy fallback when no database is available (not sequential)."""
     return f"{spider_name}-{int(time.time())}-{uuid.uuid4().hex[:4]}"
 
 
@@ -21,7 +25,10 @@ def cache_job_id(spider, job_id):
 def cached_job_id(spider):
     crawler = getattr(spider, "crawler", None)
     if crawler is not None:
-        existing = getattr(crawler, "ingest_job_id", None)
-        if existing:
-            return existing
-    return getattr(spider, "_ingest_job_id", None)
+        raw = getattr(crawler, "ingest_job_id", None)
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+    raw = getattr(spider, "_ingest_job_id", None)
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return None

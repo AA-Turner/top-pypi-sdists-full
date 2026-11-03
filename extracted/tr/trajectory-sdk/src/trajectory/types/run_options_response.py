@@ -25,7 +25,7 @@ class RunOptionMetadata(BaseModel):
 
 
 TrainingOptionKey: TypeAlias = Literal[
-  "intelligent_density_training",
+  "density_aware_training",
   "algorithm",
   "train_on_truncation",
   "train_on_error",
@@ -34,34 +34,37 @@ TrainingOptionKey: TypeAlias = Literal[
   "temperature",
   "top_p",
   "top_k",
-  "evaluation_reasoning_effort",
-  "evaluation_temperature",
-  "evaluation_top_p",
-  "evaluation_top_k",
-  "reject_all_fail",
-  "reject_all_pass",
-  "reject_zero_advantage",
+  "val_reasoning_effort",
+  "val_temperature",
+  "val_top_p",
+  "val_top_k",
+  "val_max_output_tokens_per_turn",
+  "val_max_output_tokens_per_trajectory",
+  "val_max_turns_per_trajectory",
+  "val_trajectory_timeout_seconds",
+  "train_on_all_fail",
+  "train_on_all_pass",
+  "train_on_zero_advantage",
   "learning_rate",
   "lr_warmup_steps",
   "lr_hold_steps",
-  "min_lr_ratio",
+  "lr_min_ratio",
   "num_steps",
-  "train_batch_size",
-  "min_samples_per_group",
+  "batch_size",
+  "min_trajectories_per_group",
   "group_size",
-  "samples_per_instance",
-  "max_active_rollouts",
-  "max_steps_off_policy",
-  "execution_timeout_seconds",
-  "batch_collection_idle_timeout_seconds",
-  "evaluation_enabled",
-  "evaluation_frequency",
-  "evaluation_max_samples",
-  "evaluation_samples_per_task",
-  "evaluation_max_active_rollouts",
-  "evaluation_collection_timeout_seconds",
-  "max_output_tokens_per_step",
-  "max_total_tokens_per_trajectory",
+  "max_concurrent_trajectories",
+  "max_staleness",
+  "trajectory_timeout_seconds",
+  "batch_timeout_seconds",
+  "val_enabled",
+  "val_interval_steps",
+  "val_num_tasks",
+  "val_trajectories_per_task",
+  "val_max_concurrent_trajectories",
+  "val_final_wait_timeout_seconds",
+  "max_output_tokens_per_turn",
+  "max_output_tokens_per_trajectory",
   "max_turns_per_trajectory",
 ]
 
@@ -73,6 +76,7 @@ class ModelRunOptions(BaseModel):
 
 
 class RunOptionsResponse(BaseModel):
-  bench_id: str
+  bench_id: str = ""
+  """Deprecated and always empty; run options are the same for every benchmark."""
 
   models: list[ModelRunOptions]

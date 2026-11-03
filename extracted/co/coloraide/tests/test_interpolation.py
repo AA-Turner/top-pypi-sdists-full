@@ -1308,6 +1308,45 @@ class TestInterpolation(util.ColorAsserts, unittest.TestCase):
             Color("hsl(300 25 57.5)")
         )
 
+    def test_continuous_shorter_hue_after_wrap(self):
+        """Test the shorter hue arc across an undefined hue after wrapping."""
+
+        for end_hue, midpoint_hue in ((105, 390), (300, 348.75)):
+            with self.subTest(end_hue=end_hue):
+                colors = [
+                    Color('hsl', [355, 0.8, 0.5]),
+                    Color('hsl', [5, 0.8, 0.5]),
+                    Color('hsl', [NaN, 0, 0.5]),
+                    Color('hsl', [end_hue, 0.8, 0.5])
+                ]
+                i = Color.interpolate(colors, space='hsl', method='continuous', hue='shorter')
+                self.assertColorEqual(i(0.5), Color('hsl', [midpoint_hue, 0.4, 0.5]))
+
+    def test_continuous_shorter_hue_after_first_normalization(self):
+        """Test the shorter hue arc after normalizing the first hue."""
+
+        colors = [
+            Color('hsl', [400, 0.8, 0.5]),
+            Color('hsl', [NaN, 0, 0.5]),
+            Color('hsl', [140, 0.8, 0.5])
+        ]
+        i = Color.interpolate(colors, space='hsl', method='continuous', hue='shorter')
+        self.assertColorEqual(i(0.5), Color('hsl', [90, 0, 0.5]))
+
+    def test_spline_shorter_hue_after_wrap(self):
+        """Test spline hue normalization across an undefined hue after wrapping."""
+
+        colors = [
+            Color('hsl', [355, 0.8, 0.5]),
+            Color('hsl', [5, 0.8, 0.5]),
+            Color('hsl', [NaN, 0, 0.5]),
+            Color('hsl', [105, 0.8, 0.5])
+        ]
+        for method, saturation in [('bspline', 0.8 / 3), ('natural', 0), ('catrom', 0), ('monotone', 0)]:
+            with self.subTest(method=method):
+                i = Color.interpolate(colors, space='hsl', method=method, hue='shorter')
+                self.assertColorEqual(i(2 / 3), Color('hsl', [415, saturation, 0.5]))
+
     def test_continuous_undefined_middle(self):
         """Test continuous with undefined middle."""
 
@@ -2175,13 +2214,13 @@ class TestInterpolation(util.ColorAsserts, unittest.TestCase):
         c2 = Color('#FCD200')
         expected = [
             Color('color(xyz-d65 0.04777 0.02781 0.22476 / 1)'),
-            Color('color(xyz-d65 0.02667 0.03298 0.0951 / 1)'),
-            Color('color(xyz-d65 0.03708 0.06387 0.07248 / 1)'),
-            Color('color(xyz-d65 0.07117 0.12699 0.07519 / 1)'),
-            Color('color(xyz-d65 0.13265 0.22305 0.08176 / 1)'),
-            Color('color(xyz-d65 0.22548 0.34363 0.08795 / 1)'),
-            Color('color(xyz-d65 0.34991 0.47284 0.09246 / 1)'),
-            Color('color(xyz-d65 0.49784 0.59012 0.09493 / 1)'),
+            Color('color(xyz-d65 0.02756 0.03263 0.09819 / 1)'),
+            Color('color(xyz-d65 0.0374 0.0633 0.07249 / 1)'),
+            Color('color(xyz-d65 0.07079 0.12643 0.07441 / 1)'),
+            Color('color(xyz-d65 0.12999 0.22221 0.08091 / 1)'),
+            Color('color(xyz-d65 0.21786 0.34132 0.08735 / 1)'),
+            Color('color(xyz-d65 0.33624 0.46805 0.09217 / 1)'),
+            Color('color(xyz-d65 0.48389 0.5847 0.09487 / 1)'),
             Color('color(xyz-d65 0.6319 0.6679 0.09564 / 1)')
         ]
         for a, b in zip(Color.steps([c1, c2], method='spectral', steps=9), expected):
@@ -2197,12 +2236,12 @@ class TestInterpolation(util.ColorAsserts, unittest.TestCase):
 
         self.assertColorEqual(
             Color.interpolate([red, green, blue], method='spectral')(0.25),
-            Color('color(xyz-d65 0.04012 0.03909 0.00367)')
+            Color('color(xyz-d65 0.03491 0.03578 0.00389)')
         )
 
         self.assertColorEqual(
             Color.interpolate([red, green, blue], method='spectral')(0.75),
-            Color('color(xyz-d65 0.02701 0.03438 0.04685)')
+            Color('color(xyz-d65 0.02683 0.03525 0.04665)')
         )
 
         red.convert('xyz-d65', in_place=True).set('y', NaN)
@@ -2210,17 +2249,17 @@ class TestInterpolation(util.ColorAsserts, unittest.TestCase):
 
         self.assertColorEqual(
             Color.interpolate([red, green], method='spectral')(0.5),
-            Color('color(xyz-d65 0.12966 -0.05897 0.01868)')
+            Color('color(xyz-d65 0.13652 -0.05531 0.0189)')
         )
 
     def test_spectral_mix_black(self):
         """Mix with black."""
 
         self.assertColorEqual(
-            Color('black').mix('red', method='spectral'), Color('color(xyz-d65 0.08223 0.04839 0.01747)')
+            Color('black').mix('red', method='spectral'), Color('color(xyz-d65 0.08226 0.04783 0.0175)')
         )
         self.assertColorEqual(
-            Color('red').mix('black', method='spectral'), Color('color(xyz-d65 0.08223 0.04839 0.01747)')
+            Color('red').mix('black', method='spectral'), Color('color(xyz-d65 0.08226 0.04783 0.0175)')
         )
 
     def test_spectral_different_color_space(self):
@@ -2228,7 +2267,7 @@ class TestInterpolation(util.ColorAsserts, unittest.TestCase):
 
         self.assertColorEqual(
             Color('red').mix('blue', method='spectral', space='lab'),
-            Color('lab(17.074 25.367 0.07394)')
+            Color('lab(16.604 22.383 -0.75718)')
         )
 
     def test_spectral_easing(self):
@@ -2292,13 +2331,13 @@ class TestInterpolation(util.ColorAsserts, unittest.TestCase):
         c2 = Color('#FCD200')
         expected = [
             Color('color(xyz-d65 0.04777 0.02781 0.22476 / 1)'),
-            Color('color(xyz-d65 0.02667 0.03298 0.0951 / 1)'),
-            Color('color(xyz-d65 0.03708 0.06387 0.07248 / 1)'),
-            Color('color(xyz-d65 0.07117 0.12699 0.07519 / 1)'),
-            Color('color(xyz-d65 0.13265 0.22305 0.08176 / 1)'),
-            Color('color(xyz-d65 0.22548 0.34363 0.08795 / 1)'),
-            Color('color(xyz-d65 0.34991 0.47284 0.09246 / 1)'),
-            Color('color(xyz-d65 0.49784 0.59012 0.09493 / 1)'),
+            Color('color(xyz-d65 0.02756 0.03263 0.09819 / 1)'),
+            Color('color(xyz-d65 0.0374 0.0633 0.07249 / 1)'),
+            Color('color(xyz-d65 0.07079 0.12643 0.07441 / 1)'),
+            Color('color(xyz-d65 0.12999 0.22221 0.08091 / 1)'),
+            Color('color(xyz-d65 0.21786 0.34132 0.08735 / 1)'),
+            Color('color(xyz-d65 0.33624 0.46805 0.09217 / 1)'),
+            Color('color(xyz-d65 0.48389 0.5847 0.09487 / 1)'),
             Color('color(xyz-d65 0.6319 0.6679 0.09564 / 1)')
         ]
         for a, b in zip(Color.steps([c1, c2], method='spectral-continuous', steps=9), expected):
@@ -2314,12 +2353,12 @@ class TestInterpolation(util.ColorAsserts, unittest.TestCase):
 
         self.assertColorEqual(
             Color.interpolate([red, green, blue], method='spectral-continuous')(0.25),
-            Color('color(xyz-d65 0.06178 0.04602 0.01101)')
+            Color('color(xyz-d65 0.05868 0.04379 0.01124)')
         )
 
         self.assertColorEqual(
             Color.interpolate([red, green, blue], method='spectral-continuous')(0.75),
-            Color('color(xyz-d65 0.0266 0.05348 0.02989)')
+            Color('color(xyz-d65 0.02858 0.055 0.02978)')
         )
 
     def test_spectral_different_color_space_continuous(self):
@@ -2327,7 +2366,7 @@ class TestInterpolation(util.ColorAsserts, unittest.TestCase):
 
         self.assertColorEqual(
             Color('red').mix('blue', method='spectral-continuous', space='lab'),
-            Color('lab(17.074 25.367 0.07394)')
+            Color('lab(16.604 22.383 -0.75718)')
         )
 
     def test_spectral_easing_continuous(self):

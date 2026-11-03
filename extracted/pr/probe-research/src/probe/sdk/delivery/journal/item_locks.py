@@ -5,7 +5,7 @@ import os
 from contextlib import contextmanager
 from pathlib import Path
 
-from ...._shared import oscompat
+from ....foundation.os_backend import os_backend as oscompat
 
 
 def _same_file(handle, path: Path) -> bool:

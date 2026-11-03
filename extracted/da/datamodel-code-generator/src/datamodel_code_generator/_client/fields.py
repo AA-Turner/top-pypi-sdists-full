@@ -6,36 +6,24 @@ from collections import Counter
 from dataclasses import replace
 from typing import TYPE_CHECKING, Final
 
-from datamodel_code_generator._api_types import Diagnostic
 from datamodel_code_generator._client.naming import HELPER_ARGUMENTS, RESERVED_ARGUMENTS
 from datamodel_code_generator._client.plan import FieldArgument, FieldBranch
 from datamodel_code_generator._runtime.model_codecs.media import normalize_media_type
+from datamodel_code_generator._target_contract import label as _label
 from datamodel_code_generator._target_naming import NameScope, explicit_name
+from datamodel_code_generator._target_operations import CLIENT, declared_by
+from datamodel_code_generator.reference import _rw_variant_flag
 
 if TYPE_CHECKING:
     from collections.abc import Container
 
+    from datamodel_code_generator._api_types import Diagnostic
     from datamodel_code_generator._client.model_facts import ModelFacts, ModelField
     from datamodel_code_generator._client.plan import ClientPlan, MediaSpec, OperationSpec
     from datamodel_code_generator._target_contract import OperationId, TypeUseId
     from datamodel_code_generator._target_naming import TargetNames
 
 _KINDS: Final = frozenset({"json", "form"})
-
-
-def _problem(code: str, message: str, operation: OperationSpec, option_path: str | None = None) -> Diagnostic:
-    return Diagnostic(
-        code=code,
-        severity="error",
-        stage="config" if code == "E_CONFIG_VALUE" else "target",
-        message=message,
-        source_pointer=operation.contract.id.use_site.pointer,
-        option_path=option_path,
-    )
-
-
-def _label(operation: OperationSpec) -> str:
-    return f"{operation.contract.method.upper()} {operation.contract.path}"
 
 
 class _Fields:
@@ -67,7 +55,11 @@ class _Fields:
         ):
             return "its schema is not an object model"
         return (
-            tuple(item for item in self.facts.fields(model.id) if not item.read_only)
+            tuple(
+                item
+                for item in self.facts.fields(model.id)
+                if not _rw_variant_flag("request", item.read_only, item.write_only)
+            )
             or "its model has no writable field"
         )
 
@@ -95,10 +87,11 @@ class _Fields:
             if (given := names.pop((media_type, item.wire_name), None) or self._aliased(item)) is not None
         }
         self.problems.extend(
-            _problem(
+            CLIENT.problem(
                 "E_CONFIG_VALUE",
-                f"The body field name of the {media_type} property {name!r} of {_label(spec)} names no field argument",
-                spec,
+                f"The body field name of the {media_type} property {name!r} of {_label(spec.contract)} names no "
+                "field argument",
+                spec.contract.id.use_site,
                 "operations",
             )
             for media_type, name in names
@@ -110,11 +103,11 @@ class _Fields:
             counts = Counter(given)
             if taken := sorted({name for name in given if name in scope or counts[name] > 1}):
                 self.problems.append(
-                    _problem(
+                    CLIENT.problem(
                         "E_NAME_COLLISION",
-                        f"The {media_type} body fields of {_label(spec)} cannot take the argument names "
+                        f"The {media_type} body fields of {_label(spec.contract)} cannot take the argument names "
                         f"{', '.join(map(repr, taken))}, which other arguments take",
-                        spec,
+                        spec.contract.id.use_site,
                     )
                 )
         for name in explicit.values():
@@ -161,8 +154,7 @@ class _Fields:
 
 def _local(spec: OperationSpec) -> bool:
     """Return whether the document that names the operation declares its request body."""
-    body = spec.contract.request_body
-    return body is not None and body.declaration.location.document == spec.contract.id.use_site.document
+    return (body := spec.contract.request_body) is not None and declared_by(body, spec.contract)
 
 
 def plan_fields(

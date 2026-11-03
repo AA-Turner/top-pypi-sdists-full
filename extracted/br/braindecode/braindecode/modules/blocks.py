@@ -5,6 +5,8 @@ import torch
 from einops.layers.torch import Rearrange
 from torch import nn
 
+from braindecode.functional.patches import _check_on_non_divisible, patch_count
+
 
 class PatchTokenizer(nn.Module):
     r"""Tokenize an EEG signal into non-overlapping temporal patches.
@@ -79,11 +81,7 @@ class PatchTokenizer(nn.Module):
         output_order="channel_patch",
     ):
         super().__init__()
-        if on_non_divisible not in ("pad", "crop", "error"):
-            raise ValueError(
-                "on_non_divisible must be 'pad', 'crop', or 'error', "
-                f"got {on_non_divisible!r}."
-            )
+        _check_on_non_divisible(on_non_divisible)
         if projection not in ("conv", "linear"):
             raise ValueError(
                 f"projection must be 'conv' or 'linear', got {projection!r}."
@@ -112,18 +110,42 @@ class PatchTokenizer(nn.Module):
                     f"({patch_size})."
                 )
         # Padding/cropping for a non-divisible time axis is applied at runtime in
-        # _prepare_input (which works for any input length, not just the
+        # prepare_input (which works for any input length, not just the
         # construction-time n_times), so no padding submodule is stored here.
-        # Defined unconditionally (Identity when not learnable) so the attribute
-        # always exists for torch.jit.script, which type-checks both branches.
-        self.patcher = nn.Identity()
-        self.proj = nn.Identity()
-        if learnable and projection == "conv":
-            self.patcher = nn.Conv1d(1, self.emb_dim, patch_size, stride=patch_size)
-        elif learnable and projection == "linear":
-            self.proj = nn.Linear(patch_size, self.emb_dim)
+        # An unused projection is None, not an nn.Identity: a parameter-free
+        # submodule named ``proj`` would match adapters that select modules by
+        # name (peft LoRA ``target_modules=["proj"]`` then fails on Identity).
+        # torch.jit.script resolves the ``is not None`` checks in forward
+        # statically, so both attributes may be None.
+        self.patcher = (
+            nn.Conv1d(1, self.emb_dim, patch_size, stride=patch_size)
+            if learnable and projection == "conv"
+            else None
+        )
+        self.proj = (
+            nn.Linear(patch_size, self.emb_dim)
+            if learnable and projection == "linear"
+            else None
+        )
 
-    def _prepare_input(self, x):
+    def n_patches(self, n_times: int) -> int:
+        """Number of patches ``forward`` returns for ``n_times`` samples."""
+        return patch_count(n_times, self.patch_size, self.on_non_divisible)
+
+    def prepare_input(self, x):
+        """Pad, crop or reject a time axis not divisible by ``patch_size``.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input of shape ``(..., n_times)``; any ``n_times`` is accepted.
+
+        Returns
+        -------
+        torch.Tensor
+            ``x`` with a time axis that is a multiple of ``patch_size``,
+            handled as set by ``on_non_divisible``.
+        """
         n_times = x.shape[-1]
         remainder = n_times % self.patch_size
         if remainder == 0:
@@ -144,9 +166,9 @@ class PatchTokenizer(nn.Module):
         )
 
     def forward(self, x):
-        x = self._prepare_input(x)
+        x = self.prepare_input(x)
         batch_size, n_chans, _ = x.shape
-        if self.learnable and self.projection == "conv":
+        if self.patcher is not None:  # learnable, projection="conv"
             x = x.flatten(0, 1).unsqueeze(1)  # (batch * chans, 1, time)
             x = self.patcher(x)  # (batch * chans, emb, patches)
             x = x.reshape(batch_size, n_chans, x.shape[-2], x.shape[-1]).permute(
@@ -154,7 +176,7 @@ class PatchTokenizer(nn.Module):
             )
         else:
             x = x.reshape(batch_size, n_chans, -1, self.patch_size)
-            if self.learnable:
+            if self.proj is not None:  # learnable, projection="linear"
                 x = self.proj(x)
         if self.output_order == "patch_channel":
             return x.transpose(1, 2)
@@ -251,7 +273,10 @@ class MLP(nn.Sequential):
         drop=0.0,
         normalize=False,
     ):
-        self.normalization = nn.LayerNorm if normalize else lambda: None
+        def normalization(n_features):
+            # LayerNorm over the output features of the preceding Linear
+            return nn.LayerNorm(n_features) if normalize else None
+
         self.in_features = in_features
         self.out_features = out_features or self.in_features
         if hidden_features:
@@ -270,7 +295,7 @@ class MLP(nn.Sequential):
                 [
                     nn.Linear(in_features=before, out_features=after),
                     self.activation(),
-                    self.normalization(),
+                    normalization(after),
                 ]
             )
 
@@ -281,6 +306,46 @@ class MLP(nn.Sequential):
         layers = list(filter(lambda layer: layer is not None, layers))
 
         super().__init__(*layers)
+
+
+class TimmMlp(nn.Module):
+    """Two-layer MLP with timm's parameter names (``fc1``, ``act``, ``fc2``,
+    ``drop``), as in ViT/MAE checkpoints: dropout after the activation and after
+    the second layer. EEGPT and LUNA use it, so their released weights load
+    with the same keys.
+
+    Parameters
+    ----------
+    in_features : int
+    hidden_features : int, optional
+        Defaults to ``in_features``.
+    out_features : int, optional
+        Defaults to ``in_features``.
+    act_layer : type of torch.nn.Module
+        Activation class. Default: ``nn.GELU``.
+    drop : float
+        Dropout rate. Default: ``0.0``.
+    """
+
+    def __init__(
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_layer=nn.GELU,
+        drop=0.0,
+    ):
+        super().__init__()
+        out_features = out_features or in_features
+        hidden_features = hidden_features or in_features
+        self.fc1 = nn.Linear(in_features, hidden_features)
+        self.act = act_layer()
+        self.fc2 = nn.Linear(hidden_features, out_features)
+        self.drop = nn.Dropout(drop)
+
+    def forward(self, x):
+        x = self.drop(self.act(self.fc1(x)))
+        return self.drop(self.fc2(x))
 
 
 class FeedForwardBlock(nn.Sequential):
@@ -297,6 +362,19 @@ class FeedForwardBlock(nn.Sequential):
     activation : type[nn.Module], default=nn.GELU
         Activation function constructor.
 
+    hidden_features : int, optional
+        Hidden width, overriding ``expansion * emb_size`` when supplied.
+    gated : bool, default=False
+        Use a separate activated gate projection multiplied by the value
+        projection, rather than activating the value projection directly.
+        Gated blocks register named projections (``fc1``, ``fc_gate``, ``fc2``);
+        ungated blocks retain their sequential numeric child names.
+    bias : bool, default=True
+        Include a bias in each linear projection.
+    output_drop_p : float, default=0.0
+        Dropout probability after the output projection. The ungated default
+        does not add an output dropout module.
+
     Examples
     --------
     >>> import torch
@@ -308,15 +386,53 @@ class FeedForwardBlock(nn.Sequential):
     torch.Size([2, 10, 32])
     """
 
+    __constants__ = ["gated"]
+
     def __init__(
-        self, emb_size, expansion, drop_p, activation: type[nn.Module] = nn.GELU
+        self,
+        emb_size,
+        expansion,
+        drop_p,
+        activation: type[nn.Module] = nn.GELU,
+        *,
+        hidden_features: int | None = None,
+        gated: bool = False,
+        bias: bool = True,
+        output_drop_p: float = 0.0,
     ):
-        super().__init__(
-            nn.Linear(emb_size, expansion * emb_size),
-            activation(),
-            nn.Dropout(drop_p),
-            nn.Linear(expansion * emb_size, emb_size),
+        super().__init__()
+        self.gated = gated
+        hidden_features = (
+            expansion * emb_size if hidden_features is None else hidden_features
         )
+        if gated:
+            self.fc1 = nn.Linear(emb_size, hidden_features, bias=bias)
+            self.fc_gate = nn.Linear(emb_size, hidden_features, bias=bias)
+            self.fc2 = nn.Linear(hidden_features, emb_size, bias=bias)
+            self.activation = activation()
+            self.dropout1 = nn.Dropout(drop_p)
+            self.dropout2 = nn.Dropout(output_drop_p)
+        else:
+            self.add_module("0", nn.Linear(emb_size, hidden_features, bias=bias))
+            self.add_module("1", activation())
+            self.add_module("2", nn.Dropout(drop_p))
+            self.add_module("3", nn.Linear(hidden_features, emb_size, bias=bias))
+            if output_drop_p:
+                self.add_module("4", nn.Dropout(output_drop_p))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.gated:
+            gate = self.fc_gate(x)
+            gate = self.activation(gate)
+            value = self.fc1(x)
+            hidden = gate * value
+            hidden = self.dropout1(hidden)
+            hidden = self.fc2(hidden)
+            return self.dropout2(hidden)
+        else:
+            for module in self:
+                x = module(x)
+            return x
 
 
 class _TDSConv2dBlock(nn.Module):

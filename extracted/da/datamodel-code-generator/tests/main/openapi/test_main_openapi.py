@@ -48,7 +48,6 @@ from datamodel_code_generator.model import base as model_base
 from datamodel_code_generator.parser.openapi import OpenAPIParser
 from datamodel_code_generator.reference import get_singular_name
 from tests.conftest import (
-    CHECK_SCHEMA_GRAPH_ENV,
     HttpxGetMockFactory,
     MockHttpxResponse,
     assert_directory_content,
@@ -1592,6 +1591,26 @@ def test_main_openapi_msgspec_tagged_unions_inherited(output_file: Path, entrypo
             snake_case_field=True,
             disable_timestamp=True,
         )
+
+
+def test_main_openapi_msgspec_tagged_unions_diamond(output_file: Path) -> None:
+    """Visit a struct derived through two bases once when looking for a derived struct that keeps the tag property."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "discriminator_msgspec_tagged_unions_diamond.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        expected_file=EXPECTED_OPENAPI_PATH / "discriminator" / "msgspec_tagged_unions_diamond.py",
+        extra_args=[
+            "--output-model-type",
+            "msgspec.Struct",
+            "--use-msgspec-tagged-unions",
+            "--target-python-version",
+            "3.10",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
 
 
 def test_main_openapi_discriminator_mapping_msgspec_tags(output_file: Path) -> None:
@@ -3698,8 +3717,7 @@ def test_main_openapi_strip_default_none_nullable_reference(output_model_type: s
     """Keep the None default of a field naming a nullable model only where the field writes no ``Field()``.
 
     ``Field()`` decides from the type's None as written before render preparation, which leaves out the None the
-    nullable model gives (row ``legacy-strip-keeps-written-null-only``): ``n_1`` and ``n2`` write ``Field()`` without
-    it, while ``n`` keeps ``= None``.
+    nullable model gives: ``n_1`` and ``n2`` write ``Field()`` without it, while ``n`` keeps ``= None``.
     """
     run_main_and_assert(
         input_path=OPEN_API_DATA_PATH / "strip_default_none_nullable_reference.yaml",
@@ -10217,22 +10235,14 @@ def test_main_openapi_all_of_with_relative_ref(output_file: Path) -> None:
     )
 
 
-def test_main_openapi_keep_model_order_same_short_name_in_another_module(
-    monkeypatch: pytest.MonkeyPatch, output_dir: Path, tmp_path: Path
-) -> None:
-    """Keep the model order that a same-named model of another module imported as a module gives.
-
-    The model graph check reports that the dependencies by model key differ (`report:<path>` appends one JSON line).
-    """
-    report_path = tmp_path / "checks.jsonl"
-    monkeypatch.setenv("DATAMODEL_CODE_GENERATOR_CHECK_MODEL_GRAPH", f"report:{report_path}")
+def test_main_openapi_keep_model_order_same_short_name_in_another_module(output_dir: Path) -> None:
+    """Keep the model order that a same-named model of another module imported as a module gives."""
     run_main_and_assert(
         input_path=OPEN_API_DATA_PATH / "keep_model_order_same_short_name.yaml",
         output_path=output_dir,
         input_file_type="openapi",
         extra_args=["--keep-model-order", "--disable-future-imports", "--disable-timestamp"],
     )
-    assert_output("\n".join(dict.fromkeys(report_path.read_text(encoding="utf-8").splitlines())) + "\n", name="report")
 
 
 @LEGACY_BLACK_SKIP
@@ -11791,22 +11801,6 @@ def test_main_openapi_webhooks_with_parameters(output_file: Path) -> None:
     )
 
 
-def test_schema_graph_check_counts_references_without_an_edge(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Every `$ref` of a path item, operation, request body, response and media type reaches its site with an edge.
-
-    The report of the schema graph check counts, by site, the references that arrived as plain strings.
-    """
-    report_path = tmp_path / "checks.jsonl"
-    monkeypatch.setenv(CHECK_SCHEMA_GRAPH_ENV, f"report:{report_path}")
-    parser = OpenAPIParser(
-        OPEN_API_DATA_PATH / "ref_edges" / "operation_refs.yaml",
-        openapi_scopes=[OpenAPIScope.Schemas, OpenAPIScope.Paths, OpenAPIScope.Parameters, OpenAPIScope.RequestBodies],
-        formatters=[Formatter.BUILTIN],
-    )
-    parser.parse()
-    assert_output(report_path.read_text(encoding="utf-8"))
-
-
 class _ReservedTargetWriterParser(OpenAPIParser):
     """Adds a property to a target its document reserves: a prepared tree that differs from its source."""
 
@@ -11817,46 +11811,20 @@ class _ReservedTargetWriterParser(OpenAPIParser):
         }
 
 
-@pytest.mark.parametrize("flag", ["check", "report", "off"])
-def test_schema_graph_check_of_a_reserved_target_that_differs_from_its_source(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, flag: str
-) -> None:
-    """A reserved target is parsed from the prepared tree of its document, which the check compares with its source.
-
-    The check (`1`, as the test suite sets it) loads the source again and raises when the value at a reserved target
-    differs, `report:<path>` appends it as a JSON line, and with the check off (`0`) the target is parsed from the
-    prepared tree, with the property added to it.
-    """
-    report_path = tmp_path / "checks.jsonl"
-    monkeypatch.setenv(CHECK_SCHEMA_GRAPH_ENV, {"check": "1", "report": f"report:{report_path}", "off": "0"}[flag])
+def test_main_openapi_reserved_target_parsed_from_the_prepared_tree() -> None:
+    """A reserved target is parsed from the prepared tree of its document, with the property a parser added to it."""
     parser = _ReservedTargetWriterParser(
         OPEN_API_DATA_PATH / "reference_to_object_properties.yaml", formatters=[Formatter.BUILTIN]
     )
-    if flag == "check":
-        with pytest.raises(
-            Error,
-            match=f"^{CHECK_SCHEMA_GRAPH_ENV}: the reserved target "
-            "'reference_to_object_properties.yaml#/components/schemas/Parent/properties/pet' differs between the "
-            "prepared tree and a fresh load of its source$",
-        ):
-            parser.parse()
-        return
     assert_output(str(parser.parse()))
-    if flag == "report":
-        assert_output(report_path.read_text(encoding="utf-8"), name="report")
 
 
-def test_schema_graph_check_records_a_dynamic_anchor_registered_after_its_reference(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_main_openapi_dynamic_anchor_registered_after_its_reference() -> None:
     """A `$dynamicRef` parsed before the components that declare its anchor resolves through its edge.
 
     `Holder` is parsed before `First` and `Second` register `$dynamicAnchor: T`, so `#T` resolves as a reference,
-    to the last component that declares the anchor; parsed after them it resolves to the first. The schema graph check
-    compares the answer with every anchor of the document and records it as an `anchor-answer` line.
+    to the last component that declares the anchor; parsed after them it resolves to the first.
     """
-    report_path = tmp_path / "checks.jsonl"
-    monkeypatch.setenv(CHECK_SCHEMA_GRAPH_ENV, f"report:{report_path}")
     output = generate(
         OPEN_API_DATA_PATH / "dynamic_ref_anchor_parse_order.yaml",
         input_file_type=InputFileType.OpenAPI,
@@ -11864,7 +11832,6 @@ def test_schema_graph_check_records_a_dynamic_anchor_registered_after_its_refere
         formatters=[Formatter.BUILTIN],
     )
     assert_output(str(output))
-    assert_output(report_path.read_text(encoding="utf-8"), name="report")
 
 
 def test_main_openapi_all_of_request_body(output_file: Path) -> None:
@@ -14368,6 +14335,33 @@ def test_main_openapi_include_paths_without_leading_slash(output_file: Path) -> 
         assert_func=assert_file_content,
         expected_file=EXPECTED_OPENAPI_PATH / "openapi_include_paths" / "pets_only.py",
         extra_args=["--openapi-scopes", "paths", "schemas", "--openapi-include-paths", "pets*"],
+    )
+
+
+@pytest.mark.parametrize(
+    "scope_args",
+    [
+        pytest.param(["--openapi-scopes", "schemas", "paths", "parameters"], id="paths"),
+        pytest.param(
+            ["--openapi-scopes", "schemas", "paths", "parameters", "--openapi-include-paths", "*"],
+            id="paths-include-all",
+        ),
+        pytest.param(["--openapi-scopes", "schemas", "api"], id="api"),
+    ],
+)
+def test_main_openapi_paths_keys_that_are_not_path_items(output_file: Path, scope_args: list[str]) -> None:
+    """Skip the ``parameters`` list and an ``x-`` extension that holds no object under ``paths``.
+
+    The ``parameters`` list applies to every path, as with ``--openapi-include-paths`` leaving the key out, and neither
+    key is walked as a path item under any scope or ``--openapi-include-paths`` pattern. An ``x-`` key that holds an
+    object is still read as a path by the paths scope, not by the API scope.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "paths_non_path_keys.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=[*scope_args, "--output-model-type", "pydantic_v2.BaseModel", "--disable-timestamp"],
+        force_exec_validation=True,
     )
 
 

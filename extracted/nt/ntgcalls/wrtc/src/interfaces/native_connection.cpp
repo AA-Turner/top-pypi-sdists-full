@@ -210,7 +210,7 @@ namespace wrtc::interfaces {
         }
         const std::weak_ptr weak(shared_from_this());
         const std::shared_ptr state(std::move(coordinated_state));
-        worker_thread().BlockingCall([weak, state, audio_ssrc, video_ssrc] {
+        network_thread().BlockingCall([weak, state, audio_ssrc, video_ssrc] {
             const auto strong = std::static_pointer_cast<NativeConnection>(weak.lock());
             if (!strong) {
                 return;
@@ -242,7 +242,6 @@ namespace wrtc::interfaces {
                         channel_manager_.get(),
                         dtls_srtp_transport_.get(),
                         *audio_content,
-                        worker_thread(),
                         network_thread(),
                         &audio_sink_,
                         payload_type_mapping_,
@@ -270,7 +269,6 @@ namespace wrtc::interfaces {
                         channel_manager_.get(),
                         dtls_srtp_transport_.get(),
                         *video_content,
-                        worker_thread(),
                         network_thread(),
                         &video_sink_,
                         payload_type_mapping_,
@@ -280,8 +278,18 @@ namespace wrtc::interfaces {
             }
         }
 
+        std::unordered_set<uint32_t> local_channels;
+        for (const auto& content : coordinated_state.outgoing_contents) {
+            local_channels.insert(content.ssrc);
+        }
+        std::vector<models::MediaContent> incoming_contents;
         std::unordered_set<uint32_t> remote_channels;
         for (const auto& content : coordinated_state.incoming_contents) {
+            if (local_channels.contains(content.ssrc)) {
+                RTC_LOG(LS_WARNING) << "Ignoring incoming content with the local ssrc " << content.ssrc;
+                continue;
+            }
+            incoming_contents.push_back(content);
             remote_channels.insert(content.ssrc);
         }
         auto remove_channel = [&]<typename T>(T& channels) {
@@ -304,7 +312,7 @@ namespace wrtc::interfaces {
         remove_channel(incoming_audio_channels_);
         remove_channel(incoming_video_channels_);
         update_audio_source_count();
-        for (const auto& content : coordinated_state.incoming_contents) {
+        for (const auto& content : incoming_contents) {
             add_incoming_smart_source(std::to_string(content.ssrc), content);
         }
     }

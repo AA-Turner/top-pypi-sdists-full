@@ -35,7 +35,12 @@
 #include "test.h"
 
 #ifndef ALIGN_SIZE
+#if HAVE_RVV
+#define EC_ALIGNED_ADDR
+#define ALIGN_SIZE 32
+#else
 #define ALIGN_SIZE 16
+#endif
 #endif
 
 // By default, test multibinary version
@@ -196,7 +201,7 @@ gf_gen_decode_matrix(unsigned char *encode_matrix, unsigned char *decode_matrix,
                                 continue;
                         }
                 }
-                if (decode_index[k - 1] + incr >= m) {
+                if (decode_index[k - 1] + incr >= (unsigned int) m) {
                         free(b);
                         free(backup);
                         printf("BAD MATRIX\n");
@@ -839,7 +844,7 @@ main(int argc, char *argv[])
 
                 for (i = 0; i < m; i++) {
 
-                        offset = update_ubuffs[i] - update_buffs[i];
+                        offset = (unsigned int) (update_ubuffs[i] - update_buffs[i]);
 
                         if (memcmp(update_buffs[i], temp_buffs[0], offset)) {
                                 printf("Fail rand ualign encode pad start\n");
@@ -856,7 +861,7 @@ main(int argc, char *argv[])
 
                 for (i = 0; i < nerrs; i++) {
 
-                        offset = temp_ubuffs[k + i] - temp_buffs[k + i];
+                        offset = (unsigned int) (temp_ubuffs[k + i] - temp_buffs[k + i]);
                         if (memcmp(temp_buffs[k + i], temp_buffs[0], offset)) {
                                 printf("Fail rand ualign decode pad start\n");
                                 re = -1;

@@ -14,13 +14,10 @@ import httpx
 from pydantic import ConfigDict, PrivateAttr
 
 from plato.chronos.analysis import (
-    ProgressCallback,
     SessionAnalysis,
-    SpanFilters,
-    SpanStream,
     analyze_session,
-    stream_all_spans,
-    stream_all_spans_async,
+    fetch_all_spans,
+    fetch_all_spans_async,
 )
 from plato.chronos.api.events import list_session_events
 from plato.chronos.api.jobs import launch_job
@@ -29,9 +26,6 @@ from plato.chronos.api.otel import (
 )
 from plato.chronos.api.otel import (
     get_session_traces_api_otel_sessions__session_id__traces_get as get_traces_api,
-)
-from plato.chronos.api.otel import (
-    search_session_spans_api_otel_spans_search_post as search_spans_api,
 )
 from plato.chronos.api.reviews import (
     create_annotation_api_annotations_post as create_annotation_api,
@@ -53,22 +47,24 @@ from plato.chronos.api.sessions import (
     get_session_envs,
     get_session_logs,
     get_session_status,
+    get_session_trajectory,
     list_sessions,
     update_session_notes,
-    upsert_session_preview_url,
 )
 from plato.chronos.api.workspace_repos import (
-    get_workspace_repo_credentials as get_workspace_repo_credentials_api,
+    audit_events_summary as audit_events_summary_api,
 )
-from plato.chronos.atif import (
-    SessionTrajectory,
-    TrajectoryMetrics,
-    spans_to_trajectory,
-    total_metrics,
+from plato.chronos.api.workspace_repos import (
+    audit_file_history as audit_file_history_api,
+)
+from plato.chronos.api.workspace_repos import (
+    list_audit_events as list_audit_events_api,
 )
 from plato.chronos.experiments import AsyncExperiments, Experiments
 from plato.chronos.models import (
     AnnotationResponse,
+    AuditEventsListResponse,
+    AuditSummaryResponse,
     CompleteSessionRequest,
     CreateAnnotationRequest,
     CreateReviewRequest,
@@ -83,16 +79,13 @@ from plato.chronos.models import (
     SessionLogsResponse,
     SessionMetricsResponse,
     SessionNotesPayloadInput,
-    SessionPreviewUrlsResponse,
     SessionResponse,
     SessionStatusResponse,
-    SpanSearchRequest,
-    SpanSearchResponse,
+    SessionTrajectory,
     Status,
     Status1,
+    TrajectoryMetrics,
     UpdateNotesRequest,
-    UpsertSessionPreviewUrlRequest,
-    WorkspaceRepoCredentialsResponse,
     WorldConfigInput,
     WorldRuntimeConfig,
 )
@@ -121,17 +114,7 @@ def _emit_child_session_span(session_id: str, package: str) -> None:
         pass  # OTel not available, skip silently
 
 
-_TERMINAL_STATUSES = {Status.completed, Status.failed, Status.cancelled, Status.timeout}
-
-
-def workspace_credentials_env(creds: WorkspaceRepoCredentialsResponse) -> dict[str, str]:
-    """Map a workspace-credentials response to AWS_* env-style credentials."""
-    return {
-        "AWS_ACCESS_KEY_ID": creds.aws_access_key_id,
-        "AWS_SECRET_ACCESS_KEY": creds.aws_secret_access_key,
-        "AWS_SESSION_TOKEN": creds.aws_session_token,
-        "AWS_DEFAULT_REGION": creds.region,
-    }
+_TERMINAL_STATUSES = {Status.completed, Status.failed, Status.cancelled}
 
 
 def _normalize_tag(tag: str) -> str:
@@ -318,14 +301,8 @@ class Chronos(_ChronosBase):
         tag: str | None = None,
         status: str | None = None,
         limit: int = 50,
-        org_id: int | None = None,
     ) -> SessionListResponse:
-        """``org_id`` lists another org's sessions (Plato-org admins only)."""
-        return list_sessions.sync(self._client, tag=tag, status=status, limit=limit, org_id=org_id)
-
-    def search_spans(self, request: SpanSearchRequest) -> SpanSearchResponse:
-        """Search span text (message, reasoning, tool input/output) across a set of sessions."""
-        return search_spans_api.sync(self._client, body=request)
+        return list_sessions.sync(self._client, tag=tag, status=status, limit=limit)
 
     def wait_for_completion(
         self,
@@ -370,25 +347,71 @@ class Chronos(_ChronosBase):
             body=UpdateNotesRequest(notes=notes),
         )
 
-    def publish_preview_url(
+    def get_logs(
         self,
         session_id: str,
-        url: str,
         *,
-        label: str = "Preview",
-    ) -> SessionPreviewUrlsResponse:
-        """Publish or replace a labeled preview link on a session."""
-        return upsert_session_preview_url.sync(
+        include_audit_events: bool = False,
+    ) -> SessionLogsResponse:
+        return get_session_logs.sync(
             self._client,
             public_id=session_id,
-            body=UpsertSessionPreviewUrlRequest.model_validate({"label": label, "url": url}),
+            include_audit_events=include_audit_events,
         )
-
-    def get_logs(self, session_id: str) -> SessionLogsResponse:
-        return get_session_logs.sync(self._client, public_id=session_id)
 
     def get_envs(self, session_id: str) -> SessionEnvsResponse:
         return get_session_envs.sync(self._client, public_id=session_id)
+
+    def get_audit_events(
+        self,
+        session_id: str,
+        *,
+        step_name: str | None = None,
+        repo_name: str | None = None,
+        path: str | None = None,
+        trace_id: str | None = None,
+        span_id: str | None = None,
+        agent_name: str | None = None,
+        operation: str | None = None,
+        limit: int = 500,
+        offset: int | None = None,
+    ) -> AuditEventsListResponse:
+        """Query filesystem audit events for a session."""
+        return list_audit_events_api.sync(
+            self._client,
+            session_public_id=session_id,
+            step_name=step_name,
+            repo_name=repo_name,
+            path=path,
+            trace_id=trace_id,
+            span_id=span_id,
+            agent_name=agent_name,
+            operation=operation,
+            limit=limit,
+            offset=offset,
+        )
+
+    def get_audit_summary(self, session_id: str) -> AuditSummaryResponse:
+        """Get aggregated filesystem audit summary for a session."""
+        return audit_events_summary_api.sync(
+            self._client,
+            session_public_id=session_id,
+        )
+
+    def get_audit_file_history(
+        self,
+        session_id: str,
+        *,
+        path: str,
+        repo_name: str,
+    ) -> AuditEventsListResponse:
+        """Get all audit events for a specific file across all steps."""
+        return audit_file_history_api.sync(
+            self._client,
+            session_public_id=session_id,
+            path=path,
+            repo_name=repo_name,
+        )
 
     # -- Artifacts --
 
@@ -412,54 +435,13 @@ class Chronos(_ChronosBase):
             search=search,
         )
 
-    def get_all_traces(
-        self,
-        session_id: str,
-        *,
-        atif_only: bool = False,
-        errors_only: bool = False,
-        search: str | None = None,
-        plato_type: str | None = None,
-        on_progress: ProgressCallback | None = None,
-    ) -> list[OTelSpanSchema]:
-        """Auto-paginated: fetches ALL spans for a session via logs-stream."""
-        return stream_all_spans(
-            self._client,
-            session_id,
-            atif_only=atif_only,
-            errors_only=errors_only,
-            search=search,
-            plato_type=plato_type,
-            on_progress=on_progress,
-        )
+    def get_all_traces(self, session_id: str) -> list[OTelSpanSchema]:
+        """Auto-paginated: fetches ALL spans for a session."""
+        return fetch_all_spans(self._client, session_id)
 
-    def iter_traces(
-        self,
-        session_id: str,
-        filters: SpanFilters | None = None,
-        *,
-        max_spans: int | None = None,
-        cursor: str | None = None,
-        on_progress: ProgressCallback | None = None,
-    ) -> SpanStream:
-        """Iterate a session's spans as they stream in, filtered by Chronos.
-
-        Unlike ``get_all_traces`` this never holds the whole session: write
-        each span out as it arrives. With ``max_spans``, the returned stream's
-        ``has_more``/``cursor`` say where the next slice starts.
-        """
-        return SpanStream(
-            self._client, session_id, filters, max_spans=max_spans, cursor=cursor, on_progress=on_progress
-        )
-
-    def get_session_analysis(
-        self,
-        session_id: str,
-        *,
-        on_progress: ProgressCallback | None = None,
-    ) -> SessionAnalysis:
+    def get_session_analysis(self, session_id: str) -> SessionAnalysis:
         """One-call comprehensive session analysis."""
-        spans = self.get_all_traces(session_id, on_progress=on_progress)
+        spans = self.get_all_traces(session_id)
         return analyze_session(spans, session_id)
 
     def get_session_metrics(
@@ -480,20 +462,11 @@ class Chronos(_ChronosBase):
     # -- Trajectory --
 
     def get_trajectory(self, session_id: str) -> SessionTrajectory:
-        """Rebuild the session's ATIF trajectory client-side from the span stream.
-
-        Drains the uncapped, cursor-resumable logs-stream endpoint (agent/world
-        spans plus artifact spans), so the trajectory is always complete — the
-        removed server endpoint truncated at 1000 spans.
-        """
-        spans = self.get_all_traces(session_id, atif_only=True)
-        artifact_spans = self.get_all_traces(session_id, plato_type="artifact")
-        status = self.get_status(session_id).status.value
-        return spans_to_trajectory([*spans, *artifact_spans], session_id, status=status)
+        return get_session_trajectory.sync(self._client, public_id=session_id)
 
     def get_metrics(self, session_id: str) -> TrajectoryMetrics:
         """Get aggregated cost and token metrics for a session."""
-        return total_metrics(self.get_trajectory(session_id))
+        return self.get_trajectory(session_id).total_metrics
 
     # -- State --
 
@@ -501,6 +474,14 @@ class Chronos(_ChronosBase):
         """Save world state JSON to the DB."""
         resp = self._client.put(f"/api/sessions/{session_id}/state", json=state_data)
         return resp.status_code == 200
+
+    def get_state(self, session_id: str) -> dict[str, Any] | None:
+        """Get world state JSON from the DB. Returns None if not found."""
+        resp = self._client.get(f"/api/sessions/{session_id}/state")
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return resp.json()
 
     # -- Checkpoints --
 
@@ -537,16 +518,19 @@ class Chronos(_ChronosBase):
         resp.raise_for_status()
         return resp.json()
 
-    def get_workspace_credentials_response(self, repo_id: str) -> WorkspaceRepoCredentialsResponse:
-        """Get the full STS credentials response for a workspace repo (includes ``expires_at``)."""
-        return get_workspace_repo_credentials_api.sync(
-            self._client,
-            repo_public_id=repo_id,
-        )
-
     def get_workspace_credentials(self, repo_id: str) -> dict[str, str]:
         """Get STS credentials for accessing a workspace repo's S3 data."""
-        return workspace_credentials_env(self.get_workspace_credentials_response(repo_id))
+        resp = self._client.post(
+            f"/api/workspace-repos/{repo_id}/credentials",
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return {
+            "AWS_ACCESS_KEY_ID": data["aws_access_key_id"],
+            "AWS_SECRET_ACCESS_KEY": data["aws_secret_access_key"],
+            "AWS_SESSION_TOKEN": data["aws_session_token"],
+            "AWS_DEFAULT_REGION": data.get("region", "us-east-1"),
+        }
 
     def pull_workspace(
         self,
@@ -691,14 +675,8 @@ class AsyncChronos(_ChronosBase):
         tag: str | None = None,
         status: str | None = None,
         limit: int = 50,
-        org_id: int | None = None,
     ) -> SessionListResponse:
-        """``org_id`` lists another org's sessions (Plato-org admins only)."""
-        return await list_sessions.asyncio(self._client, tag=tag, status=status, limit=limit, org_id=org_id)
-
-    async def search_spans(self, request: SpanSearchRequest) -> SpanSearchResponse:
-        """Search span text (message, reasoning, tool input/output) across a set of sessions."""
-        return await search_spans_api.asyncio(self._client, body=request)
+        return await list_sessions.asyncio(self._client, tag=tag, status=status, limit=limit)
 
     async def wait_for_completion(
         self,
@@ -743,25 +721,73 @@ class AsyncChronos(_ChronosBase):
             body=UpdateNotesRequest(notes=notes),
         )
 
-    async def publish_preview_url(
+    async def get_logs(
         self,
         session_id: str,
-        url: str,
         *,
-        label: str = "Preview",
-    ) -> SessionPreviewUrlsResponse:
-        """Publish or replace a labeled preview link on a session."""
-        return await upsert_session_preview_url.asyncio(
+        include_audit_events: bool = False,
+    ) -> SessionLogsResponse:
+        return await get_session_logs.asyncio(
             self._client,
             public_id=session_id,
-            body=UpsertSessionPreviewUrlRequest.model_validate({"label": label, "url": url}),
+            include_audit_events=include_audit_events,
         )
-
-    async def get_logs(self, session_id: str) -> SessionLogsResponse:
-        return await get_session_logs.asyncio(self._client, public_id=session_id)
 
     async def get_envs(self, session_id: str) -> SessionEnvsResponse:
         return await get_session_envs.asyncio(self._client, public_id=session_id)
+
+    async def get_audit_events(
+        self,
+        session_id: str,
+        *,
+        step_name: str | None = None,
+        repo_name: str | None = None,
+        ref_public_id: str | None = None,
+        path: str | None = None,
+        trace_id: str | None = None,
+        span_id: str | None = None,
+        agent_name: str | None = None,
+        operation: str | None = None,
+        limit: int = 500,
+        offset: int | None = None,
+    ) -> AuditEventsListResponse:
+        """Query filesystem audit events for a session."""
+        return await list_audit_events_api.asyncio(
+            self._client,
+            session_public_id=session_id,
+            step_name=step_name,
+            repo_name=repo_name,
+            ref_public_id=ref_public_id,
+            path=path,
+            trace_id=trace_id,
+            span_id=span_id,
+            agent_name=agent_name,
+            operation=operation,
+            limit=limit,
+            offset=offset,
+        )
+
+    async def get_audit_summary(self, session_id: str) -> AuditSummaryResponse:
+        """Get aggregated filesystem audit summary for a session."""
+        return await audit_events_summary_api.asyncio(
+            self._client,
+            session_public_id=session_id,
+        )
+
+    async def get_audit_file_history(
+        self,
+        session_id: str,
+        *,
+        path: str,
+        repo_name: str,
+    ) -> AuditEventsListResponse:
+        """Get all audit events for a specific file across all steps."""
+        return await audit_file_history_api.asyncio(
+            self._client,
+            session_public_id=session_id,
+            path=path,
+            repo_name=repo_name,
+        )
 
     # -- Artifacts --
 
@@ -785,35 +811,13 @@ class AsyncChronos(_ChronosBase):
             search=search,
         )
 
-    async def get_all_traces(
-        self,
-        session_id: str,
-        *,
-        atif_only: bool = False,
-        errors_only: bool = False,
-        search: str | None = None,
-        plato_type: str | None = None,
-        on_progress: ProgressCallback | None = None,
-    ) -> list[OTelSpanSchema]:
-        """Auto-paginated: fetches ALL spans for a session via logs-stream."""
-        return await stream_all_spans_async(
-            self._client,
-            session_id,
-            atif_only=atif_only,
-            errors_only=errors_only,
-            search=search,
-            plato_type=plato_type,
-            on_progress=on_progress,
-        )
+    async def get_all_traces(self, session_id: str) -> list[OTelSpanSchema]:
+        """Auto-paginated: fetches ALL spans for a session."""
+        return await fetch_all_spans_async(self._client, session_id)
 
-    async def get_session_analysis(
-        self,
-        session_id: str,
-        *,
-        on_progress: ProgressCallback | None = None,
-    ) -> SessionAnalysis:
+    async def get_session_analysis(self, session_id: str) -> SessionAnalysis:
         """One-call comprehensive session analysis."""
-        spans = await self.get_all_traces(session_id, on_progress=on_progress)
+        spans = await self.get_all_traces(session_id)
         return analyze_session(spans, session_id)
 
     async def get_session_metrics(
@@ -835,21 +839,12 @@ class AsyncChronos(_ChronosBase):
     # -- Trajectory --
 
     async def get_trajectory(self, session_id: str) -> SessionTrajectory:
-        """Rebuild the session's ATIF trajectory client-side from the span stream.
-
-        Drains the uncapped, cursor-resumable logs-stream endpoint (agent/world
-        spans plus artifact spans), so the trajectory is always complete — the
-        removed server endpoint truncated at 1000 spans.
-        """
-        spans = await self.get_all_traces(session_id, atif_only=True)
-        artifact_spans = await self.get_all_traces(session_id, plato_type="artifact")
-        status = (await self.get_status(session_id)).status.value
-        return spans_to_trajectory([*spans, *artifact_spans], session_id, status=status)
+        return await get_session_trajectory.asyncio(self._client, public_id=session_id)
 
     async def get_metrics(self, session_id: str) -> TrajectoryMetrics:
         """Get aggregated cost and token metrics for a session."""
         traj = await self.get_trajectory(session_id)
-        return total_metrics(traj)
+        return traj.total_metrics
 
     # -- Reviews & Annotations --
 
@@ -972,6 +967,14 @@ class AsyncChronos(_ChronosBase):
         resp = await self._client.put(f"/api/sessions/{session_id}/state", json=state_data)
         return resp.status_code == 200
 
+    async def get_state(self, session_id: str) -> dict[str, Any] | None:
+        """Get world state JSON from the DB. Returns None if not found."""
+        resp = await self._client.get(f"/api/sessions/{session_id}/state")
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return resp.json()
+
     # -- Checkpoints --
 
     async def get_checkpoint_info(self, session_id: str) -> dict[str, Any]:
@@ -1007,16 +1010,19 @@ class AsyncChronos(_ChronosBase):
         resp.raise_for_status()
         return resp.json()
 
-    async def get_workspace_credentials_response(self, repo_id: str) -> WorkspaceRepoCredentialsResponse:
-        """Get the full STS credentials response for a workspace repo (includes ``expires_at``)."""
-        return await get_workspace_repo_credentials_api.asyncio(
-            self._client,
-            repo_public_id=repo_id,
-        )
-
     async def get_workspace_credentials(self, repo_id: str) -> dict[str, str]:
         """Get STS credentials for accessing a workspace repo's S3 data."""
-        return workspace_credentials_env(await self.get_workspace_credentials_response(repo_id))
+        resp = await self._client.post(
+            f"/api/workspace-repos/{repo_id}/credentials",
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return {
+            "AWS_ACCESS_KEY_ID": data["aws_access_key_id"],
+            "AWS_SECRET_ACCESS_KEY": data["aws_secret_access_key"],
+            "AWS_SESSION_TOKEN": data["aws_session_token"],
+            "AWS_DEFAULT_REGION": data.get("region", "us-east-1"),
+        }
 
     async def pull_workspace(
         self,
@@ -1142,8 +1148,8 @@ class ChronosSession(LaunchJobResponse):
     def get_details(self) -> SessionResponse:
         return self._parent.get_session(self.session_id)
 
-    def get_logs(self) -> SessionLogsResponse:
-        return self._parent.get_logs(self.session_id)
+    def get_logs(self, *, include_audit_events: bool = False) -> SessionLogsResponse:
+        return self._parent.get_logs(self.session_id, include_audit_events=include_audit_events)
 
     def wait_until_complete(
         self,
@@ -1175,8 +1181,8 @@ class AsyncChronosSession(LaunchJobResponse):
     async def get_details(self) -> SessionResponse:
         return await self._parent.get_session(self.session_id)
 
-    async def get_logs(self) -> SessionLogsResponse:
-        return await self._parent.get_logs(self.session_id)
+    async def get_logs(self, *, include_audit_events: bool = False) -> SessionLogsResponse:
+        return await self._parent.get_logs(self.session_id, include_audit_events=include_audit_events)
 
     async def wait_until_complete(
         self,

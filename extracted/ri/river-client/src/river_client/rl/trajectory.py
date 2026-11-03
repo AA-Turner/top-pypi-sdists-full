@@ -573,20 +573,25 @@ class Trajectory:
             requirements=requirements,
         )[0]
 
-    def _data(
-        self,
-        advantage,
-        *,
-        current_step=None,
-        max_staleness=None,
-        requirements=None,
-        masks=False,
-    ):
-        """Return ``to_data`` datums and, optionally, each datum's loss mask.
+    def _datum_source(self):
+        """A copy of the fields training datums are built from.
 
-        The mask is 1.0 at every position that ``to_data`` would assign an
-        advantage to, independent of the advantage's value.
+        It shares the span list and its read-only arrays, and omits messages
+        and other rollout state, so a batch can keep it cheaply until it is
+        encoded. Each batch item names its run, and spans are only appended
+        to a trajectory or replaced as a list (``_apply_policy_provenance``),
+        never edited in place, so the datums it builds stay the same.
         """
+        source = object.__new__(Trajectory)
+        source.__dict__.update(
+            phase=self.phase,
+            loss_mask_end=self.loss_mask_end,
+            _spans=self._spans,
+            _routing_recovery_start=self._routing_recovery_start,
+        )
+        return source
+
+    def _check_data(self, advantage, current_step, max_staleness):
         if self.dropped:
             raise ValueError("dropped trajectories cannot enter training")
         if not math.isfinite(advantage):
@@ -600,20 +605,114 @@ class Trajectory:
             type(mask_end) is not int or mask_end < 0  # bool is not an offset
         ):
             raise ValueError("loss_mask_end must be a nonnegative token offset")
+
+    def _runs(self):
+        """Each run with generated tokens: its trained spans' indices, in order.
+
+        A run's datum ends at its last generated span.
+        """
+        runs = {}
+        for index, span in enumerate(self._spans):
+            runs.setdefault(span.run, []).append(index)
+        result = []
+        for run in sorted(runs):
+            indices = runs[run]
+            generated = [
+                i
+                for i, index in enumerate(indices)
+                if self._spans[index].kind == "generated"
+            ]
+            if generated:
+                result.append((run, indices[: generated[-1] + 1]))
+        return result
+
+    def _layout(self, *, current_step=None, max_staleness=None):
+        """Describe each datum ``_data`` returns without reading any arrays.
+
+        Returns ``(run, length, trained, routing_handle, recovered)`` per
+        datum: its input length, how many positions get the advantage (the
+        loss mask's sum), and whether its last span has a routing capture or
+        is restored from a checkpoint.
+        """
+        self._check_data(0.0, current_step, max_staleness)
+        mask_end, generated_before, layout = self.loss_mask_end, 0, []
+        for run, indices in self._runs():
+            length = trained = 0
+            for index in indices:
+                span = self._spans[index]
+                if span.kind == "generated":
+                    if length == 0:
+                        raise ValueError("generated tokens need a conditioning prefix")
+                    age = 0 if current_step is None else current_step - span.policy_step
+                    if age < 0:
+                        raise ValueError(
+                            "trajectory contains a policy step newer than the trainer"
+                        )
+                    if max_staleness is None or age <= max_staleness:
+                        keep = len(span)
+                        if mask_end is not None:
+                            keep = max(0, min(keep, mask_end - generated_before))
+                        trained += keep
+                    generated_before += len(span)
+                length += len(span)
+            last = indices[-1]
+            layout.append(
+                (
+                    run,
+                    length,
+                    trained,
+                    self._spans[last].routing_handle is not None,
+                    last < self._routing_recovery_start,
+                )
+            )
+        return layout
+
+    def _data(
+        self,
+        advantage,
+        *,
+        current_step=None,
+        max_staleness=None,
+        requirements=None,
+        masks=False,
+        runs=None,
+    ):
+        """Return ``to_data`` datums and, optionally, each datum's loss mask.
+
+        The mask is 1.0 at every position that ``to_data`` would assign an
+        advantage to, independent of the advantage's value. ``runs`` limits
+        the datums to those runs; only their spans' arrays are read.
+        """
+        self._check_data(advantage, current_step, max_staleness)
+        mask_end = self.loss_mask_end
         data, loss_masks = [], []
+        selected = [
+            (run, indices)
+            for run, indices in self._runs()
+            if runs is None or run in runs
+        ]
         # Read spilled arrays once per segment record rather than per span.
-        all_spans = _read_spans(
-            self._spans,
-            topk=requirements is not None and requirements.top_logprobs is not None,
+        wanted = [index for _, indices in selected for index in indices]
+        read = dict(
+            zip(
+                wanted,
+                _read_spans(
+                    [self._spans[index] for index in wanted],
+                    topk=requirements is not None
+                    and requirements.top_logprobs is not None,
+                ),
+                strict=True,
+            )
         )
-        recovered = {id(s) for s in all_spans[: self._routing_recovery_start]}
-        generated_before = 0  # generated tokens in earlier spans, across runs
-        for run in range(self.run + 1):
-            spans = [s for s in all_spans if s.run == run]
-            generated = [i for i, s in enumerate(spans) if s.kind == "generated"]
-            if not generated:
-                continue
-            spans = spans[: generated[-1] + 1]
+        for run, indices in selected:
+            # Generated tokens in earlier spans, across runs.
+            generated_before = sum(
+                len(span)
+                for span in self._spans
+                if span.kind == "generated" and span.run < run
+            )
+            recovered = indices[-1] < self._routing_recovery_start
+            spans = [read[index] for index in indices]
             n = sum(map(len, spans))
             with_masses = {
                 s.sampling_log_masses is not None
@@ -716,7 +815,7 @@ class Trajectory:
                 )
                 datum["attention_mask"] = np.ones(n, dtype=np.int64)
             last = spans[-1]
-            if id(last) in recovered:
+            if recovered:
                 datum["_rl_recovered_routing"] = True
             if last.routing_handle is not None:
                 if last.routing_num_tokens != n - 1:

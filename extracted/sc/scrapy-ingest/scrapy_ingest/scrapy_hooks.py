@@ -92,6 +92,18 @@ def _patch_scrapy() -> None:
 
     cmdline.execute = _mark_wrapped(execute, orig_ex)
 
+    from scrapy.crawler import Crawler
+
+    if not getattr(Crawler, "_ingest_spider_kwargs_patch", False):
+        _orig_create = Crawler._create_spider
+
+        def _create_spider(self, *args, **kwargs):
+            self._ingest_spider_kwargs = dict(kwargs)
+            return _orig_create(self, *args, **kwargs)
+
+        Crawler._create_spider = _create_spider
+        Crawler._ingest_spider_kwargs_patch = True
+
 
 def install() -> None:
     global _installed

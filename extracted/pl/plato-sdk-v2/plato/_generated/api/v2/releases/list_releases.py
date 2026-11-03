@@ -23,7 +23,7 @@ def _build_request_args(
     if organization_id is not None:
         params["organization_id"] = organization_id
     if status is not None:
-        params["status"] = getattr(status, "value", status)
+        params["status"] = status
 
     headers: dict[str, str] = {}
     if authorization is not None:

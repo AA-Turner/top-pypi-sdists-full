@@ -5,7 +5,11 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Required, TypedDict
 
-from trajectory.types.benchmarks.benchmark_upload_file_param import BenchmarkUploadFileParam
+
+class BenchmarkUploadFileParam(TypedDict, total=False):
+  path: Required[str]
+  content_type: Required[str]
+  size_bytes: Required[int]
 
 
 class BenchmarksCreateUploadParams(TypedDict, total=False):

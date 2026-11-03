@@ -200,6 +200,10 @@ def main(argv=None):
     # pugiconfig.hpp) is emitted here first, at top level.
     sources = [pugixml_dir / "pugixml.cpp"]
     sources += sorted((repo / "src" / "cpp" / "src").rglob("*.cpp"))
+    # The providers (OpenCASCADE, Netgen, MMG), each guarded by its
+    # MESHIOPLUSPLUS_HAS_* macro; the add-ons' Python modules under addon/ are not
+    # part of the library.
+    sources += sorted((repo / "src" / "cpp" / "providers").glob("*/*.cpp"))
 
     prelude = []
     for s in sources:
@@ -260,6 +264,9 @@ BANNER = """\
 //      MESHIOPLUSPLUS_HAS_ADIOS2 (DOLFINx VTX .bp)           -> link adios2_cxx11
 //      MESHIOPLUSPLUS_HAS_TECIO (Tecplot .szplt)             -> link tecio (+ pthread)
 //      MESHIOPLUSPLUS_HAS_OCCT  (fit_cad, OpenCASCADE 7.6+)  -> link the TK* toolkits (LGPL-2.1)
+//      MESHIOPLUSPLUS_HAS_MMG   (adapt and the MMG operations) -> link mmg (LGPL-3.0, shared);
+//                                                         add MESHIOPLUSPLUS_MMG_INT64 for a 64-bit
+//                                                         MMG5_int, MESHIOPLUSPLUS_HAS_MMG_ELAS for move
 """
 
 DEFAULTS = """\

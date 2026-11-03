@@ -65,7 +65,7 @@ def add_parsers(psub: Any) -> None:
     p.add_argument("--seed", type=int, default=0, help="the controls' seed (default 0)")
 
     p = psub.add_parser("convert", help="export, check-model and scaffold in one go; then fill in the TODOs and run "
-                                        "compare")
+                                        "compare (a MuJoCo benchmark's; a SAPIEN port is compared by an eval)")
     p.add_argument("target", help="the CPU benchmark: file.py:Class or module:Class")
     p.add_argument("--engine", default=None, help="the GPU engine: mujoco-warp or sapien-gpu (default: the one the "
                                                   "benchmark's simulator ports to)")

@@ -119,3 +119,69 @@ def test_azure_voices_and_samples(client: TestClient, apis: FakeApis):
 
 def test_brief_audio_needs_azure(client: TestClient):
     assert client.get("/brief/1/audio", params={"language": "en"}).status_code == 404
+
+
+# The public demo
+
+
+@pytest.fixture
+def demo(tmp_path, apis: FakeApis):
+    from conftest import ORIGIN
+
+    from myorb.app import create_app
+    from myorb.config import Settings
+
+    settings = Settings(
+        data_dir=tmp_path / "demo",
+        public_demo=True,
+        timezone="UTC",
+        demo_azure_speech_key=KEY,
+        demo_azure_speech_region="westeurope",
+    )
+    azure = FakeAzure(apis)
+    app = create_app(settings, http_transport=httpx2.MockTransport(apis))
+    with TestClient(app, headers={"Origin": ORIGIN}) as client:
+        yield client, azure
+
+
+def latest_brief(client: TestClient) -> int:
+    """The demo's brief, written in the background as it starts."""
+    import re
+    import time
+
+    for _ in range(50):
+        if found := re.search(r'data-brief="(\d+)"', client.get("/brief/report").text):
+            return int(found.group(1))
+        time.sleep(0.1)
+    raise AssertionError("The demo wrote no brief.")
+
+
+def test_the_public_demo_reads_its_brief_once_with_its_own_azure(demo, apis):
+    demo, azure = demo
+    brief = latest_brief(demo)
+    page = demo.get("/brief/report").text
+    assert 'data-voice="azure" data-voice-fallback' in page
+    audio = demo.get(f"/brief/{brief}/audio", params={"language": "en"})
+    assert audio.status_code == 200 and audio.content == b"ID3 mp3 bytes"
+    read = len(azure.spoken)
+    assert read >= 1
+    # Played again, it is not read again.
+    assert demo.get(f"/brief/{brief}/audio", params={"language": "en"}).status_code == 200
+    assert len(azure.spoken) == read
+    # Kept under one name, so tomorrow's brief, saying the same, is not read again.
+    audio_dir = demo.app.state.settings.data_dir / "audio"
+    assert {path.name.split("-en-")[0] for path in audio_dir.iterdir()} == {"demo-brief"}
+
+
+def test_the_public_demo_reads_nothing_else_with_azure(demo, apis):
+    demo, azure = demo
+    brief = latest_brief(demo)
+    # What the demo read in advance, its brief in English, aside.
+    azure.spoken.clear()
+    assert demo.get(f"/brief/{brief}/audio", params={"language": "sk"}).status_code == 404
+    assert demo.get("/integrations/voice/sample", params={"language": "en"}).status_code == 404
+    spoken = demo.post("/voice/speech", json={"text": "Anything at all", "language": "en"})
+    assert spoken.status_code == 403
+    assert azure.spoken == []
+    # Ask's answers are read by the browser's voice.
+    assert 'id="ask" aria-labelledby="ask-title" data-voice="browser"' in demo.get("/").text

@@ -27,7 +27,6 @@ from plato._generated.models import (
     WaitForUrlStep,
     WaitStep,
 )
-from plato.v2.fast_mode import fast_mode_skips
 from plato.v2.sync.flow_backends import FlowBackend, FlowExecutionError, PlaywrightBackend
 
 logger = logging.getLogger(__name__)
@@ -39,7 +38,7 @@ class FlowExecutor:
     """Executes configurable flows for simulator interactions (synchronous).
 
     See :class:`plato.v2.async_.flow_executor.FlowExecutor` for the async twin
-    and a description of the backend abstraction and of ``fast_mode``.
+    and a description of the backend abstraction.
     """
 
     def __init__(
@@ -50,7 +49,6 @@ class FlowExecutor:
         log: logging.Logger | None = None,
         *,
         backend: FlowBackend | None = None,
-        fast_mode: bool = False,
     ):
         if flow is None:
             raise TypeError("FlowExecutor requires a `flow` argument")
@@ -59,7 +57,7 @@ class FlowExecutor:
         if backend is None:
             if page is None:
                 raise TypeError("FlowExecutor requires `page` or `backend`")
-            backend = PlaywrightBackend(page, fast_mode=fast_mode)
+            backend = PlaywrightBackend(page)
 
         self.page = page
         self.backend = backend
@@ -69,10 +67,6 @@ class FlowExecutor:
             self.screenshots_dir.mkdir(parents=True, exist_ok=True)
         self.base_url: str | None = None
         self.log = log or logger
-        # Executor-level fast mode (skip waits + confirmation tail) applies to
-        # any backend; the backend-level speedups only when the default
-        # Playwright backend was built here.
-        self.fast_mode = fast_mode
 
     def _resolve_url(self, url: str) -> str:
         """Resolve a URL against the base URL if it's relative."""
@@ -101,13 +95,9 @@ class FlowExecutor:
         self.log.info(f"📋 Flow description: {self.flow.description or 'No description'}")
         self.log.info(f"🎯 Steps to execute: {len(steps)}")
 
-        unwrapped = [step_wrapper.root if isinstance(step_wrapper, Steps) else step_wrapper for step_wrapper in steps]
-        skipped = fast_mode_skips([step.type for step in unwrapped]) if self.fast_mode else frozenset()
-        for i, step in enumerate(unwrapped, 1):
-            if i - 1 in skipped:
-                self.log.info(f"⏩ Step {i}/{len(unwrapped)}: {step.type} skipped (fast mode)")
-                continue
-            self.log.info(f"🔸 Step {i}/{len(unwrapped)}: {step.description or step.type}")
+        for i, step_wrapper in enumerate(steps, 1):
+            step = step_wrapper.root if isinstance(step_wrapper, Steps) else step_wrapper
+            self.log.info(f"🔸 Step {i}/{len(steps)}: {step.description or step.type}")
             self._execute_step(step)
 
         self.log.info(f"✅ Flow '{self.flow.name}' completed successfully")

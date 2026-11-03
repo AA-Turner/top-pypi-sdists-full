@@ -5,21 +5,22 @@ Generates pydantic.dataclasses.dataclass decorated classes with validation suppo
 
 from __future__ import annotations
 
-import keyword
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from typing_extensions import override
 
-from datamodel_code_generator._target_unicode import is_identifier
+from datamodel_code_generator._target_unicode import is_python_name
 from datamodel_code_generator.imports import IMPORT_ANNOTATED
-from datamodel_code_generator.model import DataModel, DataModelFieldBase, _rebuild_model_with_datamodel_namespace
+from datamodel_code_generator.model import DataModelFieldBase, _rebuild_model_with_datamodel_namespace
 from datamodel_code_generator.model import dataclass as _dataclass_module
 from datamodel_code_generator.model._decisions.assignment import (
     PydanticDataclassWritten,
+    excluded_from_init,
     participates_in_constructor,
+    requires_value,
 )
-from datamodel_code_generator.model._render_plan import CallPlan, Kwarg, Positional, RuleId, Why
+from datamodel_code_generator.model._render_plan import FORCED_ASSIGNMENT, CallPlan, Kwarg, Positional, RuleId, Why
 from datamodel_code_generator.model.base import (
     UNDEFINED,
     _classify_field_assignment,
@@ -32,21 +33,17 @@ from datamodel_code_generator.model.dataclass import _DataclassReuseMixin
 from datamodel_code_generator.model.pydantic_v2._config import (
     ConfigAttribute,
     build_base_config_parameters,
+    config_attributes,
 )
 from datamodel_code_generator.model.pydantic_v2._output_context import (
     ANNOTATED_CONSTRAINTS_CONTEXT as _ANNOTATED_CONSTRAINTS_CONTEXT,
 )
 from datamodel_code_generator.model.pydantic_v2.base_model import (
     _ALIAS_GENERATOR_TEMPLATE_DATA_KEY,
-    _config_constructs,
     _config_dict_items,
-    _config_keys_without_requirement,
     _import_rendered_alias_generator,
-    _model_references,
-    _template_config_items,
-    assigns_forward_reference_field,
+    _PydanticV2Model,
     has_lookaround_pattern,
-    models_reaching_string_pattern_aliases,
 )
 from datamodel_code_generator.model.pydantic_v2.base_model import (
     Constraints as _Constraints,
@@ -63,8 +60,6 @@ from datamodel_code_generator.python_literal import represent_python_value
 
 has_field_assignment = _dataclass_module.has_field_assignment
 _MUTABLE_DEFAULT_FACTORY = Why(RuleId("D4.default.dataclass-mutable-factory"), keyword="default")
-_FORCED_ASSIGNMENT = Why(RuleId("D4.default.forced-required-assignment"))
-"""A required field that a dataclass base's defaults would follow writes ``Field(...)``, so it stays required."""
 _VISIBLE_METADATA = Why(RuleId("D11.pydantic-dataclass.visible-metadata"), option="--use-annotated")
 """The dataclass must see the call's metadata: the call follows a plain annotation instead of going into it."""
 _SAFE_CONFIG_ITEMS_TEMPLATE_DATA_KEY = "_safe_config_items"
@@ -95,27 +90,27 @@ def _get_pydantic_dataclass_field_default_info(field: DataModelFieldBase) -> tup
 def _pydantic_dataclass_field_participates_in_constructor(field: DataModelFieldBase) -> bool:
     """Return whether a Pydantic dataclass field participates in __init__."""
     return participates_in_constructor(
-        "pydantic-dataclass", init_excluded=field.extras.get("init") is False, class_var=field.is_class_var
+        "pydantic-dataclass", init_excluded=excluded_from_init(field), class_var=field.is_class_var
     )
 
 
 if TYPE_CHECKING:
     from collections import defaultdict
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Mapping
     from pathlib import Path
 
     from datamodel_code_generator import DataclassArguments
-    from datamodel_code_generator._requirements import PydanticConstruct
     from datamodel_code_generator.imports import Import
     from datamodel_code_generator.model._decisions.assignment import AssignmentRow
     from datamodel_code_generator.model._render_plan import FieldRenderPlan
+    from datamodel_code_generator.model.base import BaseClassDataType
     from datamodel_code_generator.model.pydantic_base import _FieldArguments, _PydanticFieldRenderPlan
     from datamodel_code_generator.reference import Reference
 
 Constraints = _Constraints
 
 
-class DataClass(_DataclassReuseMixin, DataModel):
+class DataClass(_DataclassReuseMixin, _PydanticV2Model):
     """DataModel implementation for Pydantic v2 dataclasses."""
 
     TEMPLATE_FILE_PATH: ClassVar[str] = "pydantic_v2/dataclass.jinja2"
@@ -137,21 +132,13 @@ class DataClass(_DataclassReuseMixin, DataModel):
     SUPPORTS_KW_ONLY: ClassVar[bool] = True
     _READ_BY_PYDANTIC: ClassVar[bool] = True
     _CHECKS_CONSTRAINTS: ClassVar[bool] = True
-    _CONFIG_KEYS_WITHOUT_REQUIREMENT = staticmethod(_config_keys_without_requirement)
     SUPPORTS_ANNOTATED_CONSTRAINTS: ClassVar[bool] = True
     ANNOTATED_CONSTRAINTS_CONTEXT: ClassVar[object | None] = _ANNOTATED_CONSTRAINTS_CONTEXT
     _INCLUDE_DICT_KEY_REFERENCE_CLASSES = staticmethod(_includes_dict_key_reference_classes)
-    # frozen/allow_mutation are handled as dataclass decorator arguments, not ConfigDict
-    _CONFIG_ATTRIBUTES_V2: ClassVar[list[ConfigAttribute]] = [
-        ConfigAttribute("allow_population_by_field_name", "populate_by_name", False),  # noqa: FBT003
-        ConfigAttribute("populate_by_name", "populate_by_name", False),  # noqa: FBT003
-        ConfigAttribute("use_attribute_docstrings", "use_attribute_docstrings", False),  # noqa: FBT003
-    ]
-    _CONFIG_ATTRIBUTES_V2_11: ClassVar[list[ConfigAttribute]] = [
-        ConfigAttribute("allow_population_by_field_name", "validate_by_name", False),  # noqa: FBT003
-        ConfigAttribute("populate_by_name", "validate_by_name", False),  # noqa: FBT003
-        ConfigAttribute("use_attribute_docstrings", "use_attribute_docstrings", False),  # noqa: FBT003
-    ]
+    _CONFIG_ATTRIBUTES_V2: ClassVar[list[ConfigAttribute]] = config_attributes(by_name="populate_by_name", frozen=False)
+    _CONFIG_ATTRIBUTES_V2_11: ClassVar[list[ConfigAttribute]] = config_attributes(
+        by_name="validate_by_name", frozen=False
+    )
 
     def __init__(  # noqa: PLR0913
         self,
@@ -246,8 +233,7 @@ class DataClass(_DataclassReuseMixin, DataModel):
         if (
             as_string
             and any(
-                (reference := data_type.reference) is not None
-                and _reference_names_model(reference, self, "dataclass own name")
+                (reference := data_type.reference) is not None and _reference_names_model(reference, self)
                 for data_type in field.data_type.all_data_types
             )
             and model_target_meets(self, "pydantic.dataclass_own_name")
@@ -256,13 +242,6 @@ class DataClass(_DataclassReuseMixin, DataModel):
         return super().class_attribute_hides_named_type(
             field, assigned=assigned, resolved_late=resolved_late, as_string=as_string
         ) or (resolved_late and bool(self.dataclass_arguments.get("slots")))
-
-    @override
-    def assigns_forward_reference_field(
-        self, field: DataModelFieldBase, positions: Mapping[str, int], index: int
-    ) -> bool:
-        """Leave ``Annotated`` for a field that names a later model when the target predates Pydantic 2.11."""
-        return assigns_forward_reference_field(self, field, positions, index)
 
     @override
     def assign_forward_reference_fields(self, positions: Mapping[str, int], index: int) -> bool:
@@ -284,25 +263,13 @@ class DataClass(_DataclassReuseMixin, DataModel):
         if has_lookaround_pattern(self.fields, follow_references=True):
             self._select_python_regex_engine()
 
-    @classmethod
     @override
-    def finalize_type_alias_users(cls, models: list[DataModel]) -> None:
-        """Select Python's regex engine in every dataclass that reaches a string pattern type alias.
+    def _bases_without_inherited_config(self) -> list[BaseClassDataType]:
+        """Return the bases after the first: a dataclass takes the config of its first base only.
 
-        A dataclass inherits the config of its first base only and builds the fields of its other bases
-        with its own, so the references of its fields and of those bases count.
+        It builds the fields of the other bases with its own config.
         """
-        if not (reached := models_reaching_string_pattern_aliases(models)):
-            return
-        for model in models:
-            if isinstance(model, cls) and any(
-                id(reference.source) in reached for reference in _model_references(model, model.base_classes[1:])
-            ):
-                model._select_python_regex_engine()  # noqa: SLF001
-
-    def _rendered_config_items(self) -> list[tuple[str, str]]:
-        """Return the ``ConfigDict`` items the built-in dataclass template writes; imports and aliases read them."""
-        return _template_config_items(self.extra_template_data)
+        return self.base_classes[1:]
 
     def _applied_config_items(self, visiting: frozenset[int] = frozenset()) -> dict[str, str]:
         """Return the config items Pydantic applies: the dataclass's own, else all of its first dataclass base's.
@@ -322,13 +289,11 @@ class DataClass(_DataclassReuseMixin, DataModel):
         )
 
     @override
-    def _pydantic_constructs(self) -> Iterator[tuple[PydanticConstruct, str | None]]:
-        """Also yield the rows of the keys that the rendered dataclass config writes."""
-        yield from super()._pydantic_constructs()
-        yield from _config_constructs(self._rendered_config_items())
-
     def _select_python_regex_engine(self) -> None:
-        """Set ``regex_engine`` in the dataclass config."""
+        """Set ``regex_engine`` in the dataclass config.
+
+        Row ``legacy-dataclass-overwrites-engine``: it replaces an engine the config names, which a model keeps (#5637).
+        """
         # Merge into any config from __init__; a duplicate ConfigDict import is deduped on render.
         config = self.extra_template_data.setdefault("config", {})
         config["regex_engine"] = '"python-re"'
@@ -349,8 +314,11 @@ class DataClass(_DataclassReuseMixin, DataModel):
         return super().render(class_name=class_name)
 
 
-class _PydanticDataclassField(DataModelFieldV2):
-    """Adapt Annotated fields to the existing dataclass template contract."""
+class DataModelField(DataModelFieldV2):
+    """Field implementation for Pydantic v2 dataclass models.
+
+    Inherits pydantic v2 Field() constraint handling from DataModelFieldV2.
+    """
 
     _FIELD_ASSIGNMENT_ROW: ClassVar[AssignmentRow] = "pydantic-dataclass"
 
@@ -385,21 +353,16 @@ class _PydanticDataclassField(DataModelFieldV2):
     @override
     def _call_default_factory(self, args: _FieldArguments) -> Kwarg | None:
         """Use dataclass-safe factories for mutable schema defaults."""
-        if (factory := super()._call_default_factory(args)) is not None or (
-            self.required and not self.use_default_with_required
-        ):
+        if (factory := super()._call_default_factory(args)) is not None or requires_value(self):
             return factory
-        kwarg = None
         match self.default:
             case list() | dict() | set() as default:
-                kwarg = Kwarg(
+                return Kwarg(
                     "default_factory",
                     f"lambda: {represent_python_value(default)}" if default else type(default).__name__,
                     _MUTABLE_DEFAULT_FACTORY,
                 )
-            case _:
-                pass
-        return kwarg
+        return None
 
     @override
     def _written_assignment(self) -> PydanticDataclassWritten:
@@ -418,7 +381,7 @@ class _PydanticDataclassField(DataModelFieldV2):
             if not self._has_forced_field_assignment:
                 return plan
             call = CallPlan(
-                Positional("required", _FORCED_ASSIGNMENT), None, (), default_keyword=False, why=_FORCED_ASSIGNMENT
+                Positional("required", FORCED_ASSIGNMENT), None, (), default_keyword=False, why=FORCED_ASSIGNMENT
             )
             plan = self._field_render_plan(
                 call,
@@ -461,8 +424,7 @@ class _PydanticDataclassField(DataModelFieldV2):
         """Return whether a required ``Annotated`` field is an assignment only because of its alias."""
         return (
             self.use_annotated
-            and self.required
-            and not self.use_default_with_required
+            and requires_value(self)
             and self._alias_requires_assignment
             and not self._metadata_requires_assignment(self._get_field_render_plan().default_factory)
         )
@@ -476,11 +438,7 @@ class _PydanticDataclassField(DataModelFieldV2):
         """Render a dataclass assignment from an already computed plan."""
         if not plan.rendered:
             return None
-        if (
-            plan.default_factory
-            or (self.required and not self.use_default_with_required)
-            or self.should_strip_default_none(keep_optional=True)
-        ):
+        if plan.default_factory or requires_value(self) or self.should_strip_default_none(keep_optional=True):
             return plan.rendered
         if not self.use_annotated:
             return plan.assignment
@@ -537,13 +495,6 @@ class _PydanticDataclassField(DataModelFieldV2):
         return tuple(import_ for import_ in imports if import_ != IMPORT_ANNOTATED)
 
 
-class DataModelField(_PydanticDataclassField):
-    """Field implementation for Pydantic v2 dataclass models.
-
-    Inherits pydantic v2 Field() constraint handling from DataModelFieldV2.
-    """
-
-
 class DataModelFieldBackport(DataModelField):
     """Dataclass field for targets before Pydantic 2.4, which rejects non-identifier dataclass aliases."""
 
@@ -552,9 +503,7 @@ class DataModelFieldBackport(DataModelField):
     def __init__(self, **data: Any) -> None:
         """Initialize and make non-identifier aliases safe for dataclass signatures."""
         super().__init__(**data)
-        if self.alias is None or (
-            is_identifier(self.alias, self.data_type.python_version) and not keyword.iskeyword(self.alias)
-        ):
+        if self.alias is None or is_python_name(self.alias, self.data_type.python_version):
             return
 
         validation_aliases = list(self.validation_aliases or ())

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-recoveryservices
-Version: 4.2.0
+Version: 4.3.0
 Summary: Microsoft Azure Recoveryservices Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -86,6 +86,12 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 4.3.0 (2026-10-30)
+
+### Other Changes
+
+  - Upgraded the service API version to 2026-11-01.
 
 ## 4.2.0 (2026-08-13)
 

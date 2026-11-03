@@ -77,31 +77,31 @@ class _LazyImporter:
 
   @property
   def jax(self):
-    import jax  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
+    import jax  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-import]
 
     return jax
 
   @property
   def jnp(self):
-    import jax.numpy as jnp  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
+    import jax.numpy as jnp  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-import]
 
     return jnp
 
   @property
   def tf(self):
-    import tensorflow  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
+    import tensorflow  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-source-for-stubs]
 
     return tensorflow
 
   @property
   def tnp(self):
-    import tensorflow.experimental.numpy as tnp  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
+    import tensorflow.experimental.numpy as tnp  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-import]
 
     return tnp
 
   @property
   def torch(self):
-    import torch  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
+    import torch  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-import]
 
     return torch
 
@@ -121,10 +121,10 @@ class _LazyImporter:
   def is_torch_xnp(self, xnp: NpModule) -> bool:
     return self.has_torch and xnp is self.torch
 
-  def is_np(self, x: Array) -> bool:
+  def is_np(self, x: Array) -> bool:  # pyrefly: ignore[not-a-type]
     return isinstance(x, (np.ndarray, np.generic))
 
-  def is_tf(self, x: Array) -> bool:
+  def is_tf(self, x: Array) -> bool:  # pyrefly: ignore[not-a-type]
     return self.has_tf and isinstance(
         x,
         (
@@ -134,13 +134,13 @@ class _LazyImporter:
         ),
     )
 
-  def is_jax(self, x: Array) -> bool:
+  def is_jax(self, x: Array) -> bool:  # pyrefly: ignore[not-a-type]
     return self.has_jax and isinstance(x, self.jnp.ndarray)
 
-  def is_torch(self, x: Array) -> bool:
+  def is_torch(self, x: Array) -> bool:  # pyrefly: ignore[not-a-type]
     return self.has_torch and isinstance(x, self.torch.Tensor)
 
-  def is_array(self, x: Array, *, strict: bool = True) -> bool:
+  def is_array(self, x: Array, *, strict: bool = True) -> bool:  # pyrefly: ignore[not-a-type]
     is_array_like = False if strict else isinstance(x, _ARRAY_LIKE_TYPES)
     return (
         self.is_np(x)
@@ -174,13 +174,15 @@ class _LazyImporter:
     )
 
   def as_np_dtype(self, dtype):
-    if self.is_tf_dtype(dtype):
+    if self.is_np_dtype(dtype) or self.is_jax_dtype(dtype):
+      pass
+    elif self.is_tf_dtype(dtype):
       dtype = dtype.as_numpy_dtype
     elif self.is_torch_dtype(dtype):
       from etils.enp import compat  # pylint: disable=g-import-not-at-top
 
       dtype = compat.dtype_torch_to_np(dtype)
-    elif not self.is_jax_dtype(dtype) and not self.is_np_dtype(dtype):
+    else:
       raise TypeError(f'Invalid dtype: {dtype!r}')
     return np.dtype(dtype)
 
@@ -210,7 +212,7 @@ class _LazyImporter:
 
   def dtype_from_array(
       self,
-      array_like: Array,
+      array_like: Array,  # pyrefly: ignore[not-a-type]
       *,
       strict: bool = True,
   ) -> Optional[_np.dtype]:
@@ -234,7 +236,7 @@ class _LazyImporter:
       raise TypeError(f'Cannot extract dtype from non-array {type(array_like)}')
     return self.as_dtype(dtype)
 
-  def get_xnp(self, x: Array, *, strict: bool = True):  # -> NpModule:
+  def get_xnp(self, x: Array, *, strict: bool = True):  # -> NpModule:  # pyrefly: ignore[not-a-type]
     """Returns the numpy module associated with the given array.
 
     Args:
@@ -285,7 +287,7 @@ class _LazyImporter:
 lazy = _LazyImporter()
 
 
-def get_np_module(array: Array, *, strict: bool = True):  # -> NpModule:
+def get_np_module(array: Array, *, strict: bool = True):  # -> NpModule:  # pyrefly: ignore[not-a-type]
   """Returns the numpy module associated with the given array.
 
   Args:

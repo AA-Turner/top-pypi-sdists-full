@@ -1,9 +1,10 @@
 import asyncio
+import contextlib
+import copy
 import functools
 import os
 import unittest
-from collections.abc import Callable, Coroutine
-from typing import Optional
+from collections.abc import Callable, Coroutine, Iterator
 from unittest import mock
 
 import ifaddr
@@ -16,14 +17,54 @@ from .utils import RUNNING_ON_MAC_CI, asynctest, invite_accept
 RUNNING_ON_CI = os.environ.get("GITHUB_ACTIONS") == "true"
 
 
+async def add_mdns_candidates(
+    publisher: mdns.MDnsProtocol, conn: ice.Connection, candidates: list[Candidate]
+) -> None:
+    """
+    Signal candidates to a connection under new mDNS hostnames, followed by
+    end-of-candidates.
+    """
+    for candidate in candidates:
+        hostname = mdns.create_mdns_hostname()
+        await publisher.publish(hostname, candidate.host)
+        await conn.add_remote_candidate(
+            Candidate(
+                foundation=candidate.foundation,
+                component=candidate.component,
+                transport=candidate.transport,
+                priority=candidate.priority,
+                host=hostname,
+                port=candidate.port,
+                type=candidate.type,
+            )
+        )
+    await conn.add_remote_candidate(None)
+
+
 async def delay(coro: Callable[[], Coroutine[None, None, None]]) -> None:
     await asyncio.sleep(1)
     await coro()
 
 
+@contextlib.contextmanager
+def spy_send_stun() -> Iterator[mock.Mock]:
+    """
+    Record the STUN messages sent by all protocols, while still sending them.
+    """
+    with mock.patch.object(
+        ice.StunProtocol,
+        "send_stun",
+        autospec=True,
+        side_effect=ice.StunProtocol.send_stun,
+    ) as send_stun:
+        yield send_stun
+
+
 class ProtocolMock(ice.StunProtocol):
-    def __init__(self, response_addr: tuple[str, int]) -> None:
-        super().__init__(None)
+    def __init__(
+        self, receiver: ice.Connection, response_addr: tuple[str, int]
+    ) -> None:
+        super().__init__(receiver)
         self.local_candidate = Candidate(
             foundation="some-foundation",
             component=1,
@@ -35,14 +76,14 @@ class ProtocolMock(ice.StunProtocol):
         )
 
         self.response_addr = response_addr
-        self.sent_message: Optional[stun.Message] = None
+        self.sent_message: stun.Message | None = None
 
     async def request(
         self,
         message: stun.Message,
         addr: tuple[str, int],
-        integrity_key: Optional[bytes] = None,
-        retransmissions: Optional[int] = None,
+        integrity_key: bytes | None = None,
+        retransmissions: int | None = None,
     ) -> tuple[stun.Message, tuple[str, int]]:
         response_message = stun.Message(
             message_method=message.message_method,
@@ -62,7 +103,7 @@ class IceComponentTest(unittest.TestCase):
         connection.remote_password = "remote-password"
         connection.remote_username = "remote-username"
 
-        protocol = ProtocolMock(response_addr=("2.3.4.5", 2345))
+        protocol = ProtocolMock(connection, response_addr=("2.3.4.5", 2345))
 
         request = stun.Message(
             message_method=stun.Method.BINDING, message_class=stun.Class.REQUEST
@@ -90,8 +131,117 @@ class IceComponentTest(unittest.TestCase):
         self.assertEqual(pair.remote_candidate, candidate)
 
         # check a triggered check was scheduled
-        self.assertIsNotNone(pair.task)
+        assert pair.task is not None
         await pair.task
+
+    @asynctest
+    async def test_peer_reflexive_non_canonical_address(self) -> None:
+        """
+        A check from a candidate signalled with a non-canonical IPv6 address
+        does not create a peer-reflexive candidate.
+        """
+        connection = ice.Connection(ice_controlling=True)
+        connection.remote_password = "remote-password"
+        connection.remote_username = "remote-username"
+
+        protocol = ProtocolMock(connection, response_addr=("2001:db8::1", 2345))
+        protocol.local_candidate = Candidate(
+            foundation="some-foundation",
+            component=1,
+            transport="udp",
+            priority=1234,
+            host="2001:db8::2",
+            port=1234,
+            type="host",
+        )
+        connection._protocols.append(protocol)
+
+        candidate = Candidate(
+            foundation="some-foundation",
+            component=1,
+            transport="udp",
+            priority=1234,
+            host="2001:DB8:0::1",
+            port=2345,
+            type="host",
+        )
+        await connection.add_remote_candidate(candidate)
+
+        # Check the candidate was copied, leaving the caller's object untouched.
+        self.assertEqual(len(connection.remote_candidates), 1)
+        remote_candidate = connection.remote_candidates[0]
+        self.assertIsNot(remote_candidate, candidate)
+        self.assertEqual(candidate._network_host, "2001:DB8:0::1")
+
+        # Check a pair was formed using the canonical address.
+        self.assertEqual(len(connection._check_list), 1)
+        pair = connection._check_list[0]
+        self.assertEqual(pair.remote_candidate, remote_candidate)
+        self.assertEqual(pair.remote_addr, ("2001:db8::1", 2345))
+
+        request = stun.Message(
+            message_method=stun.Method.BINDING, message_class=stun.Class.REQUEST
+        )
+        request.attributes["PRIORITY"] = 456789
+        connection.check_incoming(request, ("2001:db8::1", 2345), protocol)
+
+        # Check the signalled candidate was matched and kept as signalled.
+        self.assertEqual(connection.remote_candidates, [remote_candidate])
+        self.assertEqual(remote_candidate.host, "2001:DB8:0::1")
+
+        # Check the existing pair was used for the triggered check.
+        self.assertEqual(connection._check_list, [pair])
+        assert pair.task is not None
+        await pair.task
+
+    @asynctest
+    async def test_peer_reflexive_then_signalled(self) -> None:
+        """
+        A candidate signalled after it was learned as peer-reflexive updates
+        the peer-reflexive candidate instead of forming a duplicate pair.
+        """
+        connection = ice.Connection(ice_controlling=True)
+        connection.remote_password = "remote-password"
+        connection.remote_username = "remote-username"
+
+        protocol = ProtocolMock(connection, response_addr=("2.3.4.5", 2345))
+        connection._protocols.append(protocol)
+
+        request = stun.Message(
+            message_method=stun.Method.BINDING, message_class=stun.Class.REQUEST
+        )
+        request.attributes["PRIORITY"] = 456789
+
+        connection.check_incoming(request, ("2.3.4.5", 2345), protocol)
+        self.assertEqual(len(connection._check_list), 1)
+        pair = connection._check_list[0]
+        candidate = pair.remote_candidate
+        self.assertEqual(candidate.type, "prflx")
+        assert pair.task is not None
+        await pair.task
+
+        # The peer signals the candidate.
+        await connection.add_remote_candidate(
+            Candidate(
+                foundation="signalled-foundation",
+                component=1,
+                transport="udp",
+                priority=2130706431,
+                host="2.3.4.5",
+                port=2345,
+                type="host",
+            )
+        )
+
+        # Check the peer-reflexive candidate was updated.
+        self.assertEqual(connection.remote_candidates, [candidate])
+        self.assertEqual(candidate.foundation, "signalled-foundation")
+        self.assertEqual(candidate.priority, 2130706431)
+        self.assertEqual(candidate.type, "host")
+
+        # Check the existing pair was kept.
+        self.assertEqual(connection._check_list, [pair])
+        self.assertEqual(pair.remote_candidate, candidate)
 
     @asynctest
     async def test_nomination_removes_waiting_and_frozen_pairs(self) -> None:
@@ -101,7 +251,7 @@ class IceComponentTest(unittest.TestCase):
             *, component: int, port: int, state: ice.CandidatePair.State
         ) -> ice.CandidatePair:
             # The pair's component is that of its local candidate.
-            protocol = ProtocolMock(response_addr=("2.3.4.5", 2345))
+            protocol = ProtocolMock(connection, response_addr=("2.3.4.5", 2345))
             protocol.local_candidate.component = component
             pair = ice.CandidatePair(
                 protocol,
@@ -153,7 +303,8 @@ class IceComponentTest(unittest.TestCase):
 
         # A check scheduled but not yet started must be cancelled.
         connection.check_start_task(waiting)
-        self.assertIsNotNone(waiting.task)
+        task = waiting.task
+        assert task is not None
 
         connection.check_complete(nominated)
         self.assertEqual(
@@ -161,17 +312,81 @@ class IceComponentTest(unittest.TestCase):
             [nominated, succeeded, in_progress, failed, *other_component],
         )
         with self.assertRaises(asyncio.CancelledError):
-            await waiting.task
+            await task
         self.assertEqual(waiting.state, ice.CandidatePair.State.WAITING)
 
         # No check is left running.
         self.assertEqual(asyncio.all_tasks(), {asyncio.current_task()})
 
     @asynctest
+    async def test_request_before_remote_credentials(self) -> None:
+        connection = ice.Connection(ice_controlling=True)
+
+        # A trickled candidate formed a pair before the remote credentials
+        # are known.
+        protocol = ProtocolMock(connection, response_addr=("2.3.4.5", 2345))
+        remote_candidate = Candidate(
+            foundation="some-foundation",
+            component=1,
+            transport="udp",
+            priority=2345,
+            host="2.3.4.5",
+            port=2345,
+            type="host",
+        )
+        connection._remote_candidates.append(remote_candidate)
+        pair = ice.CandidatePair(protocol, remote_candidate)
+        connection._check_list.append(pair)
+
+        request = stun.Message(
+            message_method=stun.Method.BINDING, message_class=stun.Class.REQUEST
+        )
+        request.attributes["USERNAME"] = f"{connection.local_username}:remote-username"
+        request.add_message_integrity(connection.local_password.encode("utf8"))
+        connection.request_received(
+            request, ("2.3.4.5", 2345), protocol, bytes(request)
+        )
+
+        # The request is answered, but the triggered check is deferred.
+        assert protocol.sent_message is not None
+        self.assertEqual(protocol.sent_message.message_method, stun.Method.BINDING)
+        self.assertEqual(protocol.sent_message.message_class, stun.Class.RESPONSE)
+        self.assertEqual(
+            list(connection._early_checks), [(request, ("2.3.4.5", 2345), protocol)]
+        )
+        self.assertIsNone(pair.task)
+        self.assertEqual(pair.state, ice.CandidatePair.State.FROZEN)
+
+    @asynctest
+    async def test_request_before_remote_credentials_limit(self) -> None:
+        connection = ice.Connection(ice_controlling=True)
+        protocol = ProtocolMock(connection, response_addr=("2.3.4.5", 2345))
+
+        requests = []
+        for _ in range(ice.MAX_EARLY_CHECKS + 1):
+            request = stun.Message(
+                message_method=stun.Method.BINDING, message_class=stun.Class.REQUEST
+            )
+            request.attributes["USERNAME"] = (
+                f"{connection.local_username}:remote-username"
+            )
+            request.add_message_integrity(connection.local_password.encode("utf8"))
+            connection.request_received(
+                request, ("2.3.4.5", 2345), protocol, bytes(request)
+            )
+            requests.append(request)
+
+        # Only the most recent checks are kept.
+        self.assertEqual(
+            [early_check[0] for early_check in connection._early_checks],
+            requests[1:],
+        )
+
+    @asynctest
     async def test_request_with_invalid_method(self) -> None:
         connection = ice.Connection(ice_controlling=True)
 
-        protocol = ProtocolMock(response_addr=("2.3.4.5", 2345))
+        protocol = ProtocolMock(connection, response_addr=("2.3.4.5", 2345))
 
         request = stun.Message(
             message_method=stun.Method.ALLOCATE, message_class=stun.Class.REQUEST
@@ -180,7 +395,7 @@ class IceComponentTest(unittest.TestCase):
         connection.request_received(
             request, ("2.3.4.5", 2345), protocol, bytes(request)
         )
-        self.assertIsNotNone(protocol.sent_message)
+        assert protocol.sent_message is not None
         self.assertEqual(protocol.sent_message.message_method, stun.Method.ALLOCATE)
         self.assertEqual(protocol.sent_message.message_class, stun.Class.ERROR)
         self.assertEqual(
@@ -193,7 +408,7 @@ class IceComponentTest(unittest.TestCase):
         connection.remote_password = "remote-password"
         connection.remote_username = "remote-username"
 
-        protocol = ProtocolMock(response_addr=("3.4.5.6", 3456))
+        protocol = ProtocolMock(connection, response_addr=("3.4.5.6", 3456))
 
         pair = ice.CandidatePair(
             protocol,
@@ -229,7 +444,7 @@ class IceComponentTest(unittest.TestCase):
                 connection.remote_password = "remote-password"
                 connection.remote_username = "remote-username"
 
-                protocol = ProtocolMock(response_addr=("2.3.4.5", 2345))
+                protocol = ProtocolMock(connection, response_addr=("2.3.4.5", 2345))
                 remote_candidate = Candidate(
                     foundation="some-foundation",
                     component=1,
@@ -256,7 +471,7 @@ class IceComponentTest(unittest.TestCase):
 
                 if triggered:
                     self.assertEqual(pair.state, ice.CandidatePair.State.WAITING)
-                    self.assertIsNotNone(pair.task)
+                    assert pair.task is not None
                     await pair.task
                     self.assertEqual(pair.state, ice.CandidatePair.State.SUCCEEDED)
                 else:
@@ -266,13 +481,14 @@ class IceComponentTest(unittest.TestCase):
 
 class IceConnectionTest(unittest.TestCase):
     def assertCandidateTypes(self, conn: ice.Connection, expected: set[str]) -> None:
-        types = set([c.type for c in conn.local_candidates])
+        types = {c.type for c in conn.local_candidates}
         self.assertEqual(types, expected)
 
     def tearDown(self) -> None:
         ice.CONSENT_FAILURES = 6
         ice.CONSENT_INTERVAL = 5
         stun.RETRY_MAX = 6
+        stun.RETRY_RTO = 0.5
 
     async def connect_and_exchange_data(
         self, conn_a: ice.Connection, conn_b: ice.Connection
@@ -393,12 +609,12 @@ class IceConnectionTest(unittest.TestCase):
         await invite_accept(conn_a, conn_b)
 
         # we should only have host candidates
-        self.assertCandidateTypes(conn_a, set(["host"]))
-        self.assertCandidateTypes(conn_b, set(["host"]))
+        self.assertCandidateTypes(conn_a, {"host"})
+        self.assertCandidateTypes(conn_b, {"host"})
 
         # there should be a default candidate for component 1
         candidate = conn_a.get_default_candidate(1)
-        self.assertIsNotNone(candidate)
+        assert candidate is not None
         self.assertEqual(candidate.type, "host")
 
         # there should not be a default candidate for component 2
@@ -451,6 +667,126 @@ class IceConnectionTest(unittest.TestCase):
         exceptions = [x.exception() for x in done if x.exception()]
         self.assertEqual(len(exceptions), 1)
         self.assertTrue(isinstance(exceptions[0], ConnectionError))
+
+    async def start_connect_with_check_in_progress(
+        self, conn: ice.Connection
+    ) -> asyncio.Task[None]:
+        """
+        Start connecting to several unreachable remote candidates, without
+        end-of-candidates, and wait for the first check to be in progress.
+        """
+        await conn.gather_candidates()
+        conn.remote_username = "foo"
+        conn.remote_password = "bar"
+        for port in range(31102, 31112):
+            await conn.add_remote_candidate(
+                Candidate.from_sdp(
+                    f"6815297761 1 udp 659136 1.2.3.4 {port} typ host generation 0"
+                )
+            )
+        connect_task = asyncio.create_task(conn.connect())
+        async with asyncio.timeout(1):
+            while not any(
+                p.state == ice.CandidatePair.State.IN_PROGRESS for p in conn._check_list
+            ):
+                await asyncio.sleep(0.01)
+        return connect_task
+
+    @asynctest
+    async def test_connect_close_without_end_of_candidates(self) -> None:
+        stun.RETRY_RTO = 0.1
+
+        conn = ice.Connection(ice_controlling=True)
+        with spy_send_stun() as send_stun:
+            connect_task = await self.start_connect_with_check_in_progress(conn)
+            await conn.close()
+            call_count = send_stun.call_count
+
+            # Closing ends connect() although more candidates may be trickled.
+            with self.assertRaises(ConnectionError) as cm:
+                await asyncio.wait_for(connect_task, timeout=1)
+            self.assertEqual(str(cm.exception), "ICE negotiation failed")
+
+            # No check is started or retransmitted after closing.
+            await asyncio.sleep(stun.RETRY_RTO * 3)
+            self.assertEqual(send_stun.call_count, call_count)
+
+    @asynctest
+    async def test_connect_cancel_then_close(self) -> None:
+        stun.RETRY_RTO = 0.1
+
+        conn = ice.Connection(ice_controlling=True)
+        with spy_send_stun() as send_stun:
+            connect_task = await self.start_connect_with_check_in_progress(conn)
+            connect_task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await connect_task
+
+            # Closing stops the checks connect() left running.
+            await conn.close()
+            call_count = send_stun.call_count
+            await asyncio.sleep(stun.RETRY_RTO * 3)
+            self.assertEqual(send_stun.call_count, call_count)
+
+    @asynctest
+    async def test_connect_cancel_then_close_with_incoming_check(self) -> None:
+        stun.RETRY_RTO = 0.1
+
+        conn = ice.Connection(ice_controlling=True)
+        connect_task = await self.start_connect_with_check_in_progress(conn)
+        connect_task.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await connect_task
+
+        # Checks arrive on the socket of the pair being checked.
+        pair = next(
+            p
+            for p in conn._check_list
+            if p.state == ice.CandidatePair.State.IN_PROGRESS
+        )
+        protocols = list(conn._protocols)
+
+        def receive_check(addr: tuple[str, int]) -> None:
+            request = stun.Message(
+                message_method=stun.Method.BINDING, message_class=stun.Class.REQUEST
+            )
+            request.attributes["USERNAME"] = f"{conn.local_username}:foo"
+            request.attributes["PRIORITY"] = 456789
+            request.attributes["ICE-CONTROLLED"] = 1
+            request.add_message_integrity(conn.local_password.encode("utf8"))
+            pair.protocol.datagram_received(bytes(request), addr)
+
+        with spy_send_stun() as send_stun:
+
+            def sent_to(addr: tuple[str, int]) -> list[stun.Class]:
+                return [
+                    call.args[1].message_class
+                    for call in send_stun.call_args_list
+                    if call.args[2] == addr
+                ]
+
+            def requests_sent() -> int:
+                return sum(
+                    1
+                    for call in send_stun.call_args_list
+                    if call.args[1].message_class == stun.Class.REQUEST
+                )
+
+            # A check from an unknown address is answered before closing.
+            receive_check(("2.3.4.6", 2345))
+            self.assertEqual(sent_to(("2.3.4.6", 2345)), [stun.Class.RESPONSE])
+
+            # A check arriving while the connection closes its sockets does not
+            # start a check.
+            close_task = asyncio.create_task(conn.close())
+            async with asyncio.timeout(1):
+                while not protocols[0].transport.is_closing():
+                    await asyncio.sleep(0)
+            request_count = requests_sent()
+            receive_check(("2.3.4.5", 2345))
+            await close_task
+            await asyncio.sleep(stun.RETRY_RTO * 3)
+            self.assertEqual(requests_sent(), request_count)
 
     @asynctest
     async def test_connect_early_checks(self) -> None:
@@ -533,23 +869,23 @@ class IceConnectionTest(unittest.TestCase):
         await invite_accept(conn_a, conn_b)
 
         # we should only have host candidates
-        self.assertCandidateTypes(conn_a, set(["host"]))
-        self.assertCandidateTypes(conn_b, set(["host"]))
+        self.assertCandidateTypes(conn_a, {"host"})
+        self.assertCandidateTypes(conn_b, {"host"})
 
         # there should be a default candidate for component 1
         candidate = conn_a.get_default_candidate(1)
-        self.assertIsNotNone(candidate)
+        assert candidate is not None
         self.assertEqual(candidate.type, "host")
 
         # there should be a default candidate for component 2
         candidate = conn_a.get_default_candidate(2)
-        self.assertIsNotNone(candidate)
+        assert candidate is not None
         self.assertEqual(candidate.type, "host")
 
         # connect
         await asyncio.gather(conn_a.connect(), conn_b.connect())
-        self.assertEqual(conn_a._components, set([1, 2]))
-        self.assertEqual(conn_b._components, set([1, 2]))
+        self.assertEqual(conn_a._components, {1, 2})
+        self.assertEqual(conn_b._components, {1, 2})
 
         # send data a -> b (component 1)
         await conn_a.sendto(b"howdee", 1)
@@ -602,8 +938,8 @@ class IceConnectionTest(unittest.TestCase):
 
         # connect
         await asyncio.gather(conn_a.connect(), conn_b.connect())
-        self.assertEqual(conn_a._components, set([1]))
-        self.assertEqual(conn_b._components, set([1]))
+        self.assertEqual(conn_a._components, {1})
+        self.assertEqual(conn_b._components, {1})
 
         # send data a -> b (component 1)
         await conn_a.sendto(b"howdee", 1)
@@ -631,12 +967,12 @@ class IceConnectionTest(unittest.TestCase):
         await invite_accept(conn_a, conn_b)
 
         # we should only have host candidates
-        self.assertCandidateTypes(conn_a, set(["host"]))
-        self.assertCandidateTypes(conn_b, set(["host"]))
+        self.assertCandidateTypes(conn_a, {"host"})
+        self.assertCandidateTypes(conn_b, {"host"})
 
         # there should be a default candidate for component 1
         candidate = conn_a.get_default_candidate(1)
-        self.assertIsNotNone(candidate)
+        assert candidate is not None
         self.assertEqual(candidate.type, "host")
 
         # there should not be a default candidate for component 2
@@ -1066,12 +1402,12 @@ class IceConnectionTest(unittest.TestCase):
             await invite_accept(conn_a, conn_b)
 
             # we whould have both host and server-reflexive candidates
-            self.assertCandidateTypes(conn_a, set(["host", "srflx"]))
-            self.assertCandidateTypes(conn_b, set(["host"]))
+            self.assertCandidateTypes(conn_a, {"host", "srflx"})
+            self.assertCandidateTypes(conn_b, {"host"})
 
             # the default candidate should be server-reflexive
             candidate = conn_a.get_default_candidate(1)
-            self.assertIsNotNone(candidate)
+            assert candidate is not None
             self.assertEqual(candidate.type, "srflx")
             self.assertIsNotNone(candidate.related_address)
             self.assertIsNotNone(candidate.related_port)
@@ -1087,8 +1423,8 @@ class IceConnectionTest(unittest.TestCase):
         await invite_accept(conn_a, conn_b)
 
         # we whould have only host candidates
-        self.assertCandidateTypes(conn_a, set(["host"]))
-        self.assertCandidateTypes(conn_b, set(["host"]))
+        self.assertCandidateTypes(conn_a, {"host"})
+        self.assertCandidateTypes(conn_b, {"host"})
 
         await self.connect_and_exchange_data(conn_a, conn_b)
 
@@ -1107,8 +1443,8 @@ class IceConnectionTest(unittest.TestCase):
             await invite_accept(conn_a, conn_b)
 
             # we whould have only host candidates
-            self.assertCandidateTypes(conn_a, set(["host"]))
-            self.assertCandidateTypes(conn_b, set(["host"]))
+            self.assertCandidateTypes(conn_a, {"host"})
+            self.assertCandidateTypes(conn_b, {"host"})
 
             await self.connect_and_exchange_data(conn_a, conn_b)
 
@@ -1137,9 +1473,45 @@ class IceConnectionTest(unittest.TestCase):
             await self.connect_and_exchange_data(conn_a, conn_b)
 
     @asynctest
+    async def test_connect_relay_only(self) -> None:
+        """
+        Connect using only the relayed candidate, with the relay transport policy.
+        """
+        async with run_turn_server(users={"foo": "bar"}) as turn_server:
+            conn_a = ice.Connection(
+                ice_controlling=True,
+                turn_server=turn_server.udp_address,
+                turn_username="foo",
+                turn_password="bar",
+                transport_policy=TransportPolicy.RELAY,
+            )
+            conn_b = ice.Connection(ice_controlling=False)
+
+            # Exchange candidates and credentials. Connection B only uses the loopback
+            # address, which Windows requires to reach the test TURN server's relay.
+            with mock.patch(
+                "aioice.ice.get_host_addresses", return_value=["127.0.0.1"]
+            ):
+                await invite_accept(conn_a, conn_b)
+
+            # Connect, and check the nominated pair uses the relayed candidate.
+            await asyncio.gather(conn_a.connect(), conn_b.connect())
+            self.assertEqual(conn_a._nominated[1].local_candidate.type, "relay")
+
+            # Send data both ways.
+            await conn_a.send(b"howdee")
+            self.assertEqual(await conn_b.recv(), b"howdee")
+            await conn_b.send(b"gotcha")
+            self.assertEqual(await conn_a.recv(), b"gotcha")
+
+            # Close the connections.
+            await conn_a.close()
+            await conn_b.close()
+
+    @asynctest
     async def test_connect_with_turn_server_tcp(self) -> None:
         async with run_turn_server(users={"foo": "bar"}) as turn_server:
-            # create connections
+            # Create the connections.
             conn_a = ice.Connection(
                 ice_controlling=True,
                 turn_server=turn_server.tcp_address,
@@ -1149,18 +1521,20 @@ class IceConnectionTest(unittest.TestCase):
             )
             conn_b = ice.Connection(ice_controlling=False)
 
-            # invite / accept
+            # Exchange candidates and credentials.
             await invite_accept(conn_a, conn_b)
 
-            # we should have both host and relayed candidates
-            self.assertCandidateTypes(conn_a, set(["host", "relay"]))
-            self.assertCandidateTypes(conn_b, set(["host"]))
+            # Check both host and relayed candidates were gathered.
+            self.assertCandidateTypes(conn_a, {"host", "relay"})
+            self.assertCandidateTypes(conn_b, {"host"})
 
-            # the default candidate should be relayed
+            # Check the default candidate is relayed, and does not hide its related
+            # address.
             candidate = conn_a.get_default_candidate(1)
-            self.assertIsNotNone(candidate)
+            assert candidate is not None
             self.assertEqual(candidate.type, "relay")
             self.assertIsNotNone(candidate.related_address)
+            self.assertNotEqual(candidate.related_address, "0.0.0.0")
             self.assertIsNotNone(candidate.related_port)
 
             await self.connect_and_exchange_data(conn_a, conn_b)
@@ -1168,7 +1542,7 @@ class IceConnectionTest(unittest.TestCase):
     @asynctest
     async def test_connect_with_turn_server_udp(self) -> None:
         async with run_turn_server(users={"foo": "bar"}) as turn_server:
-            # create connections
+            # Create the connections.
             conn_a = ice.Connection(
                 ice_controlling=True,
                 turn_server=turn_server.udp_address,
@@ -1177,18 +1551,20 @@ class IceConnectionTest(unittest.TestCase):
             )
             conn_b = ice.Connection(ice_controlling=False)
 
-            # invite / accept
+            # Exchange candidates and credentials.
             await invite_accept(conn_a, conn_b)
 
-            # we should have both host and relayed candidates
-            self.assertCandidateTypes(conn_a, set(["host", "relay"]))
-            self.assertCandidateTypes(conn_b, set(["host"]))
+            # Check both host and relayed candidates were gathered.
+            self.assertCandidateTypes(conn_a, {"host", "relay"})
+            self.assertCandidateTypes(conn_b, {"host"})
 
-            # the default candidate should be relayed
+            # Check the default candidate is relayed, and does not hide its related
+            # address.
             candidate = conn_a.get_default_candidate(1)
-            self.assertIsNotNone(candidate)
+            assert candidate is not None
             self.assertEqual(candidate.type, "relay")
             self.assertIsNotNone(candidate.related_address)
+            self.assertNotEqual(candidate.related_address, "0.0.0.0")
             self.assertIsNotNone(candidate.related_port)
 
             await self.connect_and_exchange_data(conn_a, conn_b)
@@ -1209,12 +1585,12 @@ class IceConnectionTest(unittest.TestCase):
             await invite_accept(conn_a, conn_b)
 
             # we should only have host candidates
-            self.assertCandidateTypes(conn_a, set(["host"]))
-            self.assertCandidateTypes(conn_b, set(["host"]))
+            self.assertCandidateTypes(conn_a, {"host"})
+            self.assertCandidateTypes(conn_b, {"host"})
 
             # the default candidate should be host
             candidate = conn_a.get_default_candidate(1)
-            self.assertIsNotNone(candidate)
+            assert candidate is not None
             self.assertEqual(candidate.type, "host")
             self.assertIsNone(candidate.related_address)
             self.assertIsNone(candidate.related_port)
@@ -1240,12 +1616,12 @@ class IceConnectionTest(unittest.TestCase):
             await invite_accept(conn_a, conn_b)
 
             # we should only have host candidates
-            self.assertCandidateTypes(conn_a, set(["host"]))
-            self.assertCandidateTypes(conn_b, set(["host"]))
+            self.assertCandidateTypes(conn_a, {"host"})
+            self.assertCandidateTypes(conn_b, {"host"})
 
             # the default candidate should be host
             candidate = conn_a.get_default_candidate(1)
-            self.assertIsNotNone(candidate)
+            assert candidate is not None
             self.assertEqual(candidate.type, "host")
             self.assertIsNone(candidate.related_address)
             self.assertIsNone(candidate.related_port)
@@ -1309,12 +1685,13 @@ class IceConnectionTest(unittest.TestCase):
         await invite_accept(conn_a, conn_b)
 
         # we should only have host candidates
-        self.assertCandidateTypes(conn_a, set(["host"]))
-        self.assertCandidateTypes(conn_b, set(["host"]))
+        self.assertCandidateTypes(conn_a, {"host"})
+        self.assertCandidateTypes(conn_b, {"host"})
 
         # force selected pair
         default_a = conn_a.get_default_candidate(1)
-        default_b = conn_a.get_default_candidate(1)
+        default_b = conn_b.get_default_candidate(1)
+        assert default_a is not None and default_b is not None
         conn_a.set_selected_pair(1, default_a.foundation, default_b.foundation)
         conn_b.set_selected_pair(1, default_b.foundation, default_a.foundation)
 
@@ -1498,12 +1875,485 @@ class IceConnectionTest(unittest.TestCase):
             )
         )
         self.assertEqual(len(conn_a.remote_candidates), 1)
-        self.assertEqual(conn_a.remote_candidates[0].host, "1.2.3.4")
+        self.assertEqual(conn_a.remote_candidates[0].host, hostname)
+        self.assertEqual(conn_a.remote_candidates[0]._network_host, "1.2.3.4")
         self.assertEqual(conn_a._remote_candidates_end, False)
 
         # close
         await conn_a.close()
         await publisher.close()
+
+    @unittest.skipIf(RUNNING_ON_MAC_CI, "Mac CI has issues with mDNS")
+    @asynctest
+    async def test_add_remote_candidate_mdns_after_checks(self) -> None:
+        """
+        Add mDNS candidates after the peer's checks have arrived.
+        """
+        conn_a = ice.Connection(ice_controlling=True)
+        conn_b = ice.Connection(ice_controlling=False)
+        publisher = await mdns.create_mdns_protocol()
+
+        # Exchange credentials.
+        await conn_a.gather_candidates()
+        await conn_b.gather_candidates()
+        conn_a.remote_username = conn_b.local_username
+        conn_a.remote_password = conn_b.local_password
+        conn_b.remote_username = conn_a.local_username
+        conn_b.remote_password = conn_a.local_password
+
+        # Connection B knows connection A's candidates.
+        for candidate in conn_a.local_candidates:
+            await conn_b.add_remote_candidate(candidate)
+        await conn_b.add_remote_candidate(None)
+
+        # Connection B's candidates are only signalled once its checks arrived.
+        async def add_mdns_candidates_later() -> None:
+            await asyncio.sleep(0.5)
+
+            # Check connection B's checks were learned as peer-reflexive.
+            self.assertEqual({c.type for c in conn_a.remote_candidates}, {"prflx"})
+
+            await add_mdns_candidates(publisher, conn_a, conn_b.local_candidates)
+
+        await asyncio.gather(
+            conn_a.connect(), conn_b.connect(), add_mdns_candidates_later()
+        )
+
+        # Check the signalled candidates replaced the peer-reflexive ones.
+        self.assertEqual(
+            {c.type for c in conn_a.remote_candidates},
+            {c.type for c in conn_b.local_candidates},
+        )
+
+        # Check the updated candidates show their mDNS name.
+        for candidate in conn_a.remote_candidates:
+            self.assertTrue(mdns.is_mdns_hostname(candidate.host))
+
+        # Check no duplicate pair was formed.
+        pairs = [(p.protocol, p.remote_addr) for p in conn_a._check_list]
+        self.assertEqual(len(pairs), len(set(pairs)))
+
+        # Close the connections and the mDNS publisher.
+        await conn_a.close()
+        await conn_b.close()
+        await publisher.close()
+
+    @unittest.skipIf(RUNNING_ON_MAC_CI, "Mac CI has issues with mDNS")
+    @asynctest
+    async def test_connect_mdns(self) -> None:
+        """
+        Connect using the peer's mDNS candidates.
+        """
+        conn_a = ice.Connection(ice_controlling=True)
+        conn_b = ice.Connection(ice_controlling=False)
+        publisher = await mdns.create_mdns_protocol()
+
+        # Exchange credentials.
+        await conn_a.gather_candidates()
+        await conn_b.gather_candidates()
+        conn_a.remote_username = conn_b.local_username
+        conn_a.remote_password = conn_b.local_password
+        conn_b.remote_username = conn_a.local_username
+        conn_b.remote_password = conn_a.local_password
+
+        # Connection A's candidates are signalled as is.
+        for candidate in conn_a.local_candidates:
+            await conn_b.add_remote_candidate(candidate)
+        await conn_b.add_remote_candidate(None)
+
+        # Connection B's candidates are signalled as mDNS candidates.
+        await add_mdns_candidates(publisher, conn_a, conn_b.local_candidates)
+
+        await asyncio.gather(conn_a.connect(), conn_b.connect())
+
+        # Check the remote candidates keep their name and no peer-reflexive
+        # candidate was learned.
+        self.assertEqual(len(conn_a.remote_candidates), len(conn_b.local_candidates))
+        for candidate in conn_a.remote_candidates:
+            self.assertTrue(mdns.is_mdns_hostname(candidate.host))
+            self.assertEqual(candidate.type, "host")
+
+        # Check the pairs use the resolved addresses.
+        local_hosts = {c.host for c in conn_b.local_candidates}
+        for pair in conn_a._check_list:
+            self.assertIn(pair.remote_addr[0], local_hosts)
+
+        # Send data a -> b.
+        await conn_a.send(b"howdee")
+        data = await conn_b.recv()
+        self.assertEqual(data, b"howdee")
+
+        # Close the connections and the mDNS publisher.
+        await conn_a.close()
+        await conn_b.close()
+        await publisher.close()
+
+    @unittest.skipIf(RUNNING_ON_MAC_CI, "Mac CI has issues with mDNS")
+    @asynctest
+    async def test_add_remote_candidate_mdns_then_end_of_candidates(self) -> None:
+        """
+        Signal end-of-candidates while an mDNS candidate is being resolved.
+        """
+        hostname = mdns.create_mdns_hostname()
+        publisher = await mdns.create_mdns_protocol()
+        await publisher.publish(hostname, "1.2.3.4")
+
+        conn_a = ice.Connection(ice_controlling=True)
+
+        task = asyncio.create_task(
+            conn_a.add_remote_candidate(
+                Candidate(
+                    foundation="some-foundation",
+                    component=1,
+                    transport="udp",
+                    priority=1234,
+                    host=hostname,
+                    port=1234,
+                    type="host",
+                )
+            )
+        )
+        await asyncio.sleep(0)
+        await conn_a.add_remote_candidate(None)
+        await task
+
+        # Check the candidate was added and its component was kept.
+        self.assertEqual(len(conn_a.remote_candidates), 1)
+        self.assertEqual(conn_a.remote_candidates[0].host, hostname)
+        self.assertEqual(conn_a.remote_candidates[0]._network_host, "1.2.3.4")
+        self.assertEqual(conn_a._components, {1})
+        self.assertEqual(conn_a._remote_candidates_end, True)
+
+        # Close the connection and the mDNS publisher.
+        await conn_a.close()
+        await publisher.close()
+
+    @asynctest
+    async def test_add_remote_candidate_mdns_after_close(self) -> None:
+        """
+        Add an mDNS candidate once the connection is closed.
+        """
+        conn_a = ice.Connection(ice_controlling=True)
+        await conn_a.close()
+
+        with mock.patch("aioice.ice.get_or_create_mdns_protocol") as mock_get:
+            await conn_a.add_remote_candidate(
+                Candidate(
+                    foundation="some-foundation",
+                    component=1,
+                    transport="udp",
+                    priority=1234,
+                    host=mdns.create_mdns_hostname(),
+                    port=1234,
+                    type="host",
+                )
+            )
+
+        # Check the candidate was ignored, without subscribing to mDNS again.
+        self.assertEqual(conn_a.remote_candidates, [])
+        mock_get.assert_not_called()
+
+    @asynctest
+    async def test_add_remote_candidate_mdns_relay_only(self) -> None:
+        """
+        Add an mDNS candidate with the relay transport policy.
+        """
+        conn_a = ice.Connection(
+            ice_controlling=True, transport_policy=TransportPolicy.RELAY
+        )
+
+        with mock.patch("aioice.ice.get_or_create_mdns_protocol") as mock_get:
+            await conn_a.add_remote_candidate(
+                Candidate(
+                    foundation="some-foundation",
+                    component=1,
+                    transport="udp",
+                    priority=1234,
+                    host=mdns.create_mdns_hostname(),
+                    port=1234,
+                    type="host",
+                )
+            )
+
+        # Check the candidate was ignored, without resolving it.
+        self.assertEqual(conn_a.remote_candidates, [])
+        mock_get.assert_not_called()
+
+        # Close the connection.
+        await conn_a.close()
+
+    @unittest.skipIf(RUNNING_ON_MAC_CI, "Mac CI has issues with mDNS")
+    @asynctest
+    async def test_add_remote_candidate_mdns_then_close(self) -> None:
+        """
+        Close the connection while an mDNS candidate is being resolved.
+        """
+        hostname = mdns.create_mdns_hostname()
+        publisher = await mdns.create_mdns_protocol()
+        await publisher.publish(hostname, "1.2.3.4")
+
+        conn_a = ice.Connection(ice_controlling=True)
+
+        # Another connection keeps the mDNS protocol open, so the name resolves.
+        conn_b = ice.Connection(ice_controlling=False)
+        await ice.get_or_create_mdns_protocol(conn_b)
+
+        task = asyncio.create_task(
+            conn_a.add_remote_candidate(
+                Candidate(
+                    foundation="some-foundation",
+                    component=1,
+                    transport="udp",
+                    priority=1234,
+                    host=hostname,
+                    port=1234,
+                    type="host",
+                )
+            )
+        )
+        await asyncio.sleep(0)
+        await conn_a.add_remote_candidate(None)
+        await conn_a.close()
+        await task
+
+        # Check the resolved candidate and end-of-candidates were ignored.
+        self.assertEqual(conn_a.remote_candidates, [])
+        self.assertEqual(conn_a._components, {1})
+        self.assertNotIn(conn_a, ice._mdns.subscribers)
+
+        # Close the other connection and the mDNS publisher.
+        await conn_b.close()
+        await publisher.close()
+
+    @unittest.skipIf(RUNNING_ON_MAC_CI, "Mac CI has issues with mDNS")
+    @asynctest
+    async def test_connect_mdns_bad_then_end_of_candidates(self) -> None:
+        """
+        ICE only fails once the last mDNS candidate could not be resolved.
+        """
+        conn_a = ice.Connection(ice_controlling=True)
+        conn_b = ice.Connection(ice_controlling=False)
+        await conn_a.gather_candidates()
+        conn_a.remote_username = conn_b.local_username
+        conn_a.remote_password = conn_b.local_password
+
+        connect_task = asyncio.create_task(conn_a.connect())
+        add_task = asyncio.create_task(
+            conn_a.add_remote_candidate(
+                Candidate(
+                    foundation="some-foundation",
+                    component=1,
+                    transport="udp",
+                    priority=1234,
+                    host=mdns.create_mdns_hostname(),
+                    port=1234,
+                    type="host",
+                )
+            )
+        )
+        await asyncio.sleep(0)
+        await conn_a.add_remote_candidate(None)
+
+        # Check ICE does not fail while the candidate is being resolved.
+        await asyncio.sleep(0.5)
+        self.assertFalse(connect_task.done())
+
+        # Check ICE fails once the resolution failed.
+        await add_task
+        with self.assertRaises(ConnectionError) as cm:
+            await connect_task
+        self.assertEqual(str(cm.exception), "ICE negotiation failed")
+
+        # Close the connections.
+        await conn_a.close()
+        await conn_b.close()
+
+    @unittest.skipIf(RUNNING_ON_MAC_CI, "Mac CI has issues with mDNS")
+    @asynctest
+    async def test_add_remote_candidate_mdns_with_turn_server(self) -> None:
+        """
+        An mDNS candidate is not paired with a relayed candidate.
+        """
+        hostname = mdns.create_mdns_hostname()
+        publisher = await mdns.create_mdns_protocol()
+        await publisher.publish(hostname, "1.2.3.4")
+
+        async with run_turn_server(users={"foo": "bar"}) as turn_server:
+            conn_a = ice.Connection(
+                ice_controlling=True,
+                turn_server=turn_server.udp_address,
+                turn_username="foo",
+                turn_password="bar",
+            )
+            await conn_a.gather_candidates()
+            self.assertIn("relay", {c.type for c in conn_a.local_candidates})
+
+            # Check an mDNS candidate is only paired with host candidates.
+            await conn_a.add_remote_candidate(
+                Candidate(
+                    foundation="some-foundation",
+                    component=1,
+                    transport="udp",
+                    priority=1234,
+                    host=hostname,
+                    port=1234,
+                    type="host",
+                )
+            )
+            self.assertEqual(
+                {p.local_candidate.type for p in conn_a._check_list}, {"host"}
+            )
+
+            # Check an IP candidate is also paired with the relayed candidate.
+            await conn_a.add_remote_candidate(
+                Candidate(
+                    foundation="other-foundation",
+                    component=1,
+                    transport="udp",
+                    priority=1234,
+                    host="1.2.3.5",
+                    port=1234,
+                    type="host",
+                )
+            )
+            self.assertEqual(
+                {
+                    p.local_candidate.type
+                    for p in conn_a._check_list
+                    if p.remote_candidate.host == "1.2.3.5"
+                },
+                {"host", "relay"},
+            )
+
+            # Close the connection.
+            await conn_a.close()
+
+        # Close the mDNS publisher.
+        await publisher.close()
+
+    @unittest.skipIf(RUNNING_ON_MAC_CI, "Mac CI has issues with mDNS")
+    @asynctest
+    async def test_connect_mdns_with_turn_server(self) -> None:
+        """
+        Connect using the peer's mDNS candidates, signalled before gathering,
+        while using a TURN server.
+        """
+        async with run_turn_server(users={"foo": "bar"}) as turn_server:
+            conn_a = ice.Connection(
+                ice_controlling=True,
+                turn_server=turn_server.udp_address,
+                turn_username="foo",
+                turn_password="bar",
+            )
+            conn_b = ice.Connection(ice_controlling=False)
+            publisher = await mdns.create_mdns_protocol()
+
+            # Connection B's candidates are signalled as mDNS candidates, before
+            # connection A gathers its candidates.
+            await conn_b.gather_candidates()
+            await add_mdns_candidates(publisher, conn_a, conn_b.local_candidates)
+
+            # Exchange credentials and connection A's candidates.
+            await conn_a.gather_candidates()
+            self.assertIn("relay", {c.type for c in conn_a.local_candidates})
+            conn_a.remote_username = conn_b.local_username
+            conn_a.remote_password = conn_b.local_password
+            conn_b.remote_username = conn_a.local_username
+            conn_b.remote_password = conn_a.local_password
+            for candidate in conn_a.local_candidates:
+                await conn_b.add_remote_candidate(candidate)
+            await conn_b.add_remote_candidate(None)
+
+            # Check connect() formed no pair with the relayed candidate, before
+            # unchecked pairs are removed on nomination.
+            connect_task = asyncio.create_task(conn_a.connect())
+            await asyncio.sleep(0)
+            self.assertEqual(
+                {p.local_candidate.type for p in conn_a._check_list}, {"host"}
+            )
+
+            await asyncio.gather(connect_task, conn_b.connect())
+
+            # Send data a -> b.
+            await conn_a.send(b"howdee")
+            data = await conn_b.recv()
+            self.assertEqual(data, b"howdee")
+
+            # Close the connections and the mDNS publisher.
+            await conn_a.close()
+            await conn_b.close()
+            await publisher.close()
+
+    @asynctest
+    async def test_add_remote_candidate_same_address(self) -> None:
+        """
+        Add candidates with the same transport address as an existing one.
+        """
+        conn_a = ice.Connection(ice_controlling=True)
+        await conn_a.gather_candidates()
+
+        remote_candidate = Candidate(
+            foundation="some-foundation",
+            component=1,
+            transport="udp",
+            priority=2130706431,
+            host="1.2.3.4",
+            port=1234,
+            type="host",
+        )
+        await conn_a.add_remote_candidate(remote_candidate)
+        await conn_a.add_remote_candidate(
+            Candidate(
+                foundation="ipv6-foundation",
+                component=1,
+                transport="udp",
+                priority=2130706431,
+                host="2001:db8::1",
+                port=1234,
+                type="host",
+            )
+        )
+        check_list = list(conn_a._check_list)
+        self.assertGreater(len(check_list), 0)
+
+        # The same candidate, an equal candidate, a server-reflexive candidate
+        # with the same address and an address written differently are ignored.
+        await conn_a.add_remote_candidate(remote_candidate)
+        await conn_a.add_remote_candidate(copy.copy(remote_candidate))
+        await conn_a.add_remote_candidate(
+            Candidate(
+                foundation="other-foundation",
+                component=1,
+                transport="UDP",
+                priority=1694498815,
+                host="1.2.3.4",
+                port=1234,
+                type="srflx",
+                related_address="192.168.1.2",
+                related_port=1234,
+            )
+        )
+        await conn_a.add_remote_candidate(
+            Candidate(
+                foundation="other-ipv6-foundation",
+                component=1,
+                transport="udp",
+                priority=2130706431,
+                host="2001:DB8:0::1",
+                port=1234,
+                type="host",
+            )
+        )
+
+        # Check the first candidates and their pairs were kept.
+        self.assertEqual(
+            [(c.foundation, c.host) for c in conn_a.remote_candidates],
+            [("some-foundation", "1.2.3.4"), ("ipv6-foundation", "2001:db8::1")],
+        )
+        self.assertEqual(conn_a._check_list, check_list)
+
+        # Close the connection.
+        await conn_a.close()
 
     @asynctest
     async def test_add_remote_candidate_unknown_type(self) -> None:
@@ -1537,32 +2387,38 @@ class IceConnectionTest(unittest.TestCase):
 
     @asynctest
     async def test_gather_candidates_relay_only_no_servers(self) -> None:
-        with self.assertRaises(ValueError) as cm:
-            ice.Connection(ice_controlling=True, transport_policy=TransportPolicy.RELAY)
-        self.assertEqual(
-            str(cm.exception),
-            "Relay transport policy requires a STUN and/or TURN server.",
+        conn = ice.Connection(
+            ice_controlling=True, transport_policy=TransportPolicy.RELAY
         )
+
+        # Check no candidates were gathered, and the reason was logged.
+        with self.assertLogs("aioice.ice", level="INFO") as logs:
+            await conn.gather_candidates()
+        self.assertEqual(conn.local_candidates, [])
+        self.assertTrue(any("no TURN server" in line for line in logs.output))
+
+        # Close the connection.
+        await conn.close()
 
     @asynctest
     async def test_gather_candidates_relay_only_with_stun_server(self) -> None:
         async with run_turn_server() as stun_server:
-            conn_a = ice.Connection(
+            conn = ice.Connection(
                 ice_controlling=True,
                 stun_server=stun_server.udp_address,
                 transport_policy=TransportPolicy.RELAY,
             )
-            conn_b = ice.Connection(ice_controlling=False)
 
-            # invite / accept
-            await invite_accept(conn_a, conn_b)
+            # Check no candidates were gathered, and no host socket was created
+            # to query the STUN server.
+            with self.assertLogs("aioice.ice", level="INFO") as logs:
+                await conn.gather_candidates()
+            self.assertEqual(conn.local_candidates, [])
+            self.assertEqual(conn._protocols, [])
+            self.assertTrue(any("no TURN server" in line for line in logs.output))
 
-            # we whould only have a server-reflexive candidate in connection a
-            self.assertCandidateTypes(conn_a, set(["srflx"]))
-
-            # close
-            await conn_a.close()
-            await conn_b.close()
+            # Close the connection.
+            await conn.close()
 
     @asynctest
     async def test_gather_candidates_relay_only_with_turn_server(self) -> None:
@@ -1576,15 +2432,66 @@ class IceConnectionTest(unittest.TestCase):
             )
             conn_b = ice.Connection(ice_controlling=False)
 
-            # invite / accept
+            # Exchange candidates and credentials.
             await invite_accept(conn_a, conn_b)
 
-            # we whould only have a server-reflexive candidate in connection a
-            self.assertCandidateTypes(conn_a, set(["relay"]))
+            # Check connection A only has a relayed candidate, and no host socket
+            # which could send checks.
+            self.assertCandidateTypes(conn_a, {"relay"})
+            self.assertEqual(
+                [p.local_candidate.type for p in conn_a._protocols], ["relay"]
+            )
 
-            # close
+            # Check the relayed candidate hides the address used to reach the
+            # TURN server.
+            candidate = conn_a.local_candidates[0]
+            self.assertEqual(candidate.related_address, "0.0.0.0")
+            self.assertEqual(candidate.related_port, 9)
+
+            # Close the connections.
             await conn_a.close()
             await conn_b.close()
+
+    @asynctest
+    async def test_gather_candidates_relay_only_with_turn_server_ipv6(self) -> None:
+        """
+        An IPv6 relayed candidate hides its related address with "::".
+        """
+
+        async def create_turn_endpoint(
+            protocol_factory: Callable[[], ice.StunProtocol], **kwargs: object
+        ) -> tuple[mock.Mock, ice.StunProtocol]:
+            protocol = protocol_factory()
+            extra_info = {
+                "related_address": ("2001:db8::1", 1234),
+                "sockname": ("2001:db8::2", 5678),
+            }
+            transport = mock.Mock()
+            transport.get_extra_info.side_effect = extra_info.get
+            transport.close.side_effect = lambda: protocol.connection_lost(None)
+            protocol.connection_made(transport)
+            return transport, protocol
+
+        conn = ice.Connection(
+            ice_controlling=True,
+            turn_server=("2001:db8::3", 3478),
+            turn_username="foo",
+            turn_password="bar",
+            transport_policy=TransportPolicy.RELAY,
+        )
+
+        # Check the relayed candidate hides the address used to reach the TURN
+        # server.
+        with mock.patch("aioice.turn.create_turn_endpoint", create_turn_endpoint):
+            await conn.gather_candidates()
+        self.assertEqual(len(conn.local_candidates), 1)
+        candidate = conn.local_candidates[0]
+        self.assertEqual(candidate.host, "2001:db8::2")
+        self.assertEqual(candidate.related_address, "::")
+        self.assertEqual(candidate.related_port, 9)
+
+        # Close the connection.
+        await conn.close()
 
     @asynctest
     async def test_repr(self) -> None:
@@ -1596,11 +2503,11 @@ class IceConnectionTest(unittest.TestCase):
 class StunProtocolTest(unittest.TestCase):
     @asynctest
     async def test_error_received(self) -> None:
-        protocol = ice.StunProtocol(None)
+        protocol = ice.StunProtocol(ice.Connection(ice_controlling=True))
         protocol.error_received(OSError("foo"))
 
     @asynctest
     async def test_repr(self) -> None:
-        protocol = ice.StunProtocol(None)
+        protocol = ice.StunProtocol(ice.Connection(ice_controlling=True))
         protocol.id = 1
         self.assertEqual(repr(protocol), "protocol(1)")

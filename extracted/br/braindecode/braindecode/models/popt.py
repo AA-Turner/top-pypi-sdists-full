@@ -1,0 +1,491 @@
+# Authors: Christopher Wang, Geeling Chau (original implementation)
+#          Adam Mounir <am91ris@gmail.com> (braindecode adaptation)
+#
+# License: MIT
+# Adapted from https://github.com/czlwang/PopulationTransformer
+"""PopulationTransformer (PopT, Chau et al. 2024).
+
+* paper: https://arxiv.org/abs/2406.03044
+* code: https://github.com/czlwang/PopulationTransformer
+* weights: https://huggingface.co/PopulationTransformer/popt_brainbert_stft
+"""
+
+from __future__ import annotations
+
+import warnings
+from collections import OrderedDict
+
+import numpy as np
+import torch
+import torch.nn as nn
+
+from braindecode.functional import check_ch_mask, sinusoidal_positional_encoding
+from braindecode.models.base import EEGModuleMixin
+from braindecode.models.util import extract_channel_locations_from_chs_info
+
+
+class PopulationTransformer(EEGModuleMixin, nn.Module, license="mit"):
+    r"""PopulationTransformer (PopT) from Chau et al. (2024) [PopT2024]_.
+
+    :bdg-danger:`Foundation Model` :bdg-info:`Attention/Transformer`
+
+    PopT is a self-supervised **population** model for intracranial recordings
+    (sEEG/iEEG). It does not encode a raw time signal; instead each electrode is
+    represented by a feature vector — typically the frozen embedding of a
+    per-channel foundation model such as :class:`~braindecode.models.BrainBERT` —
+    and PopT aggregates across electrodes. Every electrode feature is linearly
+    projected and given a fixed sinusoidal **spatial** position encoding built
+    from its integer anatomical coordinates (one embedding per X/Y/Z axis plus a
+    sequence id). A ``CLS`` token is prepended, a stack of standard Transformer
+    encoder layers mixes the population, and the ``CLS`` output is the pooled
+    representation used for downstream decoding. Pre-training is by masked /
+    replaced-token modelling over the electrode population.
+
+    Following the braindecode convention, the per-electrode feature vector plays
+    the role of the ``n_times`` axis, so the model keeps the standard
+    ``(batch, n_chans, n_times)`` input signature: ``n_chans`` is the number of
+    electrodes and ``n_times`` is the upstream feature dimension (768 for
+    BrainBERT ``stft`` features). Electrode coordinates are read from
+    ``chs_info`` (their ``loc``) and discretised to absolute integer indices
+    inside the model, as upstream feeds them; when no positions are available
+    the electrodes fall back to distinct sequential indices.
+
+    The ``CLS`` output goes through a single linear layer, as in the upstream
+    fine-tuning model (``PtDownstreamModel.linear_out``, one logit trained with
+    binary cross-entropy there; ``n_outputs=1`` reproduces it).
+
+    The defaults are the released ``popt_brainbert_stft`` configuration:
+    ``hidden_dim=512``, ``ffn_dim=2048``, ``n_heads=8``, ``n_layers=6``, used
+    on ``n_times=768`` BrainBERT features (~20M parameters).
+
+    .. important::
+       **Pre-trained weights available.** The official checkpoint is released by
+       the authors and loads directly::
+
+           model = PopulationTransformer.from_pretrained(
+               "braindecode/popt-pretrained", n_outputs=2
+           )
+
+       It uses the default configuration; ``n_chans`` and ``n_outputs``
+       may be changed freely, as the population is pooled through the ``CLS``
+       token and the classification head is task-specific (the checkpoint
+       carries no trained fine-tuning head).
+
+    .. warning::
+       **Evaluate with a time-blocked split.** The paper's downstream results
+       use a random 80/10/10 split over word-aligned 5 s windows. Words are a
+       fraction of a second apart, so almost every test window overlaps a
+       training window, and labels that drift slowly in time leak into
+       training. Re-running the paper setup (7 subjects, 3 seeds) with
+       contiguous blocks of time, and dropping training windows that overlap
+       the test set, pretrained PopT goes from 0.79 to 0.51 ROC-AUC on Pitch
+       (chance) and from 0.89 to 0.64 on Volume. Onset (0.86 to 0.84) and
+       Speech (0.90 to 0.84) hold up, and pretraining still beats training
+       from scratch on Onset, Speech and Volume. The model and weights are
+       not affected; the issue is only in the evaluation. When fine-tuning,
+       split by blocks of time.
+
+    .. versionadded:: 2.0
+
+    Parameters
+    ----------
+    hidden_dim : int, optional
+        Transformer model width ``D``. Must be divisible by 8. Default 512, as
+        the released model.
+    ffn_dim : int, optional
+        Inner dimension of the Transformer feed-forward blocks. Default 2048, as
+        the released model.
+    n_layers : int, optional
+        Number of Transformer encoder layers. Default 6, as the released model.
+    n_heads : int, optional
+        Number of attention heads. Default 8, as the released model.
+    max_len : int, optional
+        Size of the coordinate table (largest addressable integer coordinate).
+        Default 5000, as upstream.
+    coord_units : {"m", "raw"}, optional
+        How ``chs_info`` positions become integer coordinates. ``"m"`` (default)
+        treats them as MNE metres and rounds them to millimetres. ``"raw"``
+        rounds the positions as they are: use it when ``x/y/z`` already hold the
+        Brain Treebank integer (left, inferior, posterior) coordinates, as NEMAR
+        nm000253 stores them. Either way the indices are absolute, not
+        shifted, as upstream feeds them (``pt_supervised_task_coords.py``).
+        They match the pretrained checkpoint only if the positions are already
+        in the upstream (left, inferior, posterior) space; MNE head-frame
+        positions (e.g. a standard montage) are **not** that space. Indices
+        outside ``[0, max_len - 1]`` are clamped, with a warning. You can also
+        pass ``coords`` to :meth:`forward` directly.
+    shift_coords : bool, optional
+        If ``True``, shift each axis so that its smallest index is 0. Default
+        ``False``. Upstream does not shift, and the shift changes the position
+        encoding, and so the output of the pretrained model; use it only for
+        positions with negative values when training from scratch.
+    activation : type[nn.Module], optional
+        Feed-forward activation, given as a class. Default :class:`~torch.nn.GELU`.
+    drop_prob : float, optional
+        Dropout probability. Default 0.1.
+
+    References
+    ----------
+    .. [PopT2024] Chau, G., Wang, C., Talukder, S., Subramaniam, V., Soedarmadji,
+       S., Yue, Y., Katz, B., & Barbu, A. (2024). Population Transformer:
+       Learning Population-level Representations of Neural Activity. arXiv
+       preprint arXiv:2406.03044.
+    """
+
+    def __init__(
+        self,
+        # braindecode parameters
+        n_outputs=None,
+        n_chans=None,
+        chs_info=None,
+        n_times=None,
+        input_window_seconds=None,
+        sfreq=None,
+        # model-specific parameters
+        *,
+        hidden_dim: int = 512,
+        ffn_dim: int = 2048,
+        n_layers: int = 6,
+        n_heads: int = 8,
+        max_len: int = 5000,
+        coord_units: str = "m",
+        shift_coords: bool = False,
+        activation: type[nn.Module] = nn.GELU,
+        drop_prob: float = 0.1,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
+    ):
+        super().__init__(
+            n_outputs=n_outputs,
+            n_chans=n_chans,
+            chs_info=chs_info,
+            n_times=n_times,
+            input_window_seconds=input_window_seconds,
+            sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
+        )
+        del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
+        if coord_units not in ("m", "raw"):
+            raise ValueError(f"coord_units must be 'm' or 'raw', got {coord_units!r}.")
+
+        self.input_dim = self.n_times
+        self.hidden_dim = hidden_dim
+        self.ffn_dim = ffn_dim
+        self.n_layers = n_layers
+        self.n_heads = n_heads
+        self.max_len = max_len
+        self.coord_units = coord_units
+        self.shift_coords = shift_coords
+
+        self.input_embedding = _PopTInputEmbedding(
+            input_dim=self.input_dim,
+            hidden_dim=hidden_dim,
+            max_len=max_len,
+            drop_prob=drop_prob,
+        )
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=hidden_dim,
+            nhead=n_heads,
+            dim_feedforward=ffn_dim,
+            activation=activation(),
+            dropout=drop_prob,
+            batch_first=True,
+        )
+        self.transformer_encoder = nn.TransformerEncoder(
+            encoder_layer, num_layers=n_layers
+        )
+        # Pre-training head, unused here; kept so the checkpoint loads strictly.
+        self.spec_prediction_head = _PopTSpecPredictionHead(hidden_dim, self.input_dim)
+        self.final_layer = nn.Linear(hidden_dim, self.n_outputs)
+
+        self.register_buffer(
+            "electrode_coords", self._coords_from_chs_info(), persistent=False
+        )
+
+    def _coords_from_chs_info(self) -> torch.Tensor:
+        """Integer ``(n_chans, 3)`` coordinates from ``chs_info``, or sequential ones."""
+        chs_info = getattr(self, "_chs_info", None)
+        loc = extract_channel_locations_from_chs_info(
+            chs_info, num_channels=self.n_chans
+        )
+        # The helper does not screen NaNs or partial montages.
+        if loc is None or loc.shape[0] != self.n_chans or not np.isfinite(loc).all():
+            idx = torch.arange(self.n_chans, dtype=torch.long)
+            coords = idx.unsqueeze(1).repeat(1, 3)
+        else:
+            loc_t = torch.as_tensor(loc, dtype=torch.float)
+            if self.coord_units == "m":
+                loc_t = loc_t * 1000.0
+            coords = loc_t.round().long()
+            if self.shift_coords:
+                coords = coords - coords.min(dim=0, keepdim=True).values
+            if bool(((coords < 0) | (coords >= self.max_len)).any()):
+                hint = (
+                    "raise `max_len`"
+                    if self.shift_coords
+                    else "set `shift_coords=True` to train from scratch"
+                )
+                warnings.warn(
+                    "Some electrode coordinates from chs_info fall outside "
+                    f"[0, {self.max_len - 1}] and are clamped. The pretrained "
+                    "model expects the non-negative integer (left, inferior, "
+                    "posterior) indices of the upstream data; pass `coords` to "
+                    f"forward, or {hint}.",
+                    UserWarning,
+                    stacklevel=4,
+                )
+        return coords.clamp(0, self.max_len - 1)
+
+    def load_state_dict(self, state_dict, *args, **kwargs):
+        """Also accept the untrained ``final_layer.{norm,fc}`` head of the HF mirror."""
+        remapped = OrderedDict()
+        for key, value in state_dict.items():
+            if key.startswith("final_layer.norm."):
+                continue
+            if key.startswith("final_layer.fc."):
+                key = "final_layer." + key[len("final_layer.fc.") :]
+            remapped[key] = value
+        return super().load_state_dict(remapped, *args, **kwargs)
+
+    def reset_head(self, n_outputs: int) -> None:
+        """Swap the classification head for a new number of outputs."""
+        old = self.final_layer.weight
+        self._set_n_outputs(n_outputs)
+        self.final_layer = nn.Linear(self.hidden_dim, n_outputs).to(
+            device=old.device, dtype=old.dtype
+        )
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        coords: torch.Tensor | None = None,
+        seq_id: torch.Tensor | None = None,
+        return_features: bool = False,
+        ch_mask: torch.Tensor | None = None,
+    ):
+        """Aggregate a population of electrode features.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Per-electrode features of shape ``(batch, n_chans, n_times)``, where
+            ``n_times`` is the upstream feature dimension.
+        coords : torch.Tensor, optional
+            Integer coordinates of shape ``(batch, n_chans, 3)``. Defaults to the
+            coordinates derived from ``chs_info`` at construction, broadcast over
+            the batch.
+        seq_id : torch.Tensor, optional
+            Integer sequence ids of shape ``(batch, n_chans)``. Defaults to zero
+            (single population).
+        return_features : bool
+            If ``True``, return ``{"features": cls, "cls_token": cls}`` (the
+            pooled ``CLS`` representation) instead of the class logits.
+        ch_mask : torch.Tensor, optional
+            ``(batch, n_chans)`` mask of real channels, see
+            :func:`~braindecode.functional.check_ch_mask`; the complement of upstream's
+            ``src_key_padding_mask``.
+
+        Returns
+        -------
+        torch.Tensor or dict
+            Class logits of shape ``(batch, n_outputs)``, or the feature dict
+            when ``return_features`` is set.
+        """
+        batch_size, n_chans, _ = x.shape
+        mask = check_ch_mask(ch_mask, x)
+        padded_mask: torch.Tensor | None = None
+        if mask is not None:
+            # Zeroed so non-finite padding cannot leak through zero attention weights.
+            x = x.masked_fill(~mask[..., None], 0.0)
+            # True for padding, as src_key_padding_mask; the CLS token is never masked.
+            padded_mask = torch.cat([mask.new_zeros(batch_size, 1), ~mask], dim=1)
+        if coords is None:
+            n_known = self.electrode_coords.shape[0]
+            if n_chans != n_known:
+                raise ValueError(
+                    f"x has {n_chans} electrodes but the model has coordinates "
+                    f"for {n_known}; pass `coords` of shape (batch, {n_chans}, 3)."
+                )
+            coords = self.electrode_coords.unsqueeze(0).expand(batch_size, -1, -1)
+        if seq_id is None:
+            seq_id = torch.zeros(batch_size, n_chans, dtype=torch.long, device=x.device)
+
+        h = self.input_embedding(x, coords, seq_id)
+        z = self.transformer_encoder(h, src_key_padding_mask=padded_mask)
+        cls_token = z[:, 0, :]
+        logits = self.final_layer(cls_token)
+        if return_features:
+            # Scripted forward stays monomorphic (same pattern as Brant).
+            if torch.jit.is_scripting():
+                return logits
+            return {"features": cls_token, "cls_token": cls_token}
+        return logits
+
+
+# Building blocks. Parameters map 1:1 to upstream ``TransformerEncoderInput`` and
+# ``SpecPredictionHead`` (``models/pt_model_custom.py``,
+# ``transformer_encoder_input.py``), so the released checkpoint loads as is.
+
+
+class _PopTSpatialPositionalEncoding(nn.Module):
+    """Spatial sinusoidal positional encoding (upstream
+    ``MultiSubjBrainPositionalEncoding``).
+
+    A single sinusoidal table ``pe`` of shape ``(1, max_len, hidden_dim // 4)``
+    is indexed by **integer** coordinates: each of the three anatomical axes
+    (X/Y/Z) and the sequence id select a ``hidden_dim // 4`` slice, and the four
+    slices are concatenated into a ``hidden_dim`` position vector. The ``CLS``
+    token receives ``pe[0, 0]`` tiled four times. ``pe`` is non-learnable and
+    regenerated in ``__init__`` (``persistent=False``), so it stays out of the
+    checkpoint.
+
+    Parameters
+    ----------
+    hidden_dim : int
+        Model width ``D``; must be divisible by 8.
+    max_len : int
+        Size of the coordinate table (largest addressable integer coordinate).
+    """
+
+    def __init__(self, hidden_dim: int, max_len: int = 5000):
+        super().__init__()
+        if hidden_dim % 8 != 0:
+            raise ValueError(
+                f"hidden_dim ({hidden_dim}) must be divisible by 8 for the "
+                "spatial positional encoding (one even-sized quarter per X/Y/Z "
+                "axis and the sequence id)."
+            )
+        pe_dim = hidden_dim // 4
+        pe = sinusoidal_positional_encoding(max_len, pe_dim)
+        self.register_buffer("pe", pe.unsqueeze(0), persistent=False)
+
+    def forward(
+        self, seq: torch.Tensor, coords: torch.Tensor, seq_id: torch.Tensor
+    ) -> torch.Tensor:
+        """Add spatial position embeddings to a ``CLS``-prefixed sequence.
+
+        Parameters
+        ----------
+        seq : torch.Tensor
+            Projected tokens of shape ``(batch, 1 + n_electrodes, hidden_dim)``
+            (position 0 is the ``CLS`` token).
+        coords : torch.Tensor
+            Integer coordinates of shape ``(batch, n_electrodes, 3)``.
+        seq_id : torch.Tensor
+            Integer sequence ids of shape ``(batch, n_electrodes)``.
+
+        Returns
+        -------
+        torch.Tensor
+            ``seq`` with the position embeddings added, same shape.
+        """
+        table = self.pe[0]  # (max_len, pe_dim)
+        # (batch, n_elec, 3, pe_dim) -> (batch, n_elec, 3 * pe_dim)
+        p_embed = table[coords]
+        n_batch, n_elec, n_axes, pe_dim = p_embed.shape
+        p_embed = p_embed.reshape(n_batch, n_elec, n_axes * pe_dim)
+        # (batch, n_elec, pe_dim)
+        s_embed = table[seq_id]
+        elec_embed = torch.cat([p_embed, s_embed], dim=-1)  # (b, n_elec, hidden)
+        # CLS position embedding: pe[0] tiled over the four quarters.
+        cls_embed = table[0].repeat(n_batch, 4).unsqueeze(1)  # (b, 1, hidden)
+        pos = torch.cat([cls_embed, elec_embed], dim=1)  # (b, 1 + n_elec, hidden)
+        return seq + pos
+
+
+class _PopTInputEmbedding(nn.Module):
+    """Input encoding of PopT (upstream ``TransformerEncoderInput``).
+
+    Prepends a ``CLS`` feature row (a vector of ones, as upstream), projects the
+    per-electrode features ``input_dim -> hidden_dim``, adds the spatial position
+    encoding, then applies LayerNorm and dropout. Attribute names (``in_proj``,
+    ``positional_encoding``, ``layer_norm``) match upstream so weights map
+    directly.
+
+    Parameters
+    ----------
+    input_dim : int
+        Dimension of the per-electrode input features (e.g. 768 for BrainBERT).
+    hidden_dim : int
+        Transformer model width ``D``.
+    max_len : int
+        Size of the coordinate table, forwarded to the positional encoding.
+    drop_prob : float
+        Dropout probability applied to the embedded tokens.
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        max_len: int = 5000,
+        drop_prob: float = 0.1,
+    ):
+        super().__init__()
+        self.input_dim = input_dim
+        self.in_proj = nn.Linear(input_dim, hidden_dim)
+        self.positional_encoding = _PopTSpatialPositionalEncoding(
+            hidden_dim, max_len=max_len
+        )
+        self.layer_norm = nn.LayerNorm(hidden_dim)
+        self.dropout = nn.Dropout(p=drop_prob)
+
+    def forward(
+        self,
+        features: torch.Tensor,
+        coords: torch.Tensor,
+        seq_id: torch.Tensor,
+    ) -> torch.Tensor:
+        """Embed per-electrode features into ``CLS``-prefixed tokens.
+
+        Parameters
+        ----------
+        features : torch.Tensor
+            Per-electrode features of shape ``(batch, n_electrodes, input_dim)``.
+        coords : torch.Tensor
+            Integer coordinates of shape ``(batch, n_electrodes, 3)``.
+        seq_id : torch.Tensor
+            Integer sequence ids of shape ``(batch, n_electrodes)``.
+
+        Returns
+        -------
+        torch.Tensor
+            Embedded tokens of shape ``(batch, 1 + n_electrodes, hidden_dim)``.
+        """
+        batch_size = features.shape[0]
+        # Upstream prepends a CLS row of ones before the linear projection.
+        cls = features.new_ones((batch_size, 1, self.input_dim))
+        x = torch.cat([cls, features], dim=1)
+        x = self.in_proj(x)
+        x = self.positional_encoding(x, coords, seq_id)
+        x = self.layer_norm(x)
+        return self.dropout(x)
+
+
+class _PopTSpecPredictionHead(nn.Module):
+    """Feature-reconstruction head (upstream ``SpecPredictionHead``).
+
+    Kept so the pre-training parameters map 1:1 to upstream (weight parity);
+    unused by the braindecode classification path.
+
+    Parameters
+    ----------
+    hidden_dim : int
+        Transformer model width ``D``.
+    output_dim : int
+        Reconstruction target dimension (the input feature dimension upstream).
+    """
+
+    def __init__(self, hidden_dim: int, output_dim: int):
+        super().__init__()
+        self.hidden_layer = nn.Linear(hidden_dim, hidden_dim)
+        self.act_fn = nn.GELU()
+        self.layer_norm = nn.LayerNorm(hidden_dim)
+        self.output = nn.Linear(hidden_dim, output_dim)
+
+    def forward(self, hidden: torch.Tensor) -> torch.Tensor:
+        h = self.hidden_layer(hidden)
+        h = self.act_fn(h)
+        h = self.layer_norm(h)
+        return self.output(h)

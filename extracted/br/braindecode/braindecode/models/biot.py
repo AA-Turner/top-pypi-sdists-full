@@ -1,56 +1,43 @@
+from typing import Dict, Optional, Tuple, Union
 from warnings import warn
 
-import numpy as np
 import torch
 import torch.nn as nn
-from linear_attention_transformer import LinearAttentionTransformer
 
-from braindecode.functional import sinusoidal_positional_encoding
+from braindecode.functional import spectral_input
 from braindecode.models.base import EEGModuleMixin
+from braindecode.models.util import warn_if_sfreq_differs
+from braindecode.modules import SinusoidalPositionalEncoding
+from braindecode.modules.linear_attention import LinearAttentionTransformer
 
 # -----------------------------------------------------------------------------
-# Canonical channel order for InterpolatedBIOT — the 18-channel TCP bipolar
-# montage used by BIOT's shhs-prest and six-datasets pretrained checkpoints.
+# Canonical BIOT channel order: the 18-channel TCP bipolar montage used by
+# BIOT's shhs-prest and six-datasets pretrained checkpoints.
 # Source: https://github.com/ycq091044/BIOT (README + datasets/TUAB/process.py
 # + datasets/SHHS/process.py). Indices 0-15 are the TCP 16-channel bipolar
-# derivations; indices 16-17 are SHHS differential channels.
-#
-# The `loc` values are only used to build an MNE interpolation matrix for
-# InterpolatedBIOT. All entries are bipolar / differential derivations.
-# TODO: positions are stored as the midpoint of the two constituent
-# electrodes. This is a simplification — a bipolar signal V(A)-V(B) cannot
-# be faithfully recovered by spatial interpolation at the midpoint. Revisit
-# in a follow-up PR (e.g. a dedicated BipolarDerivationLayer).
+# derivations; indices 16-17 are SHHS differential channels. Under a
+# ``channel_strategy`` the channel layer forms each one as V(A) - V(B).
 # -----------------------------------------------------------------------------
-
-# fmt: off
-_BIOT_TARGET_CHS_TUPLES: list[tuple[str, tuple[float, float, float]]] = [
-    ("FP1-F7", (-0.04984980, 0.06319570, -0.00920500)),
-    ("F7-T7", (-0.07721200, 0.01322780, -0.01038300)),
-    ("T7-P7", (-0.07829770, -0.04473570, -0.00591650)),
-    ("P7-O1", (-0.05092385, -0.09295085, 0.00317600)),
-    ("FP2-F8", (0.05145770, 0.06465880, -0.00954000)),
-    ("F8-T8", (0.07906150, 0.01470070, -0.01074500)),
-    ("T8-P8", (0.07906780, -0.04404430, -0.00601500)),
-    ("P8-O2", (0.05144915, -0.09261215, 0.00313000)),
-    ("FP1-F3", (-0.03984025, 0.06851415, 0.01760100)),
-    ("F3-C3", (-0.05780095, 0.02073975, 0.05327500)),
-    ("C3-P3", (-0.05918270, -0.04520975, 0.06014900)),
-    ("P3-O1", (-0.04121035, -0.09561840, 0.03238950)),
-    ("FP2-F4", (0.04085425, 0.06960035, 0.01686700)),
-    ("F4-C4", (0.05947705, 0.02170225, 0.05219700)),
-    ("C4-P4", (0.06139230, -0.04473025, 0.06007050)),
-    ("P4-O2", (0.04275465, -0.09535810, 0.03268050)),
-    ("C3-A2", (0.01021790, -0.01832050, -0.00183650)),
-    ("C4-A1", (-0.00947910, -0.01794500, -0.00220300)),
+BIOT_CHANNEL_ORDER = [
+    "FP1-F7",
+    "F7-T7",
+    "T7-P7",
+    "P7-O1",
+    "FP2-F8",
+    "F8-T8",
+    "T8-P8",
+    "P8-O2",
+    "FP1-F3",
+    "F3-C3",
+    "C3-P3",
+    "P3-O1",
+    "FP2-F4",
+    "F4-C4",
+    "C4-P4",
+    "P4-O2",
+    "C3-A2",
+    "C4-A1",
 ]
-# fmt: on
-
-_BIOT_TARGET_CHS_INFO = [
-    {"ch_name": ch, "kind": "eeg", "loc": np.asarray(loc, dtype=float)}
-    for ch, loc in _BIOT_TARGET_CHS_TUPLES
-]
-BIOT_CHANNEL_ORDER = [ch for ch, _ in _BIOT_TARGET_CHS_TUPLES]
 
 
 class BIOT(EEGModuleMixin, nn.Module):
@@ -136,7 +123,9 @@ class BIOT(EEGModuleMixin, nn.Module):
         The hop length for the torch.stft transformation in the
         encoder. The default is 100.
     sfreq: int, optional
-        The sfreq parameter for the encoder. The default is 200
+        The sfreq parameter for the encoder. The default is 200, unless
+        ``n_times`` and ``input_window_seconds`` are both given, in which
+        case it is inferred from them.
 
     References
     ----------
@@ -148,12 +137,14 @@ class BIOT(EEGModuleMixin, nn.Module):
        GitHub https://github.com/ycq091044/BIOT (accessed 2024-02-13)
     """
 
+    _channel_target = BIOT_CHANNEL_ORDER
+
     def __init__(
         self,
         embed_dim=256,
         num_heads=8,
         num_layers=4,
-        sfreq=200,
+        sfreq=None,
         hop_length=100,
         return_feature=False,
         n_outputs=None,
@@ -167,7 +158,11 @@ class BIOT(EEGModuleMixin, nn.Module):
         max_seq_len: int = 1024,
         att_drop_prob=0.2,
         att_layer_drop_prob=0.2,
+        channel_strategy: str = "native",
+        channel_strategy_kwargs: dict | None = None,
     ):
+        if sfreq is None and (n_times is None or input_window_seconds is None):
+            sfreq = 200
         super().__init__(
             n_outputs=n_outputs,
             n_chans=n_chans,
@@ -175,6 +170,8 @@ class BIOT(EEGModuleMixin, nn.Module):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
+            channel_strategy=channel_strategy,
+            channel_strategy_kwargs=channel_strategy_kwargs,
         )
         del n_outputs, n_chans, chs_info, n_times, sfreq
         self.embed_dim = embed_dim
@@ -182,12 +179,7 @@ class BIOT(EEGModuleMixin, nn.Module):
         self.num_heads = num_heads
         self.num_layers = num_layers
         self.return_feature = return_feature
-        if (self.sfreq != 200) & (self.sfreq is not None):
-            warn(
-                "This model has only been trained on a dataset with 200 Hz. "
-                + "no guarantee to generalize well with the default parameters",
-                UserWarning,
-            )
+        warn_if_sfreq_differs("BIOT", self.sfreq, 200)
         if self.n_chans > embed_dim:
             warn(
                 "The number of channels is larger than the embedding size. "
@@ -199,10 +191,12 @@ class BIOT(EEGModuleMixin, nn.Module):
             warn(
                 "The hop length is larger than the sampling frequency. "
                 + "This may cause aliasing. Consider using a smaller "
-                "hop length.",
+                "hop length. Using sfreq // 2 instead.",
                 UserWarning,
             )
-            hop_length = self.sfreq // 2
+            # torch.stft needs an int, and sfreq is usually a float
+            hop_length = int(self.sfreq // 2)
+            self.hop_length = hop_length
 
         if self.input_window_seconds < 1.0:
             warning_msg = (
@@ -237,13 +231,20 @@ class BIOT(EEGModuleMixin, nn.Module):
 
     def reset_head(self, n_outputs):
         self._n_outputs = n_outputs
+        self._update_init_kwargs(n_outputs=n_outputs)
         self.final_layer = _ClassificationHead(
             emb_size=self.embed_dim,
             n_outputs=n_outputs,
             activation=self._head_activation,
         )
 
-    def forward(self, x, return_features=False):
+    def forward(
+        self, x: torch.Tensor, return_features: bool = False
+    ) -> Union[
+        torch.Tensor,
+        Tuple[torch.Tensor, torch.Tensor],
+        Dict[str, Optional[torch.Tensor]],
+    ]:
         """
         Pass the input through the BIOT encoder, and then through the
         classification head.
@@ -268,7 +269,11 @@ class BIOT(EEGModuleMixin, nn.Module):
         emb = self.encoder(x)
 
         if return_features:
-            return {"features": emb, "cls_token": None}
+            out: Dict[str, Optional[torch.Tensor]] = {
+                "features": emb,
+                "cls_token": None,
+            }
+            return out
 
         x = self.final_layer(emb)
 
@@ -355,60 +360,6 @@ class _ClassificationHead(nn.Sequential):
         return out
 
 
-class _PositionalEncoding(nn.Module):
-    r"""
-    Positional Encoding.
-
-    We first create a `pe` zero matrix of shape (max_len, d_model) where max_len is the
-    the maximum length of the sequence, and emb_size is the size of the embedding.
-
-    Then we create a `position` tensor of shape (max_len, 1) with indices from 0 to max_len
-    and a `div_term` tensor of shape (d_model // 2) with the exponential of the
-    multiplication of the indices from 0 to d_model by -log(10000.0) / d_model.
-
-    For more details about the positional encoding, see the `Attention is All You Need` paper.
-
-    Parameters
-    ----------
-    emb_size: int
-        The size of the embedding layer
-    dropout: float
-        The dropout rate
-    max_len: int
-        The maximum length of the sequence
-    drop_prob : float, default=0.5
-        The dropout rate for regularization. Values should be between 0 and 1.
-
-    Returns
-    -------
-    out: Tensor
-        (batch, max_len, d_model)
-    """
-
-    def __init__(self, emb_size: int, drop_prob: float = 0.1, max_len: int = 1000):
-        super(_PositionalEncoding, self).__init__()
-
-        # Compute the positional encodings once (shared sinusoidal primitive).
-        pe = sinusoidal_positional_encoding(max_len, emb_size).unsqueeze(0)
-        self.register_buffer("pe", pe)
-        self.dropout = nn.Dropout(p=drop_prob)
-
-    def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
-        """
-        Parameters
-        ----------
-        x: FloatTensor
-            `embeddings,` shape (batch, max_len, d_model)
-
-        Returns
-        -------
-        Tensor
-            `encoder input`, shape (batch, max_len, d_model)
-        """
-        x = x + self.pe[:, : x.size(1)]
-        return self.dropout(x)
-
-
 class _BIOTEncoder(nn.Module):
     r"""
     BIOT Encoder.
@@ -467,11 +418,12 @@ class _BIOTEncoder(nn.Module):
             dim=emb_size,
             heads=num_heads,
             depth=n_layers,
-            max_seq_len=max_seq_len,
             attn_layer_dropout=attn_layer_dropout,
-            attn_dropout=attn_dropout,
         )
-        self.positional_encoding = _PositionalEncoding(emb_size, drop_prob=drop_prob)
+        # persistent: released checkpoints carry the table
+        self.positional_encoding = SinusoidalPositionalEncoding(
+            1000, emb_size, drop_prob, persistent=True
+        )
 
         # channel token, N_channels >= your actual channels
         self.channel_tokens = nn.Embedding(
@@ -501,16 +453,16 @@ class _BIOTEncoder(nn.Module):
             (batch_size, n_fft // 2 + 1, n_times // hop_length + 1)
         """
         spectral = torch.stft(
-            input=sample.squeeze(1),
+            input=spectral_input(sample.squeeze(1)),
             n_fft=int(self.n_fft),
             hop_length=self.hop_length,
             center=False,
             onesided=True,
             return_complex=True,
         )
-        return torch.abs(spectral)
+        return torch.abs(spectral).to(sample)
 
-    def forward(self, x, n_channel_offset=0, perturb=False):
+    def forward(self, x, n_channel_offset: int = 0, perturb: bool = False):
         """
         Forward pass of the BIOT encoder.
 
@@ -547,10 +499,15 @@ class _BIOTEncoder(nn.Module):
         emb: Tensor
             (batch_size, emb_size)
         """
+        batch_size, n_chans, n_times = x.shape
+        # One spectrogram for all channels, channel-major so that each
+        # channel's (batch, freq, ts) block is contiguous
+        spec = self.stft(x.transpose(0, 1).reshape(n_chans * batch_size, 1, n_times))
+        spec = spec.unflatten(0, [n_chans, batch_size])
         emb_seq = []
-        for i in range(x.shape[1]):
+        for i in range(n_chans):
             # Getting the spectrogram
-            channel_spec_emb = self.stft(x[:, i : i + 1, :])
+            channel_spec_emb = spec[i]
             # Linear layer to learn some representation over the frequency domain
             # with permutation
             channel_spec_emb = self.patch_embedding(channel_spec_emb)
@@ -582,7 +539,7 @@ class _BIOTEncoder(nn.Module):
             # of time steps.
             if perturb:
                 ts = channel_emb.shape[1]
-                ts_new = torch.randint(low=ts // 2, high=ts, size=(1,)).item()
+                ts_new = int(torch.randint(low=ts // 2, high=ts, size=(1,)).item())
                 selected_ts = torch.randperm(ts)[:ts_new]
                 channel_emb = channel_emb[:, selected_ts]
             emb_seq.append(channel_emb)
@@ -593,16 +550,3 @@ class _BIOTEncoder(nn.Module):
         # (batch_size, emb)
         emb = self.transformer(emb).mean(dim=1)
         return emb
-
-
-# -----------------------------------------------------------------------------
-# InterpolatedBIOT — experimental channel-interpolation variant of BIOT
-# -----------------------------------------------------------------------------
-# Wraps :class:`BIOT` with an MNE-backed channel-interpolation layer that
-# projects arbitrary user ``chs_info`` to the canonical 18-channel BIOT
-# montage (:data:`_BIOT_TARGET_CHS_INFO`). Frozen by default; set
-# ``trainable=True`` to fine-tune the projection matrix.
-
-from braindecode.models.interpolated import InterpolatedModel  # noqa: E402
-
-InterpolatedBIOT = InterpolatedModel(BIOT, _BIOT_TARGET_CHS_INFO)

@@ -25,7 +25,7 @@ from sequence_ai._core.capacity import LOAD_MAX, wait_steps
 _COLUMN = 12
 
 
-_OWN_HOOKS = (SeqFlags.OBSERVE, SeqFlags.RESET, SeqFlags.ON_EPISODE)
+_OWN_HOOKS = (SeqFlags.OBSERVE, SeqFlags.ON_EPISODE)
 
 
 def _line(label: str, text: str) -> str:
@@ -67,8 +67,10 @@ def episodes(spec: Any, bindings: dict) -> str:
 
 
 def _timing(spec: Any, bindings: dict) -> str | None:
-    """What a worker warms and times each batch size on before it serves: its sample episode, or nothing
-    ."""
+    """What its version's build check times each batch size on: its sample episode, or nothing - a worker on the check's
+    card seats by those timings, one on another card times them beside its first robots.
+
+"""
     return "its sample episode" if SeqFlags.SAMPLE in bindings else None
 
 
@@ -83,7 +85,7 @@ def seats(spec: Any, bindings: dict) -> str:
     """How a worker seats robots on a copy: a policy whose infer takes a
     batch (@seq.concurrent(sizes=[...])) as many as the largest listed size whose batch answers within the time its
     robots can wait for an answer (wait_steps at hz), as long as their batches fill at most LOAD_MAX of the time between
-    a robot's asks (its replan step at hz), each size warmed and timed before it serves; one that asks at its last valid
+    a robot's asks (its replan step at hz), each size timed by its version's build check; one that asks at its last valid
     step, or declares no action_chunk_valid_len, one robot a copy, its robots waiting for every answer or nothing saying
     how long they can; any other one robot a copy - several robots never take turns on one copy (the user 10-24: "We
     just want to do the batching").
@@ -96,16 +98,24 @@ def seats(spec: Any, bindings: dict) -> str:
         if steps is None:
             return ("one robot a copy: it declares no action_chunk_valid_len, so nothing says how long its robots can "
                     "wait for a batch")
+        wait = getattr(spec, "max_wait_for_batch", None)
+        if wait is not None:
+            ask = spec.action_chunk_valid_len - steps
+            return (f"as many robots a copy as the largest of its batches of {_and([str(n) for n in listed])} that "
+                    f"answers within its max_wait_for_batch of {wait:g} s, each robot waiting up to that long for an "
+                    f"answer, as long as their batches fill at most {LOAD_MAX:.0%} of a robot's time between asks (its "
+                    f"{ask} steps at {spec.hz:g} Hz and its wait for the answer) - each warmed and timed on "
+                    f"{_timing(spec, bindings) or 'nothing'} before it serves")
         if not steps:
             return ("one robot a copy: it asks for each answer at its last valid step, so its robots wait for every "
                     "answer and none can wait for a batch - an action_chunk_replan_at below action_chunk_valid_len "
-                    "gives them the time")
+                    "gives them the time, or a max_wait_for_batch lets them wait that long for one")
         ask = spec.action_chunk_valid_len - steps
         return (f"as many robots a copy as the largest of its batches of {_and([str(n) for n in listed])} that answers "
                 f"within {steps / spec.hz:.3g} s, the {steps} steps a robot plays between asking for an answer and "
                 f"needing it at {spec.hz:g} Hz, as long as their batches fill at most {LOAD_MAX:.0%} of the "
-                f"{ask / spec.hz:.3g} s between a robot's asks (its {ask} steps) - each warmed and timed on "
-                f"{_timing(spec, bindings) or 'nothing'} before it serves")
+                f"{ask / spec.hz:.3g} s between a robot's asks (its {ask} steps) - each timed on "
+                f"{_timing(spec, bindings) or 'nothing'} by its build check")
     return "one robot a copy"
 
 

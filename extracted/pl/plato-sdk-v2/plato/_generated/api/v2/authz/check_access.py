@@ -22,9 +22,9 @@ def _build_request_args(
 
     params: dict[str, Any] = {}
     if role is not None:
-        params["role"] = getattr(role, "value", role)
+        params["role"] = role
     if resource_type is not None:
-        params["resource_type"] = getattr(resource_type, "value", resource_type)
+        params["resource_type"] = resource_type
     if resource_id is not None:
         params["resource_id"] = resource_id
 
@@ -53,7 +53,7 @@ def sync(
     """Check if the current principal has a role on a resource.
 
     Query params:
-        role: AuthorizationRole value (e.g. "editor")
+        role: AuthorizationRole value (e.g. "simulator_env_creator")
         resource_type: ResourceType value (e.g. "simulator")
         resource_id: ID of the resource (or "all")"""
 
@@ -81,7 +81,7 @@ async def asyncio(
     """Check if the current principal has a role on a resource.
 
     Query params:
-        role: AuthorizationRole value (e.g. "editor")
+        role: AuthorizationRole value (e.g. "simulator_env_creator")
         resource_type: ResourceType value (e.g. "simulator")
         resource_id: ID of the resource (or "all")"""
 

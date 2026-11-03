@@ -39,6 +39,18 @@ _AMBIENT_HOME_AT_COLLECTION = Path(
 ).resolve()
 
 
+# #3789: capture the GENUINE machine_pause._state_path once, at collection,
+# before any test or the autouse `_no_real_pause_store` fixture patches it.
+# The fixture captured it at setup time (`original = machine_pause._state_path`)
+# instead, so once the attribute was already a `_guarded` wrapper, `_guarded`'s
+# $HOME-probe called `_guarded` again and recursed without bound — hanging the
+# whole suite under the populated-home env (coord#3777 / #3785). Anchoring on
+# the real resolver makes that re-entry structurally impossible.
+from coord import machine_pause as _machine_pause_at_collection
+
+_GENUINE_PAUSE_STATE_PATH = _machine_pause_at_collection._state_path
+
+
 def _resolve_posix_bash() -> str:
     """#2727: resolve a real POSIX ``bash`` deliberately rather than trusting
     bare ``"bash"`` + ``PATH`` order.
@@ -866,7 +878,12 @@ def _no_real_pause_store(monkeypatch, tmp_path):
     """
     from coord import machine_pause  # noqa: PLC0415
 
-    original = machine_pause._state_path
+    # #3789: resolve through the GENUINE _state_path captured at collection,
+    # never `machine_pause._state_path` as it stands now — if this fixture's
+    # own wrapper is already installed, re-reading the attribute would make
+    # `_guarded` call `_guarded` and recurse without bound (the populated-home
+    # hang). The genuine resolver cannot route back into the guard.
+    original = _GENUINE_PAUSE_STATE_PATH
     sandbox = tmp_path / "pause-store"
 
     def _sandboxed(name: str) -> Path:
@@ -1334,33 +1351,36 @@ def _no_frozen_coord_dir_constants():
     again on the very next access, regardless of which earlier test (or
     which of the two mechanisms) did the poisoning.
 
-    Scrubbing on *setup*, before the test body runs, is what actually makes
-    this reliable -- not scrubbing on teardown. The first version of this
-    fixture only scrubbed in teardown, on the assumption that autouse
-    function-scoped fixtures tear down *after* explicitly requested ones of
-    the same scope (true in isolation -- verified separately). But this repo
-    already has an earlier autouse fixture that itself requests
+    Scrubbing on *setup*, before the test body runs, is what makes this
+    reliable. This repo has an earlier autouse fixture that itself requests
     ``monkeypatch`` as a dependency (``_no_dispatch_target_validation``
     above), and a fixture's dependencies are set up before it runs -- so
     that earlier fixture pulls the *shared* function-scoped ``monkeypatch``
     instance's setup forward to before this fixture even runs, which pushes
     ``monkeypatch``'s own finalizer (the thing that does the re-poisoning
-    ``setattr``) to teardown *after* this fixture's teardown, not before.
-    Relying on intra-test teardown ordering to race a fixture already
-    embedded elsewhere in this same conftest turned out to be exactly the
-    kind of fragile assumption this fixture exists to route around. Scrubbing
-    on setup instead sidesteps the race entirely: pytest always finishes a
-    test's *entire* teardown phase (whatever internal order it happens in,
-    including ``monkeypatch.undo()``) before the next test's setup phase
-    begins, so scrubbing here guarantees a clean slate for every test
-    regardless of what the previous test's fixtures did or in what order.
-    Teardown here too, defensively, in case anything reads these constants
-    between this test's body and the next test's setup (e.g. another
-    fixture's own teardown).
+    ``setattr``, or the ``delattr`` below) to teardown *after* this
+    fixture's. Scrubbing on setup sidesteps that ordering entirely: pytest
+    always finishes a test's *entire* teardown phase before the next test's
+    setup phase begins, so scrubbing here guarantees a clean slate for every
+    test regardless of what the previous test's fixtures did or in what
+    order.
+
+    Deliberately **not** scrubbing again on teardown: some pytest versions'
+    ``monkeypatch.setattr``/``delattr`` probe the "original" value with a
+    static lookup that -- unlike plain ``getattr`` -- does *not* trigger
+    ``__getattr__``, so it sees these names as absent and records the
+    "didn't exist" sentinel instead of a captured ``Path``. Their teardown
+    then undoes that by calling ``delattr(module, name)`` instead of
+    ``setattr``. If this fixture's own teardown popped the name first, that
+    ``delattr`` lands on an already-missing attribute and raises
+    ``AttributeError``, aborting the test's teardown. Leaving the name alone
+    at this fixture's teardown and relying solely on monkeypatch's own
+    finalizer to remove it keeps the two mechanisms from fighting over the
+    same ``__dict__`` entry; the next test's setup-time scrub still provides
+    the clean slate either way.
     """
     _scrub_lazy_coord_dir_constants()
     yield
-    _scrub_lazy_coord_dir_constants()
 
 
 @pytest.fixture(autouse=True)

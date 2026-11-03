@@ -12,6 +12,7 @@ for _piece in (
     "probe.sdk.delivery.transport.deadlines",
     "probe.sdk.delivery.transport.failures",
     "probe.sdk.delivery.transport.headers",
+    "probe.sdk.delivery.transport.notices",
     "probe.sdk.delivery.transport.tracking",
     "probe.sdk.delivery.transport.transport",
 ):
@@ -40,6 +41,7 @@ _HOMES = {
     "_patient": "probe.sdk.delivery.transport.deadlines",
     "patience": "probe.sdk.delivery.transport.deadlines",
     "without_patience": "probe.sdk.delivery.transport.deadlines",
+    "pause_patience": "probe.sdk.delivery.transport.deadlines",
     "deadline_remaining": "probe.sdk.delivery.transport.deadlines",
     "_retry_after_seconds": "probe.sdk.delivery.transport.deadlines",
     "_announce_patience": "probe.sdk.delivery.transport.deadlines",
@@ -68,6 +70,10 @@ _HOMES = {
     "_write_origin_header": "probe.sdk.delivery.transport.headers",
     "_DEVICE_REPORTING_SURFACES": "probe.sdk.delivery.transport.headers",
     "_device_headers_for": "probe.sdk.delivery.transport.headers",
+    # probe.sdk.delivery.transport.notices
+    "NOTICE_WATCHER": "probe.sdk.delivery.transport.notices",
+    "NoticeWatcher": "probe.sdk.delivery.transport.notices",
+    "AgentPoster": "probe.sdk.delivery.transport.notices",
     # probe.sdk.delivery.transport.tracking
     "_RESEARCH_PATH_PREFIXES": "probe.sdk.delivery.transport.tracking",
     "_READ_METHODS": "probe.sdk.delivery.transport.tracking",

@@ -31,6 +31,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from seq import safe_path
+
 
 SKIP_DIRS = frozenset({".git", ".hg", ".svn", "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache",
                        ".ipynb_checkpoints"})
@@ -166,6 +168,10 @@ def fetch_sources(folder: Path, *, template: str, version: str, get,
     SourceMismatch."""
     done = []
     for s in read_sources(folder):
+        if safe_path.parts_of(s.name) != [s.name]:
+
+            raise SourceMismatch(f"{template} {version}: SOURCES.json names {s.name[:120]!r}, which is not a name a "
+                                 "folder of third_party/ takes")
         target = Path(folder) / "third_party" / s.name
         if target.exists() or (only is not None and s.name != only):
             continue

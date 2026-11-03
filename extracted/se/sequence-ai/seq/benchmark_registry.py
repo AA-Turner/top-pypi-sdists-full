@@ -18,7 +18,6 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from seq import kinds
 from seq import named
 from seq._partial import Refused, hook, hooks_along, keeping, refused
 from seq.errors import BenchmarkDefinitionError
@@ -206,13 +205,11 @@ def _register(cls: type, kwargs: dict[str, Any], bindings: dict[SeqFlags, str]) 
             memory_gb=memory_gb,
             secrets=_resolve_secrets(kwargs.get("secrets")),
 
-            engine=_declared_engine(kwargs.get("engine"), replay),
-
             **({"constructor": constructor} if constructor is not None else {}),
 
             **({"driver": driver} if driver is not None else {}),
         )
-        spec = spec.model_copy(update={"replay": _replay_engine(replay, spec.engine)})
+        spec = spec.model_copy(update={"replay": _replay_engine(replay)})
     except BenchmarkDefinitionError:
         raise
     except Exception as exc:
@@ -279,8 +276,6 @@ def benchmark_request(cls: type, *, name: str | None = None,
 
 
         params=dict(reg.params) or None,
-
-        engine=spec.engine,
 
         **({"driver": spec.driver} if spec.driver is not None else {}))
 
@@ -577,29 +572,17 @@ def _resolve_replay(replay: Any, cls: type) -> ReplaySpec | None:
 
 
 
-
 REPLAY_ADAPTERS = ("mujoco", "sapien", "isaac")
 
 
-def _declared_engine(engine: Any, replay: ReplaySpec | None) -> str | None:
-    """A benchmark's physics engine as it declares it: its engine=, else the engine its replay names
-    (seq.Replay(engine="mujoco"), as every official template's does), else none - never guessed from the packages its
-    image installs: the platform's generic layer names no simulator a benchmark did not.
-    """
-    named = kinds.declared(engine, "engine", BenchmarkDefinitionError)
-    if named:
-        return named
-    return replay.engine if replay is not None and replay.engine and replay.engine != "own" else None
-
-
-def _replay_engine(replay: ReplaySpec | None, engine: str | None) -> ReplaySpec | None:
-    """`replay` with its adapter said: the one it names, else the benchmark's engine when the platform adapts it, else
-    "own". An adapter needs state=, the method that returns an env's engine state for the platform to read each step."""
+def _replay_engine(replay: ReplaySpec | None) -> ReplaySpec | None:
+    """`replay` with its adapter said: the one it names, else "own". An adapter needs state=, the method that returns an
+    env's engine state for the platform to read each step."""
     if replay is None:
         return None
-    resolved = replay.engine or (engine if engine in REPLAY_ADAPTERS else "own")
+    resolved = replay.engine or "own"
     if resolved in REPLAY_ADAPTERS and replay.state is None:
         raise BenchmarkDefinitionError(
             f"seq.Replay(engine={resolved!r}) needs state=, the method that returns an env's {resolved} state for "
-            "the platform to read each step" + ("" if replay.engine else f" (the benchmark runs on {resolved})"))
+            "the platform to read each step")
     return replay if resolved == replay.engine else replay.model_copy(update={"engine": resolved})

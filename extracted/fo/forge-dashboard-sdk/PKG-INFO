@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: forge-dashboard-sdk
-Version: 15.0.2
+Version: 15.0.4
 Summary: Python client for forge-dashboard's REST API
 Project-URL: Homepage, https://github.com/alrayyes/forge-dashboard-sdk-python
 Project-URL: Issues, https://github.com/alrayyes/forge-dashboard-sdk-python/issues

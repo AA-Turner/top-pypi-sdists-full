@@ -3,6 +3,7 @@
 #          Gustavo Rodrigues <gustavenrique01@gmail.com>
 #          Bruna Lopes <brunajaflopes@gmail.com>
 #          Sarthak Tayal <sarthaktayal2@gmail.com>
+#          Anton Soloviev <anton@praviel.com>
 #
 # License: BSD (3-clause)
 
@@ -18,7 +19,22 @@ from mne.filter import notch_filter
 from scipy.interpolate import Rbf
 from sklearn.utils import check_random_state
 from torch.fft import fft, ifft
-from torch.nn.functional import pad
+from torch.nn.functional import one_hot, pad
+
+
+def _max_float_dtype(device: torch.device | str) -> torch.dtype:
+    """float64, or float32 on Apple MPS, which has no float64."""
+    return torch.float32 if torch.device(device).type == "mps" else torch.float64
+
+
+def _to_device(t: torch.Tensor, device: torch.device | str) -> torch.Tensor:
+    """Move ``t`` to ``device``, in single precision on MPS (no float64 there)."""
+    if torch.device(device).type == "mps":
+        if t.dtype == torch.float64:
+            return t.float().to(device)
+        if t.dtype == torch.complex128:
+            return t.to(torch.complex64).to(device)
+    return t.to(device)
 
 
 def identity(X: torch.Tensor, y: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -91,10 +107,11 @@ def _new_random_fft_phase_odd(
     rng = check_random_state(random_state)
     random_phase = torch.from_numpy(
         2j * np.pi * rng.random((batch_size, c, (n - 1) // 2))
-    ).to(device)
+    )
+    random_phase = _to_device(random_phase, device)
     return torch.cat(
         [
-            torch.zeros((batch_size, c, 1), device=device),
+            torch.zeros((batch_size, c, 1), device=device, dtype=random_phase.dtype),
             random_phase,
             -torch.flip(random_phase, [-1]),
         ],
@@ -112,12 +129,13 @@ def _new_random_fft_phase_even(
     rng = check_random_state(random_state)
     random_phase = torch.from_numpy(
         2j * np.pi * rng.random((batch_size, c, n // 2 - 1))
-    ).to(device)
+    )
+    random_phase = _to_device(random_phase, device)
     return torch.cat(
         [
-            torch.zeros((batch_size, c, 1), device=device),
+            torch.zeros((batch_size, c, 1), device=device, dtype=random_phase.dtype),
             random_phase,
-            torch.zeros((batch_size, c, 1), device=device),
+            torch.zeros((batch_size, c, 1), device=device, dtype=random_phase.dtype),
             -torch.flip(random_phase, [-1]),
         ],
         dim=-1,
@@ -177,7 +195,7 @@ def ft_surrogate(
         and 0 <= phase_noise_magnitude <= 1
     ), f"eps must be a float between 0 and 1. Got {phase_noise_magnitude}."
 
-    f = fft(X.double(), dim=-1)
+    f = fft(X.to(_max_float_dtype(X.device)), dim=-1)
     device = X.device
 
     n = f.shape[-1]
@@ -579,6 +597,7 @@ def _frequency_shift(X: torch.Tensor, fs: float, f_shift: float) -> torch.Tensor
         _f_shift = torch.as_tensor(f_shift).float()
     else:
         raise ValueError(f"Invalid f_shift type: {type(f_shift)}")
+    _f_shift = _f_shift.to(X.device)
     f_shift_stack = _f_shift.repeat(N_padded, n_channels, 1)
     reshaped_f_shift = f_shift_stack.permute(
         *torch.arange(f_shift_stack.ndim - 1, -1, -1)
@@ -910,7 +929,15 @@ def _rotate_signals(
     sensors_positions_matrix: torch.Tensor,
     spherical: bool = True,
 ) -> torch.Tensor:
-    sensors_positions_matrix = sensors_positions_matrix.to(X.device)
+    if X.device.type == "mps":
+        # MPS has no float64: compute the small (n_chans x n_chans) spherical
+        # spline matrices on CPU in double precision, only move the result
+        # (two separate steps: a combined device + dtype .to() from MPS
+        # returns zeros with some torch versions)
+        sensors_positions_matrix = sensors_positions_matrix.cpu().double()
+        rotations = [rotation.cpu().double() for rotation in rotations]
+    else:
+        sensors_positions_matrix = sensors_positions_matrix.to(X.device)
     rot_sensors_matrices = [
         rotation.matmul(sensors_positions_matrix) for rotation in rotations
     ]
@@ -920,9 +947,10 @@ def _rotate_signals(
                 torch.as_tensor(
                     _torch_make_interpolation_matrix(
                         sensors_positions_matrix.T, rot_sensors_matrix.T
-                    ),
-                    device=X.device,
-                ).float()
+                    )
+                )
+                .float()
+                .to(X.device)
                 for rot_sensors_matrix in rot_sensors_matrices
             ]
         )
@@ -931,7 +959,7 @@ def _rotate_signals(
         transformed_X = X.clone()
         sensors_positions = list(sensors_positions_matrix)
         for s, rot_sensors_matrix in enumerate(rot_sensors_matrices):
-            rot_sensors_positions = list(rot_sensors_matrix.T)
+            rot_sensors_positions = list(rot_sensors_matrix)
             for time in range(X.shape[-1]):
                 interpolator_t = Rbf(*sensors_positions, X[s, :, time])
                 transformed_X[s, :, time] = torch.from_numpy(
@@ -1002,7 +1030,7 @@ def sensors_rotation(
         ``mne`` through::
 
          >>> ten_twenty_montage = mne.channels.make_standard_montage(
-         ...    'standard_1020'
+         ...    'standard_1020'  # 'colin27_1020' on MNE >= 1.13
          ... ).get_positions()['ch_pos']
     axis : 'x' | 'y' | 'z'
         Axis around which to rotate.
@@ -1061,10 +1089,12 @@ def mixup(
         Online: https://arxiv.org/abs/1710.09412
     .. [2] https://github.com/facebookresearch/mixup-cifar10/blob/master/train.py
     """
-    device = X.device
     batch_size, n_channels, n_times = X.shape
 
-    X_mix = torch.zeros((batch_size, n_channels, n_times)).to(device)
+    X_mix = X.new_zeros(
+        (batch_size, n_channels, n_times),
+        dtype=X.dtype if X.is_floating_point() else torch.get_default_dtype(),
+    )
     y_a = y.clone()
     y_b = y[idx_perm].clone()
 
@@ -1072,6 +1102,145 @@ def mixup(
         X_mix[idx] = lam[idx] * X[idx] + (1 - lam[idx]) * X[idx_perm[idx]]
 
     return X_mix, (y_a, y_b, lam)
+
+
+def cutmix(
+    X: torch.Tensor,
+    y: torch.Tensor,
+    idx_perm: torch.Tensor,
+    cut_t_start: torch.Tensor,
+    cut_t_len: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Paste a time region of shuffled examples into the original examples.
+
+    See [1]_ for details.
+
+    Parameters
+    ----------
+    X : torch.Tensor
+        EEG data in form ``batch_size, n_channels, n_times``
+    y : torch.Tensor
+        Target of length ``batch_size``
+    idx_perm : torch.Tensor
+        Permuted indices of example that are mixed into original examples.
+    cut_t_start : torch.Tensor
+        Start index of the pasted time region for each example.
+    cut_t_len : torch.Tensor
+        Length of the pasted time region for each example.
+
+    Returns
+    -------
+    tuple
+        ``X``, ``y``. Where ``X`` is augmented and ``y`` is a tuple of length
+        3 containing the labels of the two mixed examples and the fraction of
+        each example kept from the original, ``1 - cut_t_len / n_times``.
+
+    References
+    ----------
+    .. [1] Sangdoo Yun, Dongyoon Han, Seong Joon Oh, Sanghyuk Chun,
+        Junsuk Choe, Youngjoon Yoo (2019). CutMix: Regularization Strategy
+        to Train Strong Classifiers with Localizable Features. In 2019
+        IEEE/CVF International Conference on Computer Vision (ICCV)
+        Online: https://arxiv.org/abs/1905.04899
+    """
+    n_times = X.shape[-1]
+    t = torch.arange(n_times, device=X.device)
+    start = cut_t_start[:, None]
+    in_cut = (t >= start) & (t < start + cut_t_len[:, None])
+    X_mix = torch.where(in_cut[:, None], X[idx_perm], X)
+    lam = (n_times - cut_t_len).to(X.dtype) / n_times
+    return X_mix, (y.clone(), y[idx_perm].clone(), lam)
+
+
+def label_smoothing(
+    X: torch.Tensor,
+    y: torch.Tensor,
+    epsilon: float,
+    num_classes: int | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Smooth targets toward the uniform distribution over the classes.
+
+    See [1]_ for details.
+
+    Parameters
+    ----------
+    X : torch.Tensor
+        EEG data in form ``batch_size, n_channels, n_times``. Returned
+        unchanged.
+    y : torch.Tensor
+        Target of length ``batch_size`` holding class indices (float values
+        are accepted when they are integral), or a floating-point tensor of
+        shape ``batch_size, num_classes`` holding target distributions.
+    epsilon : float
+        Smoothing parameter between 0 and 1: the weight of the uniform
+        distribution mixed into the targets. ``0`` returns the unsmoothed
+        targets.
+    num_classes : int | None, optional
+        Number of classes. Required when ``y`` holds class indices; when
+        ``y`` already holds distributions, it must match the size of the
+        last dimension of ``y``. Defaults to None.
+
+    Returns
+    -------
+    tuple
+        ``X``, ``y``. Where ``X`` is unchanged and ``y`` is a
+        floating-point tensor of shape ``batch_size, num_classes`` whose
+        rows sum to one.
+
+    References
+    ----------
+    .. [1] Christian Szegedy, Vincent Vanhoucke, Jonathon Shlens and
+        Zbigniew Wojna (2016). Rethinking the Inception Architecture for
+        Computer Vision. In 2016 IEEE Conference on Computer Vision and
+        Pattern Recognition (CVPR), pp. 2818-2826.
+        Online: https://arxiv.org/abs/1512.00567
+    """
+    if not isinstance(epsilon, Real) or not 0.0 <= float(epsilon) <= 1.0:
+        raise ValueError(
+            f"epsilon should be a real number between 0 and 1. Got {epsilon!r}."
+        )
+    if num_classes is not None and (
+        not isinstance(num_classes, int)
+        or isinstance(num_classes, bool)
+        or num_classes < 2
+    ):
+        raise ValueError(
+            f"num_classes should be an integer of at least 2. Got {num_classes!r}."
+        )
+
+    if y.dim() == 1:
+        # class-index targets: smooth their one-hot encoding
+        if num_classes is None:
+            raise ValueError("num_classes is required when y holds class indices.")
+        if not torch.all(y == y.floor()):
+            raise ValueError(
+                "y holds non-integral values; class-index targets should be "
+                "integers or integral floats."
+            )
+        if y.numel() > 0 and (y.min() < 0 or y.max() >= num_classes):
+            raise ValueError(f"y holds class indices outside [0, {num_classes}).")
+        one_hot_y = one_hot(y.long(), num_classes).to(dtype=X.dtype)
+        return X, one_hot_y * (1.0 - epsilon) + epsilon / num_classes
+
+    if y.is_floating_point() and y.dim() >= 2:
+        # target distributions: interpolate them toward the uniform one
+        n_classes = y.shape[-1]
+        if num_classes is not None and num_classes != n_classes:
+            raise ValueError(
+                f"num_classes ({num_classes}) does not match the size of the "
+                f"last dimension of y ({n_classes})."
+            )
+        if n_classes < 2:
+            raise ValueError(
+                f"y should hold distributions over at least 2 classes. Got {n_classes}."
+            )
+        return X, y * (1.0 - epsilon) + epsilon / n_classes
+
+    raise ValueError(
+        "y should hold class indices or floating-point target distributions "
+        f"with a class dimension; got dtype {y.dtype} and shape "
+        f"{tuple(y.shape)}."
+    )
 
 
 def segmentation_reconstruction(
@@ -1093,7 +1262,8 @@ def segmentation_reconstruction(
     y : torch.Tensor
         EEG labels for the example or batch.
     n_segments : int
-        Number of segments to use in the batch.
+        Number of segments to use in the batch. Any remaining samples are
+        included in the last segment.
     data_classes : list[tuple[int, torch.Tensor]]
         List of tuples. Each tuple contains the class index and the corresponding EEG data.
     rand_indices : array-like
@@ -1133,6 +1303,8 @@ def segmentation_reconstruction(
         for idx_segment in range(n_segments):
             start = idx_segment * segment_size
             end = (idx_segment + 1) * segment_size
+            if idx_segment == n_segments - 1:
+                end = window_size
 
             # Perform the data augmentation
             X_aug[np.arange(n_trials), :, start:end] = X_class[

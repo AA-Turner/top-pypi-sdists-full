@@ -96,7 +96,7 @@ import typing as _t
 
 # import module snippets
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.urls import fetch_url, mask_url
+from ansible.module_utils.urls import fetch_url, is_fetch_success, mask_url
 from ansible.module_utils.compat.version import LooseVersion
 from ansible.module_utils.common.text.converters import to_native
 
@@ -477,7 +477,8 @@ class RpmKey(object):
     def fetch_key(self, url: str) -> str:
         """Downloads a key from url, returns a valid path to a gpg key"""
         rsp, info = fetch_url(self.module, url)
-        if info['status'] != 200:
+
+        if not is_fetch_success(info):
             self.module.fail_json(msg="failed to fetch key at %s , error was: %s" % (mask_url(url), info['msg']))
 
         key = rsp.read()

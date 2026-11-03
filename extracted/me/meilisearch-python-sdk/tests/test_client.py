@@ -9,13 +9,18 @@ from uuid import uuid4
 import pytest
 from camel_converter.pydantic_base import CamelBase
 from httpx2 import Client as HttpxClient
-from httpx2 import ConnectError, ConnectTimeout, RemoteProtocolError, Request, Response
+from httpx2 import (
+    ConnectError,
+    ConnectTimeout,
+    ReadTimeout,
+    RemoteProtocolError,
+    Request,
+    Response,
+)
 
 from meilisearch_python_sdk import Client
-from meilisearch_python_sdk._utils import decode_jwt
 from meilisearch_python_sdk.errors import (
     BatchNotFoundError,
-    InvalidRestriction,
     MeilisearchApiError,
     MeilisearchCommunicationError,
     MeilisearchTaskFailedError,
@@ -27,6 +32,7 @@ from meilisearch_python_sdk.models.index import IndexInfo
 from meilisearch_python_sdk.models.version import Version
 from meilisearch_python_sdk.models.webhook import WebhookCreate, WebhookUpdate
 from meilisearch_python_sdk.types import JsonDict
+from tests.conftest import decode_jwt
 
 
 @pytest.fixture
@@ -235,16 +241,6 @@ def test_generate_tenant_token_default_key_expires_past(client, default_search_k
 
 
 @pytest.mark.no_parallel
-def test_generate_tenant_token_invalid_restriction(test_key_info, client):
-    test_key_info.indexes = ["good"]
-    key = client.create_key(test_key_info)
-    payload = {"indexes": ["bad"]}
-
-    with pytest.raises(InvalidRestriction):
-        client.generate_tenant_token(payload, api_key=key)
-
-
-@pytest.mark.no_parallel
 def test_get_indexes(client, indexes_sample):
     _, index_uid, index_uid2 = indexes_sample
     response = client.get_indexes()
@@ -403,6 +399,12 @@ def test_get_raw_index_none(client):
     response = client.get_raw_index("test")
 
     assert response is None
+
+
+def test_get_raw_index_bad_key(base_url, ssl_verify):
+    with Client(base_url, "bad", verify=ssl_verify) as client:
+        with pytest.raises(MeilisearchApiError):
+            client.get_raw_index("test")
 
 
 @pytest.mark.no_parallel
@@ -576,6 +578,15 @@ def test_remote_protocol_error(client, monkeypatch):
 def test_connection_timeout(client, monkeypatch):
     def mock_error(*args, **kwargs):
         raise ConnectTimeout("error")
+
+    monkeypatch.setattr(HttpxClient, "post", mock_error)
+    with pytest.raises(MeilisearchCommunicationError):
+        client.create_index("some_index")
+
+
+def test_read_timeout(client, monkeypatch):
+    def mock_error(*args, **kwargs):
+        raise ReadTimeout("error")
 
     monkeypatch.setattr(HttpxClient, "post", mock_error)
     with pytest.raises(MeilisearchCommunicationError):
@@ -784,6 +795,16 @@ def test_delete_tasks(client):
     assert completed_task.task_type == "taskDeletion"
     assert tasks.results[0].details is not None
     assert "uids=1%2C2" in tasks.results[0].details["originalFilter"]
+
+
+@pytest.mark.usefixtures("create_tasks")
+@pytest.mark.no_parallel
+def test_delete_tasks_empty_uids_deletes_nothing(client):
+    task = client.delete_tasks(uids=[])
+    completed_task = client.wait_for_task(task.task_uid)
+
+    assert completed_task.details is not None
+    assert completed_task.details["deletedTasks"] == 0
 
 
 @pytest.mark.usefixtures("create_tasks")
@@ -1038,6 +1059,23 @@ def test_get_tasks_date_filters(client, empty_index, small_movies):
     assert client.get_tasks(uids=[task.uid], after_started_at=future).results == []
 
 
+def test_get_tasks_date_filters_timezone_aware(client, empty_index, small_movies):
+    index = empty_index()
+    response = index.add_documents(small_movies)
+    task = client.wait_for_task(response.task_uid)
+    before = task.enqueued_at - timedelta(seconds=1)
+    after = task.finished_at + timedelta(seconds=1)
+
+    assert before.tzinfo is not None
+    assert task.uid in [
+        x.uid for x in client.get_tasks(uids=[task.uid], after_enqueued_at=before).results
+    ]
+    assert task.uid in [
+        x.uid for x in client.get_tasks(uids=[task.uid], before_finished_at=after).results
+    ]
+    assert client.get_tasks(uids=[task.uid], after_enqueued_at=after).results == []
+
+
 def test_get_task(client, empty_index, small_movies):
     index = empty_index()
     response = index.add_documents(small_movies)
@@ -1158,6 +1196,16 @@ def test_get_batches_with_params(client, empty_index, small_movies):
         client.wait_for_task(task.task_uid)
 
     result = client.get_batches(uids=[task.task_uid for task in tasks])
+    assert len(result.results) > 0
+
+
+def test_get_batches_naive_date_filter(client, empty_index, small_movies):
+    index = empty_index()
+    response = index.add_documents(small_movies)
+    client.wait_for_task(response.task_uid)
+    before = datetime.now(tz=UTC).replace(tzinfo=None) - timedelta(hours=1)
+
+    result = client.get_batches(after_enqueued_at=before)
     assert len(result.results) > 0
 
 

@@ -55,13 +55,38 @@ def _find_library(libname: str) -> Optional[str]:
     return ctypes.util.find_library(libname)
 
 
+@functools.lru_cache(maxsize=1)
+def _default_library() -> str:
+    """Returns the espeak library found on the system
+
+    The lookup is cached as ctypes.util.find_library() runs a subprocess on
+    Linux, which used to be most of the time taken to create a backend. A
+    failed lookup raises and so is not cached.
+
+    """
+    library = (
+        _find_library("espeak-ng")
+        or _find_library("espeak")
+        # The official espeak-ng Windows installer ships the DLL as
+        # "libespeak-ng.dll". ctypes.util.find_library does not add a
+        # "lib" prefix on Windows (unlike Linux, where it resolves
+        # "espeak-ng" to "libespeak-ng.so"), so the two names above miss
+        # a perfectly normal installation that is already on PATH.
+        or _find_library("libespeak-ng")
+        or _find_library("libespeak")
+    )
+    if not library:  # pragma: nocover
+        raise RuntimeError("failed to find espeak library")
+    return library
+
+
 class EspeakWrapper:
     """Wrapper on espeak shared library
 
     The aim of this wrapper is not to be exhaustive but to encapsulate the
     espeak functions required for phonemization. It relies on a espeak shared
-    library (*.so on Linux, *.dylib on Mac and *.dll on Windows) that must be
-    installed on the system.
+    library (``*.so`` on Linux, ``*.dylib`` on Mac and ``*.dll`` on Windows)
+    that must be installed on the system.
 
     Use the function `EspeakWrapper.set_library()` before instanciation to
     customize the library to use.
@@ -85,8 +110,20 @@ class EspeakWrapper:
         self._data_path = None
         self._voice = None
 
-        # load the espeak API
-        self._espeak = EspeakAPI(self.library(), self.data_path)
+        self._load(self._ESPEAK_LIBRARY, self._ESPEAK_DATA_PATH)
+
+    def _load(self, library, data_path):
+        """Loads the espeak API
+
+        `library` and `data_path` are the values given to set_library() and
+        set_data_path() when the wrapper is created, None for the default
+        lookup. They are kept to load the same espeak when unpickled in a
+        parallel job, where set_library() and set_data_path() are not called.
+
+        """
+        self._library_override = library
+        self._data_path_override = data_path
+        self._espeak = EspeakAPI(library or self.library(), self.data_path)
 
         # lazy loading of attributes only required for the synthetize method
         self._libc_ = None
@@ -114,6 +151,8 @@ class EspeakWrapper:
     def __getstate__(self):
         """For pickling, when phonemizing on multiple jobs"""
         return {
+            "library_override": self._library_override,
+            "data_path_override": self._data_path_override,
             "version": self._version,
             "data_path": self._data_path,
             "voice": self._voice,
@@ -121,7 +160,10 @@ class EspeakWrapper:
 
     def __setstate__(self, state: Dict):
         """For unpickling, when phonemizing on multiple jobs"""
-        self.__init__()
+        # the overrides are missing from states pickled by phonemizer<3.5
+        self._data_path = None
+        self._load(
+            state.get("library_override"), state.get("data_path_override"))
         self._version = state["version"]
         self._data_path = state["data_path"]
         self._voice = state["voice"]
@@ -190,20 +232,7 @@ class EspeakWrapper:
                 )
             return library.resolve()
 
-        library = (
-            _find_library("espeak-ng")
-            or _find_library("espeak")
-            # The official espeak-ng Windows installer ships the DLL as
-            # "libespeak-ng.dll". ctypes.util.find_library does not add a
-            # "lib" prefix on Windows (unlike Linux, where it resolves
-            # "espeak-ng" to "libespeak-ng.so"), so the two names above miss
-            # a perfectly normal installation that is already on PATH.
-            or _find_library("libespeak-ng")
-            or _find_library("libespeak")
-        )
-        if not library:  # pragma: nocover
-            raise RuntimeError("failed to find espeak library")
-        return library
+        return _default_library()
 
     def _fetch_version_and_path(self):
         """Initializes version and dapa path from the espeak library"""
@@ -247,10 +276,11 @@ class EspeakWrapper:
         RuntimeError if the specified data path is not a readable directory
 
         """
-        if self._ESPEAK_DATA_PATH:
-            data_path = pathlib.Path(self._ESPEAK_DATA_PATH)
-            if not (data_path.is_dir() and os.access(self._ESPEAK_DATA_PATH, os.R_OK)):
-                raise RuntimeError(f'{self._ESPEAK_DATA_PATH} is not a readable directory')
+        if self._data_path_override:
+            data_path = pathlib.Path(self._data_path_override)
+            if not (data_path.is_dir() and os.access(data_path, os.R_OK)):
+                raise RuntimeError(
+                    f'{self._data_path_override} is not a readable directory')
             self._data_path = data_path.resolve()
         elif 'PHONEMIZER_ESPEAK_DATA_PATH' in os.environ:
             data_path = pathlib.Path(os.environ['PHONEMIZER_ESPEAK_DATA_PATH'])
@@ -274,7 +304,6 @@ class EspeakWrapper:
         """
         return self._voice
 
-    @functools.lru_cache(maxsize=None)
     def available_voices(self, name=None):
         """Voices available for phonemization, as a list of `EspeakVoice`"""
         if name:

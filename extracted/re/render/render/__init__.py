@@ -36,12 +36,14 @@ Async REST API access:
 # Must stay the first import: it records when SDK import began.
 from render import _startup
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 # Render/RenderAsync are lazy-loaded so the workflow worker path stays fast.
 from typing import TYPE_CHECKING
 
 from render.workflows import (
+    FlowContext,
+    FlowRunMetadata,
     Options,
     Retry,
     TaskContext,
@@ -63,6 +65,8 @@ __all__ = [
     "Workflows",  # Task definition
     "TaskContext",  # First parameter of every task
     "TaskRunMetadata",
+    "FlowContext",  # First parameter of every flow
+    "FlowRunMetadata",
     # Configuration
     "Options",
     "Retry",

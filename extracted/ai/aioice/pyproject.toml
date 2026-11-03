@@ -39,14 +39,8 @@ Documentation = "https://aioice.readthedocs.io/"
 source = ["aioice"]
 
 [tool.mypy]
-disallow_untyped_calls = true
-disallow_untyped_defs = true
-disallow_untyped_decorators = true
 files = ["examples", "src", "tests"]
-mypy_path = "stubs"
-strict_optional = false
-warn_redundant_casts = true
-warn_unused_ignores = true
+strict = true
 
 [tool.ruff.lint]
 select = [
@@ -55,6 +49,7 @@ select = [
     "W",  # pycodestyle
     "I",  # isort
     "T20",  # flake8-print
+    "UP",  # pyupgrade
 ]
 
 [tool.ruff.lint.per-file-ignores]

@@ -52,11 +52,13 @@ from dreamscale.policy.connection import (
     IDLE_RELEASE_S,
     MAX_OPEN_ATTEMPTS,
     MIN_OPEN_WINDOW_S,
+    RATE_LIMITED_GIVE_UP_S,
     REQUEST_STALL_S,
     ConnectionMachine,
     Effect,
     Event,
     State,
+    rate_limited_delay_s,
     retry_delay_s,
 )
 from dreamscale.policy.context import history_ticks, window_from_ticks
@@ -233,7 +235,23 @@ def hold_rule(contract: RuntimeContract) -> str:
 
 
 def hold_action(contract: RuntimeContract, observation: Any) -> tuple[float, ...]:
-    """What to command when there is no model action this tick."""
+    """What to command when there is no model action this tick: always an action row of the
+    contract's width (rows that aren't the state come from ``contract.hold_indices``)."""
+    return _checked_hold(contract, _measured_hold(contract, observation))
+
+
+def _checked_hold(contract: RuntimeContract, hold: Sequence[float]) -> tuple[float, ...]:
+    hold = tuple(float(value) for value in hold)
+    if contract.action_dim is not None and len(hold) != contract.action_dim:
+        raise errors.observation_error(
+            "observation", f"a hold of {len(hold)} values",
+            f"an observation whose hold_action is an action row of {contract.action_dim} "
+            "values (the robot's measured position in the model's action layout)",
+        )
+    return hold
+
+
+def _measured_hold(contract: RuntimeContract, observation: Any) -> tuple[float, ...]:
     if hold_rule(contract) == HOLD_MEASURED:
         measured = getattr(observation, "hold_action", None)
         if measured is None:
@@ -624,6 +642,7 @@ class AsyncPolicy:
         self._snapshot: dict[str, Any] = {}
         self._failure: BaseException | None = None
         self._failure_candidate: BaseException | None = None
+        self._rate_limited_since: float | None = None
         self._pending_drop_failure: BaseException | None = None
         self._pinned_failure: BaseException | None = None
         self._last_activity: float = clock()
@@ -1394,6 +1413,7 @@ class AsyncPolicy:
             return
         self._adopt(inner, profile=profile, calibrated=calibrated)
         self._attempt = 0
+        self._rate_limited_since = None
         self._opened_once = True
         self._fire(Event.SESSION_READY)
         if reopening:
@@ -1433,6 +1453,10 @@ class AsyncPolicy:
 
     async def _retry_run(self) -> None:
         exc = getattr(self, "_failure_candidate", None)
+        if isinstance(exc, errors.DreamscaleError) and exc.code == "rate_limited":
+            await self._wait_out_rate_limit(exc)
+            return
+        self._rate_limited_since = None
         if self._attempt >= MAX_OPEN_ATTEMPTS:
             self._latch(
                 errors.catalog("gpu_unreachable", detail=str(exc) or None)
@@ -1445,6 +1469,24 @@ class AsyncPolicy:
         delay = retry_delay_s(self._attempt + 1, retry_after_s=getattr(exc, "retry_after_s", None))
         if delay > 0:
             await self._sleep(delay)
+        self._retry_if_wanted()
+
+    async def _wait_out_rate_limit(self, exc: errors.DreamscaleError) -> None:
+        """A 429 is the control plane asking a fleet to slow down: wait as it says, without
+        spending an attempt. A robot that waits too long reports it as what it is."""
+        now = self._clock()
+        if self._rate_limited_since is None:
+            self._rate_limited_since = now
+        if now - self._rate_limited_since >= RATE_LIMITED_GIVE_UP_S:
+            self._rate_limited_since = None
+            self._latch(exc)
+            self._fire(Event.ATTEMPTS_EXHAUSTED)
+            return
+        self._attempt = max(0, self._attempt - 1)
+        await self._sleep(rate_limited_delay_s(getattr(exc, "retry_after_s", None)))
+        self._retry_if_wanted()
+
+    def _retry_if_wanted(self) -> None:
         if self._machine.state is not State.RECONNECTING:
             return
         if self._caller_active():
@@ -1452,6 +1494,7 @@ class AsyncPolicy:
         else:
             # Nobody is waiting: sessions only open because of a user call.
             self._attempt = 0
+            self._rate_limited_since = None
             self._fire(Event.ABANDONED)
 
     async def _respect_create_floor(self) -> None:

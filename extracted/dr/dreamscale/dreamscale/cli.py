@@ -826,8 +826,28 @@ def _flag(name: str) -> str:
     return "--" + name.replace("_", "-")
 
 
-@deployments_app.command("create")
-@endpoints_app.command("create")
+def _base_labels(predicate=lambda base: True) -> str:
+    """The listed deployment bases' names for help text, from their registry ("A, B or C");
+    an unlisted base is never named."""
+    from dreamscale import deploy_bases
+
+    labels = [base.label for base in deploy_bases.bases() if base.listed_as and predicate(base)]
+    return ", ".join(labels[:-1]) + (" or " if len(labels) > 1 else "") + labels[-1]
+
+
+_CREATE_HELP = (
+    f"Deploy fine-tuned weights of {_base_labels()} (pick with --base) from Hugging Face (any "
+    "huggingface.co link works, including a checkpoint folder's page) or from a local folder "
+    "(only the files the build reads are uploaded; a re-run sends nothing new)."
+)
+_RTC_HELP = (
+    f"Set a {_base_labels(lambda base: base.set_rtc is not None)} deployment's RTC for its new "
+    "sessions (no rebuild), as its base allows."
+)
+
+
+@deployments_app.command("create", help=_CREATE_HELP)
+@endpoints_app.command("create", help=_CREATE_HELP)
 def deployments_create(
     repo: str = typer.Argument(
         ..., help="Hugging Face repo (hf://owner/name, owner/name or a huggingface.co link), "
@@ -932,10 +952,7 @@ def deployments_create(
     ),
     region_fallback: bool | None = _REGION_FALLBACK_OPTION,
 ) -> None:
-    """Deploy fine-tuned weights of π0.5, FLUX 3 Action, LingBot-VLA 2.0 or Hy-VLA (pick with
-    --base) from Hugging Face (any huggingface.co link works, including a checkpoint folder's
-    page) or from a local folder (only the files the build reads are uploaded; a re-run sends
-    nothing new)."""
+    """Deploy fine-tuned weights (``_CREATE_HELP``: every registered deployment base)."""
     from dreamscale.checkpoints_cmd import (
         BASE_LABELS,
         BASE_MODEL,
@@ -1186,17 +1203,17 @@ def deployments_keep_warm(
     )
 
 
-@deployments_app.command("rtc")
+@deployments_app.command("rtc", help=_RTC_HELP)
 def deployments_rtc(
     checkpoint_id: str = typer.Argument(..., help=_DEPLOYMENT_ARG),
-    method: str = typer.Argument(..., help="off, test-time or trained (FLUX 3 Action: off "
-                                 "or trained)."),
+    method: str = typer.Argument(..., help="off, test-time or trained, as the deployment's "
+                                 "base allows (most run off or trained)."),
     max_delay: int | None = typer.Option(
         None, "--max-delay", help="π0.5: the delay trained RTC was trained with (1-15). "
         "FLUX 3 Action: the most planned actions pinned per request (default: all it trained)."
     ),
 ) -> None:
-    """Set a π0.5 or FLUX 3 Action deployment's RTC for its new sessions (no rebuild)."""
+    """Set a deployment's RTC for its new sessions (``_RTC_HELP``: the bases with a setting)."""
     from dreamscale.checkpoints_cmd import parse_rtc, run_rtc
 
     try:

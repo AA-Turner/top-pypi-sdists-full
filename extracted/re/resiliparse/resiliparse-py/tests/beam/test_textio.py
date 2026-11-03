@@ -1,0 +1,74 @@
+import gzip
+import os
+import pytest
+
+import apache_beam as beam
+from apache_beam.testing.util import assert_that, equal_to
+from resiliparse.beam import fileio
+from resiliparse.beam import textio
+from .util import TestPipeline
+
+
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'test-data'))
+
+
+@pytest.mark.slow
+def test_readlines():
+    with open(os.path.join(DATA_DIR, 'warcfile.warc'), 'rb') as f:
+        num_lines = len(f.readlines())
+
+    with TestPipeline() as pipeline:
+        count = (pipeline
+                 | textio.ReadFromText(os.path.join(DATA_DIR, 'warcfile.warc'))
+                 | beam.combiners.Count.Globally())
+        assert_that(count, equal_to([num_lines]))
+
+    # Smaller splits
+    with TestPipeline() as pipeline:
+        count = (pipeline
+                 | textio.ReadFromText(os.path.join(DATA_DIR, 'warcfile.warc'),
+                                       desired_split_size=64, min_split_size=16)
+                 | beam.combiners.Count.Globally())
+        assert_that(count, equal_to([num_lines]))
+
+
+@pytest.mark.slow
+def test_readalllines():
+    with open(os.path.join(DATA_DIR, 'warcfile.warc'), 'rb') as f:
+        num_lines = len(f.readlines())
+
+    with TestPipeline() as pipeline:
+        count = (pipeline
+                 | fileio.MatchFiles(os.path.join(DATA_DIR, 'warcfile.warc'))
+                 | textio.ReadAllFromText()
+                 | beam.combiners.Count.Globally())
+        assert_that(count, equal_to([num_lines]))
+
+    # Smaller splits
+    with TestPipeline() as pipeline:
+        count = (pipeline
+                 | fileio.MatchFiles(os.path.join(DATA_DIR, 'warcfile.warc'))
+                 | textio.ReadAllFromText(desired_split_size=64, min_split_size=16)
+                 | beam.combiners.Count.Globally())
+        assert_that(count, equal_to([num_lines]))
+
+
+@pytest.mark.slow
+def test_read_lines_compressed():
+    with gzip.GzipFile(os.path.join(DATA_DIR, 'warcfile.warc.gz'), 'rb') as f:
+        num_lines = len(f.readlines())
+
+    with TestPipeline() as pipeline:
+        count = (pipeline
+                 | textio.ReadFromText(os.path.join(DATA_DIR, 'warcfile.warc.gz'))
+                 | beam.combiners.Count.Globally())
+
+        assert_that(count, equal_to([num_lines]))
+
+    # Smaller splits (should not do anything if file is compressed)
+    with TestPipeline() as pipeline:
+        count = (pipeline
+                 | textio.ReadFromText(os.path.join(DATA_DIR, 'warcfile.warc.gz'),
+                                       desired_split_size=64, min_split_size=16)
+                 | beam.combiners.Count.Globally())
+        assert_that(count, equal_to([num_lines]))

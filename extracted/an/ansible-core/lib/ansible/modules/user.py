@@ -126,6 +126,7 @@ options:
         description:
             - "If set to V(true) when used with O(home), attempt to move the user's old home
               directory to the specified directory if it isn't there already and the old home exists."
+            - If O(local) is set to V(true), this option will be ignored if the current home directory does not exist.
         type: bool
         default: no
     system:
@@ -322,6 +323,7 @@ notes:
     C(pw userdel) remove, C(pw lock) to lock, and C(pw unlock) to unlock accounts.
   - On distributions using BusyBox, this module uses C(adduser), C(chpasswd), C(deluser), and C(delgroup).
     The C(/etc/passwd) file is modified directly by this module and is backed up before modification.
+  - On distributions using BusyBox, O(move_home) is supported only if C(shadow) package is installed.
   - On all other platforms, this module uses C(useradd) to create, C(usermod) to modify, and
     C(userdel) to remove accounts.
 seealso:
@@ -977,11 +979,15 @@ class User(object):
             cmd.append('-c')
             cmd.append(self.comment)
 
-        if self.home is not None and info[5] != self.home:
+        existing_home = info[5]
+        if self.home is not None and existing_home != self.home:
             cmd.append('-d')
             cmd.append(self.home)
             if self.move_home:
-                cmd.append('-m')
+                if self.local and not os.path.exists(existing_home):
+                    self.module.warn("Ignoring move_home since home directory %s does not exist, but local is true" % existing_home)
+                else:
+                    cmd.append('-m')
 
         if self.shell is not None and info[6] != self.shell:
             cmd.append('-s')
@@ -1242,6 +1248,7 @@ class User(object):
             return (1, '', to_native(e))
         ssh_dir = os.path.dirname(ssh_key_file)
 
+        # no need to check for broken symlnk as mkdir below will fail
         if not os.path.exists(ssh_dir):
             if self.module.check_mode:
                 return (0, '', '')
@@ -1249,20 +1256,24 @@ class User(object):
                 os.mkdir(ssh_dir, int('0700', 8))
                 os.chown(ssh_dir, info[2], info[3])
             except OSError as e:
-                return (1, '', 'Failed to create %s: %s' % (ssh_dir, to_native(e)))
+                return (1, '', f'Failed to create ssh directory {ssh_dir}: {e!r}')
 
-        if os.path.exists(ssh_key_file):
+        # use lexists instead of exists to account for broken symlinks
+        if os.path.lexists(ssh_key_file):
             if self.force:
+                if not self.module.check_mode and os.path.islink(ssh_key_file):
+                    os.unlink(ssh_key_file)
                 self.module.warn(f'Overwriting existing ssh key private file "{ssh_key_file}"')
                 overwrite = 'y'
             else:
                 self.module.warn(f'Found existing ssh key private file "{ssh_key_file}", no force, so skipping ssh-keygen generation')
                 return (None, 'Key already exists, use "force: yes" to overwrite', '')
 
-        if os.path.exists(pub_file):
+        if os.path.lexists(pub_file):
             if self.force:
+                if not self.module.check_mode:
+                    os.unlink(pub_file)
                 self.module.warn(f'Overwriting existing ssh key public file "{pub_file}"')
-                os.unlink(pub_file)
             else:
                 self.module.warn(f'Found existing ssh key public file "{pub_file}", no force, so skipping ssh-keygen generation')
                 return (None, 'Public key already exists, use "force: yes" to overwrite', '')
@@ -3132,7 +3143,25 @@ class BusyBox(User):
         - remove_user()
         - modify_user()
     """
-    def _build_password_string(self, current_password=None):
+    def _validate_shell(self):
+        if not self.shell:
+            return
+
+        try:
+            with open("/etc/shells", "r") as f:
+                shells = [
+                    shell
+                    for shell in (line.strip() for line in f)
+                    if shell
+                    and not shell.startswith("#")
+                ]
+        except FileNotFoundError:
+            return
+
+        if self.shell not in shells:
+            self.module.warn(f"'{self.shell}' is not listed as a valid shell on the remote host.")
+
+    def _build_password_string(self, current_password: str | None = None) -> str:
         """
         Build the appropriate password string based on the current password and
         module parameters.
@@ -3140,30 +3169,31 @@ class BusyBox(User):
         This method will return '*' at a minimum to avoid creating an enabled
         account with no password.
         """
-        lock = LOCK_INDICATOR if self.password_lock else ''
-
-        # Order of precedence when choosing the password:
-        #   1. password from module parameters
-        #   2. current password
-        #   3. string to enable the account but without a password
-        password = '*'
         if self.password is not None:
             password = self.password
         elif current_password:
             password = current_password
-            if current_password == LOCK_INDICATOR:
-                # Special handling when the password is only a '!' to avoid
-                # unnecessary changes to the password to values like '!!' or '!*'.
-                lock = ''
-            elif current_password.startswith(LOCK_INDICATOR):
-                # Preserve the existing password but unlock the account even if
-                # no password hash was provided in the module parameters.
-                password = current_password.lstrip(LOCK_INDICATOR)
+        else:
+            password = '*'
 
-        return f'{lock}{password}'
+        currently_locked = bool(current_password) and current_password.startswith(LOCK_INDICATOR)
+
+        if self.password_lock is True:
+            if not password.startswith(LOCK_INDICATOR):
+                password = f'{LOCK_INDICATOR}{password}'
+        elif self.password_lock is False:
+            # Leave a lone '!' as-is so unlocking does not produce an empty field.
+            if password.startswith(LOCK_INDICATOR) and password != LOCK_INDICATOR:
+                password = password.removeprefix(LOCK_INDICATOR)
+        elif currently_locked and not password.startswith(LOCK_INDICATOR):
+            password = f'{LOCK_INDICATOR}{password}'
+
+        return password
 
     def create_user(self):
         cmd = [self.module.get_bin_path('adduser', True)]
+
+        self._validate_shell()
 
         cmd.append('-D')
 
@@ -3274,6 +3304,8 @@ class BusyBox(User):
         add_cmd_bin = self.module.get_bin_path('adduser', True)
         remove_cmd_bin = self.module.get_bin_path('delgroup', True)
 
+        self._validate_shell()
+
         # Manage group membership
         if self.groups:
             groups = self.get_groups_set() or set()
@@ -3296,17 +3328,29 @@ class BusyBox(User):
 
         # Manage password
         current_password = to_native(user_info[1])
-        new_password = self._build_password_string(current_password)
-        if self.update_password == 'always':
-            lock_status_mismatch = self.password_lock and not current_password.startswith('!')
-            password_changed = new_password != current_password
-            if lock_status_mismatch or password_changed:
+        if self.password is not None or self.password_lock is not None:
+            new_password = self._build_password_string(current_password)
+            if self.update_password == 'always' and new_password != current_password:
                 cmd = [self.module.get_bin_path('chpasswd', True), '--encrypted']
                 data = f'{self.name}:{new_password}'
                 rc, out, err = self.execute_command(cmd, data=data)
 
                 if rc is not None and rc != 0:
                     self.module.fail_json(name=self.name, msg=err, rc=rc)
+
+        # Move the home before rewriting /etc/passwd so usermod can still
+        # locate the current home directory contents.
+        if self.move_home and self.home is not None and user_info[5] != self.home:
+            usermod_bin = self.module.get_bin_path('usermod')
+            if usermod_bin is not None:
+                cmd = [usermod_bin, '-d', self.home, '-m', self.name]
+                rc, out, err = self.execute_command(cmd)
+                if rc is not None and rc != 0:
+                    self.module.fail_json(name=self.name, msg=err, rc=rc)
+
+                user_info = self.user_info()
+            else:
+                self.module.warn("usermod command not found, skipping home directory move")
 
         # Manage user settings
         uid = user_info[2]

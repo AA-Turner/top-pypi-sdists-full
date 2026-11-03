@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Any
+from typing import Any, Literal
 
 import httpx2
 
@@ -12,8 +12,8 @@ from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
 from trajectory._types import Headers, NotGiven, Omit, not_given, omit
 from trajectory._utils import maybe_transform
+from trajectory.types.aperture_reward_point import ApertureRewardPoint
 from trajectory.types.held_out_rewards_by_step_page import HeldOutRewardsByStepPage
-from trajectory.types.trainer_rewards_by_step_page import TrainerRewardsByStepPage
 from trajectory.types.training_trajectory_rewards_page import TrainingTrajectoryRewardsPage
 
 
@@ -69,18 +69,18 @@ class Rewards(APIResource):
       ),
     )
 
-  def list_trainer_rewards(
+  def list_history(
     self,
-    run_id: str,
+    training_run_id: str,
     *,
-    cursor: str | None | Omit = omit,
-    limit: int | Omit = omit,
+    mode: Literal["training", "eval", "augmentation"] | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> TrainerRewardsByStepPage:
-    """Trainer rewards recorded for a training run, in ascending training-step order.
+  ) -> list[ApertureRewardPoint]:
+    """Mean trajectory reward by policy step, matching the product reward chart. Includes
+    trajectory and pending counts; distinct from trainer collection metrics.
 
     Args:
       extra_headers: Send extra headers
@@ -91,19 +91,20 @@ class Rewards(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(run_id, str) and not run_id:
-      raise ValueError(f"Expected a non-empty value for `run_id` but received {run_id!r}")
+    if isinstance(training_run_id, str) and not training_run_id:
+      raise ValueError(
+        f"Expected a non-empty value for `training_run_id` but received {training_run_id!r}"
+      )
     return self._get(
       path_template(
-        "/api/v1/train/{run_id}/step/trainer-reward-by-step",
-        run_id=run_id,
+        "/api/v1/train/{training_run_id}/trajectory-view/reward-history",
+        training_run_id=training_run_id,
       ),
-      cast_to=TrainerRewardsByStepPage,
+      cast_to=list[ApertureRewardPoint],
       options=make_request_options(
         params=maybe_transform(
           {
-            "cursor": cursor,
-            "limit": limit,
+            "mode": mode,
           }
         ),
         extra_headers=extra_headers,
@@ -166,5 +167,5 @@ class RewardsWithRawResponse:
   def __init__(self, resource: Rewards) -> None:
     self._resource = resource
     self.list_held_out_rewards = to_raw_response_wrapper(resource.list_held_out_rewards)
-    self.list_trainer_rewards = to_raw_response_wrapper(resource.list_trainer_rewards)
+    self.list_history = to_raw_response_wrapper(resource.list_history)
     self.list_trajectory_rewards = to_raw_response_wrapper(resource.list_trajectory_rewards)

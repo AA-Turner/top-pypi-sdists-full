@@ -15,11 +15,16 @@ from typing import TYPE_CHECKING, Any
 from typing_extensions import Protocol, TypeVar
 
 from datamodel_code_generator import Error
+from datamodel_code_generator._message_text import counted
 from datamodel_code_generator._model_keys import ModelKey, model_key_of
-from datamodel_code_generator._url_redaction import redact_reference
+from datamodel_code_generator._url_redaction import named_location, redact_reference
 from datamodel_code_generator.model.base import DataModel, sort_data_models_for_mro
 from datamodel_code_generator.parser._graph_ids import keyed_models
+from datamodel_code_generator.parser._model_shapes import ReuseGroups
 from datamodel_code_generator.parser._passes._shared import (
+    GenerationStoreHost,
+    RecursionFactsHost,
+    RootModelTypeHost,
     _is_pydantic_v2_root_model,
     _runtime_validation_reference_keys,
     _sort_models_by_class_body_references,
@@ -38,9 +43,10 @@ if TYPE_CHECKING:
         ModuleSplitMode,
         ReadOnlyWriteOnlyModelType,
     )
+    from datamodel_code_generator._user_keys import ConstructionKeys
     from datamodel_code_generator.parser._graph_ids import KeyedModels
     from datamodel_code_generator.parser._passes._state import ConfigT, SettleRun, SortedDataModels, _ConstNarrowing
-    from datamodel_code_generator.parser.generation import GenerationIndex, GenerationStore, GraphBuilder
+    from datamodel_code_generator.parser.generation import GenerationIndex, GenerationStore
     from datamodel_code_generator.reference import ModelResolver, Reference
     from datamodel_code_generator.types import DataType
 
@@ -64,24 +70,19 @@ __all__ = [
 _ConfigT_co = TypeVar("_ConfigT_co", bound=ParseConfigView, covariant=True)
 
 
-class SettleHost(Protocol[_ConfigT_co]):
+class SettleHost(RecursionFactsHost, GenerationStoreHost, RootModelTypeHost, Protocol[_ConfigT_co]):
     """The options, run state and hooks of the parser that the settle passes read and write."""
 
-    _recursion_facts: RecursionFacts
-    _typed_map_value_reference_ids: set[int]
+    _reuse_groups: ReuseGroups
     yielding_names_to_assign: tuple[tuple[str, tuple[str, str | None]], ...]
 
     @property
-    def _graph_builder(self) -> GraphBuilder:
-        """The builder that changes the model graph through the generation store."""
+    def _site_model_keys(self) -> set[ModelKey]:
+        """The model keys of the site models a reference with more assertions gets."""
 
     @property
     def dedupe_request_response_variants(self) -> bool:
         """Whether the read and write variants are decided from the schema graph."""
-
-    @property
-    def generation_store(self) -> GenerationStore:
-        """The generation store of the parse."""
 
     @property
     def keep_model_order(self) -> bool:
@@ -92,10 +93,6 @@ class SettleHost(Protocol[_ConfigT_co]):
         """The resolver of references and class names."""
 
     @property
-    def pydantic_v2_root_model_type(self) -> type[DataModel] | None:
-        """The root model type whose class body evaluates its root type, if the output has one."""
-
-    @property
     def read_only_write_only_model_type(self) -> ReadOnlyWriteOnlyModelType | None:
         """The read and write variants the output generates, if any."""
 
@@ -103,8 +100,9 @@ class SettleHost(Protocol[_ConfigT_co]):
     def results(self) -> list[DataModel]:
         """The parsed models."""
 
-    def _names_have_class_keyed_options(self, names: set[str]) -> bool:
-        """Return whether an option keyed by class name, or by a class-scoped field, names one of ``names``."""
+    @property
+    def _construction_keys(self) -> ConstructionKeys:
+        """The class names that the options read while models are built key (``_user_keys.py``)."""
 
     def _prepare_parse_config(
         self,
@@ -165,7 +163,7 @@ MAX_RECURSION_COUNT: int = sys.getrecursionlimit()
 def _named_model_path(path: str, models: Mapping[str, DataModel]) -> str:
     """Return how a message names the model at a reference path: its schema location, or the path without one."""
     location = None if (model := models.get(path)) is None else location_of(model.reference)
-    return redact_reference(path if location is None else str(location))
+    return named_location(location, path)
 
 
 def sort_data_models(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
@@ -223,20 +221,13 @@ def sort_data_models(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
     for model in unsorted_data_models:
         key = model_key_of(model.reference)
         reference_keys = get_reference_keys(model, key)
-        if not reference_keys:
-            sorted_data_models[key] = model
-            sorted_model_keys.add(key)
-        elif key in reference_keys and len(reference_keys) == 1:  # only self-referencing
-            sorted_data_models[key] = model
-            sorted_model_keys.add(key)
-            add_require_update_action_model(model, key)
-        elif not reference_keys - {key} - sorted_model_keys:  # reference classes have been resolved
-            sorted_data_models[key] = model
-            sorted_model_keys.add(key)
-            if key in reference_keys:
-                add_require_update_action_model(model, key)
-        else:
+        if reference_keys - {key} - sorted_model_keys:
             unresolved_references.append(model)
+            continue
+        sorted_data_models[key] = model
+        sorted_model_keys.add(key)
+        if key in reference_keys:
+            add_require_update_action_model(model, key)
 
     if unresolved_references:
         if sorted_model_count != len(sorted_data_models) and recursion_count:
@@ -262,30 +253,17 @@ def sort_data_models(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
             # Build lookup dict for O(1) index access instead of O(n) list.index()
             key_to_index = {model_key_of(m.reference): idx for idx, m in enumerate(unresolved_references)}
             for model in unresolved_references:
-                if _is_pydantic_v2_root_model(model, pydantic_v2_root_model_type):
-                    indexes = [
-                        key_to_index[reference_key]
-                        for f in model.fields
-                        for t in f.data_type.all_data_types
-                        if t.reference and (reference_key := universe.key_of(t.reference)) in key_to_index
-                    ]
-                else:
-                    indexes = [
-                        key_to_index[reference_key]
-                        for b in model.base_classes
-                        if b.reference and (reference_key := universe.key_of(b.reference)) in key_to_index
-                    ]
-
-                if indexes:
-                    ordered_models.append((
-                        max(indexes),
-                        model,
-                    ))
-                else:
-                    ordered_models.append((
-                        -1,
-                        model,
-                    ))
+                references = (
+                    (t.reference for f in model.fields for t in f.data_type.all_data_types)
+                    if _is_pydantic_v2_root_model(model, pydantic_v2_root_model_type)
+                    else (b.reference for b in model.base_classes)
+                )
+                indexes = [
+                    key_to_index[reference_key]
+                    for reference in references
+                    if reference and (reference_key := universe.key_of(reference)) in key_to_index
+                ]
+                ordered_models.append((max(indexes, default=-1), model))
 
             sorted_unresolved_models = [m[1] for m in sorted(ordered_models, key=operator.itemgetter(0))]
             if sorted_unresolved_models == unresolved_references:
@@ -316,17 +294,11 @@ def sort_data_models(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
             unresolved_model = reference_keys - {key} - sorted_model_keys
             base_model_keys = {universe.key_of(s.reference) for s in model.base_classes if s.reference}
             update_action_parent = require_update_action_model_keys.intersection(base_model_keys)
-            if not unresolved_model:
-                sorted_data_models[key] = model
-                sorted_model_keys.add(key)
-                if update_action_parent:
-                    add_require_update_action_model(model, key)
-                continue
-
             if not unresolved_model - unsorted_data_model_keys:
                 sorted_data_models[key] = model
                 sorted_model_keys.add(key)
-                add_require_update_action_model(model, key)
+                if unresolved_model or update_action_parent:
+                    add_require_update_action_model(model, key)
                 continue
 
             # unresolved
@@ -413,17 +385,23 @@ def warn_about_unmatched_model_name_keys(parser: SettleHost[Any]) -> None:
     ):
         listed = ", ".join(map(repr, unmatched_keys))
         warn_as_parser_base(
-            f"--model-name-map: {len(unmatched_keys)} key{'' if len(unmatched_keys) == 1 else 's'} "
-            f"matched no generated model: {listed}",
+            f"--model-name-map: {counted(len(unmatched_keys), 'key')} matched no generated model: {listed}",
             UserWarning,
             stacklevel=2,
         )
 
 
 def settle_yielding_names(parser: SettleHost[Any], _run: SettleRun[Any]) -> None:
-    """Give the names that yield to ``--model-name-map`` their final form."""
-    parser._typed_map_value_reference_ids = parser.model_resolver.settle_yielding_names()  # noqa: SLF001
-    if (changes := parser.model_resolver.yielding_name_changes) and parser._names_have_class_keyed_options(changes):  # noqa: SLF001
+    """Give the names that yield to ``--model-name-map`` their final form, and record the reuse groups plan.
+
+    The models whose names yield, and the site models of the parse, yield the canonical place of a group of
+    duplicates to the others too.
+    """
+    parser._reuse_groups = ReuseGroups(  # noqa: SLF001
+        site_models=frozenset(parser._site_model_keys),  # noqa: SLF001
+        typed_map_values=frozenset(parser.model_resolver.settle_yielding_names()),
+    )
+    if (changes := parser.model_resolver.yielding_name_changes) and parser._construction_keys.name_any(changes):  # noqa: SLF001
         parser.yielding_names_to_assign = tuple(parser.model_resolver.final_yielding_names.items())
 
 

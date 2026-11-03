@@ -2,20 +2,57 @@
 
 
 class JavaScriptObjectsMixin:
-    def _handle_object_member(self, token):
-        if not self.as_object:
+    def _typed_class_member(self):
+        return (self.as_class and not self._in_prop_value
+                and self.context.class_field_annotations)
+
+    def optional_member_context(self):
+        state = self
+        while isinstance(state._state, self.__class__):
+            state = state._state
+        return state._state == state._state_global and state._typed_class_member()
+
+    def _optional_class_member(self):
+        if not self._typed_class_member():
             return False
+        self.context.add_condition(-1)
+        return True
+
+    def _handle_object_member(self, token):
+        """Called for tokens in an object literal or class body (as_object)."""
+        if token == '=' and self.as_class:
+            self._in_prop_value = True
+        if (self.as_class and token.endswith('?')
+                and self._typed_class_member()):
+            self.last_tokens = token[:-1]
+            return True
         # Support for getter/setter: look for 'get' or 'set' before method name
+        if token == '...':
+            # What a spread takes is a value: ...(c && {f() {}}), ...g(x)
+            self._in_prop_value = True
+            self.last_tokens = token
+            return True
         if token in ('get', 'set'):
             self._getter_setter_prefix = token
             return True
         if self._getter_setter_prefix:
-            # Next token is the property name
-            self.last_tokens = f"{self._getter_setter_prefix} {token}"
-            self._getter_setter_prefix = None
-            return True
+            prefix, self._getter_setter_prefix = self._getter_setter_prefix, None
+            if token not in ('(', ':', ',', '}', '=', ';', '<'):
+                # Next token is the property name
+                self.last_tokens = f"{prefix} {token}"
+                return True
+            # A member named "get" or "set": get(key) {}, {get: f}, {get, set}
+            self.last_tokens = prefix
         if token == '[':
-            self._collect_computed_name()
+            if self._in_prop_value:
+                # An array value, {list: [[1], 2]}, not a computed name.
+                self._read_binding_candidate(']')
+            else:
+                self._collect_computed_name()
+            return True
+        if token == ':' and self.as_class and self._typed_class_member():
+            self.function_name = self.last_tokens
+            self._consume_type_annotation()
             return True
         if token == ':':
             # Only set function_name for valid identifiers
@@ -34,17 +71,17 @@ class JavaScriptObjectsMixin:
         elif token == '(':
             # Check if this is a method call (previous token was . or new)
             if self._prev_token == '.' or self._prev_token == 'new':
-                # Method call inside object — use sub_state so
+                # Method call inside object — use its group reader so
                 # the matching ')' doesn't escape the object reader.
-                self.sub_state(self.__class__(self.context))
+                self._read_parenthesis_group()
                 self._prev_token = token
                 return True
             # In property value (after ':'), identifier( is a function call
             # unless it's the prop name itself: prop: (...) => {} is arrow fn
-            if self._in_prop_value and (
+            if self._in_prop_value and self.last_tokens != '=' and (
                     not self.function_name
                     or self.last_tokens != self.function_name):
-                self.sub_state(self.__class__(self.context))
+                self._read_parenthesis_group()
                 self._prev_token = token
                 return True
             if not self.started_function:
@@ -79,17 +116,21 @@ class JavaScriptObjectsMixin:
 
         object_reader = self._read_binding_candidate(
             '}', callback, as_object=True, track_complexity=False)
+        object_reader.as_class = self._class_body_pending
+        self._class_body_pending = False
         object_reader._static_seen = self._static_seen
         object_reader._async_seen = self._async_seen
         self._static_seen = False
         self._async_seen = False
 
     def _collect_computed_name(self):
-        # Collect tokens between [ and ]
+        # Collect tokens between [ and its ]
         tokens = []
+        depth = [0]
 
         def collect(token):
-            if token == ']':
+            depth[0] += {'[': 1, ']': -1}.get(token, 0)
+            if depth[0] < 0:
                 # Try to join tokens and camelCase if possible
                 name = ''.join(tokens)
                 # Remove quotes and pluses for simple cases

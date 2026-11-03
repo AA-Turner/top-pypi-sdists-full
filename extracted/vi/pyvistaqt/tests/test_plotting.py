@@ -10,6 +10,7 @@ import re
 import sys
 import threading
 import time
+import warnings
 import weakref
 
 import numpy as np
@@ -39,6 +40,7 @@ from qtpy.QtWidgets import QTreeWidget
 from qtpy.QtWidgets import QVBoxLayout
 
 from pyvistaqt._vtk import vtkRenderer
+from pyvistaqt.plotting import _HAS_TRAME_COMPONENT
 from pyvistaqt.plotting import LOG
 from pyvistaqt.plotting import global_theme
 
@@ -288,7 +290,7 @@ def test_report_capabilities_unrealized(qtbot) -> None:
         pytest.skip("Qt did not provide a GL context (macOS software GL)")
     plotter = BackgroundPlotter(show=False, off_screen=False)
     qtbot.addWidget(plotter.app_window)
-    caps = plotter.ren_win.ReportCapabilities()
+    caps = plotter.render_window.ReportCapabilities()
     assert "OpenGL" in caps
     plotter.close()
 
@@ -330,11 +332,40 @@ def test_close_removes_vtk_observers(qtbot) -> None:
     """
     plotter = BackgroundPlotter(show=False, off_screen=False)
     qtbot.addWidget(plotter.app_window)
-    ren_win = plotter.ren_win  # close() drops the plotter's own reference
-    assert ren_win.HasObserver("WindowMakeCurrentEvent")
+    render_window = plotter.render_window  # close() drops the plotter's own reference
+    assert render_window.HasObserver("WindowMakeCurrentEvent")
     plotter.close()
     for event in ("WindowMakeCurrentEvent", "WindowIsCurrentEvent", "WindowFrameEvent"):
-        assert not ren_win.HasObserver(event), event
+        assert not render_window.HasObserver(event), event
+
+
+def test_lazy_plotter_component(qtbot, monkeypatch) -> None:
+    """Pending ``pyvista.plotter_components`` entry points resolve on first access."""
+    registry = pytest.importorskip("pyvista.plotting.component_registry")
+    monkeypatch.setattr(registry, "_ensure_entry_points", lambda: None)
+    monkeypatch.setitem(registry._pending_components, "pvqt_lazy_component", "fake_plugin")  # noqa: SLF001
+    plotter = QtInteractor(off_screen=True)
+    qtbot.addWidget(plotter)
+    monkeypatch.setattr(
+        registry,
+        "import_module",
+        lambda _name: monkeypatch.setattr(QtInteractor, "pvqt_lazy_component", "loaded", raising=False),
+    )
+    assert plotter.pvqt_lazy_component == "loaded"
+    with pytest.raises(AttributeError):
+        _ = plotter.pvqt_missing_component
+    plotter.close()
+
+
+def test_render_window_no_deprecation_warning(qtbot) -> None:
+    """Setting up and closing a ``QtInteractor`` must not use the deprecated ``ren_win``."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", pyvista.PyVistaDeprecationWarning)
+        plotter = QtInteractor(off_screen=True)
+        qtbot.addWidget(plotter)
+        assert plotter.render_window is plotter.GetRenderWindow()
+        plotter.close()
+    assert plotter.render_window is None
 
 
 def test_default_surface_format(qtbot) -> None:
@@ -395,6 +426,10 @@ def test_close_after_parent_destroyed(qtbot, qapp, capsys) -> None:
     dead = weak_interactor()
     # If it outlived the window, the context must at least be forgotten.
     assert dead is None or dead._ctx is None  # noqa: SLF001
+    # The surface too: Qt deleted it, and a wrapper held past that is handed
+    # out for whatever Qt allocates at its address next (invariant 7 in rwi).
+    surface_dropped = dead is None or dead._surface is None  # noqa: SLF001
+    assert surface_dropped, "interactor still holds the deleted Qt surface"
 
 
 def test_depth_peeling(qtbot) -> None:  # noqa: D103
@@ -463,20 +498,20 @@ def test_depth_peeling_probe_keeps_application_regular(qtbot) -> None:
 def test_off_screen(qtbot) -> None:  # noqa: D103
     plotter = BackgroundPlotter(off_screen=False)
     qtbot.addWidget(plotter.app_window)
-    assert not plotter.ren_win.GetOffScreenRendering()
+    assert not plotter.render_window.GetOffScreenRendering()
     plotter.close()
     plotter = BackgroundPlotter(off_screen=True)
     qtbot.addWidget(plotter.app_window)
-    assert plotter.ren_win.GetOffScreenRendering()
+    assert plotter.render_window.GetOffScreenRendering()
     plotter.close()
 
 
 def test_smoothing(qtbot) -> None:  # noqa: D103
     plotter = BackgroundPlotter()
     qtbot.addWidget(plotter.app_window)
-    assert not plotter.ren_win.GetPolygonSmoothing()
-    assert not plotter.ren_win.GetLineSmoothing()
-    assert not plotter.ren_win.GetPointSmoothing()
+    assert not plotter.render_window.GetPolygonSmoothing()
+    assert not plotter.render_window.GetLineSmoothing()
+    assert not plotter.render_window.GetPointSmoothing()
     plotter.close()
     plotter = BackgroundPlotter(
         polygon_smoothing=True,
@@ -484,9 +519,9 @@ def test_smoothing(qtbot) -> None:  # noqa: D103
         point_smoothing=True,
     )
     qtbot.addWidget(plotter.app_window)
-    assert plotter.ren_win.GetPolygonSmoothing()
-    assert plotter.ren_win.GetLineSmoothing()
-    assert plotter.ren_win.GetPointSmoothing()
+    assert plotter.render_window.GetPolygonSmoothing()
+    assert plotter.render_window.GetLineSmoothing()
+    assert plotter.render_window.GetPointSmoothing()
     plotter.close()
 
 
@@ -783,7 +818,18 @@ def test_background_plotting_close_gc(qtbot, plotting) -> None:  # noqa: ARG001
     plotter.add_mesh(pyvista.Sphere(), scalars=pyvista.Sphere().points[:, 0])
     plotter.save_camera_position()
     ref = weakref.ref(plotter)
+    realized = plotter._ctx is not None  # noqa: SLF001
     plotter.close()
+    qtbot.wait(10)
+    if realized:
+        # Qt deleted the widget's surface with the window. A wrapper held
+        # past that is handed out for whatever Qt allocates at its address
+        # next (invariant 7 in rwi), e.g. QWidget.layout() returning it.
+        # (plain bools: pytest's repr of a stale wrapper reads freed memory)
+        surface_dropped = plotter._surface is None  # noqa: SLF001
+        ctx_dropped = plotter._ctx is None  # noqa: SLF001
+        assert surface_dropped, "interactor still holds the deleted Qt surface"
+        assert ctx_dropped, "interactor still holds the deleted Qt context"
     del plotter
     # process the scheduled (deleteLater) deletions, then collect
     for _ in range(3):
@@ -903,9 +949,8 @@ def _trame_server(tmp_path_factory) -> None:
         import trame_pyvista  # noqa: F401, PLC0415
     plotter = pyvista.Plotter(off_screen=True)
     plotter.add_mesh(pyvista.Cone())
-    trame = getattr(plotter, "trame", None)
-    if trame is not None and hasattr(trame, "export_vtksz"):
-        trame.export_vtksz(filename=None)  # pyvista >= 0.49 (trame-pyvista)
+    if _HAS_TRAME_COMPONENT:
+        plotter.trame.export_vtksz(filename=None)
     else:
         plotter.export_vtksz(str(tmp_path_factory.mktemp("trame") / "warmup.vtksz"))
     plotter.close()
@@ -958,7 +1003,7 @@ def test_background_plotter_export_vtkjs(qtbot, tmpdir, plotting, trame_array_ca
     dlg = plotter._qt_export_vtkjs(show=False)  # FileDialog  # noqa: SLF001
     qtbot.addWidget(dlg)  # register the dialog
 
-    if hasattr(getattr(plotter, "trame", None), "export_vtksz") or hasattr(plotter, "export_vtksz"):
+    if _HAS_TRAME_COMPONENT or hasattr(plotter, "export_vtksz"):
         ext = ".vtksz"
         filename = str(os.path.join(output_dir, f"tmp{ext}"))  # noqa: PTH118
     else:
@@ -1082,15 +1127,12 @@ def test_background_plotting_menu_bar(qtbot, plotting) -> None:  # noqa: ARG001,
         window.show()
 
     print("EDL action")
-    if hasattr(plotter.renderer, "_render_passes"):
-        obj, attr = plotter.renderer._render_passes, "_edl_pass"  # noqa: SLF001
-    else:
-        obj, attr = plotter.renderer, "edl_pass"
-    assert getattr(obj, attr, None) is None
+    render_passes = plotter.renderer._render_passes  # noqa: SLF001
+    assert render_passes._edl_pass is None  # noqa: SLF001
     plotter._edl_action.trigger()  # noqa: SLF001
-    assert getattr(obj, attr, None) is not None
-    # and now test reset
+    assert render_passes._edl_pass is not None  # noqa: SLF001
     plotter._edl_action.trigger()  # noqa: SLF001
+    assert render_passes._edl_pass is None  # noqa: SLF001
 
     print("Parallel projection action")
     assert not plotter.camera.GetParallelProjection()
@@ -1135,16 +1177,13 @@ def test_drag_event(tmpdir) -> None:  # noqa: D103
     mesh.save(filename)
     assert os.path.isfile(filename)  # noqa: PTH113
     plotter = BackgroundPlotter(update_app_icon=False)
-    point = QPoint(0, 0)
     data = QMimeData()
     data.setUrls([QUrl(filename)])
-    event = QDragEnterEvent(
-        point,
-        Qt.DropAction.IgnoreAction,
-        data,
-        Qt.MouseButton.NoButton,
-        Qt.KeyboardModifier.NoModifier,
-    )
+    args = (Qt.DropAction.IgnoreAction, data, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+    try:  # Qt >= 6.12 deprecates the QPoint overload
+        event = QDragEnterEvent(QPointF(0, 0), *args)
+    except TypeError:
+        event = QDragEnterEvent(QPoint(0, 0), *args)
     plotter.dragEnterEvent(event)
     plotter.close()
 
@@ -1483,7 +1522,7 @@ def test_background_plotting_plots(qtbot, plotting, ensure_closed, aa) -> None: 
     print("Check skips")
     # Realizes the GL context, which the expose below otherwise waits on
     print("Ren window capabilities")
-    gpu_info_full = plotter.ren_win.ReportCapabilities()
+    gpu_info_full = plotter.render_window.ReportCapabilities()
     skip_reason = None
     if aa == "fxaa":  # Breaks on Windows and mesa
         if platform.system() == "Windows":
@@ -1524,13 +1563,13 @@ def test_background_plotting_plots(qtbot, plotting, ensure_closed, aa) -> None: 
         skip_reason = None
         if plotter.interactor._ctx is None:  # noqa: SLF001
             skip_reason = "Qt did not provide a GL context (macOS software GL)"
-        elif platform.machine() == "arm64" and "Apple Software Renderer" in plotter.ren_win.ReportCapabilities():
+        elif platform.machine() == "arm64" and "Apple Software Renderer" in plotter.render_window.ReportCapabilities():
             skip_reason = "Apple software GL renders a corrupted view on arm64"
         if skip_reason:
             plotter.close()
             pytest.skip(skip_reason)
     # `image` grabs the buffer as-is, and `plotter.render()` is threaded on Darwin, so draw synchronously
-    plotter.ren_win.Render()
+    plotter.render_window.Render()
     img = np.array(plotter.image)
     drawn = img.any(-1)
     del img
@@ -1550,7 +1589,7 @@ def test_make_current_from_worker_thread(qtbot) -> None:
     with wait_exposed(qtbot, plotter.app_window):
         plotter.app_window.show()
 
-    # Call the observer rather than ren_win.MakeCurrent(): VTK's event dispatch
+    # Call the observer rather than render_window.MakeCurrent(): VTK's event dispatch
     # is not thread-safe, so going through it races whatever the GUI thread is
     # doing and access-violates on Windows for reasons the guard cannot fix.
     # This is the function the guard lives in, and the only part of a render

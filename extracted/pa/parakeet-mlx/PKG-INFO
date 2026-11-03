@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: parakeet-mlx
-Version: 0.5.3
+Version: 0.6.0
 Summary: An implementation of the Nvidia's Parakeet models for Apple Silicon using MLX.
 License-Expression: Apache-2.0
 Project-URL: Repository, https://github.com/senstella/parakeet-mlx.git

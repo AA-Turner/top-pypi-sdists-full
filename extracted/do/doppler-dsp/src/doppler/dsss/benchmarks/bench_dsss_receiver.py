@@ -17,7 +17,7 @@ its own row:
   validate (`_async_stimulus.py`). The C twin's search row timed zeros on a
   7-chip code and was cut, so this is the honest one.
 - ``track`` — the C twin's
-  (``native/benchmarks/bench_dsss_receiver_core.c``): `Dll` ->
+  (``native/benchmarks/dsss_receiver/bench_dsss_receiver_core.c``): `Dll` ->
   `RateConverter` -> `MpskReceiver` per sample, once locked. A Python copy
   here read the same cost per sample (35.3 against 34.7 MSa/s) and was cut
   (doppler#2386).
@@ -37,7 +37,6 @@ from doppler.dsss.benchmarks._async_stimulus import (
     CHIP_RATE,
     CODE,
     FS,
-    SPC,
     SYM_RATE,
 )
 from doppler.wfm import Synth
@@ -53,7 +52,7 @@ def _receiver():
             CODE,
             chip_rate=CHIP_RATE,
             symbol_rate=SYM_RATE,
-            spc=SPC,
+            sample_rate=FS,
             cn0_dbhz=55.0,
             doppler_uncertainty=100.0,
             segments=4,

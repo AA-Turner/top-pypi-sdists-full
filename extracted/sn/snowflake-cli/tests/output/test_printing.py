@@ -254,6 +254,15 @@ def test_query_result_no_duplicates_unchanged(mock_cursor):
     assert result.column_names == ["a", "b", "c"]
 
 
+def test_message_result_prints_rich_markup_as_text(capsys):
+    print_result(
+        MessageResult("Wrote connection org[/x]acct to /tmp/config.toml"),
+        output_format=OutputFormat.TABLE,
+    )
+
+    assert "org[/x]acct" in get_output(capsys)
+
+
 def test_print_markup_tags_in_output_do_not_raise_errors(capsys, mock_cursor):
     output_data = QueryResult(
         mock_cursor(
@@ -1347,6 +1356,67 @@ def test_print_result_spool_appends_existing_file(capsys, tmp_path):
     assert "appended" in get_output(capsys)
     assert contents.startswith("existing\n")
     assert "appended" in contents
+
+
+@pytest.mark.parametrize("with_spool", [False, True])
+def test_print_result_quiet_unset_shows_table(capsys, tmp_path, with_spool):
+    """quiet is off until set, with or without a spool file."""
+    manager = get_cli_context_manager()
+    assert manager.quiet is False
+    spool = tmp_path / "spool.txt"
+    try:
+        if with_spool:
+            manager.open_spool(spool)
+        print_result(CollectionResult([{"n": "1"}]), output_format=OutputFormat.TABLE)
+        terminal = get_output(capsys)
+        contents = spool.read_text(encoding="utf-8") if with_spool else ""
+    finally:
+        manager.close_spool()
+
+    assert "| 1 |" in terminal
+    if with_spool:
+        assert "| 1 |" in contents
+
+
+@pytest.mark.parametrize("with_spool", [False, True])
+def test_print_result_quiet_false_shows_table(capsys, tmp_path, with_spool):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "spool.txt"
+    try:
+        manager.quiet = False
+        if with_spool:
+            manager.open_spool(spool)
+        print_result(CollectionResult([{"n": "1"}]), output_format=OutputFormat.TABLE)
+        terminal = get_output(capsys)
+        contents = spool.read_text(encoding="utf-8") if with_spool else ""
+    finally:
+        manager.quiet = False
+        manager.close_spool()
+
+    assert "| 1 |" in terminal
+    if with_spool:
+        assert "| 1 |" in contents
+
+
+@pytest.mark.parametrize("with_spool", [False, True])
+def test_print_result_quiet_true_hides_terminal(capsys, tmp_path, with_spool):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "spool.txt"
+    try:
+        manager.quiet = True
+        if with_spool:
+            manager.open_spool(spool)
+        print_result(CollectionResult([{"n": "1"}]), output_format=OutputFormat.TABLE)
+        terminal = get_output(capsys)
+        contents = spool.read_text(encoding="utf-8") if with_spool else ""
+    finally:
+        manager.quiet = False
+        manager.close_spool()
+
+    assert "| 1 |" not in terminal
+    assert terminal.strip() == ""
+    if with_spool:
+        assert "| 1 |" in contents
 
 
 def test_print_result_spool_json(capsys, tmp_path):

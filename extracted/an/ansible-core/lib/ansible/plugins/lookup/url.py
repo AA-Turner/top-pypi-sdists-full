@@ -10,6 +10,7 @@ version_added: "1.9"
 short_description: return contents from URL
 description:
     - Returns the content of the URL requested to be used as data in play.
+positional: _terms
 options:
   _terms:
     description: urls to query
@@ -32,6 +33,7 @@ options:
   password:
     description: Password to use for HTTP authentication.
     type: string
+    secret: true
     version_added: "2.8"
   headers:
     description: HTTP request headers
@@ -227,12 +229,7 @@ class LookupModule(LookupBase):
 
         ret = []
         for term in terms:
-            display.vvvv("url lookup connecting to %s" % mask_url(term))
-            if self.get_option('follow_redirects') in ('yes', 'no'):
-                display.deprecated(
-                    msg="Using 'yes' or 'no' for 'follow_redirects' parameter is deprecated.",
-                    version='2.22',
-                )
+            display.vvvv(f"url lookup connecting to {mask_url(term)}")
             try:
                 response = open_url(
                     term, validate_certs=self.get_option('validate_certs'),

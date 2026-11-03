@@ -114,9 +114,7 @@ def deployment_request(
             action_chunk_valid_len=spec.action_chunk_valid_len,
             action_chunk_replan_at=spec.action_chunk_replan_at,
 
-            io=spec.io,
-
-            family=spec.family,
+            max_wait_for_batch=spec.max_wait_for_batch,
             episodes=spec.episodes,
 
 
@@ -251,7 +249,7 @@ def deploy(
     timeout_s: float | None = None,
     poll_interval_s: float | None = None,
 ) -> DeploymentHandle | str:
-    """Deploy a `@seq.policy` class on the platform, or register a `@seq.benchmark` class — what `seq deploy <file>`
+    """Deploy a `@seq.policy` class on the platform, or register a `@seq.benchmark` class — what `seq deploy <folder>`
     does, from Python.
 
     A policy: its declaration becomes the `POST /v1/deployments` body (assembled here first, so a doomed one — no

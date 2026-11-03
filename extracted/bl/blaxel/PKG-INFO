@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: blaxel
-Version: 0.4.21
+Version: 0.4.22
 Summary: Blaxel - AI development platform SDK
 Project-URL: Homepage, https://blaxel.ai
 Project-URL: Documentation, https://docs.blaxel.ai
@@ -19,7 +19,7 @@ Requires-Dist: python-dateutil>=2.8.0
 Requires-Dist: pyyaml>=6.0.0
 Requires-Dist: requests>=2.32.3
 Requires-Dist: tomli>=2.0.2
-Requires-Dist: websockets<17.0.0
+Requires-Dist: websockets<18.0.0
 Provides-Extra: core
 Provides-Extra: crewai
 Requires-Dist: crewai[litellm]>=1.9.3; extra == 'crewai'

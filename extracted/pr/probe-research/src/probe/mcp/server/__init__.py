@@ -7,7 +7,7 @@ from ...foundation.front_door.front_door import serve_pieces
 from ... import __version__  # noqa: F401 -- the old module bound it (from .. import __version__)
 
 # Every piece loads here, as the old module ran whole on import (statically, so the deploy
-# gate's import walk in scripts/test_gate.py sees each one; serve_pieces loads the nested ones).
+# gate's import walk in scripts/ci/test_gate.py sees each one; serve_pieces loads the nested ones).
 from . import pool, auth, browse_args, limits, metric_mode, tool_runner, retired, tool_text, server, http  # noqa: F401
 
 #: The old module's pieces, in the split's load order: a write through the door reaches these only.

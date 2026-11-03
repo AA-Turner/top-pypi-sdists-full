@@ -40,6 +40,25 @@ FAKE_INIT(cpuid_c)
 #include <intrin.h>
 #endif
 
+#if defined(__aarch64__) && defined(__linux__)
+#include <sys/auxv.h>
+#elif defined(__aarch64__) && defined(__APPLE__)
+#include <sys/sysctl.h>
+#elif defined(_M_ARM64)
+#include <windows.h>
+/*
+ * Older Windows SDKs do not define these (the values are those of the
+ * documentation of IsProcessorFeaturePresent). On a Windows version that
+ * does not know them, IsProcessorFeaturePresent() simply returns FALSE.
+ */
+#ifndef PF_ARM_SHA3_INSTRUCTIONS_AVAILABLE
+#define PF_ARM_SHA3_INSTRUCTIONS_AVAILABLE 64
+#endif
+#ifndef PF_ARM_SHA512_INSTRUCTIONS_AVAILABLE
+#define PF_ARM_SHA512_INSTRUCTIONS_AVAILABLE 65
+#endif
+#endif
+
 /** Call X86 CPUID for Leaf 1: return CX **/
 static uint32_t leaf1_ecx(void)
 {
@@ -192,3 +211,103 @@ EXPORT_SYM int have_adx(void)
 }
 
 #endif
+
+/** Return non-zero if the CPU supports the AES instructions of the ARMv8
+ * Cryptography Extensions (AESE, AESD, AESMC and AESIMC), in AArch64 state. **/
+EXPORT_SYM int have_aes_armv8(void)
+{
+#if defined(__aarch64__) && defined(__linux__)
+    /* HWCAP_AES in asm/hwcap.h */
+    return (getauxval(AT_HWCAP) & (1UL<<3)) ? 1 : 0;
+#elif defined(__aarch64__) && defined(__APPLE__)
+    /* All Apple CPUs for arm64 have them */
+    return 1;
+#elif defined(_M_ARM64)
+    return IsProcessorFeaturePresent(PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE) ? 1 : 0;
+#else
+    return 0;
+#endif
+}
+
+/** Return non-zero if the CPU supports the 64-bit carry-less multiplication
+ * of the ARMv8 Cryptography Extensions (PMULL and PMULL2), in AArch64 state. **/
+EXPORT_SYM int have_pmull(void)
+{
+#if defined(__aarch64__) && defined(__linux__)
+    /* HWCAP_PMULL in asm/hwcap.h */
+    return (getauxval(AT_HWCAP) & (1UL<<4)) ? 1 : 0;
+#elif defined(__aarch64__) && defined(__APPLE__)
+    return 1;
+#elif defined(_M_ARM64)
+    /* Windows reports AES and PMULL together */
+    return IsProcessorFeaturePresent(PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE) ? 1 : 0;
+#else
+    return 0;
+#endif
+}
+
+#if defined(__aarch64__) && defined(__APPLE__)
+/** Return non-zero if the sysctl name (or, on older macOS, legacy_name) is 1 **/
+static int apple_feature(const char *name, const char *legacy_name)
+{
+    int value = 0;
+    size_t len = sizeof value;
+
+    if (sysctlbyname(name, &value, &len, NULL, 0) != 0) {
+        value = 0;
+        len = sizeof value;
+        if (sysctlbyname(legacy_name, &value, &len, NULL, 0) != 0)
+            return 0;
+    }
+    return value == 1;
+}
+#endif
+
+/** Return non-zero if the CPU supports the SHA-256 instructions of the ARMv8
+ * Cryptography Extensions (SHA256H, SHA256H2, SHA256SU0 and SHA256SU1), in AArch64 state. **/
+EXPORT_SYM int have_sha256_armv8(void)
+{
+#if defined(__aarch64__) && defined(__linux__)
+    /* HWCAP_SHA2 in asm/hwcap.h */
+    return (getauxval(AT_HWCAP) & (1UL<<6)) ? 1 : 0;
+#elif defined(__aarch64__) && defined(__APPLE__)
+    return 1;
+#elif defined(_M_ARM64)
+    /* Windows reports AES, PMULL, SHA-1 and SHA-256 together */
+    return IsProcessorFeaturePresent(PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE) ? 1 : 0;
+#else
+    return 0;
+#endif
+}
+
+/** Return non-zero if the CPU supports the SHA-512 instructions of ARMv8.2
+ * (SHA512H, SHA512H2, SHA512SU0 and SHA512SU1), in AArch64 state. **/
+EXPORT_SYM int have_sha512_armv8(void)
+{
+#if defined(__aarch64__) && defined(__linux__)
+    /* HWCAP_SHA512 in asm/hwcap.h */
+    return (getauxval(AT_HWCAP) & (1UL<<21)) ? 1 : 0;
+#elif defined(__aarch64__) && defined(__APPLE__)
+    return apple_feature("hw.optional.arm.FEAT_SHA512", "hw.optional.armv8_2_sha512");
+#elif defined(_M_ARM64)
+    return IsProcessorFeaturePresent(PF_ARM_SHA512_INSTRUCTIONS_AVAILABLE) ? 1 : 0;
+#else
+    return 0;
+#endif
+}
+
+/** Return non-zero if the CPU supports the SHA-3 instructions of ARMv8.2
+ * (EOR3, RAX1, XAR and BCAX), in AArch64 state. **/
+EXPORT_SYM int have_sha3_armv8(void)
+{
+#if defined(__aarch64__) && defined(__linux__)
+    /* HWCAP_SHA3 in asm/hwcap.h */
+    return (getauxval(AT_HWCAP) & (1UL<<17)) ? 1 : 0;
+#elif defined(__aarch64__) && defined(__APPLE__)
+    return apple_feature("hw.optional.arm.FEAT_SHA3", "hw.optional.armv8_2_sha3");
+#elif defined(_M_ARM64)
+    return IsProcessorFeaturePresent(PF_ARM_SHA3_INSTRUCTIONS_AVAILABLE) ? 1 : 0;
+#else
+    return 0;
+#endif
+}

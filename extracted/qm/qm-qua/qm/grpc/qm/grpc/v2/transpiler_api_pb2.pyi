@@ -1,4 +1,5 @@
 from qm.grpc.qm.pb import inc_qua_config_pb2 as _inc_qua_config_pb2
+from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -44,14 +45,23 @@ class TranspileResponse(_message.Message):
     def __init__(self, success: _Optional[_Union[TranspileSuccess, _Mapping]] = ..., error: _Optional[_Union[TranspileError, _Mapping]] = ...) -> None: ...
 
 class TranspileSuccess(_message.Message):
-    __slots__ = ["output_program", "output_format", "output_config"]
+    __slots__ = ["output_program", "output_format", "output_config", "additional_info"]
+    class AdditionalInfoEntry(_message.Message):
+        __slots__ = ["key", "value"]
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
     OUTPUT_PROGRAM_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_FORMAT_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    ADDITIONAL_INFO_FIELD_NUMBER: _ClassVar[int]
     output_program: bytes
     output_format: TranspilationFormats
     output_config: bytes
-    def __init__(self, output_program: _Optional[bytes] = ..., output_format: _Optional[_Union[TranspilationFormats, str]] = ..., output_config: _Optional[bytes] = ...) -> None: ...
+    additional_info: _containers.ScalarMap[str, str]
+    def __init__(self, output_program: _Optional[bytes] = ..., output_format: _Optional[_Union[TranspilationFormats, str]] = ..., output_config: _Optional[bytes] = ..., additional_info: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class TranspileError(_message.Message):
     __slots__ = ["details"]

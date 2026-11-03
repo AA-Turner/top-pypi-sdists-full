@@ -23,7 +23,6 @@ from redisvl.index import SearchIndex
 from redisvl.query import FilterQuery
 from redisvl.query.filter import Num, Tag
 from redisvl.redis.connection import RedisConnectionFactory
-from ulid import ULID
 
 from langgraph.checkpoint.redis.base import (
     CHECKPOINT_PREFIX,
@@ -33,9 +32,11 @@ from langgraph.checkpoint.redis.base import (
     expire_with_retry,
 )
 from langgraph.checkpoint.redis.util import (
+    checkpoint_id_timestamp,
     from_storage_safe_str,
     to_storage_safe_id,
     to_storage_safe_str,
+    unwrap_connection_errors,
 )
 
 # Constants
@@ -143,17 +144,12 @@ class ShallowRedisSaver(BaseRedisSaver[Redis, SearchIndex]):
             }
         }
 
-        # Extract timestamp from checkpoint_id (ULID) or fallback to checkpoint's ts field
-        # Note: LangGraph may generate checkpoint IDs in different formats (ULID, UUIDv6, etc.)
-        # We try ULID first, then fall back gracefully without warnings (Issue #136)
+        # Extract timestamp from checkpoint_id (ULID or LangGraph's UUIDv6), or fall back
+        # to the checkpoint's ts field for ids that encode no time (Issue #136)
         checkpoint_ts = None
         if checkpoint["id"]:
-            try:
-                ulid_obj = ULID.from_str(checkpoint["id"])
-                checkpoint_ts = ulid_obj.timestamp  # milliseconds since epoch
-            except Exception:
-                # Not a valid ULID - this is expected for UUIDv6 and other formats
-                # Fall back to checkpoint's timestamp field or current time
+            checkpoint_ts = checkpoint_id_timestamp(checkpoint["id"])
+            if checkpoint_ts is None:
                 checkpoint_ts = self._extract_fallback_timestamp(checkpoint)
 
         # Parse metadata from string to dict to avoid double serialization
@@ -251,14 +247,11 @@ class ShallowRedisSaver(BaseRedisSaver[Redis, SearchIndex]):
         if before:
             before_checkpoint_id = get_checkpoint_id(before)
             if before_checkpoint_id:
-                try:
-                    before_ulid = ULID.from_str(before_checkpoint_id)
-                    before_ts = before_ulid.timestamp
+                before_ts = checkpoint_id_timestamp(before_checkpoint_id)
+                # An id that encodes no time (e.g. a uuid4) cannot be placed, so no filter.
+                if before_ts is not None:
                     # Use numeric range query: checkpoint_ts < before_ts
                     filter_expression.append(Num("checkpoint_ts") < before_ts)
-                except Exception:
-                    # If not a valid ULID, ignore the before filter
-                    pass
 
         # Combine all filter expressions
         combined_filter = filter_expression[0] if filter_expression else "*"
@@ -432,8 +425,9 @@ class ShallowRedisSaver(BaseRedisSaver[Redis, SearchIndex]):
 
     def setup(self) -> None:
         """Initialize the indices in Redis."""
-        self.checkpoints_index.create(overwrite=False)
-        self.checkpoint_writes_index.create(overwrite=False)
+        with unwrap_connection_errors():
+            self.checkpoints_index.create(overwrite=False)
+            self.checkpoint_writes_index.create(overwrite=False)
 
     def put_writes(
         self,
@@ -524,8 +518,9 @@ class ShallowRedisSaver(BaseRedisSaver[Redis, SearchIndex]):
         if checkpoint_id is None:
             return []
 
-        # Use thread-level registry that only contains current checkpoint writes
-        # All writes belong to the current checkpoint
+        # The thread-level registry is not cleared when a new checkpoint is saved
+        # (Issue #133), so it can still hold writes made against earlier
+        # checkpoints. Only the writes for this checkpoint are pending.
         # Use to_storage_safe_str for consistent key naming with delete_thread
         safe_checkpoint_ns = to_storage_safe_str(checkpoint_ns)
         thread_write_registry_key = (
@@ -551,7 +546,7 @@ class ShallowRedisSaver(BaseRedisSaver[Redis, SearchIndex]):
         writes_dict: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
         for write_data in results:
-            if write_data:
+            if write_data and write_data.get("checkpoint_id") == checkpoint_id:
                 task_id = write_data.get("task_id", "")
                 idx = write_data.get("idx", 0)
                 writes_dict[(task_id, idx)] = write_data

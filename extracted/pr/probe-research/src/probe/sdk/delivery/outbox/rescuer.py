@@ -6,6 +6,7 @@ import os
 import time
 
 from probe.sdk.delivery.outbox.drainers.detached import _env_fingerprints, _spawn_detached, _worker_env, maybe_spawn
+from probe.sdk.delivery.status_fields import StatusField
 
 from ....foundation.durable import durable
 
@@ -56,10 +57,10 @@ def _multipart_waiting_since(queue_dir, now: float) -> bool:
 def _waiting_since(status: dict, now: float) -> bool:
     from datetime import datetime
 
-    if not int(status.get("pending") or 0):
+    if not int(status.get(StatusField.PENDING) or 0):
         return False
     try:
-        oldest = datetime.fromisoformat(str(status.get("oldest_pending") or "")).timestamp()
+        oldest = datetime.fromisoformat(str(status.get(StatusField.OLDEST_PENDING) or "")).timestamp()
     except ValueError:
         return False
     return now - oldest >= _RESCUE_WAITING_SECONDS
@@ -86,14 +87,14 @@ def _writes_held_back(journal, status: dict) -> bool:
     from ..journal.journal import Journal
     from ..journal.paths import _credential_queue_dirs
 
-    if int(status.get("held") or 0) or status.get("refused_fingerprints"):
+    if int(status.get(StatusField.HELD) or 0) or status.get(StatusField.REFUSED_FINGERPRINTS):
         return True
     now = time.time()
     mine = _env_fingerprints()
     for root in _rescue_roots(journal):
         if root is not journal:
             other = Journal.read_status(str(root.dir), include_receipts=False) or {}
-            if int(other.get("held") or 0) or other.get("refused_fingerprints"):
+            if int(other.get(StatusField.HELD) or 0) or other.get(StatusField.REFUSED_FINGERPRINTS):
                 return True
         for path in _credential_queue_dirs(root.dir):
             if path.name in mine:
@@ -103,8 +104,8 @@ def _writes_held_back(journal, status: dict) -> bool:
                 or {}
             )
             if (
-                int(child.get("held") or 0)
-                or child.get("refused_fingerprints")
+                int(child.get(StatusField.HELD) or 0)
+                or child.get(StatusField.REFUSED_FINGERPRINTS)
                 or _waiting_since(child, now)
                 or _multipart_waiting_since(path, now)
             ):

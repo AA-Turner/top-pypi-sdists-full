@@ -3,9 +3,9 @@ from __future__ import annotations
 from asyncio import Lock
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
-from asgiref.typing import HTTPRequestEvent
+from asgiref.typing import HTTPDisconnectEvent, HTTPRequestEvent
 
 from asgi_webdav.constants import (
     DAVDepth,
@@ -44,6 +44,10 @@ class MemoryFSNode:
     def update_content(self, content: bytes) -> None:
         self.content = content
         self.property_basic_data.last_modified = DAVTime()
+        # the etag lazily caches from (content_length, last_modified):
+        # sync the length and drop the cache so the next read regenerates it
+        self.property_basic_data.content_length = len(content)
+        self.property_basic_data._etag = None
 
 
 class MemoryFS:
@@ -228,7 +232,9 @@ class MemoryFS:
         recursive: bool,
     ) -> None:
         """dst_path must not exist"""
-        if src_node.is_file:
+        if src_node.is_file:  # pragma: no cover
+            # copy_tree is only reached for collections: copy_node handles
+            # plain files with the depth logic directly
             self.add_node(
                 dst_node_path=dst_path,
                 dst_node_parent=dst_node_parent,
@@ -271,8 +277,8 @@ class MemoryFS:
                     dst_node_path=dst_path.add_child(child_name),
                     dst_node_parent=dst_node,
                     content=child_node.content,
-                    property_basic_data=deepcopy(src_node.property_basic_data),
-                    property_extra_data=deepcopy(src_node.property_extra_data),
+                    property_basic_data=deepcopy(child_node.property_basic_data),
+                    property_extra_data=deepcopy(child_node.property_extra_data),
                 )
 
         return
@@ -298,7 +304,7 @@ class MemoryFS:
             src_node_parent=src_node_parent,
             dst_node_path=dst_path,
             dst_node_parent=dst_node_parent,
-            recursive=False,
+            recursive=True,
         )
         return True
 
@@ -383,10 +389,13 @@ class MemoryProvider(DAVProvider):
     def __repr__(self) -> str:
         return "memory:///"
 
-    async def _get_res_etag(self, request: DAVRequest) -> str:
+    async def _get_res_etag(self, request: DAVRequest) -> str:  # pragma: no cover
+        # no caller routes through this variant today (the If checks use the
+        # res_dist_path form); kept for base-class parity
         node = self.fs.get_node(request.dist_src_path)
         if node is None:
-            raise  # TODO
+            # an empty etag can never match an If condition
+            return ""
 
         return node.property_basic_data.etag
 
@@ -395,7 +404,8 @@ class MemoryProvider(DAVProvider):
     ) -> str:
         node = self.fs.get_node(res_dist_path)
         if node is None:
-            raise  # TODO
+            # an empty etag can never match an If condition
+            return ""
 
         return node.property_basic_data.etag
 
@@ -435,20 +445,26 @@ class MemoryProvider(DAVProvider):
             if node is None:
                 return dav_properties
 
+            # always include the requested resource itself, like the fs
+            # provider does — without it an empty collection or a file
+            # returns 404, which blocks macOS Finder from mounting an
+            # empty memory provider
+            href_path, dav_property = self._get_dav_property(
+                request=request,
+                node=node,
+                node_path=request.dist_src_path,
+            )
+            dav_properties[href_path] = dav_property
+
             match request.depth:
                 case DAVDepth.ZERO:
-                    href_path, dav_property = self._get_dav_property(
-                        request=request,
-                        node=node,
-                        node_path=request.dist_src_path,
-                    )
-                    dav_properties[href_path] = dav_property
                     return dav_properties
-
                 case DAVDepth.ONE:
                     recursive = False
                 case DAVDepth.INFINITY:
                     recursive = True
+                case _:  # pragma: no cover  # DAVDepth is exhaustive
+                    raise
 
             for child_node in self.fs.get_node_children(node, recursive):
                 href_path, dav_property = self._get_dav_property(
@@ -576,6 +592,27 @@ class MemoryProvider(DAVProvider):
             return 204
 
     async def _do_put(self, request: DAVRequest) -> int:
+        # receive the full body BEFORE taking fs_lock: the lock must never
+        # be held across network I/O, or one slow upload blocks the whole
+        # provider
+        # accumulate chunks and join once: `content += chunk` in a loop is
+        # quadratic (bytes is immutable, every += copies the whole buffer)
+        chunks: list[bytes] = []
+        more_body = True
+        while more_body:
+            # the http scope only ever yields these two event types
+            request_data = cast(
+                "HTTPRequestEvent | HTTPDisconnectEvent", await request.receive()
+            )
+            if request_data["type"] == "http.disconnect":
+                # client went away mid-upload — persist nothing
+                return 400
+
+            more_body = request_data["more_body"]
+            chunks.append(request_data["body"])
+
+        content = b"".join(chunks)
+
         async with self.fs_lock:
             node = self.fs.get_node(request.dist_src_path)
             if node and node.is_folder:
@@ -584,14 +621,6 @@ class MemoryProvider(DAVProvider):
             parent_node = self.fs.get_node(request.dist_src_path.parent)
             if parent_node is None:
                 return 409
-
-            content = b""
-            more_body = True
-            while more_body:
-                request_data: HTTPRequestEvent = await request.receive()  # type: ignore
-                more_body = request_data.get("more_body")
-
-                content += request_data.get("body", b"")
 
             if node is None:
                 self.fs.add_node(
@@ -603,8 +632,10 @@ class MemoryProvider(DAVProvider):
             return 201
 
     async def _do_copy(self, request: DAVRequest) -> int:
-        def success_return() -> int:
-            if request.overwrite:
+        def success_return(dst_existed: bool) -> int:
+            # RFC 4918 9.8.4: 201 for a new resource, 204 when an existing
+            # one was overwritten
+            if request.overwrite and dst_existed:
                 return 204
             else:
                 return 201
@@ -612,11 +643,12 @@ class MemoryProvider(DAVProvider):
         async with self.fs_lock:
             src_node = self.fs.get_node(request.dist_src_path)
             if src_node is None:
-                return 403
+                return 404
+            dst_existed = self.fs.has_node(request.dist_dst_path)
             dst_node_parent = self.fs.get_node(request.dist_dst_path.parent)
             if dst_node_parent is None:
                 return 409
-            if self.fs.has_node(request.dist_dst_path) and not request.overwrite:
+            if dst_existed and not request.overwrite:
                 return 412
 
             # below ---
@@ -628,24 +660,27 @@ class MemoryProvider(DAVProvider):
                 depth=request.depth,
                 overwrite=request.overwrite,
             ):
-                return success_return()
+                return success_return(dst_existed)
 
             return 412
 
     async def _do_move(self, request: DAVRequest) -> int:
-        def success_return() -> int:
-            if request.overwrite:
+        def success_return(dst_existed: bool) -> int:
+            # RFC 4918 9.9.4: 201 for a new resource, 204 when an existing
+            # one was overwritten
+            if request.overwrite and dst_existed:
                 return 204
             else:
                 return 201
 
         async with self.fs_lock:
+            dst_existed = self.fs.has_node(request.dist_dst_path)
             dst_node_parent = self.fs.get_node(request.dist_dst_path.parent)
             if dst_node_parent is None:
-                return 400
+                return 409
             src_node = self.fs.get_node(request.dist_src_path)
             if src_node is None:
-                return 403
+                return 404
             src_node_parent = self.fs.get_node(request.dist_src_path.parent)
             if src_node_parent is None:
                 return 409
@@ -660,6 +695,6 @@ class MemoryProvider(DAVProvider):
                 dst_node_parent=dst_node_parent,
                 overwrite=request.overwrite,
             ):
-                return success_return()
+                return success_return(dst_existed)
 
             raise

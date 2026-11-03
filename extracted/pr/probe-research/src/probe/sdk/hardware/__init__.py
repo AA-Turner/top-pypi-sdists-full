@@ -1,1 +1,1 @@
-"""Automatic hardware metrics (design: docs/2026-08-05-hw-metrics-design.md)."""
+"""Automatic hardware metrics (design: agent/src/probe/sdk/hardware/DESIGN.md)."""

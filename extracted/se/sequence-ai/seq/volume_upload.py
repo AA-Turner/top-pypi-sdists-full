@@ -30,6 +30,7 @@ from dataclasses import dataclass
 
 import httpx
 
+from seq import safe_path
 from seq._account import auth_headers, credential
 from seq._gateway import DEFAULT_BASE_URL
 from seq.errors import raise_for, unreachable
@@ -236,12 +237,10 @@ class VolumesClient:
         params = {k: v for k, v in (("limit", limit), ("cursor", cursor)) if v is not None}
         return self._call("GET", "/v1/volumes", params=params or None)
 
-    def delete(self, name: str, *, force: bool = False) -> dict:
+    def delete(self, name: str) -> dict:
         """Delete a volume, an eval's recordings (`eval:<eval id>`) or a dataset of captured data
-        (`capture:<name>-<id8>`). `force`: the version dependencies too, whose delete the platform refuses (409) until
-        told, saying which versions they hold."""
-        return self._call("DELETE", f"/v1/volumes/{_volume_name(name, recordings=True)}",
-                          params={"force": "true"} if force else None)
+        (`capture:<name>-<id8>`)."""
+        return self._call("DELETE", f"/v1/volumes/{_volume_name(name, recordings=True)}")
 
     def files(self, name: str, *, prefix: str | None = None, limit: int | None = None,
               cursor: str | None = None) -> dict:
@@ -312,6 +311,24 @@ def _files(n: int) -> str:
     return f"{n} file" if n == 1 else f"{n} files"
 
 
+def _made_at(api: VolumesClient, name: str) -> str | None:
+    """When volume `name` was made, as the platform says (its created_at): what tells it from one made again under its
+    name once it was deleted. None when it cannot be read - a resume then starts over."""
+    try:
+        return api.get(name).get("created_at")
+    except SequencesError:
+        return None
+
+
+def _same_volume(api: VolumesClient, name: str, data: dict) -> bool:
+    """Whether volume `name` is still the one the remembered upload was begun for: its created_at as that start read it.
+    Deleted since - made again under its name or not - the upload was the deleted one's: resumed, its files went into that
+    volume's folder and its commit was refused, the state dropped and the command to be run again.
+"""
+    made = data.get("volume_created_at")
+    return bool(made) and _made_at(api, name) == made
+
+
 def put(name: str, root: str, *, kind: str = "checkpoint", base_url: str | None = None,
         echo=print) -> dict:
     """Upload `root` as volume `name` and commit it. Resumes an interrupted upload of the same files - or, when that
@@ -335,10 +352,14 @@ def put(name: str, root: str, *, kind: str = "checkpoint", base_url: str | None 
         except ValueError:
             data = None
     expired = bool(data) and _past(data.get("expires_at"))
+    stale = not data or data.get("digest") != digest or data.get("base") != api.base or expired
+    replaced = not stale and not _same_volume(api, name, data)
     resumed = False
-    if not data or data.get("digest") != digest or data.get("base") != api.base or expired:
+    if stale or replaced:
         if expired:
             echo(f"the upload of {name} that stopped earlier has expired; starting it again")
+        elif replaced:
+            echo(f"{name} was deleted since its upload stopped; starting the upload again")
         start = api.start(name, kind, files)
         if start.get("unchanged"):
 
@@ -351,7 +372,7 @@ def put(name: str, root: str, *, kind: str = "checkpoint", base_url: str | None 
         held = [p for p in start.get("held") or [] if p in mine]
         data = {"digest": digest, "base": api.base, "upload_id": start["upload_id"], "version": start["version"],
                 "expires_at": start.get("expires_at"), "targets": {t["path"]: t for t in start["targets"]},
-                "sessions": {}, "done": held}
+                "sessions": {}, "done": held, "volume_created_at": _made_at(api, name)}
         kept = set(held)
         sending = [f for f in files if f.path not in kept]
         said = (f"uploading {_files(len(files))}" if not held else
@@ -432,34 +453,47 @@ def volume_files(name: str, path: str | None = None, *, base_url: str | None = N
     return _all_files(VolumesClient(base_url), name, prefix=path)
 
 
-def volume_rm(name: str, path: str | None = None, *, force: bool = False, base_url: str | None = None) -> dict:
+def volume_rm(name: str, path: str | None = None, *, base_url: str | None = None) -> dict:
     """Delete a volume for good, or one file or folder of it (`path`). Deleting a file leaves a new version without it, and
     the replaced one goes; it is refused while a deployment's weights or a benchmark's assets name the volume. Upstream:
-    `seq volume rm`."""
+    `seq volume rm`.
+"""
     client = VolumesClient(base_url)
-    return client.delete_file(name, path) if path else client.delete(name, force=force)
+    return client.delete_file(name, path) if path else client.delete(name)
 
 
-def _download_one(name: str, obj_path: str, dest: pathlib.Path, base: str, key: str) -> None:
-    """Relay one file to `dest`, resuming from what is already there with a Range request (the gateway serves it, 206),
-    so a large download that dropped sends only the rest. Raises Unavailable on a dropped connection — run it again."""
+def _download_one(name: str, obj_path: str, dest: pathlib.Path, base: str, key: str, size: int | None = None) -> None:
+    """Relay one file to `dest` through `<dest>.part`, resuming what a dropped download of it left there with a Range
+    request (the gateway serves it, 206), so a large download sends only the rest, and put in place once it is the
+    `size` the listing says. A file already at `dest` - the volume's older version, another file of that name - is
+    replaced, never taken as the start of this one: a Range from its size appended the new file's rest to it. A part
+    that comes out another size is dropped. Raises Unavailable on a dropped connection — run it again.
+    """
     from seq._http import RetryReads
 
     url = f"{base}/v1/volumes/{_volume_name(name, recordings=True)}/files/{obj_path}"
     dest.parent.mkdir(parents=True, exist_ok=True)
-    have = dest.stat().st_size if dest.exists() else 0
-    rest = {"Range": f"bytes={have}-"} if have else {}
-    try:
-        with httpx.Client(headers=auth_headers(key), timeout=_TIMEOUT, transport=RetryReads()) as client:
-            with client.stream("GET", url, headers=rest) as r:
-                raise_for(r)
-                append = bool(have) and r.status_code == 206
-                with open(dest, "ab" if append else "wb") as f:
-                    for chunk in r.iter_bytes():
-                        f.write(chunk)
-    except httpx.TransportError as exc:
-        raise Unavailable(f"the download of {obj_path} stopped: {exc}",
-                          hint="run the same command again: it resumes where it stopped") from None
+    part = dest.with_name(dest.name + ".part")
+    have = part.stat().st_size if part.exists() else 0
+    if not (have and size is not None and have >= size):
+        rest = {"Range": f"bytes={have}-"} if have else {}
+        try:
+            with httpx.Client(headers=auth_headers(key), timeout=_TIMEOUT, transport=RetryReads()) as client:
+                with client.stream("GET", url, headers=rest) as r:
+                    raise_for(r)
+                    append = bool(have) and r.status_code == 206
+                    with open(part, "ab" if append else "wb") as f:
+                        for chunk in r.iter_bytes():
+                            f.write(chunk)
+        except httpx.TransportError as exc:
+            raise Unavailable(f"the download of {obj_path} stopped: {exc}",
+                              hint="run the same command again: it resumes where it stopped") from None
+    got = part.stat().st_size
+    if size is not None and got != size:
+        part.unlink()
+        raise Unavailable(f"the download of {obj_path} came to {got} bytes where the volume lists {size}: it changed "
+                          "since a part of it was fetched", hint="run the same command again: it starts that file anew")
+    os.replace(part, dest)
 
 
 def volume_get(name: str, path: str | None = None, *, out: str, base_url: str | None = None,
@@ -475,11 +509,11 @@ def volume_get(name: str, path: str | None = None, *, out: str, base_url: str | 
     if not files:
         raise InvalidRequest(f"nothing to download: {name!r}"
                              + (f" has no file under {path!r}" if path else " has no files"))
-    outdir = pathlib.Path(out)
+
+    dests = [(f, safe_path.under(out, f["path"])) for f in files]
     written: list[str] = []
-    for f in files:
-        dest = outdir / f["path"]
-        _download_one(name, f["path"], dest, base, key)
+    for f, dest in dests:
+        _download_one(name, f["path"], dest, base, key, size=f.get("bytes"))
         written.append(str(dest))
         echo(f"  {f['path']} ({f['bytes'] / 1e6:.1f} MB)")
     return written

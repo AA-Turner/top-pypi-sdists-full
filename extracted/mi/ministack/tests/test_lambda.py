@@ -2269,6 +2269,18 @@ def test_lambda_nodejs_callback_handler(lam):
     assert payload["val"] == 7
 
 
+def test_lambda_nodejs24_refuses_a_callback_handler(lam):
+    """AWS's Node.js 24 runtime refuses a handler that takes a callback (aws-lambda-nodejs-runtime-interface-client,
+    callback-deprecation.ts); Node.js 20 still runs it (test_lambda_nodejs_callback_handler)."""
+    code = "exports.handler = (event, context, cb) => cb(null, { cb: true });"
+    with _nodejs_lambda(lam, code, prefix="lam-node24-cb", runtime="nodejs24.x") as fname:
+        resp, payload = _invoke_lambda_payload(lam, fname)
+        assert resp["FunctionError"] == "Unhandled"
+        assert payload["errorType"] == "Runtime.CallbackHandlerDeprecated"
+        assert payload["errorMessage"].startswith(
+            "ERROR: AWS Lambda has removed support for callback-based function handlers starting with Node.js 24.")
+
+
 def test_lambda_nodejs_fd_write_sync_invoke_succeeds(lam):
     """fs.writeSync(1) logging must not fail the invocation (issue #1093)."""
     code = (
@@ -12792,6 +12804,14 @@ def test_lambda_runs_on_the_architecture_it_declares(lam, declared, expected_mac
         payload = json.loads(resp["Payload"].read())
         if resp.get("FunctionError") and "exec format" in str(payload).lower():
             pytest.skip(f"host cannot run linux/{declared} — no binfmt handler registered")
+        # With no emulation for a foreign architecture, MiniStack falls back to the host's.
+        import platform as _platform
+        import sys as _sys
+        native = {"x86_64": "x86_64", "amd64": "x86_64", "arm64": "aarch64", "aarch64": "aarch64"}.get(
+            _platform.machine().lower())
+        emulated = _sys.platform == "darwin" or os.path.exists(f"/proc/sys/fs/binfmt_misc/qemu-{expected_machine}")
+        if expected_machine != native and not emulated and payload.get("machine") == native:
+            pytest.skip(f"host cannot run linux/{declared} — MiniStack fell back to the host architecture")
         assert resp.get("FunctionError") is None, payload
         assert payload.get("machine") == expected_machine, payload
     finally:
@@ -12825,6 +12845,16 @@ def test_lambda_platform_pinned_only_when_architectures_declared(monkeypatch):
     assert _lam._declared_docker_platform(
         {"FunctionName": "pre-marker-record", "Architectures": ["x86_64"]}) is None
     assert _lam._declared_docker_platform({"FunctionName": "never-created"}) is None
+
+
+def test_lambda_host_docker_arch_names_the_image_architecture(monkeypatch):
+    """The daemon reports x86_64/aarch64; image metadata says amd64/arm64."""
+    from ministack.services import lambda_svc as _lam
+
+    for daemon, expected in (("x86_64", "amd64"), ("aarch64", "arm64")):
+        monkeypatch.setattr(_lam, "_host_docker_arch_cache", [])
+        client = type("C", (), {"info": staticmethod(lambda d=daemon: {"Architecture": d})})()
+        assert _lam._host_docker_arch(client) == expected
 
 
 # ─────────────────────────────── SnapStart ───────────────────────────────
@@ -13082,6 +13112,39 @@ def test_context_arn_shim_survives_a_cached_code_dir(tmp_path):
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="node not installed")
+def test_node_context_shim_runs_in_a_type_module_package(tmp_path):
+    """A package.json with "type": "module" makes Node load every .js file as
+    ESM, so a CommonJS shim named .js failed on `require` before the handler
+    ran (#2504). On AWS the same zip runs; the shim is now a .cjs file."""
+    import subprocess
+
+    code_dir = tmp_path / "task"
+    (code_dir / "dist").mkdir(parents=True)
+    (code_dir / "package.json").write_text('{"type": "module"}')
+    (code_dir / "dist" / "index.js").write_text(
+        "export const handler = async (event, context) =>\n"
+        "  ({ ok: true, arn: context.invokedFunctionArn, x: event.x });\n"
+    )
+    assert lsvc._write_context_arn_shim(str(code_dir), "nodejs24.x", "dist/index.handler") == "_msctx_shim.handler"
+    assert not (code_dir / "_msctx_shim.js").exists()
+    arn = "arn:aws:lambda:us-east-1:000000000000:function:esm"
+    env = {**os.environ, "LAMBDA_TASK_ROOT": str(code_dir), "_MS_REAL_HANDLER": "dist/index.handler",
+           "_LAMBDA_FUNCTION_ARN": arn}
+    script = ("require(process.argv[1]).handler({x: 7}, {})"
+              ".then((r) => process.stdout.write(JSON.stringify(r)));")
+    proc = subprocess.run(["node", "-e", script, str(code_dir / "_msctx_shim.cjs")],
+                          env=env, capture_output=True, text=True, timeout=30)
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout) == {"ok": True, "arn": arn, "x": 7}
+    # The runtime tries .js and .mjs before .cjs: a user's module of either name
+    # would shadow the shim, so the handler then runs unwrapped.
+    for ext in (".js", ".mjs"):
+        (code_dir / f"_msctx_shim{ext}").write_text("// user's own module")
+        assert lsvc._write_context_arn_shim(str(code_dir), "nodejs24.x", "dist/index.handler") is None
+        (code_dir / f"_msctx_shim{ext}").unlink()
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="node not installed")
 def test_node_context_shim_downgrades_https_to_the_gateway(tmp_path):
     """The response submitters the CDK bundles into its custom-resource
     handlers build the ResponseURL PUT from the URL's hostname and path only
@@ -13153,7 +13216,7 @@ def test_node_context_shim_downgrades_https_to_the_gateway(tmp_path):
 
         def run(host, hport=None, form="options"):
             proc = subprocess.run(
-                ["node", "-e", script, str(code_dir / "_msctx_shim.js"), host, str(hport or ""), form],
+                ["node", "-e", script, str(code_dir / "_msctx_shim.cjs"), host, str(hport or ""), form],
                 env=env, capture_output=True, text=True, timeout=30,
             )
             assert proc.returncode == 0, proc.stderr
@@ -13220,7 +13283,7 @@ def test_node_context_shim_keeps_https_to_a_tls_gateway(tmp_path):
                "AWS_ENDPOINT_URL": f"https://127.0.0.1:{port}"}
         script = ("require(process.argv[1]).handler({port: Number(process.argv[2])}, {})"
                   ".then((r) => process.stdout.write(JSON.stringify(r)));")
-        proc = subprocess.run(["node", "-e", script, str(code_dir / "_msctx_shim.js"), str(port)],
+        proc = subprocess.run(["node", "-e", script, str(code_dir / "_msctx_shim.cjs"), str(port)],
                               env=env, capture_output=True, text=True, timeout=30)
         assert proc.returncode == 0, proc.stderr
         # Still TLS: the plain-HTTP listener never sees the request as HTTP.
@@ -13282,7 +13345,7 @@ def test_node_context_shim_sends_the_https_default_port_to_a_tls_gateway(tmp_pat
                   ".then((r) => process.stdout.write(JSON.stringify(r)));")
 
         def run(event):
-            proc = subprocess.run(["node", "-e", script, str(code_dir / "_msctx_shim.js"), json.dumps(event)],
+            proc = subprocess.run(["node", "-e", script, str(code_dir / "_msctx_shim.cjs"), json.dumps(event)],
                                   env=env, capture_output=True, text=True, timeout=30)
             assert proc.returncode == 0, proc.stderr
             return json.loads(proc.stdout)
@@ -15929,3 +15992,26 @@ def test_esm_kinesis_last_processing_result_is_aws_wording(lam, kin, code, resul
     finally:
         lam.delete_function(FunctionName=fn)
         kin.delete_stream(StreamName=stream)
+
+
+def test_lambda_log_events_carry_an_event_id(lam, logs):
+    """Every event FilterLogEvents returns has a unique eventId, as on AWS (FilteredLogEvent);
+    `aws logs tail --follow` relies on it. Events a Lambda writes came without one."""
+    name = f"log-event-id-{_uuid_mod.uuid4().hex[:8]}"
+    marker = f"marker-{_uuid_mod.uuid4().hex}"
+    lam.create_function(
+        FunctionName=name, Runtime="python3.12", Role=_LAMBDA_ROLE, Handler="index.handler",
+        Code={"ZipFile": _make_zip(f"def handler(event, context):\n    print('{marker}')\n    return 1\n")},
+    )
+    try:
+        for _ in range(2):
+            lam.invoke(FunctionName=name, Payload=b"{}")
+        assert any(marker in m for m in _wait_log_marker(logs, f"/aws/lambda/{name}", marker))
+
+        events = logs.filter_log_events(logGroupName=f"/aws/lambda/{name}")["events"]
+        assert events
+        ids = [event.get("eventId") for event in events]
+        assert all(ids), events
+        assert len(set(ids)) == len(ids)
+    finally:
+        lam.delete_function(FunctionName=name)

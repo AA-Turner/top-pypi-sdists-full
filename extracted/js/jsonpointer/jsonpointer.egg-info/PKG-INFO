@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonpointer
-Version: 3.7
+Version: 3.8
 Summary:  Identify specific nodes in a JSON document (RFC 6901) 
 Home-page: https://github.com/stefankoegl/python-json-pointer
 Author: Stefan Kögl
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt

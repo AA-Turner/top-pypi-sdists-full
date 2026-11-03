@@ -24,7 +24,7 @@ class ContributesToTaskResult(metaclass=abc.ABCMeta):
 
     @property
     def omit_exception_key(self) -> bool:
-        """Non-error exceptions (e.g., `AnsibleActionSkip`) must return `True` to ensure omission of the `exception` key."""
+        """Non-error exceptions (e.g., `AnsibleActionNoCheckMode`) must return `True` to ensure omission of the `exception` key."""
         return False
 
     @property
@@ -65,7 +65,7 @@ class SourceContext:
             origin = Origin.get_tag(value)
 
         if RedactAnnotatedSourceContext.current(optional=True):
-            return cls.error('content redacted')
+            return cls.error('content redacted', origin)
 
         if origin and origin.path:
             return cls.from_origin(origin)

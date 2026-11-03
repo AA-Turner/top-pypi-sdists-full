@@ -22,10 +22,6 @@ WATCHMAN_AUTH_DECORATOR: str | None = getattr(
 """Dotted path to a decorator applied to protected views. Set to ``None`` to
 disable authentication.  Default: ``"watchman.decorators.token_required"``."""
 
-WATCHMAN_TOKEN: str | None = getattr(settings, "WATCHMAN_TOKEN", None)
-"""*Deprecated* -- use [`WATCHMAN_TOKENS`][watchman.settings.WATCHMAN_TOKENS]
-instead.  Will be removed in django-watchman 1.0."""
-
 WATCHMAN_TOKENS: str | None = getattr(settings, "WATCHMAN_TOKENS", None)
 """Comma-separated list of accepted authentication tokens.  Default: ``None``
 (no token required)."""
@@ -33,6 +29,13 @@ WATCHMAN_TOKENS: str | None = getattr(settings, "WATCHMAN_TOKENS", None)
 WATCHMAN_TOKEN_NAME: str = getattr(settings, "WATCHMAN_TOKEN_NAME", "watchman-token")
 """Name of the query-string parameter used to pass the token.
 Default: ``"watchman-token"``."""
+
+WATCHMAN_EXPOSE_ERROR_DETAILS: bool = getattr(
+    settings, "WATCHMAN_EXPOSE_ERROR_DETAILS", False
+)
+"""Include the exception message and stacktrace of failed checks in responses.
+When ``False``, failed checks report a generic error and the details are only
+logged.  Default: ``False``."""
 
 WATCHMAN_ERROR_CODE: int = getattr(settings, "WATCHMAN_ERROR_CODE", 500)
 """HTTP status code returned when a check fails.  Default: ``500``."""

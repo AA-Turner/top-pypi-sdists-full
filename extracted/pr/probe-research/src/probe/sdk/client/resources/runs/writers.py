@@ -14,8 +14,11 @@ class RunWritersMixin:
         *,
         attached: bool = False,
         write_epoch: int | None = None,
+        delivery: dict | None = None,
     ) -> dict:
         """``POST /v1/runs/{id}/heartbeat``: report that this run is still alive.
+        ``delivery``: this run's backlog, as the body's ``delivery`` (R13); a server that predates
+        it ignores the body.
 
         Liveness cannot be inferred from `status`: it is a plain column, so a run
         whose process dies without a final PATCH stays 'running' forever and any
@@ -60,14 +63,16 @@ class RunWritersMixin:
             params["attached"] = "true"
         if write_epoch is not None:
             params["write_epoch"] = write_epoch
+        body = {"delivery": delivery} if delivery else None
         if params:
             return self.transport.request(
                 "POST",
                 f"/v1/runs/{run_id}/heartbeat",
                 params=params,
+                json_body=body,
                 idempotent=True,
             ).json()
-        return self.transport.post(f"/v1/runs/{run_id}/heartbeat", None, idempotent=True)
+        return self.transport.post(f"/v1/runs/{run_id}/heartbeat", body, idempotent=True)
 
     def beat_writer(self, run_id: str, session_id: str, body: dict) -> dict:
         """``POST /v1/runs/{id}/writers/{session}/beat`` (SDK reliability 2.8):

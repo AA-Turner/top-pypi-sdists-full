@@ -1,6 +1,9 @@
-import pymupdf
 import os
+import platform
+
+import pymupdf
 import gentle_compare
+
 
 scriptdir = os.path.abspath(os.path.dirname(__file__))
 
@@ -93,3 +96,30 @@ def test_3376():
 
     ok = gentle_compare.gentle_compare(words0_e, words1)
     assert ok
+
+
+def test_mupdfcpp64_dll_symbols():
+    print()
+    if platform.system() != 'Windows':
+        print(f'test_mupdfcpp64_dll_symbols(): Not running on non-windows')
+        return
+    p = f'{pymupdf.__path__[0]}/mupdfcpp64.dll'
+    assert(os.path.isfile(p)), f'Not found: {p}'
+    with open(p, 'rb') as f:
+        content = f.read()
+    num_errors = 0
+    for name in (
+            'fz_argv_from_wargv',
+            'gettimeofday',
+            ):
+        is_in = (name.encode() in content)
+        if pymupdf.mupdf_version_tuple >= (1, 29):
+            if not is_in:
+                print(f'Unexpected not in mupdfcpp64.dll: {name}')
+                num_errors += 1
+        else:
+            if is_in:
+                print(f'Unexpected in mupdfcpp64.dll: {name}')
+                num_errors += 1
+    print(f'{num_errors=}')
+    assert not num_errors

@@ -278,7 +278,7 @@ set_segments (dp_dll_state_t *s, size_t segments)
 {
   s->segments  = segments ? segments : 1;
   s->seg_chips = (double)s->sf / (double)s->segments;
-  s->seg_norm  = (double)(s->sf * s->sps) / (double)s->segments;
+  s->seg_norm  = (double)s->sf * s->sps / (double)s->segments;
   /* The steer's gain table (dll_steer): the coherent full-epoch loop
      applies the integrator as a code-rate ratio (inv_tsamps cycles per
      sample per unit) and kp*e as chips per epoch (inv_tsamps/sf), and
@@ -329,18 +329,22 @@ dll_bn_zeta_ok (double bn, double zeta, double t)
 }
 
 static void
-configure_geometry (dp_dll_state_t *s, size_t code_len, size_t sps,
+configure_geometry (dp_dll_state_t *s, size_t code_len, double sps,
                     double init_chip, double bn, double zeta, double spacing)
 {
-  s->sf      = code_len ? code_len : 1;
-  s->sps     = sps ? sps : 1;
-  s->inv_sps = 1.0 / (double)s->sps;
+  s->sf = code_len ? code_len : 1;
+  /* Any samples a chip of at least one: the partials close on the code
+     NCO's phase, never on a sample count, so a period need not be a whole
+     number of samples. Both doors refuse outside dp_dll_params_ok() before
+     reaching here, so this takes the value as given. */
+  s->sps     = sps;
+  s->inv_sps = 1.0 / s->sps;
   /* sf/sps are create-time invariants (no setter changes them after
      this), so their reciprocals are computed exactly once, here --
      never re-derived (let alone divided) in the tracking loop's
      per-epoch execution code (dll_update(), dll_steps_impl()'s
      segments>1 branch). */
-  double tsamps    = (double)s->sf * (double)s->sps;
+  double tsamps    = (double)s->sf * s->sps;
   s->inv_tsamps    = 1.0 / tsamps;
   s->inv_tsamps2   = s->inv_tsamps * s->inv_tsamps;
   s->inv_tsamps_sf = s->inv_tsamps / (double)s->sf;
@@ -359,11 +363,13 @@ configure_geometry (dp_dll_state_t *s, size_t code_len, size_t sps,
                                0.0 /* auto EMA bandwidth */);
 }
 
-void
+int
 dp_dll_init (dp_dll_state_t *s, const uint8_t *code, size_t code_len,
-             size_t sps, double init_chip, double bn, double zeta,
+             double sps, double init_chip, double bn, double zeta,
              double spacing)
 {
+  if (!dp_dll_params_ok (code_len, sps, init_chip, bn, zeta, spacing, 1))
+    return DP_ERR_INVALID;
   configure_geometry (s, code_len, sps, init_chip, bn, zeta, spacing);
   /* In-place init of a caller-owned (possibly stack) state:
      dp_loop_filter_init preserves the integrator (it doubles as a
@@ -410,6 +416,7 @@ dp_dll_init (dp_dll_state_t *s, const uint8_t *code, size_t code_len,
    * garbage telemetry pointer into the emit gates. */
   memset (&s->tlm, 0, sizeof s->tlm);
   seed (s);
+  return DP_OK;
 }
 
 /* Allocate the segments>1 chunk/lookback buffers (seven arrays, length
@@ -464,13 +471,14 @@ free_segment_buffers (dp_dll_state_t *s)
 }
 
 dp_dll_state_t *
-dp_dll_create (const uint8_t *code, size_t code_len, size_t sps,
+dp_dll_create (const uint8_t *code, size_t code_len, double sps,
                double init_chip, double bn, double zeta, double spacing,
                size_t segments)
 {
   /* Every argument checked before anything is allocated (doppler#2103). */
   if (!code
-      || !dp_dll_params_ok (code_len, init_chip, bn, zeta, spacing, segments))
+      || !dp_dll_params_ok (code_len, sps, init_chip, bn, zeta, spacing,
+                            segments))
     return NULL;
   dp_dll_state_t *obj = calloc (1, sizeof (*obj));
   if (!obj)
@@ -715,7 +723,7 @@ dp_dll_set_state (dp_dll_state_t *s, const void *blob)
      predicate create uses, on the blob's own values. chip_pos stands in for
      create's init_chip: it is the running phase, and the predicate refuses
      it when non-finite. */
-  if (!dp_dll_params_ok (t.sf, t.chip_pos, t.bn, t.zeta, t.spacing,
+  if (!dp_dll_params_ok (t.sf, t.sps, t.chip_pos, t.bn, t.zeta, t.spacing,
                          t.segments))
     return DP_ERR_INVALID;
   /* The filters are restored VERBATIM, gains included, so resume is bit-exact
@@ -823,11 +831,14 @@ dp_dll_set_state (dp_dll_state_t *s, const void *blob)
 }
 
 int
-dp_dll_params_ok (size_t code_len, double init_chip, double bn, double zeta,
-                  double spacing, size_t segments)
+dp_dll_params_ok (size_t code_len, double sps, double init_chip, double bn,
+                  double zeta, double spacing, size_t segments)
 {
-  return code_len >= 1 && segments >= 1 && isfinite (init_chip)
-         && dp_loop_filter_params_ok (bn, zeta, 1.0) && spacing > 0.0
+  /* sps >= 1: one sample a chip at least -- under it the code NCO steps
+     more than a chip a sample and aliases; NaN and inf fail it too. */
+  return code_len >= 1 && sps >= 1.0 && isfinite (sps) && segments >= 1
+         && isfinite (init_chip) && dp_loop_filter_params_ok (bn, zeta, 1.0)
+         && spacing > 0.0
          && spacing < 0.5 * (double)code_len; /* NaN fails the comparisons */
 }
 
@@ -878,7 +889,7 @@ dll_steps_impl (dp_dll_state_t *state, const float _Complex *x, size_t x_len,
    */
   if (state->segments <= 1)
     {
-      double tsamps = (double)(state->sf * state->sps);
+      double tsamps = (double)state->sf * state->sps;
       for (size_t n = 0; n < x_len; n++)
         {
           /* Off-peak (noise) tap on the same pre-advance phase as the
@@ -949,7 +960,7 @@ dll_steps_impl (dp_dll_state_t *state, const float _Complex *x, size_t x_len,
      pseudocode, and empirically made no difference to this scenario's own
      behavior -- removed). */
   size_t w      = state->segments;
-  double tsamps = (double)(state->sf * state->sps);
+  double tsamps = (double)state->sf * state->sps;
   for (size_t n = 0; n < x_len; n++)
     {
       dll_lock_accumulate (state, x[n]);

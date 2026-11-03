@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, Dict, List, Literal, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Literal, Mapping, Optional, Tuple, Union
 
 from upstash_redis.search import (
     IndexDescription,
@@ -14,8 +14,71 @@ from upstash_redis.search import (
 )
 from upstash_redis.typing import FloatMinMaxT, ValueT, JSONValueT
 from upstash_redis.utils import GeoSearchResult
+from upstash_redis.vector import (
+    VectorIndexInfo,
+    VectorMetric,
+    VectorQueryProfile,
+    VectorQueryResult,
+    VectorT,
+)
 
 class Commands:
+    def arset(self, key: str, index: int, *values: ValueT) -> int: ...
+    def armset(
+        self,
+        key: str,
+        values: Union[Mapping[int, ValueT], Iterable[Tuple[int, ValueT]]],
+    ) -> int: ...
+    def arget(self, key: str, index: int) -> Optional[str]: ...
+    def armget(self, key: str, *indexes: int) -> List[Optional[str]]: ...
+    def argetrange(self, key: str, start: int, end: int) -> List[Optional[str]]: ...
+    def arscan(
+        self, key: str, start: int, end: int, limit: Optional[int] = None
+    ) -> List[Tuple[int, str]]: ...
+    def argrep(
+        self,
+        key: str,
+        start: Union[int, Literal["-"]],
+        end: Union[int, Literal["+"]],
+        *,
+        exact: Optional[Union[str, List[str]]] = None,
+        match: Optional[Union[str, List[str]]] = None,
+        glob: Optional[Union[str, List[str]]] = None,
+        regex: Optional[Union[str, List[str]]] = None,
+        combine: Optional[Literal["AND", "OR"]] = None,
+        nocase: bool = False,
+        withvalues: bool = False,
+        limit: Optional[int] = None,
+    ) -> Union[List[int], List[Tuple[int, str]]]: ...
+    def ardel(self, key: str, *indexes: int) -> int: ...
+    def ardelrange(self, key: str, *ranges: Tuple[int, int]) -> int: ...
+    def arcount(self, key: str) -> int: ...
+    def arlen(self, key: str) -> int: ...
+    def arinsert(self, key: str, *values: ValueT) -> int: ...
+    def arring(self, key: str, size: int, *values: ValueT) -> int: ...
+    def arlastitems(
+        self, key: str, count: int, rev: bool = False
+    ) -> List[Optional[str]]: ...
+    def arnext(self, key: str) -> Optional[int]: ...
+    def arseek(self, key: str, index: int) -> bool: ...
+    def arop(
+        self,
+        key: str,
+        start: int,
+        end: int,
+        operation: Literal[
+            "SUM",
+            "MIN",
+            "MAX",
+            "AND",
+            "OR",
+            "XOR",
+            "USED",
+            "MATCH",
+        ],
+        value: Optional[ValueT] = None,
+    ) -> Union[int, float, None]: ...
+    def arinfo(self, key: str, full: bool = False) -> Dict[str, Union[int, float]]: ...
     def bitcount(
         self, key: str, start: Optional[int] = None, end: Optional[int] = None
     ) -> int: ...
@@ -721,6 +784,66 @@ class Commands:
     ) -> int: ...
 
 class AsyncCommands:
+    async def arset(self, key: str, index: int, *values: ValueT) -> int: ...
+    async def armset(
+        self,
+        key: str,
+        values: Union[Mapping[int, ValueT], Iterable[Tuple[int, ValueT]]],
+    ) -> int: ...
+    async def arget(self, key: str, index: int) -> Optional[str]: ...
+    async def armget(self, key: str, *indexes: int) -> List[Optional[str]]: ...
+    async def argetrange(
+        self, key: str, start: int, end: int
+    ) -> List[Optional[str]]: ...
+    async def arscan(
+        self, key: str, start: int, end: int, limit: Optional[int] = None
+    ) -> List[Tuple[int, str]]: ...
+    async def argrep(
+        self,
+        key: str,
+        start: Union[int, Literal["-"]],
+        end: Union[int, Literal["+"]],
+        *,
+        exact: Optional[Union[str, List[str]]] = None,
+        match: Optional[Union[str, List[str]]] = None,
+        glob: Optional[Union[str, List[str]]] = None,
+        regex: Optional[Union[str, List[str]]] = None,
+        combine: Optional[Literal["AND", "OR"]] = None,
+        nocase: bool = False,
+        withvalues: bool = False,
+        limit: Optional[int] = None,
+    ) -> Union[List[int], List[Tuple[int, str]]]: ...
+    async def ardel(self, key: str, *indexes: int) -> int: ...
+    async def ardelrange(self, key: str, *ranges: Tuple[int, int]) -> int: ...
+    async def arcount(self, key: str) -> int: ...
+    async def arlen(self, key: str) -> int: ...
+    async def arinsert(self, key: str, *values: ValueT) -> int: ...
+    async def arring(self, key: str, size: int, *values: ValueT) -> int: ...
+    async def arlastitems(
+        self, key: str, count: int, rev: bool = False
+    ) -> List[Optional[str]]: ...
+    async def arnext(self, key: str) -> Optional[int]: ...
+    async def arseek(self, key: str, index: int) -> bool: ...
+    async def arop(
+        self,
+        key: str,
+        start: int,
+        end: int,
+        operation: Literal[
+            "SUM",
+            "MIN",
+            "MAX",
+            "AND",
+            "OR",
+            "XOR",
+            "USED",
+            "MATCH",
+        ],
+        value: Optional[ValueT] = None,
+    ) -> Union[int, float, None]: ...
+    async def arinfo(
+        self, key: str, full: bool = False
+    ) -> Dict[str, Union[int, float]]: ...
     def __init__(self): ...
     async def bitcount(
         self, key: str, start: Optional[int] = None, end: Optional[int] = None
@@ -1479,6 +1602,62 @@ class AsyncBitFieldROCommands:
     async def execute(self) -> List: ...
 
 class PipelineCommands:
+    def arset(self, key: str, index: int, *values: ValueT) -> PipelineCommands: ...
+    def armset(
+        self,
+        key: str,
+        values: Union[Mapping[int, ValueT], Iterable[Tuple[int, ValueT]]],
+    ) -> PipelineCommands: ...
+    def arget(self, key: str, index: int) -> PipelineCommands: ...
+    def armget(self, key: str, *indexes: int) -> PipelineCommands: ...
+    def argetrange(self, key: str, start: int, end: int) -> PipelineCommands: ...
+    def arscan(
+        self, key: str, start: int, end: int, limit: Optional[int] = None
+    ) -> PipelineCommands: ...
+    def argrep(
+        self,
+        key: str,
+        start: Union[int, Literal["-"]],
+        end: Union[int, Literal["+"]],
+        *,
+        exact: Optional[Union[str, List[str]]] = None,
+        match: Optional[Union[str, List[str]]] = None,
+        glob: Optional[Union[str, List[str]]] = None,
+        regex: Optional[Union[str, List[str]]] = None,
+        combine: Optional[Literal["AND", "OR"]] = None,
+        nocase: bool = False,
+        withvalues: bool = False,
+        limit: Optional[int] = None,
+    ) -> PipelineCommands: ...
+    def ardel(self, key: str, *indexes: int) -> PipelineCommands: ...
+    def ardelrange(self, key: str, *ranges: Tuple[int, int]) -> PipelineCommands: ...
+    def arcount(self, key: str) -> PipelineCommands: ...
+    def arlen(self, key: str) -> PipelineCommands: ...
+    def arinsert(self, key: str, *values: ValueT) -> PipelineCommands: ...
+    def arring(self, key: str, size: int, *values: ValueT) -> PipelineCommands: ...
+    def arlastitems(
+        self, key: str, count: int, rev: bool = False
+    ) -> PipelineCommands: ...
+    def arnext(self, key: str) -> PipelineCommands: ...
+    def arseek(self, key: str, index: int) -> PipelineCommands: ...
+    def arop(
+        self,
+        key: str,
+        start: int,
+        end: int,
+        operation: Literal[
+            "SUM",
+            "MIN",
+            "MAX",
+            "AND",
+            "OR",
+            "XOR",
+            "USED",
+            "MATCH",
+        ],
+        value: Optional[ValueT] = None,
+    ) -> PipelineCommands: ...
+    def arinfo(self, key: str, full: bool = False) -> PipelineCommands: ...
     def bitcount(
         self, key: str, start: Optional[int] = None, end: Optional[int] = None
     ) -> PipelineCommands: ...
@@ -2238,7 +2417,8 @@ class SearchCommands:
         name: str,
         schema: Schema,
         data_type: Union[DataType, str],
-        prefixes: Union[str, List[str]],
+        prefixes: Optional[Union[str, List[str]]] = None,
+        stream: Optional[str] = None,
         language: Optional[Union[Language, str]] = None,
         skip_initial_scan: bool = False,
         exists_ok: bool = False,
@@ -2289,7 +2469,8 @@ class AsyncSearchCommands:
         name: str,
         schema: Schema,
         data_type: Union[DataType, str],
-        prefixes: Union[str, List[str]],
+        prefixes: Optional[Union[str, List[str]]] = None,
+        stream: Optional[str] = None,
         language: Optional[Union[Language, str]] = None,
         skip_initial_scan: bool = False,
         exists_ok: bool = False,
@@ -2322,3 +2503,90 @@ class AsyncSearchIndexCommands:
     ) -> Dict[str, Any]: ...
     async def add_alias(self, *, alias: str) -> int: ...
     async def drop(self) -> int: ...
+
+class VectorCommands:
+    def __init__(self, client: Commands): ...
+    def create_index(
+        self,
+        *,
+        name: str,
+        dimension: int,
+        metric: Union[VectorMetric, str],
+        exists_ok: bool = False,
+    ) -> VectorIndexCommands: ...
+    def index(self, name: str) -> VectorIndexCommands: ...
+
+class VectorIndexCommands:
+    name: str
+    def __init__(self, client: Commands, name: str): ...
+    def add(self, id: str, vector: VectorT) -> int: ...
+    def get(self, id: str) -> Optional[List[float]]: ...
+    def query(
+        self,
+        *,
+        vector: VectorT,
+        top_k: int,
+        profile: Optional[Union[VectorQueryProfile, str]] = None,
+    ) -> List[VectorQueryResult]: ...
+    def delete(self, id: str) -> int: ...
+    def count(self) -> int: ...
+    def info(self) -> Optional[VectorIndexInfo]: ...
+    def drop(self) -> int: ...
+
+class AsyncVectorCommands:
+    def __init__(self, client: AsyncCommands): ...
+    async def create_index(
+        self,
+        *,
+        name: str,
+        dimension: int,
+        metric: Union[VectorMetric, str],
+        exists_ok: bool = False,
+    ) -> AsyncVectorIndexCommands: ...
+    def index(self, name: str) -> AsyncVectorIndexCommands: ...
+
+class AsyncVectorIndexCommands:
+    name: str
+    def __init__(self, client: AsyncCommands, name: str): ...
+    async def add(self, id: str, vector: VectorT) -> int: ...
+    async def get(self, id: str) -> Optional[List[float]]: ...
+    async def query(
+        self,
+        *,
+        vector: VectorT,
+        top_k: int,
+        profile: Optional[Union[VectorQueryProfile, str]] = None,
+    ) -> List[VectorQueryResult]: ...
+    async def delete(self, id: str) -> int: ...
+    async def count(self) -> int: ...
+    async def info(self) -> Optional[VectorIndexInfo]: ...
+    async def drop(self) -> int: ...
+
+class PipelineVectorCommands:
+    def __init__(self, client: PipelineCommands): ...
+    def create_index(
+        self,
+        *,
+        name: str,
+        dimension: int,
+        metric: Union[VectorMetric, str],
+        exists_ok: bool = False,
+    ) -> PipelineCommands: ...
+    def index(self, name: str) -> PipelineVectorIndexCommands: ...
+
+class PipelineVectorIndexCommands:
+    name: str
+    def __init__(self, client: PipelineCommands, name: str): ...
+    def add(self, id: str, vector: VectorT) -> PipelineCommands: ...
+    def get(self, id: str) -> PipelineCommands: ...
+    def query(
+        self,
+        *,
+        vector: VectorT,
+        top_k: int,
+        profile: Optional[Union[VectorQueryProfile, str]] = None,
+    ) -> PipelineCommands: ...
+    def delete(self, id: str) -> PipelineCommands: ...
+    def count(self) -> PipelineCommands: ...
+    def info(self) -> PipelineCommands: ...
+    def drop(self) -> PipelineCommands: ...

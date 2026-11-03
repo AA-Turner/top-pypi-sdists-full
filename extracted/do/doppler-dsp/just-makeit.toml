@@ -1,15 +1,20 @@
 include = ["objects/*.toml"]
 
 [project]
-jm_version = "0.112.0"
+jm_version = "0.114.0"
 name = "doppler"
-version = "0.78.0"
+version = "0.79.0"
 build = "cmake"
 # c_prefix (jm#1591, #1545): every C symbol jm derives carries dp_, so two
 # installed jm libraries that share a component name (fir, fft, agc) link
 # and include together. Names we spelled ourselves (fn =, create_fn, our
 # macros) and every Python name are untouched.
 c_prefix = "dp"
+# layout (jm#2425, 0.114.0): every per-object file lives under a directory
+# named for its object, mirroring native/inc/doppler/<obj>/ --
+# native/tests/<obj>/test_<obj>_core.c, native/benchmarks/<obj>/... -- so
+# finding an object's test is the same lookup as finding its header.
+layout = "mirrored"
 # c_style / c_format_command (gh-265, gh-745): jm formats the C it generates
 # with the project's OWN pinned clang-format, so its render and the committed
 # bytes agree instead of differing by style forever.
@@ -3841,8 +3846,8 @@ values = ["floor", "nearest", "linear"]
 # through the receiver's `lifecycle` property as a string.
 [[enum]]
 name = "async_dsss_rx_state"
-values = ["searching", "refining", "tracking", "reserved", "lost"]
+values = ["searching", "refining", "tracking", "idle", "lost"]
 enumerators = [
   "ASYNC_DSSS_RX_SEARCHING", "ASYNC_DSSS_RX_REFINING",
-  "ASYNC_DSSS_RX_TRACKING", "ASYNC_DSSS_RX_RESERVED", "ASYNC_DSSS_RX_LOST",
+  "ASYNC_DSSS_RX_TRACKING", "ASYNC_DSSS_RX_IDLE", "ASYNC_DSSS_RX_LOST",
 ]

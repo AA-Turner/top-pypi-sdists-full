@@ -10,7 +10,7 @@ from httpx2 import AsyncClient as HttpxAsyncClient
 from httpx2 import Client as HttpxClient
 
 from meilisearch_python_sdk._http_requests import AsyncHttpRequests, HttpRequests
-from meilisearch_python_sdk._utils import get_async_client, get_client
+from meilisearch_python_sdk._utils import get_async_client, get_client, process_params
 from meilisearch_python_sdk.errors import MeilisearchTaskFailedError, MeilisearchTimeoutError
 from meilisearch_python_sdk.models.task import TaskInfo, TaskResult, TaskStatus
 
@@ -62,7 +62,7 @@ async def async_cancel_tasks(
         >>> async with AsyncClient("http://localhost.com", "masterKey") as client:
         >>>     await cancel_tasks(client, uids=[1, 2])
     """
-    parameters = _process_params(
+    parameters = process_params(
         uids=uids,
         index_uids=index_uids,
         statuses=statuses,
@@ -98,7 +98,7 @@ async def async_delete_tasks(
     before_started_at: datetime | None = None,
     after_finished_at: datetime | None = None,
 ) -> TaskInfo:
-    parameters = _process_params(
+    parameters = process_params(
         uids=uids,
         index_uids=index_uids,
         statuses=statuses,
@@ -153,7 +153,7 @@ async def async_get_tasks(
     limit: int | None = None,
     from_: int | None = None,
 ) -> TaskStatus:
-    parameters = _process_params(
+    parameters = process_params(
         uids=uids,
         index_uids=index_ids,
         statuses=statuses,
@@ -190,32 +190,21 @@ async def async_wait_for_task(
     client_ = get_async_client(client)
     http_requests = AsyncHttpRequests(client_, json_handler)
     url = f"tasks/{task_id}"
-    start_time = datetime.now()
+    start_time = time.monotonic()
     elapsed_time = 0.0
 
-    if timeout_in_ms:
-        while elapsed_time < timeout_in_ms:
-            response = await http_requests.get(url)
-            status = TaskResult(**json_handler.loads(response.content))
-            if status.status in ("succeeded", "failed"):
-                if raise_for_status and status.status == "failed":
-                    raise MeilisearchTaskFailedError(f"Task {task_id} failed")
-                return status
-            await asyncio.sleep(interval_in_ms / 1000)
-            time_delta = datetime.now() - start_time
-            elapsed_time = time_delta.seconds * 1000 + time_delta.microseconds / 1000
-        raise MeilisearchTimeoutError(
-            f"timeout of {timeout_in_ms}ms has exceeded on process {task_id} when waiting for pending update to resolve."
-        )
-    else:
-        while True:
-            response = await http_requests.get(url)
-            status = TaskResult(**json_handler.loads(response.content))
-            if status.status in ("succeeded", "failed"):
-                if raise_for_status and status.status == "failed":
-                    raise MeilisearchTaskFailedError(f"Task {task_id} failed")
-                return status
-            await asyncio.sleep(interval_in_ms / 1000)
+    while timeout_in_ms is None or elapsed_time < timeout_in_ms:
+        response = await http_requests.get(url)
+        status = TaskResult(**json_handler.loads(response.content))
+        if status.status in ("succeeded", "failed"):
+            if raise_for_status and status.status == "failed":
+                raise MeilisearchTaskFailedError(f"Task {task_id} failed")
+            return status
+        await asyncio.sleep(interval_in_ms / 1000)
+        elapsed_time = (time.monotonic() - start_time) * 1000
+    raise MeilisearchTimeoutError(
+        f"timeout of {timeout_in_ms}ms has exceeded on process {task_id} when waiting for pending update to resolve."
+    )
 
 
 def cancel_tasks(
@@ -231,7 +220,7 @@ def cancel_tasks(
     before_started_at: datetime | None = None,
     after_finished_at: datetime | None = None,
 ) -> TaskInfo:
-    parameters = _process_params(
+    parameters = process_params(
         uids=uids,
         index_uids=index_uids,
         statuses=statuses,
@@ -267,7 +256,7 @@ def delete_tasks(
     before_started_at: datetime | None = None,
     after_finished_at: datetime | None = None,
 ) -> TaskInfo:
-    parameters = _process_params(
+    parameters = process_params(
         uids=uids,
         index_uids=index_uids,
         statuses=statuses,
@@ -318,7 +307,7 @@ def get_tasks(
     limit: int | None = None,
     from_: int | None = None,
 ) -> TaskStatus:
-    parameters = _process_params(
+    parameters = process_params(
         uids=uids,
         index_uids=index_ids,
         statuses=statuses,
@@ -355,88 +344,18 @@ def wait_for_task(
     client_ = get_client(client)
     http_requests = HttpRequests(client_, json_handler=json_handler)
     url = f"tasks/{task_id}"
-    start_time = datetime.now()
+    start_time = time.monotonic()
     elapsed_time = 0.0
 
-    if timeout_in_ms:
-        while elapsed_time < timeout_in_ms:
-            response = http_requests.get(url)
-            status = TaskResult(**json_handler.loads(response.content))
-            if status.status in ("succeeded", "failed"):
-                if raise_for_status and status.status == "failed":
-                    raise MeilisearchTaskFailedError(f"Task {task_id} failed")
-                return status
-            time.sleep(interval_in_ms / 1000)
-            time_delta = datetime.now() - start_time
-            elapsed_time = time_delta.seconds * 1000 + time_delta.microseconds / 1000
-        raise MeilisearchTimeoutError(
-            f"timeout of {timeout_in_ms}ms has exceeded on process {task_id} when waiting for pending update to resolve."
-        )
-    else:
-        while True:
-            response = http_requests.get(url)
-            status = TaskResult(**json_handler.loads(response.content))
-            if status.status in ("succeeded", "failed"):
-                if raise_for_status and status.status == "failed":
-                    raise MeilisearchTaskFailedError(f"Task {task_id} failed")
-                return status
-            time.sleep(interval_in_ms / 1000)
-
-
-def _join_values(values: str | list[str] | list[int]) -> str:
-    if isinstance(values, str):
-        return values
-
-    return ",".join([str(x) for x in values])
-
-
-def _process_params(
-    uids: list[int] | None = None,
-    index_uids: list[str] | None = None,
-    statuses: str | list[str] | None = None,
-    types: str | list[str] | None = None,
-    before_enqueued_at: datetime | None = None,
-    after_enqueued_at: datetime | None = None,
-    before_started_at: datetime | None = None,
-    after_finished_at: datetime | None = None,
-    batch_uids: list[int] | None = None,
-    canceled_by: list[int] | None = None,
-    after_started_at: datetime | None = None,
-    before_finished_at: datetime | None = None,
-    limit: int | None = None,
-    from_: int | None = None,
-    reverse: bool | None = None,
-) -> dict[str, str]:
-    parameters = {}
-    if uids:
-        parameters["uids"] = _join_values(uids)
-    if batch_uids:
-        parameters["batchUids"] = _join_values(batch_uids)
-    if index_uids:
-        parameters["indexUids"] = _join_values(index_uids)
-    if canceled_by:
-        parameters["canceledBy"] = _join_values(canceled_by)
-    if statuses:
-        parameters["statuses"] = _join_values(statuses)
-    if types:
-        parameters["types"] = _join_values(types)
-    if before_enqueued_at:
-        parameters["beforeEnqueuedAt"] = f"{before_enqueued_at.isoformat()}Z"
-    if after_enqueued_at:
-        parameters["afterEnqueuedAt"] = f"{after_enqueued_at.isoformat()}Z"
-    if before_started_at:
-        parameters["beforeStartedAt"] = f"{before_started_at.isoformat()}Z"
-    if after_started_at:
-        parameters["afterStartedAt"] = f"{after_started_at.isoformat()}Z"
-    if before_finished_at:
-        parameters["beforeFinishedAt"] = f"{before_finished_at.isoformat()}Z"
-    if after_finished_at:
-        parameters["afterFinishedAt"] = f"{after_finished_at.isoformat()}Z"
-    if limit is not None:
-        parameters["limit"] = str(limit)
-    if from_ is not None:
-        parameters["from"] = str(from_)
-    if reverse is not None:
-        parameters["reverse"] = str(reverse).lower()
-
-    return parameters
+    while timeout_in_ms is None or elapsed_time < timeout_in_ms:
+        response = http_requests.get(url)
+        status = TaskResult(**json_handler.loads(response.content))
+        if status.status in ("succeeded", "failed"):
+            if raise_for_status and status.status == "failed":
+                raise MeilisearchTaskFailedError(f"Task {task_id} failed")
+            return status
+        time.sleep(interval_in_ms / 1000)
+        elapsed_time = (time.monotonic() - start_time) * 1000
+    raise MeilisearchTimeoutError(
+        f"timeout of {timeout_in_ms}ms has exceeded on process {task_id} when waiting for pending update to resolve."
+    )

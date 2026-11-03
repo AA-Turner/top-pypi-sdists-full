@@ -1,5 +1,6 @@
 """GitHub Actions workflow generator for the health check CI stage."""
 
+from collections.abc import Callable
 from types import MethodType
 from typing import Any, Literal, override
 
@@ -18,18 +19,18 @@ class HealthCheckWorkflowConfigFile(WorkflowConfigFile):
     """
 
     @override
-    def jobs(self) -> dict[str, Any]:
+    def jobs(self) -> tuple[Callable[[], dict[str, Any]], ...]:
         """Return all jobs for the health check workflow.
 
         Returns:
-            Dict combining the quality-check job, the matrix test job, and
-            the job that aggregates their results.
+            Tuple of builders for the quality-check job, the matrix test job,
+            and the job that aggregates their results.
         """
-        jobs: dict[str, Any] = {}
-        jobs.update(self.job_health_checks())
-        jobs.update(self.job_matrix_health_checks())
-        jobs.update(self.job_health_check())
-        return jobs
+        return (
+            self.job_health_checks,
+            self.job_matrix_health_checks,
+            self.job_health_check,
+        )
 
     @override
     def stem(self) -> str:
@@ -84,6 +85,7 @@ class HealthCheckWorkflowConfigFile(WorkflowConfigFile):
         return self.job(
             self.job_health_check,
             needs=self.job_health_check_needs(),
+            permissions=self.job_health_check_permissions(),
             steps=self.steps_aggregate_jobs(),
             timeout_minutes=1,
         )
@@ -95,6 +97,14 @@ class HealthCheckWorkflowConfigFile(WorkflowConfigFile):
             Tuple containing the quality-check job and the matrix test job.
         """
         return (self.job_health_checks, self.job_matrix_health_checks)
+
+    def job_health_check_permissions(self) -> dict[str, Any] | None:
+        """Return the permissions for the fan-in aggregation job.
+
+        Returns:
+            `None`, since the aggregation job does not require permissions.
+        """
+        return None
 
     def steps_aggregate_jobs(self) -> list[dict[str, Any]]:
         """Return the steps for the fan-in aggregation job.
@@ -117,7 +127,7 @@ class HealthCheckWorkflowConfigFile(WorkflowConfigFile):
         """
         return self.job(
             self.job_health_checks,
-            permissions=self.permission_contents(),
+            permissions=self.job_health_checks_permissions(),
             steps=self.steps_health_checks(),
             timeout_minutes=60,
         )
@@ -135,7 +145,7 @@ class HealthCheckWorkflowConfigFile(WorkflowConfigFile):
         return self.job(
             self.job_matrix_health_checks,
             strategy=self.strategy_matrix_os_and_python_version(),
-            permissions=self.permission_contents(),
+            permissions=self.job_matrix_health_checks_permissions(),
             runs_on=self.insert_matrix_os(),
             steps=self.steps_matrix_health_checks(),
             timeout_minutes=120,
@@ -151,6 +161,22 @@ class HealthCheckWorkflowConfigFile(WorkflowConfigFile):
             self.step_aggregate_jobs,
             run="echo 'Aggregating jobs into one job.'",
         )
+
+    def job_health_checks_permissions(self) -> dict[str, Any]:
+        """Return the permissions for the quality check job.
+
+        Returns:
+            Permissions mapping granting `contents: read`.
+        """
+        return self.permission_contents()
+
+    def job_matrix_health_checks_permissions(self) -> dict[str, Any]:
+        """Return the permissions for the matrix test job.
+
+        Returns:
+            Permissions mapping granting `contents: read`.
+        """
+        return self.permission_contents()
 
     def steps_health_checks(self) -> list[dict[str, Any]]:
         """Return the steps for the single-runner quality check job.

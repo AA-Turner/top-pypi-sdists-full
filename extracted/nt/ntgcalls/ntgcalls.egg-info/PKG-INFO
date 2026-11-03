@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ntgcalls
-Version: 3.0.5
+Version: 3.0.6
 Summary: A Native Implementation of Telegram Calls in a seamless way.
 Author-email: Lauren Iraci <iraci.lauren@gmail.com>
 Project-URL: Homepage, https://pytgcalls.github.io/
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Free Threading
 Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable

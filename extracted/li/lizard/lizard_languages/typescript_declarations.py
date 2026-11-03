@@ -1,10 +1,34 @@
 """TypeScript declarations and type syntax excluded from runtime functions."""
 
-from .code_reader import CodeStateMachine
+from .typescript_type_annotation import TypeScriptTypeAnnotationStates
+from .javascript_functions import OPERAND_WORDS, ends_expression
+from .js_style_regex_context import _EXPRESSION_KEYWORDS
+
+
+# Words that start what _handle_type_declaration handles; after `declare`
+# it also handles the next token.
+DECLARATION_WORDS = frozenset((
+    'declare', 'type', 'interface', 'abstract', 'class', 'const', 'let', 'var',
+    'as', 'satisfies'))
+# Type-only contextual words can be identifiers in runtime operand position.
+_EXPRESSION_PREFIXES = (
+    _EXPRESSION_KEYWORDS | OPERAND_WORDS | {'default'}
+) - {'as', 'satisfies', 'keyof'}
 
 
 class TypeScriptDeclarationsMixin:
     def _handle_type_declaration(self, token):
+        if token in ('const', 'let', 'var'):
+            self._declaration_binding = True
+            self.last_tokens = self._prev_token = token
+            return True
+        elif token == 'class' and (not self.as_object or self._in_prop_value):
+            self._class_body_pending = True
+        elif (token in ('as', 'satisfies')
+              and (not self.as_object or self._in_prop_value)
+              and self._assertion_operand()):
+            self._consume_type_annotation()
+            return True
         if token == 'declare':
             self._ts_declare = True
             return True
@@ -102,6 +126,17 @@ class TypeScriptDeclarationsMixin:
             return True
         return False
 
+    def _assertion_operand(self):
+        """Assertions follow consumed operands, not expression/statement starts."""
+        if (self.context.newline or not self._prev_token
+                or self._declaration_binding is True or self._class_body_pending):
+            return False
+        token = self.last_token or ''
+        if token == '!':
+            return getattr(self, '_postfix_operand', False)
+        return ((self._prev_token == '.' or token not in _EXPRESSION_PREFIXES)
+                and (ends_expression(token) or token.isidentifier()))
+
     def _consume_generic_type_params(self):
         """Consume <...> generic type parameters (e.g., method<T>(...))
         so the method name in last_tokens is preserved."""
@@ -125,39 +160,14 @@ class TypeScriptDeclarationsMixin:
                 self._replay_token(typeStates.saved_token)
         self.sub_state(typeStates, callback)
 
-
-class TypeScriptTypeAnnotationStates(CodeStateMachine):
-    def __init__(self, context):
-        super().__init__(context)
-        self.saved_token = None
-
-    def _state_global(self, token):
-        if token == '{':
-            self.next(self._inline_type_annotation, token)
+    def _read_runtime_colon(self):
+        binding = self._binding_candidate
+        if (self._declaration_binding is True or binding
+                and binding._parameters is not None
+                and binding.at_root and not binding.in_expression):
+            self._typed_parameters = True
+            self._consume_type_annotation()
         else:
-            self.next(self._state_simple_type, token)
-
-    def _state_simple_type(self, token):
-        if token == '<':
-            self.next(self._state_generic_type, token)
-        elif token in '{=;)':
-            self.saved_token = token
-            self.statemachine_return()
-        elif token == '(':
-            self.next(self._function_type_annotation, token)
-        elif token == '=>':
-            # Handle arrow function after type annotation
-            self.saved_token = token
-            self.statemachine_return()
-
-    @CodeStateMachine.read_inside_brackets_then("{}")
-    def _inline_type_annotation(self, _):
-        self.statemachine_return()
-
-    @CodeStateMachine.read_inside_brackets_then("<>")
-    def _state_generic_type(self, token):
-        self.statemachine_return()
-
-    @CodeStateMachine.read_inside_brackets_then("()")
-    def _function_type_annotation(self, _):
-        self.statemachine_return()
+            # An unclaimed runtime colon introduces a labeled statement.
+            self.next(self._expecting_statement_or_block)
+        self._prev_token = ':'

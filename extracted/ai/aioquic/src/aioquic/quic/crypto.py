@@ -1,5 +1,4 @@
-import binascii
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from .._crypto import AEAD, CryptoError, HeaderProtection
 from ..tls import CipherSuite, cipher_suite_hash, hkdf_expand_label, hkdf_extract
@@ -15,8 +14,8 @@ CIPHER_SUITES = {
     CipherSuite.CHACHA20_POLY1305_SHA256: (b"chacha20", b"chacha20-poly1305"),
 }
 INITIAL_CIPHER_SUITE = CipherSuite.AES_128_GCM_SHA256
-INITIAL_SALT_VERSION_1 = binascii.unhexlify("38762cf7f55934b34d179ae6a4c80cadccbb7f0a")
-INITIAL_SALT_VERSION_2 = binascii.unhexlify("0dede3def700a6db819381be6e269dcbf9bd2ed9")
+INITIAL_SALT_VERSION_1 = bytes.fromhex("38762cf7f55934b34d179ae6a4c80cadccbb7f0a")
+INITIAL_SALT_VERSION_2 = bytes.fromhex("0dede3def700a6db819381be6e269dcbf9bd2ed9")
 SAMPLE_SIZE = 16
 
 
@@ -63,12 +62,12 @@ class CryptoContext:
         setup_cb: Callback = NoCallback,
         teardown_cb: Callback = NoCallback,
     ) -> None:
-        self.aead: Optional[AEAD] = None
-        self.cipher_suite: Optional[CipherSuite] = None
-        self.hp: Optional[HeaderProtection] = None
+        self.aead: AEAD | None = None
+        self.cipher_suite: CipherSuite | None = None
+        self.hp: HeaderProtection | None = None
         self.key_phase = key_phase
-        self.secret: Optional[bytes] = None
-        self.version: Optional[int] = None
+        self.secret: bytes | None = None
+        self.version: int | None = None
         self._setup_cb = setup_cb
         self._teardown_cb = teardown_cb
 

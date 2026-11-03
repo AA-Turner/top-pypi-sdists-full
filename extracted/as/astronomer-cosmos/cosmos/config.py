@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import math
 import shutil
 import tempfile
 import warnings
@@ -37,6 +38,8 @@ from cosmos.exceptions import CosmosValueError
 from cosmos.log import get_logger
 
 if TYPE_CHECKING:
+    from pydantic import BaseModel
+
     from cosmos.profiles import BaseProfileMapping
 
 logger = get_logger(__name__)
@@ -183,6 +186,47 @@ class RenderConfig:
         return self.dbt_ls_path.exists()
 
 
+def _as_path_list(value: str | Path | list[str | Path]) -> list[str | Path]:
+    """Normalizes a single path or a list of paths into a list of paths."""
+    if isinstance(value, (str, Path)):
+        return [value]
+    return list(value)
+
+
+def _resolve_deprecated_relative_path(
+    plural_value: str | Path | list[str | Path] | None,
+    singular_value: str | Path | None,
+    default: str,
+    singular_name: str,
+    plural_name: str,
+) -> str | Path | list[str | Path]:
+    """Resolves a plural relative-path arg and its deprecated singular counterpart into one value.
+
+    Raises if both are explicitly set, since it would otherwise be unclear (and was previously
+    silently resolved by preferring the deprecated singular value) which one should win. Returns
+    singular_value (with a DeprecationWarning) if only it is set, plural_value if only it is set,
+    and `default` if neither is set.
+    """
+    if plural_value is not None and singular_value is not None:
+        raise CosmosValueError(
+            f"ProjectConfig.{plural_name} and the deprecated ProjectConfig.{singular_name} were both "
+            f"set. Remove ProjectConfig.{singular_name} and use only ProjectConfig.{plural_name}."
+        )
+    if singular_value is not None:
+        warnings.warn(
+            f"ProjectConfig.{singular_name} is deprecated since Cosmos 1.16 and will be removed in "
+            f"Cosmos 2.0. Use ProjectConfig.{plural_name} instead.",
+            DeprecationWarning,
+            # stacklevel=3: skip this frame and _resolve_deprecated_relative_path's caller
+            # (ProjectConfig.__init__) to point at the user's own ProjectConfig(...) call site.
+            stacklevel=3,
+        )
+        return singular_value
+    if plural_value is not None:
+        return plural_value
+    return default
+
+
 class ProjectConfig:
     """
     Class for setting project config.
@@ -192,9 +236,12 @@ class ProjectConfig:
         ``dbt deps`` per DAG run via an Airflow template (e.g. ``"{{ params.install_deps }}"``), set
         ``ExecutionConfig.install_dbt_deps`` instead, which overrides this value at task execution time only.
     :param copy_dbt_packages: Copy dbt_packages directory, if it exists, instead of creating a symbolic link. If not set, fetches the value from [cosmos]default_copy_dbt_packages (False by default).
-    :param models_relative_path: The relative path to the dbt models directory within the project. Defaults to models
-    :param seeds_relative_path: The relative path to the dbt seeds directory within the project. Defaults to seeds
-    :param snapshots_relative_path: The relative path to the dbt snapshots directory within the project. Defaults to snapshots
+    :param models_relative_path: Deprecated since Cosmos 1.16, use ``models_relative_paths`` instead. Will be removed in
+        Cosmos 2.0.
+    :param seeds_relative_path: Deprecated since Cosmos 1.16, use ``seeds_relative_paths`` instead. Will be removed in
+        Cosmos 2.0.
+    :param snapshots_relative_path: Deprecated since Cosmos 1.16, use ``snapshots_relative_paths`` instead. Will be
+        removed in Cosmos 2.0.
     :param manifest_path: The absolute path to the dbt manifest file. Defaults to None
     :param manifest_conn_id: Name of the Airflow connection used to access the manifest file if it is not stored locally. Defaults to None
     :param project_name: Allows the user to define the project name.
@@ -207,15 +254,24 @@ class ProjectConfig:
     :param partial_parse: If True, then attempt to use the ``partial_parse.msgpack`` if it exists. This is only used
         for the ``LoadMode.DBT_LS`` load mode, and for the ``ExecutionMode.LOCAL`` and ``ExecutionMode.VIRTUALENV``
         execution modes.
+    :param models_relative_paths: The relative path(s) to the dbt models directories within the project. Accepts a single
+        path or a list of paths. Keyword-only. Defaults to ``["models"]``
+    :param seeds_relative_paths: The relative path(s) to the dbt seeds directories within the project. Accepts a single
+        path or a list of paths. Keyword-only. Defaults to ``["seeds"]``
+    :param snapshots_relative_paths: The relative path(s) to the dbt snapshots directories within the project. Accepts a
+        single path or a list of paths. Keyword-only. Defaults to ``["snapshots"]``
     """
 
     dbt_project_path: Path | None = None
     install_dbt_deps: bool = True
     copy_dbt_packages: bool = settings.default_copy_dbt_packages
     manifest_path: Path | ObjectStoragePath | None = None
-    models_path: Path | None = None
-    seeds_path: Path | None = None
-    snapshots_path: Path | None = None
+    models_paths: list[Path]
+    seeds_paths: list[Path]
+    snapshots_paths: list[Path]
+    models_relative_paths: list[Path]
+    seeds_relative_paths: list[Path]
+    snapshots_relative_paths: list[Path]
     project_name: str
 
     def __init__(
@@ -223,16 +279,43 @@ class ProjectConfig:
         dbt_project_path: str | Path | None = None,
         install_dbt_deps: bool = True,
         copy_dbt_packages: bool = settings.default_copy_dbt_packages,
-        models_relative_path: str | Path = "models",
-        seeds_relative_path: str | Path = "seeds",
-        snapshots_relative_path: str | Path = "snapshots",
+        models_relative_path: str | Path | None = None,
+        seeds_relative_path: str | Path | None = None,
+        snapshots_relative_path: str | Path | None = None,
         manifest_path: str | Path | None = None,
         manifest_conn_id: str | None = None,
         project_name: str | None = None,
         env_vars: dict[str, str] | None = None,
         dbt_vars: dict[str, str] | None = None,
         partial_parse: bool = True,
+        *,
+        models_relative_paths: str | Path | list[str | Path] | None = None,
+        seeds_relative_paths: str | Path | list[str | Path] | None = None,
+        snapshots_relative_paths: str | Path | list[str | Path] | None = None,
     ):
+        models_relative_paths = _resolve_deprecated_relative_path(
+            models_relative_paths, models_relative_path, "models", "models_relative_path", "models_relative_paths"
+        )
+        seeds_relative_paths = _resolve_deprecated_relative_path(
+            seeds_relative_paths, seeds_relative_path, "seeds", "seeds_relative_path", "seeds_relative_paths"
+        )
+        snapshots_relative_paths = _resolve_deprecated_relative_path(
+            snapshots_relative_paths,
+            snapshots_relative_path,
+            "snapshots",
+            "snapshots_relative_path",
+            "snapshots_relative_paths",
+        )
+        # Assigned here, not as a class-level default, so instances don't share one mutable list.
+        # The relative paths are kept regardless of whether dbt_project_path is set on this config:
+        # the project root may instead be supplied through RenderConfig/ExecutionConfig, and rendering
+        # still needs to know which directories the user configured.
+        self.models_relative_paths = [Path(p) for p in _as_path_list(models_relative_paths)]
+        self.seeds_relative_paths = [Path(p) for p in _as_path_list(seeds_relative_paths)]
+        self.snapshots_relative_paths = [Path(p) for p in _as_path_list(snapshots_relative_paths)]
+        self.models_paths = []
+        self.seeds_paths = []
+        self.snapshots_paths = []
         # Since we allow dbt_project_path to be defined in ExecutionConfig and RenderConfig
         #   dbt_project_path may not always be defined here.
         # We do, however, still require that both manifest_path and project_name be defined, or neither be defined.
@@ -246,9 +329,9 @@ class ProjectConfig:
 
         if dbt_project_path:
             self.dbt_project_path = Path(dbt_project_path)
-            self.models_path = self.dbt_project_path / Path(models_relative_path)
-            self.seeds_path = self.dbt_project_path / Path(seeds_relative_path)
-            self.snapshots_path = self.dbt_project_path / Path(snapshots_relative_path)
+            self.models_paths = [self.dbt_project_path / p for p in self.models_relative_paths]
+            self.seeds_paths = [self.dbt_project_path / p for p in self.seeds_relative_paths]
+            self.snapshots_paths = [self.dbt_project_path / p for p in self.snapshots_relative_paths]
             if not project_name:
                 self.project_name = self.dbt_project_path.stem
 
@@ -266,6 +349,72 @@ class ProjectConfig:
         self.partial_parse = partial_parse
         self.install_dbt_deps = install_dbt_deps
         self.copy_dbt_packages = copy_dbt_packages
+
+    @property
+    def models_path(self) -> Path | None:
+        """Deprecated since Cosmos 1.16, use ``models_paths`` instead. Will be removed in Cosmos 2.0."""
+        warnings.warn(
+            "ProjectConfig.models_path is deprecated since Cosmos 1.16 and will be removed in Cosmos 2.0. "
+            "Use ProjectConfig.models_paths instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.models_paths[0] if self.models_paths else None
+
+    @models_path.setter
+    def models_path(self, value: Path | None) -> None:
+        """Deprecated since Cosmos 1.16, use ``models_paths`` instead. Will be removed in Cosmos 2.0."""
+        warnings.warn(
+            "ProjectConfig.models_path is deprecated since Cosmos 1.16 and will be removed in Cosmos 2.0. "
+            "Use ProjectConfig.models_paths instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.models_paths = [value] if value is not None else []
+
+    @property
+    def seeds_path(self) -> Path | None:
+        """Deprecated since Cosmos 1.16, use ``seeds_paths`` instead. Will be removed in Cosmos 2.0."""
+        warnings.warn(
+            "ProjectConfig.seeds_path is deprecated since Cosmos 1.16 and will be removed in Cosmos 2.0. "
+            "Use ProjectConfig.seeds_paths instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.seeds_paths[0] if self.seeds_paths else None
+
+    @seeds_path.setter
+    def seeds_path(self, value: Path | None) -> None:
+        """Deprecated since Cosmos 1.16, use ``seeds_paths`` instead. Will be removed in Cosmos 2.0."""
+        warnings.warn(
+            "ProjectConfig.seeds_path is deprecated since Cosmos 1.16 and will be removed in Cosmos 2.0. "
+            "Use ProjectConfig.seeds_paths instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.seeds_paths = [value] if value is not None else []
+
+    @property
+    def snapshots_path(self) -> Path | None:
+        """Deprecated since Cosmos 1.16, use ``snapshots_paths`` instead. Will be removed in Cosmos 2.0."""
+        warnings.warn(
+            "ProjectConfig.snapshots_path is deprecated since Cosmos 1.16 and will be removed in Cosmos 2.0. "
+            "Use ProjectConfig.snapshots_paths instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.snapshots_paths[0] if self.snapshots_paths else None
+
+    @snapshots_path.setter
+    def snapshots_path(self, value: Path | None) -> None:
+        """Deprecated since Cosmos 1.16, use ``snapshots_paths`` instead. Will be removed in Cosmos 2.0."""
+        warnings.warn(
+            "ProjectConfig.snapshots_path is deprecated since Cosmos 1.16 and will be removed in Cosmos 2.0. "
+            "Use ProjectConfig.snapshots_paths instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.snapshots_paths = [value] if value is not None else []
 
     def validate_project(self) -> None:
         """
@@ -285,18 +434,22 @@ class ProjectConfig:
         # while iterating on the `mandatory_paths` map works correctly for all paths, thereby validating the project.
         if self.dbt_project_path:
             project_yml_path = self.dbt_project_path / "dbt_project.yml"
-            mandatory_paths.update(
-                {
-                    "dbt_project.yml": Path(project_yml_path) if project_yml_path else None,
-                    "models directory ": Path(self.models_path) if self.models_path else None,
-                }
-            )
+            mandatory_paths["dbt_project.yml"] = Path(project_yml_path) if project_yml_path else None
+            for i, models_path in enumerate(self.models_paths):
+                mandatory_paths[f"models directory[{i}]"] = Path(models_path)
         if self.manifest_path:
             mandatory_paths["manifest"] = self.manifest_path
 
+        # Imported lazily to avoid a circular import at module load: cosmos.dbt.project pulls in
+        # cosmos.settings, and cosmos.config is imported very early (via the plugin/listeners) while
+        # cosmos.settings is still initialising.
+        from cosmos.dbt.project import dbt_project_path_bundle_hint
+
         for name, path in mandatory_paths.items():
             if path is None or not path.exists():
-                raise CosmosValueError(f"Could not find {name} at {path}")
+                raise CosmosValueError(
+                    f"Could not find {name} at {path}" + dbt_project_path_bundle_hint(self.dbt_project_path)
+                )
 
     def is_manifest_available(self) -> bool:
         """
@@ -446,7 +599,7 @@ class ExecutionConfig:
     :param virtualenv_dir: Directory path to locate the (cached) virtual env that
     should be used for execution when execution mode is set to `ExecutionMode.VIRTUALENV`
     :param async_py_requirements:  A list of Python packages to install when `ExecutionMode.AIRFLOW_ASYNC` is used. This parameter is required only if both `enable_setup_async_task` and `enable_teardown_async_task` are set to `True`.
-    Example: `["dbt-postgres==1.5.0"]`
+    Example: `["dbt-postgres==1.8.0"]`
     :param setup_operator_args: A dictionary of producer operator parameters. These will override the values supplied in operator_args for producer operator.
         Pass ``freshness_callback`` here in `ExecutionMode.WATCHER` to override the default skip-propagation logic when ``source_rendering_behavior`` is not ``NONE``. **Experimental**.
         The callable receives ``(context, dag, task_group, nodes, sources_json)`` and must return a list of ``(unique_id, state)`` tuples.
@@ -485,3 +638,89 @@ class ExecutionConfig:
                 )
                 self.invocation_mode = InvocationMode.SUBPROCESS
         self.project_path = Path(dbt_project_path) if dbt_project_path else None
+
+
+@dataclass
+class AIConfig:
+    """
+    Configuration for optional AI-assisted features in Cosmos. **Experimental**.
+
+    It requires ``apache-airflow-providers-common-ai>=1.0.0``, which needs Python 3.11+ and Airflow 2.11+. Install it
+    with the ``ai`` extra of Cosmos. See :ref:`ai-config`.
+
+    :param llm_conn_id: Airflow connection ID for the LLM provider. It can be any ``pydanticai*`` connection type
+        defined by apache-airflow-providers-common-ai: ``pydanticai``, ``pydanticai_azure``, ``pydanticai_bedrock``
+        or ``pydanticai_vertex``.
+    :param diagnose_on_failure: When True, diagnose a failed dbt task with an LLM call, on its final attempt, and
+        append a structured root-cause summary to the exception message. Defaults to False.
+    :param introspect_schema: When True, let the diagnosis agent list the tables related to the failed node and read
+        their column definitions (never row data) to confirm hypotheses, e.g. whether a column exists. It needs
+        ``ProfileConfig.profile_mapping`` with an SQL connection (one whose Airflow hook is a ``DbApiHook``) and
+        ``apache-airflow-providers-common-ai[sql]``. Otherwise, it is skipped with a warning. Defaults to False.
+    :param timeout_seconds: Time limit for the LLM run. When it is reached, the run is cancelled and the task fails
+        with the standard exception, without a diagnosis. It starts after the connection is loaded, and it is only
+        checked while Cosmos waits for the model, so a call that blocks its thread is cancelled when it returns.
+        Defaults to 30.
+    :param max_requests: Most requests that the agent can make to the model: the answer, and the schema checks before
+        it. Defaults to 8.
+    :param max_failed_nodes: Most failed dbt nodes of the task that are sent to the model. Defaults to 5.
+    :param max_message_chars: Most characters of the error message of each failed node. A longer one keeps its head and
+        its tail. Defaults to 4000.
+    :param max_sql_chars: Most characters of the compiled SQL of each failed node. A longer one keeps its head and its
+        tail. Defaults to 8000.
+    :param max_output_chars: Most characters of the dbt output that are sent when dbt fails before it runs a node, such
+        as on a compilation error. The end of the output is kept. Defaults to 8000.
+    :param max_artifact_mb: The biggest dbt artifact (``run_results.json`` or ``manifest.json``) that is read, in MB. A
+        bigger one is skipped, to protect the memory of the worker. Defaults to 50.
+    :param diagnosis_output_type: Optional custom pydantic model class describing the structured output the
+        diagnosis agent should produce. Defaults to Cosmos's built-in ``cosmos.ai.diagnostics.DbtFailureDiagnosis``
+        (fields ``root_cause``, ``suggested_fix``, ``confidence``). Field descriptions on a custom model are used to
+        guide the LLM, so prefer ``pydantic.Field(description=...)`` on each field.
+    :param diagnosis_instructions: Optional custom system instructions for the diagnosis agent. Defaults to Cosmos's
+        built-in prompt for ``DbtFailureDiagnosis`` (or a generic one if ``diagnosis_output_type`` is also set).
+    :param redactor: Optional callable applied to the text sent to the LLM, after Airflow's secrets masker. Use it to
+        hide what the masker cannot know, such as a secret that only exists as a dbt variable.
+    """
+
+    llm_conn_id: str
+    diagnose_on_failure: bool = False
+    introspect_schema: bool = False
+    timeout_seconds: float = 30.0
+    max_requests: int = 8
+    max_failed_nodes: int = 5
+    max_message_chars: int = 4000
+    max_sql_chars: int = 8000
+    max_output_chars: int = 8000
+    max_artifact_mb: int = 50
+    diagnosis_output_type: type[BaseModel] | None = None
+    diagnosis_instructions: str | None = None
+    redactor: Callable[[str], str] | None = None
+
+    def __post_init__(self) -> None:
+        if not self.llm_conn_id or not isinstance(self.llm_conn_id, str):
+            raise CosmosValueError("AIConfig.llm_conn_id must be a non-empty Airflow connection ID.")
+        timeout = self.timeout_seconds
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 0 < timeout < math.inf:
+            raise CosmosValueError(f"AIConfig.timeout_seconds must be a finite number above 0, got {timeout!r}.")
+        for name in (
+            "max_requests",
+            "max_failed_nodes",
+            "max_message_chars",
+            "max_sql_chars",
+            "max_output_chars",
+            "max_artifact_mb",
+        ):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise CosmosValueError(f"AIConfig.{name} must be a whole number of at least 1, got {value!r}.")
+        if self.diagnosis_output_type is not None:
+            # Imported here: pydantic is not a dependency of Cosmos, nor of Airflow 2, and Cosmos must import without it.
+            from pydantic import BaseModel
+
+            if not (isinstance(self.diagnosis_output_type, type) and issubclass(self.diagnosis_output_type, BaseModel)):
+                raise CosmosValueError(
+                    "AIConfig.diagnosis_output_type must be a pydantic model class (a subclass of pydantic.BaseModel), "
+                    f"got {self.diagnosis_output_type!r}."
+                )
+        if self.redactor is not None and not callable(self.redactor):
+            raise CosmosValueError(f"AIConfig.redactor must be callable, got {self.redactor!r}.")

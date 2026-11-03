@@ -95,9 +95,13 @@ def _default_warming_notice(waited_s: float, retry_s: float) -> None:
 
 
 def _unanswered(exc: Unavailable) -> bool:
-    """Whether a ready poll went unanswered for the moment - its read timed out or its connection was cut on the way
-    (the transport's "could not reach"), or the gateway answered 502, 503 or 504 - rather than answered for good:
-    refused, out of credit, the key's requests a minute (said with how to poll, _ready_body)."""
+    """Whether a ready poll, or the connect wait_until_ready() sends, went unanswered for the moment - its read timed out
+    or its connection was cut on the way (the transport's "could not reach"), or the gateway answered 502, 503 or 504 -
+    rather than answered for good: refused, out of credit, the key's requests a minute (said with how to poll,
+    _ready_body), a line or a wait for its card the platform ended."""
+    reason = (exc.details or {}).get("reason")
+    if reason == "queue_timeout" or (reason == "gpu_low_stock" and (exc.details or {}).get("waited_s") is not None):
+        return False
     return isinstance(exc.__cause__, httpx.TransportError) or exc.status in (502, 503, 504)
 
 
@@ -401,12 +405,14 @@ class Policy(_Waits):
         worker serves, the card it runs on (`card`) and what one worker costs an hour on it, as billed
         (`usd_per_hour`).
 
-        Does not block, does not need an observation, and the poll is not billed. When the model is cold
-        this also starts it, so polling this in a loop is what brings it up; the worker it starts is billed from the
-        moment its machine has its GPU, its start included.
+        Does not block, does not need an observation, and the poll is not billed. Polling starts nothing: a poll only
+        looks at what this robot holds. While it holds nothing - no seat, no worker starting for it, no place in line -
+        `ready` is False and the answer says `cold` (its `status`), and `wait_until_ready()` then connects: that seats
+        the robot on a running worker with room, or starts a worker for it in the region nearest the robot - by where
+        its connect comes from, behind a VPN where the VPN exits - or puts it in line. A worker started for it is
+        billed from the moment its machine has its GPU, its start included.
 
-        Poll it every few seconds - as `wait_until_ready()` does (`poll_s`, 5 s) - or, in line, at the answer's
-        `retry_after_s` (1 s at the head of the line, 5 s behind it). Each poll is one request on your key's
+        Poll it every few seconds - as `wait_until_ready()` does (`poll_s`, 5 s). Each poll is one request on your key's
         requests a minute (600 on Starter, 2,400 on Team), which every robot on the key shares, with its connects and
         keepalives; acts go to the worker and do not count. A robot polling every 0.5 s spends 120 of them a minute:
         five such robots fill Starter's, and the key's requests are refused (429) until the minute rolls on.
@@ -418,29 +424,32 @@ class Policy(_Waits):
         waits for up to the platform's 10 minutes). The `stage` of
         GET /v1/act/ready's answer says which.
 
-        The answer is for this robot: while its deployment holds its `max_gpus` with every slot
-        taken, `ready` is False though a worker is up — this robot waits in line. The returned
-        `Ready` then says where it stands: `queued` is True, `queue_position` its place, and `eta_s`
-        about how long until it can serve (None with `eta_unknown` when that cannot be estimated);
-        its body's `seat_note` says when the seats it waits for come back.
+        The answer is for this robot: while it waits in line - put there by its connect, its deployment holding its
+        `max_gpus` with every slot taken - `ready` is False though a worker is up. The returned `Ready` then says where
+        it stands: `queued` is True and `queue_position` its place; its body's `seat_note` says when the seats it waits
+        for come back. A poll takes no seat: in line, the robot's connect asks for one at the line's pace (the answer's
+        `retry_after_s`: 1 s at the head of the line, 5 s behind it), and says why it waits and about how long - as
+        `wait_until_ready()` and `act()` do.
 
         A seat follows the Policy that holds it: given back the moment that Policy closes (`close()`, the end of a
         `with`) or its process exits or is told to end (SIGTERM, SIGHUP), and within 60 s of a crash; while the Policy
         is open it is kept between acts by a background keepalive - a robot resetting its scene keeps it - though not
         past the worker's own idle window (`idle_timeout` after the worker's last act), when the worker stops and its
-        seats go with it. So is what a `ready()` poll gives this robot before its first act: the seat it is told ready
-        with, the worker the poll starts for it, its place in line - a robot that gives up waiting frees them at once,
-        or within 60 s when it is killed. A robot whose seat went takes one again at its next act, or waits in line.
+        seats go with it. So is what its connect gives this robot before its first act - its seat, the worker started
+        for it, its place in line, which its polls keep - so a robot that gives up waiting frees them at once, or within
+        60 s when it is killed. A robot whose seat went takes one again at its next act, or waits in line.
         """
         body = self._ready_body()
         return Ready(bool(body.get("ready")), body.get("eta_s"), body.get("card"), body)
 
     def _ready_body(self) -> dict:
         """The raw `/v1/act/ready` answer: {ready, eta_s, status}, status being `building` (the image is
-        still being built — no worker can start yet), `starting` (a worker is booting), `running`, or
-        `queued` (this robot waits in line for a slot: `queue_position`, and `retry_after_s` for when to
-        ask again). A starting answer says how long a start waits for its card (`start_wait_s`). It names this robot's session, so the platform answers for this robot: a deployment
-        that holds its max_gpus with every slot taken is not ready for it though a worker is up.
+        still being built — no worker can start yet), `starting` (the worker it holds a place on is booting), `ready`
+        (it holds a seat on a running worker), `queued` (this robot waits in line for a slot: `queue_position`, and
+        `retry_after_s` for when its connect asks again), or `cold` (it holds nothing: its connect places it, which
+        wait_until_ready() sends - a poll only looks, and starts nothing). A starting answer says how long a start waits
+        for its card (`start_wait_s`). It names this robot's session, so the platform answers for this robot: a
+        deployment that holds its max_gpus with every slot taken is not ready for it though a worker is up.
         
 """
         self._assert_open()
@@ -460,10 +469,11 @@ class Policy(_Waits):
                 retry_after_s=exc.retry_after_s, request_id=exc.request_id, hint=exc.hint) from exc
 
     def _say_queued(self, position: Any, eta_s: Any, waited_s: float, reason: Any, note: Any = None) -> None:
-        """Tell on_queue where this robot stands. The default notice at a new place or after 5 s (the head of the line
-        asks every second); one of the caller's own, on every poll. The default notice also says, once a Policy, when
-        the seats this robot waits for come back (`note`, the platform's seat_note) - so a line that stalls behind a
-        robot that left without closing reads as what it is.
+        """Tell on_queue where this robot stands - as its connect's line answer says it (_wait_out), never a ready
+        poll's, which leaves out why it waits and for about how long. The default notice at a new place or after 5 s
+        (the head of the line asks every second); one of the caller's own, on every ask. The default notice also says,
+        once a Policy, when the seats this robot waits for come back (`note`, the line answer's hint) - so a line that
+        stalls behind a robot that left without closing reads as what it is.
         
 """
         now = time.monotonic()
@@ -500,19 +510,26 @@ class Policy(_Waits):
                 for step in policy.act().steps:
                     robot.step(step)
 
-        Once it is ready, it connects and opens the connection to the worker before it returns - the
-        TLS handshake done and the worker's certificate checked - so an act sent at once waits for
-        neither, and from then on the robot holds its place on the worker as a first act would have
-        given it. That takes at most the connection's own timeout (connect(timeout_s=), 30 s by
-        default). A connection that fails, or is still opening then, does not hold it: a warning
-        says so, and the first act connects or opens its own.
+        It places the robot itself: its polls only look, and while one says the robot holds nothing (`cold`) it
+        connects - at most once every `poll_s` - which seats the robot on a running worker with room, starts a worker
+        for it in the region nearest the robot, or puts it in line. In line, its connect asks for a seat again at the
+        line's pace (the answer's `retry_after_s`), saying where it stands and why (`on_queue`), until it is seated or
+        the platform's queue_timeout_s ends the line; while a worker starts for it, or its version builds, it only
+        polls.
+
+        Once it is seated, the connection to the worker is opened before it returns - the TLS handshake done and the
+        worker's certificate checked - so an act sent at once waits for neither, and from then on the robot holds its
+        place on the worker as a first act would have given it. That takes at most the connection's own timeout
+        (connect(timeout_s=), 30 s by default). A connection that fails, or is still opening then, does not hold it: a
+        warning says so, and the first act connects or opens its own.
 
         Interruptible: `interrupt()` during the wait raises out of it rather than making the
         caller sit through the remaining poll interval — a cold start is long enough that a stop
         issued inside one has to take effect inside it too.
 
         `timeout_s` bounds the wait from its start. Unset, it lasts as long as the platform gives the start under way
-        - the deadline it says with each starting answer - and 1800 s while it says none (a robot in line).
+        - the deadline it says with each starting answer - and 1800 s while it says none; a line lasts until the
+        platform's queue_timeout_s ends it.
         """
 
 
@@ -520,52 +537,108 @@ class Policy(_Waits):
             return self._poll_until_ready(timeout_s, poll_s)
 
     def _poll_until_ready(self, timeout_s: float | None, poll_s: float) -> float:
-        """wait_until_ready()'s polls, until the platform says ready or its limit passes: the seconds that took."""
+        """wait_until_ready()'s wait, until this robot holds a seat on a running worker - its connection to it open - or
+        its limit passes: the seconds that took. A poll only looks (GET /v1/act/ready): what places the robot is its
+        connect (DirectConnection.place), sent from here - while it holds nothing (`cold`), at most once every `poll_s`,
+        so again after a start that failed or a place that went; in line, as its ask for a seat, at the line's pace with
+        no poll between, where it stands said in the connect's own words (_wait_out: its reason and its wait's estimate,
+        which a poll's answer leaves out) and the line ended here by the caller's own `timeout_s` alone - the platform's
+        queue_timeout_s ends it through the connect; never while a worker starts for it (`starting`) or its version
+        builds (`building`). Seated by its connect, its connection opens as on a ready answer.
+        
+"""
         wait_for = _StartWait(timeout_s, "wait_until_ready timeout_s")
         started = wait_for.began
         missed = 0
+        placed: float | None = None
+        unplaced = 0
+        line = False
+        body: dict = {}
         while True:
-            try:
-                body = self._ready_body()
-            except Unavailable as exc:
+            if line:
+                status = "queued"
+            else:
+                try:
+                    body = self._ready_body()
+                except Unavailable as exc:
 
 
 
 
 
-                if not _unanswered(exc) or time.monotonic() >= wait_for.deadline:
-                    raise
-                missed += 1
-                if missed == 1:
-                    print(f"[sequences] {self._model}: the platform did not answer a ready poll ({exc.message}); "
-                          "asking again", file=sys.stderr, flush=True)
-                wait = max(0.5, min(poll_s, 2.0 ** (missed - 1), wait_for.deadline - time.monotonic()))
-                if self._interrupt.wait(wait):
-                    raise Interrupted()
-                continue
-            missed = 0
-            wait_for.saw(body)
+
+                    if not _unanswered(exc) or time.monotonic() >= wait_for.deadline:
+                        raise
+                    missed += 1
+                    if missed == 1:
+                        print(f"[sequences] {self._model}: the platform did not answer a ready poll ({exc.message}); "
+                              "asking again", file=sys.stderr, flush=True)
+                    wait = max(0.5, min(poll_s, 2.0 ** (missed - 1), wait_for.deadline - time.monotonic()))
+                    if self._interrupt.wait(wait):
+                        raise Interrupted()
+                    continue
+                missed = 0
+                wait_for.saw(body)
+                if body.get("ready"):
+
+
+
+
+                    self._open_connection()
+                    return time.monotonic() - started
+                status = body.get("status")
+
+
+
+            due = (0.0 if line else poll_s if status == "cold"
+                   else float(body.get("retry_after_s") or poll_s) if status == "queued" else None)
+            if due is not None and (placed is None or time.monotonic() - placed >= due):
+                placed = time.monotonic()
+                try:
+                    self._t.place()
+                except Unavailable as exc:
+                    if not (exc.queued or exc.warming):
+
+
+
+
+
+                        if not _unanswered(exc) or (time.monotonic() >= wait_for.deadline
+                                                    and (not line or wait_for.bounds_a_line)):
+                            raise
+                        unplaced += 1
+                        if unplaced == 1:
+                            print(f"[sequences] {self._model}: the platform did not answer a connect ({exc.message}); "
+                                  "asking again", file=sys.stderr, flush=True)
+                        wait = max(0.5, min(poll_s, 2.0 ** (unplaced - 1), wait_for.deadline - time.monotonic()))
+                        if self._interrupt.wait(wait):
+                            raise Interrupted()
+                        continue
+                    unplaced = 0
+                    line = exc.queued
+                    if line:
+                        self._wait_out(exc, wait_for, started)
+                        continue
+
+                    wait_for.saw(exc.details)
+                    body, status = {**exc.details, "status": "starting"}, "starting"
+                else:
+
+                    self._open_connection()
+                    return time.monotonic() - started
+            queued = status == "queued"
             eta = body.get("eta_s")
-            if body.get("ready"):
+
+
+            if time.monotonic() >= wait_for.deadline and (not queued or wait_for.bounds_a_line):
 
 
 
-                self._open_connection()
-                return time.monotonic() - started
-            queued = body.get("status") == "queued"
-            if queued:
-
-                self._say_queued(body.get("queue_position"), body.get("eta_s"), time.monotonic() - started,
-                                 body.get("reason"), body.get("seat_note"))
-            if time.monotonic() >= wait_for.deadline:
-
-
-
-                doing = ("is still building" if body.get("status") == "building"
+                doing = ("is still building" if status == "building"
                          else (f"had no slot for this robot: it is at position {body.get('queue_position')} in line"
-                               + (f", about {eta:.0f}s to go" if eta else "")
-                               + f" ({body['seat_note']})")
+                               + (f" ({body['seat_note']})" if body.get("seat_note") else ""))
                          if queued
+                         else "still had no worker or place in line for this robot (cold)" if status == "cold"
                          else f"was still {_STAGE_WORDS.get(body.get('stage'), 'loading')}"
 
                               + (f"; it reports about {eta:.0f}s to go" if eta is not None else ""))
@@ -622,6 +695,13 @@ class Policy(_Waits):
         `startup_timeout_s` (by default the platform's deadline for the start; 0 raises `Unavailable` at once
         instead), and `interrupt()` from another thread ends the wait.
         """
+
+
+
+
+
+
+        stale = self._interrupt.is_set()
         self._assert_open()
         self._beat_start()
         if _marked.holds(observation):
@@ -631,9 +711,8 @@ class Policy(_Waits):
         with self._driving("act"):
 
 
-
-
-            self._interrupt.clear()
+            if stale:
+                self._interrupt.clear()
             options: dict[str, Any] = {} if seed is None else {"seed": seed}
 
 

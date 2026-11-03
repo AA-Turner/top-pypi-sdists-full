@@ -1,11 +1,10 @@
 [build-system]
-requires = ["setuptools>=77.0", "packaging>=24.2", "Cython>=0.29.33"]
-#requires = ["setuptools>=75.0.0", "Cython>=0.29.33", "setuptools-rust>=1.10"]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "Resiliparse"
-version = "1.1.0"
+dynamic = ["version"]
 description = "A collection of robust and fast processing tools for parsing and analyzing (not only) web archive data."
 authors = [
     { name = "Janek Bevendorff" }
@@ -14,7 +13,7 @@ license = "Apache-2.0"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "fastwarc==1.1.0"
+    "fastwarc==2.0.0"
 ]
 
 [project.urls]
@@ -27,7 +26,7 @@ all = [
     "resiliparse[beam,cli]"
 ]
 beam = [
-    # apache_beam on 3.14t requires building grpcio
+    # apache_beam has no free-threaded Python wheels: exclude for 3.14 and up
     "apache_beam[aws]>=2.37.0; python_version<'3.14'",
     "boto3>=1.9",
     "elasticsearch>=7.0.0"
@@ -51,15 +50,26 @@ test = [
 [project.scripts]
 resiliparse = "resiliparse.cli:main"
 
-[tool.setuptools.packages.find]
-include = ["resiliparse*"]
-
-#[[tool.setuptools-rust.ext-modules]]
-#path = "resiliparse/parse/_html_rs/Cargo.toml"
-#target = "resiliparse.parse._html_rs"
+[tool.maturin]
+module-name = "resiliparse._resiliparse"
+bindings = "pyo3"
+sdist-generator = "cargo"
+manifest-path = "resiliparse-py/Cargo.toml"
+python-source = "python"
 
 [tool.cibuildwheel]
 archs = "native"
 build = "cp3*"
 build-frontend = "build"
 test-extras = ["all", "test"]
+
+[tool.mypy]
+exclude = [
+    "python/resiliparse/cli\\.py",
+    "python/resiliparse/beam/.*",
+    "tests/.*",
+]
+
+[[tool.mypy.overrides]]
+module = ["apache_beam.*"]
+ignore_missing_imports = true

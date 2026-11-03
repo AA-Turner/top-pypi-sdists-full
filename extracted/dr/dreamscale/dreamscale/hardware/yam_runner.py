@@ -1,20 +1,23 @@
 """`dreamscale run yam`: the attended runner over the bimanual YAM rig.
 
-YAM contributes its models, its calibrated end-effector bindings (Rho) and its CAN
-preflight; everything else is dreamscale.attended.
+YAM contributes its models, its calibrated end-effector bindings (Rho), the end-effector
+adapters deployment bases declare for it (DeployBase.robot_adapters) and its CAN preflight;
+everything else is dreamscale.attended.
 """
 
 from __future__ import annotations
 
+import importlib
 from functools import partial
 from pathlib import Path
 
 from dreamscale_transport.rho_checkpoints import RHO_YAM_BOX_MODEL_ID
 
-from dreamscale import errors
+from dreamscale import deploy_bases, errors
 from dreamscale.attended.lifecycle import safe_printer
 from dreamscale.attended.runner import (
     AttendedTaskRunner,
+    _close_quietly,
     interactive_tasks,
     run_attended,
     task_instructions,
@@ -90,6 +93,14 @@ def load_end_effector_adapter(
         raise YamHardwareError(f"Cannot inspect YAM end-effector calibration at {path}.") from exc
     # An explicit file, directory or dangling link must never silently fall back.
     return YamEndEffectorAdapter.from_file(path, config, **options)
+
+
+def _adapter_module(model):
+    """The module of the end-effector adapter a base's deployments run through on this rig
+    (DeployBase.robot_adapters: pose rows turned into joint targets), else None."""
+    base = deploy_bases.of_model(model)
+    path = base.robot_adapters.get(YAM.name) if base is not None else None
+    return importlib.import_module(path) if path is not None else None
 
 
 def _end_effector_execution_contract(model, adapter):
@@ -201,7 +212,15 @@ class YamTaskRunner(AttendedTaskRunner):
         if model in _END_EFFECTOR_BINDINGS and end_effector_adapter is None:
             raise YamHardwareError("Rho-YAM requires a calibrated end-effector adapter.")
         contract = None
-        if end_effector_adapter is not None:
+        module = _adapter_module(model)
+        # A deployment base's adapter: its session names the chunk once it connects.
+        self._adapted = module is not None
+        if module is not None:
+            adapter = end_effector_adapter or module.ADAPTER(rig.config)
+            end_effector_adapter = adapter
+            observe = observe or (lambda ctx: adapter.observe(rig.observe(ctx)))
+            contract = adapter.provisional_contract()
+        elif end_effector_adapter is not None:
             observation_factory = _end_effector_binding(model)["observation_factory"]
             observe = observe or (lambda ctx: end_effector_adapter.observe(
                 rig.observe(ctx), observation_factory=observation_factory,
@@ -211,6 +230,32 @@ class YamTaskRunner(AttendedTaskRunner):
             rig, embodiment=YAM, model=model, connect=connect, observe=observe,
             end_effector_adapter=end_effector_adapter, execution_contract=contract, **options,
         )
+
+    @property
+    def execution_contract(self):
+        """An adapted deployment run's is its bound session's (the deployment's rate and
+        chunk); otherwise the one this runner was made with."""
+        bound = getattr(getattr(self, "policy", None), "execution_contract", None)
+        if getattr(self, "_adapted", False) and bound is not None:
+            return bound
+        return self._execution_contract
+
+    @execution_contract.setter
+    def execution_contract(self, contract):
+        self._execution_contract = contract
+
+    async def _connect_policy(self, on_progress):
+        policy = await super()._connect_policy(on_progress)
+        # A deployment the adapter can't run (another robot's) is refused before anything
+        # moves, and its session closed.
+        check = getattr(self.end_effector_adapter, "require_session", None)
+        if self._adapted and check is not None:
+            try:
+                check(policy)
+            except BaseException:
+                await _close_quietly(policy)
+                raise
+        return policy
 
 
 def _note_codec_frame_sizes(config) -> None:
@@ -274,11 +319,17 @@ def run_yam(
         resolve_action_smoothing(strategy, contract)
     config = load_config(config_path).validate(complete=True)
     _note_codec_frame_sizes(config)
+    module = _adapter_module(model)
     if model in _END_EFFECTOR_BINDINGS and end_effector_adapter is None:
         end_effector_adapter = load_end_effector_adapter(
             model, Path(config_path).with_name("yam-ee.json"), config,
         )
-    if end_effector_adapter is not None:
+    elif module is not None and end_effector_adapter is None:
+        # Its kinematics load (and refuse a rig they don't describe) before anything opens.
+        end_effector_adapter = module.ADAPTER(config)
+    if module is not None:
+        contract = end_effector_adapter.provisional_contract()
+    elif end_effector_adapter is not None:
         contract = _end_effector_execution_contract(model, end_effector_adapter)
     resolve_action_smoothing(strategy, contract)
     # Calibration binds to the saved names above; the rig connects on today's.

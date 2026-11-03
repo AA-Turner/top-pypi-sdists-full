@@ -27,15 +27,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import math
 import warnings
 from copy import deepcopy
 from numbers import Integral
 
 import torch
-import torch.nn.functional as F
 from torch import nn
 
+from braindecode.functional import scaled_dot_product_attention
 from braindecode.models.base import EEGModuleMixin
 from braindecode.modules import CausalConv1d
 
@@ -143,6 +142,10 @@ class AttnSleep(EEGModuleMixin, nn.Module):
             sfreq=sfreq,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
+        if self._n_chans_for_jit not in (None, 1):
+            raise ValueError(
+                f"AttnSleep takes single-channel input; got n_chans={self._n_chans_for_jit}."
+            )
 
         self.mapping = {
             "fc.weight": "final_layer.weight",
@@ -407,18 +410,6 @@ class _MRCNN(nn.Module):
 ##########################################################################################
 
 
-def _attention(
-    query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Implementation of Scaled dot product attention."""
-    # d_k - dimension of the query and key vectors
-    d_k = query.size(-1)
-    scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
-    p_attn = F.softmax(scores, dim=-1)  # attention weights
-    output = torch.matmul(p_attn, value)  # (B, h, T, d_k)
-    return output, p_attn
-
-
 class _MultiHeadedAttention(nn.Module):
     def __init__(self, h, d_model, after_reduced_cnn_size, dropout=0.1):
         """Take in model size and number of heads."""
@@ -436,7 +427,6 @@ class _MultiHeadedAttention(nn.Module):
         h = int(h)
         self.d_per_head = d_model // h
         self.h = h
-        self.attn = torch.empty(0)
 
         base_conv = CausalConv1d(
             in_channels=after_reduced_cnn_size,
@@ -465,14 +455,14 @@ class _MultiHeadedAttention(nn.Module):
             .transpose(1, 2)
         )
 
-        x_raw, attn_weights = _attention(query, key, value)
-        # apply dropout to the *weights*
-        attn = self.dropout(attn_weights)
-        # recompute the weighted sum with dropped weights
-        x = torch.matmul(attn, value)
-
-        # stash the pre‑dropout weights if you need them
-        self.attn = attn_weights
+        # exact: the reference op order, same outputs as its hand-written attention
+        x = scaled_dot_product_attention(
+            query,
+            key,
+            value,
+            dropout_p=self.dropout.p if self.training else 0.0,
+            exact=True,
+        )
 
         # merge heads and project
         x = x.transpose(1, 2).contiguous().view(nbatches, -1, self.h * self.d_per_head)

@@ -35,8 +35,6 @@
 %include "gf_vect_gfni.inc"
 %include "memcpy.asm"
 
-%if AS_FEATURE_LEVEL >= 10
-
 %ifidn __OUTPUT_FORMAT__, elf64
  %define arg0  rdi
  %define arg1  rsi
@@ -196,13 +194,13 @@ section .text
         XLDR    x0x, [ptr + pos + 64]
         add     vec_i, 8
 
-        vbroadcastsd xgft1, [tmp]
-        vbroadcastsd xgft2, [tmp + vec]
+        vmovdqu xgft1, [tmp]
+        vmovdqu xgft2, [tmp + vec*4]
 
         GF_MUL_XOR VEX, x0l, xgft1, xtmp1, xp1l, xgft2, xtmp2, xp2l
         GF_MUL_XOR VEX, x0h, xgft1, xtmp1, xp1h, xgft2, xtmp2, xp2h
         GF_MUL_XOR VEX, x0x, xgft1, xtmp1, xp1x, xgft2, xtmp2, xp2x
-        add     tmp, 8
+        add     tmp, 32
 
         cmp     vec_i, vec
         jl      %%next_vect
@@ -232,9 +230,9 @@ section .text
         XLDR    x0h, [ptr + pos + 32]   ;; Get next source vector high 32 bytes
         add     vec_i, 8
 
-        vbroadcastsd xgft1, [tmp]
-        vbroadcastsd xgft2, [tmp + vec]
-        add     tmp, 8
+        vmovdqu xgft1, [tmp]
+        vmovdqu xgft2, [tmp + vec*4]
+        add     tmp, 32
 
         GF_MUL_XOR VEX, x0l, xgft1, xtmp1, xp1l, xgft2, xtmp2, xp2l
         GF_MUL_XOR VEX, x0h, xgft1, xgft1, xp1h, xgft2, xgft2, xp2h
@@ -262,9 +260,9 @@ section .text
         XLDR    x0, [ptr + pos]     ;Get next source vector (32 bytes)
         add	    vec_i, 8
 
-        vbroadcastsd xgft1, [tmp]
-        vbroadcastsd xgft2, [tmp + vec]
-        add     tmp, 8
+        vmovdqu xgft1, [tmp]
+        vmovdqu xgft2, [tmp + vec*4]
+        add     tmp, 32
 
         GF_MUL_XOR VEX, x0, xgft1, xgft1, xp1, xgft2, xgft2, xp2
 
@@ -290,9 +288,9 @@ section .text
         simd_load_avx2 x0, ptr + pos, %%LEN, tmp, tmp4 ;Get next source vector
         add     vec_i, 8
 
-        vbroadcastsd xgft1, [mul_array]
-        vbroadcastsd xgft2, [mul_array + vec]
-        add     mul_array, 8
+        vmovdqu xgft1, [mul_array]
+        vmovdqu xgft2, [mul_array + vec*4]
+        add     mul_array, 32
 
         GF_MUL_XOR VEX, x0, xgft1, xgft1, xp1, xgft2, xgft2, xp2
 
@@ -347,8 +345,8 @@ func(gf_2vect_dot_prod_avx2_gfni)
         sub     len, 32
 
 .len_lt_32:
-        cmp     len, 0
-        jle     .exit
+        or     len, len
+        jz     .exit
 
         ENCODE_LT_32B_2 len ;; encode remaining bytes
 
@@ -359,4 +357,3 @@ func(gf_2vect_dot_prod_avx2_gfni)
         ret
 
 endproc_frame
-%endif  ; if AS_FEATURE_LEVEL >= 10

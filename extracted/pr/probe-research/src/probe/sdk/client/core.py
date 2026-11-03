@@ -22,6 +22,7 @@ from ..delivery.outbox.drain.credentials import (
     CredentialSource,
     credential_fingerprint)
 from ..delivery.journal.journal import Journal
+from ..delivery.status_fields import StatusField
 from ..delivery.outbox.drainer import export_interval_from_env, pick_drainer
 
 from ...foundation.request_identity.surface import Surface
@@ -29,12 +30,9 @@ from ..delivery.transport.transport import Transport
 from ..delivery.delivery import Delivery, _env_async_writes, _usable_journal
 
 
-#: Fallback poll interval for the in-process exporter (F2), seconds. An enqueue wakes the
-#: exporter anyway: this is the idle re-check, not a write's delivery delay.
+#: Old exporter intervals, kept for importers of the old door: on the default transport the detached
+#: worker is the only sender now (D1), a token passed in code riding its spawn (R5, #2041).
 _DEFAULT_EXPORT_INTERVAL_SECONDS = 2.0
-
-
-#: Exporter interval (s) for a token passed in code, which the detached worker cannot hold (#2041).
 _CODE_TOKEN_EXPORT_INTERVAL_S = 2.0
 
 
@@ -135,25 +133,7 @@ class CoreMixin:
         # otherwise a stray exported `PROBE_ASYNC=1` read as an explicit request, skipped the
         # transport gate and built an async client with no drainer or credential guard, journaling
         # writes nothing would deliver. The environment steers the default, never the invariants.
-        self._async_requested = async_writes
-        if async_writes is None:
-            # PROBE_ASYNC is an SDK knob too: a campaign could not change write mode without editing the training script.
-            async_writes = _env_async_writes()
-        if async_writes is None:
-            async_writes = True
-        if async_writes and transport is not None and self._async_requested is not True:
-            # Async needs the DEFAULT transport (the detached worker cannot replay an injected one, F1).
-            # Injecting callers (hosted MCP, fake-transport tests) stay synchronous; an explicit
-            # async_writes=True still opts in via the in-process exporter (F2).
-            async_writes = False
-        if (
-            async_writes
-            and self._async_requested is not True
-            and transport is None
-            and not (self.settings.token or self.settings.ingest_token)
-        ):
-            # Nothing could drain this journal and async was not asked for: use the path that works. Explicit True still raises (F7).
-            async_writes = False
+        async_writes = self._resolve_async_writes(async_writes, transport=transport)
         self.async_writes = async_writes
         # The write pipeline and its sinks; the sink follows `async_writes` (`Delivery.sink`).
         self._delivery_pipeline = Delivery(self)
@@ -185,112 +165,51 @@ class CoreMixin:
         mine_ingest = credential_fingerprint(None, self.settings.ingest_token)
         if mine_ingest:
             self._ingest_fingerprints.add(mine_ingest)
-        stamp = None
-        if self.journal.context is None:
-            name = config_module.current_context_name() or None
-            self.journal.context = {"name": name, "base_url": self.settings.base_url}
-            stamp = self._credential_stamp(name)
-            if stamp is not None:
-                self.journal.context["principal"] = stamp
-                if (
-                    self.async_writes
-                    and stamp["source"] in (CredentialSource.ENV, CredentialSource.CODE)
-                    and not os.environ.get("PROBE_OUTBOX_WORKER")
-                    and surface != Surface.CLI.value  # one command: gone in a moment
-                ):
-                    # Who holds a credential only it can send with, for `probe outbox status`.
-                    from ..delivery.outbox.drain.holders import record_holder
-
-                    record_holder(stamp["fingerprint"])
-                if (
-                    journal is None
-                    and stamp["source"] in (CredentialSource.ENV, CredentialSource.CODE)
-                    and not self._is_the_stored_login(name)
-                ):
-                    # Own queue (journal.CREDENTIAL_NAMESPACE): no release before the stamp can send
-                    # these as the stored login or stall on them, and this worker never waits behind
-                    # another's (#2041). The stored login's writes stay in the shared queue.
-                    self.journal = Journal.for_credential(
-                        self.journal.dir,
-                        self._credential_queue_name(stamp),
-                        context=self.journal.context,
-                        attribution=self.journal.attribution,
-                    )
+        stamp = self._bind_journal_context(journal=journal, surface=surface)
         # After the queue is settled (#2041): the notices' baseline reads the queue this client writes to.
         self._init_delivery_notices()
         # Never a run's code, reads or outputs, wherever it is (even an explicit `spool_dir`).
         from ..capture import owndirs
 
         owndirs.note(self.journal.outbox_root)
-        # Parity F1/F2 (docs/2026-08-04-outbox-miles-parity.md): an async enqueue wakes a drainer.
-        # Default (F1): the detached outbox worker, default-transport clients only (it resolves its
-        # own transport). With ``drain_interval`` or PROBE_EXPORT_INTERVAL_SEC (F2): an in-process
-        # exporter delivers through THIS client: fork-free, works with any transport. Never the env
-        # for a queue only `probe sync` drains: its exporter would send through a transport that
-        # refuses everything, and each refusal counts toward dead-lettering the run's writes.
+        # D1: on the default transport the detached outbox worker is the only sender of queued
+        # writes (`miles-parity.md` F1); ``drain_interval`` / PROBE_EXPORT_INTERVAL_SEC only cap its
+        # collect window, so a writer that asked for delivery every N seconds gets it (review of
+        # #3785, I18). The in-process exporter (F2) stays for an injected transport, which no worker
+        # can replay. Never the env for a queue only `probe sync` drains.
         if drain_interval is None and async_writes and not self._drains_by_hand:
             drain_interval = export_interval_from_env()
-        # Named by the caller (argument or env), not a default below: it caps the collect window,
-        # so a writer that asked for delivery every N seconds gets it (review of #3785, I18).
         named_interval = drain_interval
+        self._drain_interval = drain_interval if (async_writes and transport is not None) else None
+        if named_interval is not None and async_writes:
+            self.journal.window_cap = float(named_interval)
+        #: A token passed in code is in no env or config: the worker gets it at spawn, in its own
+        #: environment only (R5; #2041: 0 of 5 delivered when nothing could hold it).
+        self._worker_credentials: dict | None = None
         if (
-            drain_interval is None
-            and async_writes
-            and auto_drain
+            async_writes
             and transport is None
             and isinstance(stamp, dict)
             and stamp.get("source") == CredentialSource.CODE
         ):
-            # A code token is in no env or config, so the detached worker cannot hold it: deliver
-            # in-process or writes wait for flush()/finish() (#2041: 0 of 5 delivered, stranded at exit).
-            drain_interval = _CODE_TOKEN_EXPORT_INTERVAL_S
-        self._drain_interval = drain_interval if async_writes else None
-        if named_interval is not None and self._drain_interval is not None:
-            self.journal.window_cap = float(named_interval)
+            # With its server: the worker matches an env credential only for writes pinned to the
+            # server its own env names (`credentials._settings_for_op`).
+            self._worker_credentials = {
+                name: value
+                for name, value in (
+                    (config_module.TOKEN_ENV, self.settings.token),
+                    ("PROBE_INGEST_TOKEN", self.settings.ingest_token),
+                    (config_module.BASE_URL_ENV, self.settings.base_url),
+                )
+                if value
+            }
         self._exporter = None
         self._exporter_lock = threading.Lock()
         # A worker fork suits default-transport clients only, but a FORCED kick (deferred finish, F3) works from sync ones too.
         self._default_transport = transport is None
-        # Async REQUIRES a drainer, and each of the two (parity F1/F2) has a precondition: the
-        # detached worker needs the default transport, the in-process exporter a drain_interval.
-        # Three reachable configurations journaled every write with nothing to deliver it, silently
-        # (a queued write returns None like a delivered one). Each branch below picks the mechanism
-        # that CAN work for its shape.
-        if (
-            async_writes
-            and self._drain_interval is None
-            and not (auto_drain and self._default_transport)
-        ):
-            if transport is not None and self._drains_by_hand:
-                pass
-            elif transport is not None:
-                # F1 is out (the worker cannot replay an injected transport) and F2 needs an
-                # interval nobody named. Draining by hand via `flush()`/`finish()` is valid (CLI
-                # barrier, fake-transport tests); a forced exporter would race their assertions.
-                # So warn once and leave the choice: the silence was the bug, not the setup.
-                _diagnostics.warn(
-                    "probe: async writes with a custom transport have no "
-                    "background drainer — the detached worker cannot replay an "
-                    "injected transport. Pass drain_interval=<seconds> for the "
-                    "in-process exporter, or call flush()/finish() yourself; "
-                    "otherwise queued writes stay on disk."
-                )
-            elif self._async_requested is None:
-                # Async not asked for and auto_drain=False rules out the worker, but the DEFAULT
-                # transport allows F2. Take it rather than degrade to sync, which would silently put
-                # the network back on the training loop (before async became the default,
-                # auto_drain=False only meant "no auto-drain of the fail-open spool"). Delivery
-                # stays guaranteed; only the crash-surviving subprocess is lost.
-                self._drain_interval = _DEFAULT_EXPORT_INTERVAL_SECONDS
-            else:
-                # Explicit async AND no drainer: warn, do not refuse. Real for hand-draining writers and
-                # tests inspecting a journal; the defect was a silent queue looking like delivery.
-                _diagnostics.warn(
-                    "probe: async writes with auto_drain=False have no "
-                    "background drainer. Pass drain_interval=<seconds> for the "
-                    "in-process exporter, or call flush()/finish() yourself; "
-                    "otherwise queued writes stay on disk."
-                )
+        auto_drain = self._ensure_async_drainer(
+            async_writes=async_writes, auto_drain=auto_drain, transport=transport,
+        )
         # Producer accounting (parity F4): long-lived writers get a per-process id; the CLI shares
         # one per-host id, so thousands of `probe --async log` calls are ONE producer line (sequences
         # stay safe: allocation reads the registry under the append lock).
@@ -349,12 +268,120 @@ class CoreMixin:
             self._restore_abandoned_holds()
         except Exception:  # noqa: BLE001 -- a hold left in place is the old behaviour
             pass
+        self._kick_waiting_queues(async_writes=async_writes, auto_drain=auto_drain)
+
+    def _resolve_async_writes(self, async_writes, *, transport):
+        """Pick sync or async writes: the argument, then PROBE_ASYNC, then async, degraded where nothing
+        could drain. Returns async_writes."""
+        self._async_requested = async_writes
+        if async_writes is None:
+            # PROBE_ASYNC is an SDK knob too: a campaign could not change write mode without editing the training script.
+            async_writes = _env_async_writes()
+        if async_writes is None:
+            async_writes = True
+        if async_writes and transport is not None and self._async_requested is not True:
+            # Async needs the DEFAULT transport (the detached worker cannot replay an injected one, F1).
+            # Injecting callers (hosted MCP, fake-transport tests) stay synchronous; an explicit
+            # async_writes=True still opts in via the in-process exporter (F2).
+            async_writes = False
+        if (
+            async_writes
+            and self._async_requested is not True
+            and transport is None
+            and not (self.settings.token or self.settings.ingest_token)
+        ):
+            # Nothing could drain this journal and async was not asked for: use the path that works. Explicit True still raises (F7).
+            async_writes = False
+        return async_writes
+
+    def _bind_journal_context(self, *, journal, surface):
+        """Bind the journal to the active context when it has none. Returns the context's credential
+        stamp."""
+        stamp = None
+        if self.journal.context is None:
+            name = config_module.current_context_name() or None
+            self.journal.context = {"name": name, "base_url": self.settings.base_url}
+            stamp = self._credential_stamp(name)
+            if stamp is not None:
+                self.journal.context["principal"] = stamp
+                if (
+                    self.async_writes
+                    and stamp["source"] in (CredentialSource.ENV, CredentialSource.CODE)
+                    and not os.environ.get("PROBE_OUTBOX_WORKER")
+                    and surface != Surface.CLI.value  # one command: gone in a moment
+                ):
+                    # Who holds a credential only it can send with, for `probe outbox status`.
+                    from ..delivery.outbox.drain.holders import record_holder
+
+                    record_holder(stamp["fingerprint"])
+                if (
+                    journal is None
+                    and stamp["source"] in (CredentialSource.ENV, CredentialSource.CODE)
+                    and not self._is_the_stored_login(name)
+                ):
+                    # Own queue (journal.CREDENTIAL_NAMESPACE): no release before the stamp can send
+                    # these as the stored login or stall on them, and this worker never waits behind
+                    # another's (#2041). The stored login's writes stay in the shared queue.
+                    self.journal = Journal.for_credential(
+                        self.journal.dir,
+                        self._credential_queue_name(stamp),
+                        context=self.journal.context,
+                        attribution=self.journal.attribution,
+                    )
+        return stamp
+
+    def _ensure_async_drainer(self, *, async_writes, auto_drain, transport):
+        """Async writes need a drainer: the detached worker or the in-process exporter. Returns
+        auto_drain (switched on when async was not asked for)."""
+        # Async REQUIRES a drainer, and each of the two (parity F1/F2) has a precondition: the
+        # detached worker needs the default transport, the in-process exporter a drain_interval.
+        # Three reachable configurations journaled every write with nothing to deliver it, silently
+        # (a queued write returns None like a delivered one). Each branch below picks the mechanism
+        # that CAN work for its shape.
+        if (
+            async_writes
+            and self._drain_interval is None
+            and not (auto_drain and self._default_transport)
+        ):
+            if transport is not None and self._drains_by_hand:
+                pass
+            elif transport is not None:
+                # F1 is out (the worker cannot replay an injected transport) and F2 needs an
+                # interval nobody named. Draining by hand via `flush()`/`finish()` is valid (CLI
+                # barrier, fake-transport tests); a forced exporter would race their assertions.
+                # So warn once and leave the choice: the silence was the bug, not the setup.
+                _diagnostics.warn(
+                    "probe: async writes with a custom transport have no "
+                    "background drainer — the detached worker cannot replay an "
+                    "injected transport. Pass drain_interval=<seconds> for the "
+                    "in-process exporter, or call flush()/finish() yourself; "
+                    "otherwise queued writes stay on disk."
+                )
+            elif self._async_requested is None:
+                # Async not asked for, auto_drain=False: the detached worker still sends (D1), rather
+                # than degrade to sync, which would put the network back on the training loop
+                # (before async became the default, auto_drain=False only meant "no auto-drain of
+                # the fail-open spool").
+                auto_drain = True
+            else:
+                # Explicit async AND no drainer: warn, do not refuse. Real for hand-draining writers and
+                # tests inspecting a journal; the defect was a silent queue looking like delivery.
+                _diagnostics.warn(
+                    "probe: async writes with auto_drain=False have no "
+                    "background drainer. Call flush() yourself, or leave "
+                    "auto_drain on for the background worker; otherwise queued "
+                    "writes stay on disk."
+                )
+        return auto_drain
+
+    def _kick_waiting_queues(self, *, async_writes, auto_drain):
+        """Deliver a queue an earlier process left behind, in this client's queue and the shared one."""
         if self._auto_drain:
             # A queue left by an earlier process (pod on the same volume, laptop after sleep) drains
             # now, not at the first write (plan 1.5). One status read; only a non-empty queue is kicked.
             try:
                 waiting = Journal.read_status(self.journal.dir) or {}
-                if int(waiting.get("pending") or 0) or int(waiting.get("waiting") or 0):
+                if int(waiting.get(StatusField.PENDING) or 0) or int(waiting.get(StatusField.WAITING) or 0):
                     self._kick_drainer()
             except Exception:  # noqa: BLE001 -- a kick is latency, never a gate
                 pass
@@ -365,7 +392,7 @@ class CoreMixin:
                     # This client queues in its credential's own queue (#2035) and may deliver it
                     # in-process; the shared queue's backlog is the shared worker's, which any process may start.
                     shared = Journal.read_status(root, credential_queues=False) or {}
-                    if int(shared.get("pending") or 0) or int(shared.get("waiting") or 0):
+                    if int(shared.get(StatusField.PENDING) or 0) or int(shared.get(StatusField.WAITING) or 0):
                         from ..delivery import outbox as outbox_worker
 
                         outbox_worker.maybe_spawn(str(root))

@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-Authlib"
-version = "1.8.0.20260911"
+version = "1.8.0.20261102"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for Authlib"
@@ -25,13 +25,13 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://www.mypy-lang.org/) 2.3.0
-* [pyrefly](https://pyrefly.org/) 1.3.0.dev1
-* [pyright](https://microsoft.github.io/pyright/) 1.1.411
-* [ty](https://docs.astral.sh/ty/) 0.0.59
+* [mypy](https://www.mypy-lang.org/) 2.4.0
+* [pyrefly](https://pyrefly.org/) 1.4.0
+* [pyright](https://microsoft.github.io/pyright/) 1.1.414
+* [ty](https://docs.astral.sh/ty/) 0.0.91
 
 It was generated from typeshed commit
-[`bcb5ba6a29b6e1a661b50a3b4476fe7636072e3e`](https://github.com/python/typeshed/commit/bcb5ba6a29b6e1a661b50a3b4476fe7636072e3e).
+[`272d38680771baf39c7ea503ae5d042c3295e47c`](https://github.com/python/typeshed/commit/272d38680771baf39c7ea503ae5d042c3295e47c).
 
 ## Optional dependencies
 
@@ -40,9 +40,10 @@ The following extras are available:
 
 ```console
 pip install 'types-Authlib[all]' # installs all optional dependencies
-pip install 'types-Authlib[requests]' # installs requests
-pip install 'types-Authlib[httpx2]' # installs httpx2
 pip install 'types-Authlib[Flask]' # installs Flask>=2.0.0
+pip install 'types-Authlib[httpx2]' # installs httpx2
+pip install 'types-Authlib[requests]' # installs requests
+pip install 'types-Authlib[oauthlib]' # installs types-oauthlib
 ```
 """, content-type = "text/markdown" }
 classifiers = [
@@ -53,10 +54,11 @@ requires-python = ">=3.10"
 dependencies = ['cryptography']
 
 [project.optional-dependencies]
-all = ['requests', 'httpx2', 'Flask>=2.0.0']
-requests = ['requests']
-httpx2 = ['httpx2']
+all = ['Flask>=2.0.0', 'httpx2', 'requests', 'types-oauthlib']
 Flask = ['Flask>=2.0.0']
+httpx2 = ['httpx2']
+requests = ['requests']
+oauthlib = ['types-oauthlib']
 
 [project.urls]
 "Homepage" = "https://github.com/python/typeshed"

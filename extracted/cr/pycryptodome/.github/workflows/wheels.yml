@@ -8,7 +8,7 @@ on:
 jobs:
   build_source:
     name: Build source package
-    runs-on: [ ubuntu-latest ]
+    runs-on: [ ubuntu-24.04 ]
     steps:
       - uses: actions/checkout@v7
 
@@ -44,12 +44,12 @@ jobs:
           echo 'CIBW_ARCHS=x86_64 universal2' >> $GITHUB_ENV
         if: runner.os == 'macOS'
 
-      - uses: pypa/cibuildwheel@v4.3.1
+      - uses: pypa/cibuildwheel@v4.3.4
         name: Build wheels
         env:
           # cibuildwheel will build wheel once and test it for each CPython version
           # and for PyPy >= 3.10
-          CIBW_BUILD: "cp39-* cp314-* cp315-* cp315t-* pp310-* pp311-*"
+          CIBW_BUILD: "cp39-* cp314-* cp315-* cp315t-* pp310-* pp311-* pp312*"
           # The manylinux images are set in pyproject.toml ([tool.cibuildwheel])
           CIBW_ENABLE: "pypy pypy-eol"
 
@@ -65,6 +65,10 @@ jobs:
           # Neither applies to the win32 wheels.
           PYCRYPTODOME_CLANG_CL: ${{ matrix.os == 'windows-2025' && '1' || '' }}
           PYCRYPTODOME_REQUIRE_AVX2_BMI2: ${{ matrix.os == 'windows-2025' && '1' || '' }}
+
+          # The Windows ARM64 runners support the SHA-512 instructions of ARMv8.2:
+          # fail if they are not used (module not built, or CPU feature not detected)
+          PYCRYPTODOME_REQUIRE_SHA512_ARMV8: ${{ matrix.os == 'windows-11-arm' && '1' || '' }}
 
       - name: Delete manylinux1 wheels
         if: runner.os == 'Linux'

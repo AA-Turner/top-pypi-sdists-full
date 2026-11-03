@@ -49,8 +49,22 @@ class ClosingMixin:
         summary: dict | None = None,
         flush_timeout: float | None = None,
         strict: bool | None = None,
+        wait: bool = True,
     ):
-        """Close the run. Outside ``strict`` it NEVER raises over delivery.
+        """Close the run, and (``wait``, the default) wait for the background worker to deliver
+        everything of it (D1, D2): the run row once it all landed; `DeliveryIncomplete`
+        (`probe.sdk.delivery.outbox`) when some of it cannot be (refused, login refused, set
+        aside after a stall, server unreachable for 10 minutes, no worker can run). Slowness
+        never raises: while writes move it prints a progress line every ~5 s, and Ctrl-C stops
+        waiting (the worker keeps sending). ``wait=False`` queues the close behind the data and
+        returns at once. ``flush_timeout`` (or ``PROBE_FINISH_TIMEOUT_SEC``) caps the wait; past
+        it the close stays queued, as with ``wait=False``. ``strict`` is accepted and no longer
+        needed: loss always raises. A `with probe.init()` block that is already raising is never
+        masked (`Run.__exit__`). This path is a client on the default transport; one with an
+        injected transport (hosted MCP, tests) cannot hand its writes to the worker and closes as
+        described below.
+
+        Injected transport. Outside ``strict`` it NEVER raises over delivery.
 
         This run's journaled writes are drained, retried with backoff, to ONE
         deadline -- ``flush_timeout``, else ``PROBE_FINISH_TIMEOUT_SEC``, else
@@ -119,6 +133,10 @@ class ClosingMixin:
                         self._resolve_finish_timeout(flush_timeout)
                     )
                 timeout = self._resolve_finish_timeout(flush_timeout)
+                # Only a limit someone set caps the wait on the worker (D2): an argument, the
+                # env, a SIGTERM's grace. The 600 s default bounds the close's local work only.
+                limit = self._resolve_finish_timeout(flush_timeout, default=None)
+                wait_limit = None if limit is None else time.monotonic() + limit
                 self._finish_result = _FINISHING
                 self._finish_done = threading.Event()
                 self._finish_thread = threading.get_ident()
@@ -148,6 +166,8 @@ class ClosingMixin:
                 summary=close_summary,
                 flush_timeout=timeout,
                 strict=strict,
+                wait=wait,
+                wait_limit=wait_limit,
             )
         except BaseException:
             if self._finish_result is _FINISHING:
@@ -195,6 +215,8 @@ class ClosingMixin:
         summary: dict | None,
         flush_timeout: float | None,
         strict: bool | None,
+        wait: bool = True,
+        wait_limit: float | None = None,
     ):
         """`finish()`'s body, run at most once per handle (see `finish`)."""
         # ONE deadline, taken FIRST, for everything the close does (plan 0.6):
@@ -250,6 +272,8 @@ class ClosingMixin:
                 timeout=timeout,
                 deadline=deadline,
                 verdict_sent=verdict_sent,
+                wait=wait,
+                wait_limit=wait_limit,
             )
         except (KeyboardInterrupt, SystemExit):
             # Once the terminal write is on its way the server may already have

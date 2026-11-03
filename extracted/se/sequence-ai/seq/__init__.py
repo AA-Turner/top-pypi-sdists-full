@@ -14,7 +14,7 @@ Usage::
 
     import seq
 
-    @seq.policy(name="my-policy", gpu="L4", weights="hf://org/checkpoint", init={"weights_dir": "{weights}"})
+    @seq.policy(name="my-policy", hz=15, gpu="L4", weights="hf://org/checkpoint", init={"weights_dir": "{weights}"})
     class MyPolicy(seq.Policy):
         def __init__(self, weights_dir): ...         # loads the model: init= hands it the weights directory
         @seq.infer
@@ -79,7 +79,6 @@ from seq.logs_cli import policy_logs
 from seq.run_logs import benchmark_logs, eval_logs
 
 from seq.machines_cli import planner_list, planner_status, robot_status
-from seq.collate import collate, uncollate
 from seq.params import OneOf, Range
 from seq.registry import Timeouts, registration
 from seq.secret import Secret
@@ -95,7 +94,6 @@ from seq.manage_cli import (
     adapter_rm,
     audit,
     benchmark_cancel,
-    benchmark_freeze,
     benchmark_rm,
     benchmark_source,
     benchmark_status,
@@ -106,7 +104,6 @@ from seq.manage_cli import (
     eval_rm,
     eval_report,
     eval_status,
-    policy_freeze,
     policy_list,
     policy_rm,
     policy_rollback,
@@ -190,8 +187,6 @@ __all__ = [
     "planner_list",
     "planner_status",
     "robot_status",
-    "collate",
-    "uncollate",
     "benchmark",
     "adapter",
 
@@ -274,9 +269,9 @@ __all__ = [
     "GpuRenderError",
 
     "policy_list", "policy_metrics", "policy_status", "policy_stop", "policy_start", "policy_rm", "policy_upgrade", "policy_versions",
-    "policy_rollback", "policy_freeze", "policy_source",
+    "policy_rollback", "policy_source",
     "benchmark_status", "benchmark_cancel", "benchmark_rm", "benchmark_upgrade", "benchmark_versions",
-    "benchmark_freeze", "benchmark_source",
+    "benchmark_source",
     "eval_status", "eval_report", "eval_cancel", "eval_list", "eval_rm",
     "adapter_list", "adapter_rm",
     "volume_list", "volume_show",

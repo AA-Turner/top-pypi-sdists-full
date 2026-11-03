@@ -11,10 +11,51 @@ including handling bytes vs string responses depending on how the Redis client i
 configured with decode_responses.
 """
 
-from typing import Any
+import uuid
+from contextlib import contextmanager
+from typing import Any, Iterator, Optional
+
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redisvl.exceptions import RedisSearchError
+from ulid import ULID
 
 EMPTY_STRING_SENTINEL = "__empty__"
 EMPTY_ID_SENTINEL = "00000000-0000-0000-0000-000000000000"
+
+# 100-nanosecond intervals between the UUID epoch (1582-10-15) and the Unix epoch.
+_UUID_EPOCH_OFFSET = 0x01B21DD213814000
+
+
+def checkpoint_id_timestamp(checkpoint_id: str) -> Optional[float]:
+    """Return the timestamp a checkpoint id encodes, or None if it encodes none.
+
+    This is the value stored as ``checkpoint_ts`` and compared by ``list(before=...)``,
+    so both sides must come from here.
+
+    A ULID returns ``ULID.timestamp``, the value the savers have always stored for one.
+    LangGraph's own checkpoint ids are UUIDv6, whose 60-bit timestamp is returned in
+    milliseconds since the Unix epoch, the unit already stored for non-ULID ids, to
+    whole microseconds. Any other id (for example a uuid4) carries no time and
+    returns None.
+    """
+    if not isinstance(checkpoint_id, str):
+        return None
+    try:
+        return ULID.from_str(checkpoint_id).timestamp
+    except ValueError:
+        pass
+    try:
+        parsed = uuid.UUID(checkpoint_id)
+    except ValueError:
+        return None
+    if parsed.version != 6:
+        return None
+    n = parsed.int
+    ticks = ((n >> 96) << 28) | (((n >> 80) & 0xFFFF) << 12) | ((n >> 64) & 0x0FFF)
+    # Whole microseconds keep the value to 16 significant digits. RedisJSON can parse a
+    # 17-digit float one unit in the last place off, which can store a checkpoint's
+    # checkpoint_ts below the ``before`` bound computed here for the same id.
+    return ((ticks - _UUID_EPOCH_OFFSET) // 10) / 1000
 
 
 def to_storage_safe_str(value: str) -> str:
@@ -130,3 +171,22 @@ def safely_decode(obj: Any) -> Any:
     else:
         # For other types (int, float, bool, etc.), return as is
         return obj
+
+
+@contextmanager
+def unwrap_connection_errors() -> Iterator[None]:
+    """Re-raise a redis ConnectionError that redisvl wrapped in RedisSearchError.
+
+    redisvl 0.28 wraps every failure of ``SearchIndex.exists()`` — which
+    ``create()`` calls first — in ``RedisSearchError`` with the original
+    redis-py exception as ``__cause__``. A Redis that cannot be reached is
+    not a search error, and callers of ``setup()`` have always caught
+    ``redis.exceptions.ConnectionError`` for it, so surface that instead.
+    """
+    try:
+        yield
+    except RedisSearchError as e:
+        cause = e.__cause__
+        if isinstance(cause, RedisConnectionError):
+            raise cause from None
+        raise

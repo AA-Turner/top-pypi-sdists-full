@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: pyrosm
-Version: 0.28.0
+Version: 0.29.0
 Summary: A Python tool to parse OSM data from Protobuf format into GeoDataFrame.
 Home-page: https://pyrosm.readthedocs.io/
 Author: Henrikki Tenkanen
 Author-email: henrikki.tenkanen@aalto.fi
-License-Expression: BSD-3-Clause AND MIT
+License-Expression: BSD-3-Clause AND MIT AND ISC
 Project-URL: Documentation, https://pyrosm.readthedocs.org/
 Project-URL: Issue Tracker, https://github.com/pyrosm/pyrosm/issues
 Keywords: OpenStreetMap,Geopandas,GeoDataFrame,parser,protobuf,PBF
@@ -27,6 +27,8 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: vendor/khash/LICENSE
 License-File: vendor/libdeflate/COPYING
+License-File: pyrosm/data/country_access.LICENSE.md
+License-File: pyrosm/data/country_borders.LICENSE.md
 Requires-Dist: python-rapidjson
 Requires-Dist: setuptools>=18.0
 Requires-Dist: geopandas>=0.12.0
@@ -179,15 +181,15 @@ You can run tests with `pytest` by executing:
 
 ## Citing pyrosm
 
-If you use pyrosm in your research or other work, please cite it. Pyrosm is archived on [Zenodo](https://doi.org/10.5281/zenodo.3755057), which provides a citable DOI (`10.5281/zenodo.3755057`, always resolving to the latest version). An example citation for the pyrosm version 0.28.0 is as follows:
+If you use pyrosm in your research or other work, please cite it. Pyrosm is archived on [Zenodo](https://doi.org/10.5281/zenodo.3755057), which provides a citable DOI (`10.5281/zenodo.3755057`, always resolving to the latest version). An example citation for the pyrosm version 0.29.0 is as follows:
 
-> Tenkanen, H. (2026). *pyrosm: A Python library for reading and writing OpenStreetMap PBF data with GeoDataFrames*. (v0.28.0) Zenodo. https://doi.org/10.5281/zenodo.3755057
+> Tenkanen, H. (2026). *pyrosm: A Python library for reading and writing OpenStreetMap PBF data with GeoDataFrames*. (v0.29.0) Zenodo. https://doi.org/10.5281/zenodo.3755057
 
 A BibTeX entry and version-specific DOIs are available in the [documentation](https://pyrosm.readthedocs.io/en/stable/citation.html) and on the [Zenodo record](https://doi.org/10.5281/zenodo.3755057).
 
 ## License and copyright
 
-Pyrosm is licensed under the BSD 3-Clause License (see [license](LICENSE)).
+Pyrosm is licensed under the BSD 3-Clause License (see [license](LICENSE)). pyrosm includes country borders from [country-coder](https://github.com/rapideditor/country-coder) under the ISC License and a country access table from [Valhalla](https://github.com/valhalla/valhalla) under the MIT License. Their licence files are stored with the data in `pyrosm/data`.
 
 The OSM data is downloaded from two sources:
 

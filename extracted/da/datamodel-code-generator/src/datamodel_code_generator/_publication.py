@@ -16,8 +16,9 @@ import tempfile
 from contextlib import suppress
 from pathlib import Path
 from secrets import token_hex
-from typing import TYPE_CHECKING, NamedTuple, cast
+from typing import TYPE_CHECKING, Literal, NamedTuple, cast
 
+from datamodel_code_generator._paths import concrete, existing_ancestor, files_under, lexical, resolved, same_file
 from datamodel_code_generator._shadowed_modules import warn_shadowed_modules
 
 if TYPE_CHECKING:
@@ -30,6 +31,8 @@ if TYPE_CHECKING:
 _unlink = os.unlink
 _replace = os.replace
 _rmdir = os.rmdir
+
+MissingMetadata = Literal["fail", "legacy-api-skips-missing-metadata"]
 
 
 class PublicationAnchor(NamedTuple):
@@ -129,8 +132,7 @@ def _open_target_directory(
 
 def publication_anchor(path: Path) -> PublicationAnchor:
     """Snapshot and hold the deepest existing concrete directory for *path*."""
-    while not path.is_dir():
-        path = path.parent
+    path = existing_ancestor(path, at_root="legacy-unbounded-ancestor-walk")
     if os.name == "nt":  # pragma: no cover - Windows uses checked path fallback
         path_stat = path.stat()
         return PublicationAnchor(path, (path_stat.st_dev, path_stat.st_ino), None)
@@ -143,6 +145,157 @@ def close_anchor(anchor: PublicationAnchor | None) -> None:
     """Release an anchor after every source using it has been published or discarded."""
     if anchor is not None and anchor.directory_fd is not None:
         os.close(anchor.directory_fd)
+
+
+def release_all(
+    resources: Iterable[tempfile.TemporaryDirectory[str] | StagingDirectory | PublicationAnchor | None],
+) -> list[OSError]:
+    """Clean each staging directory and close each anchor in order, keeping every failure instead of stopping."""
+    errors: list[OSError] = []
+    for resource in resources:
+        try:
+            if resource is None or isinstance(resource, PublicationAnchor):
+                close_anchor(resource)
+            else:
+                resource.cleanup()
+        except OSError as exc:
+            errors.append(exc)
+    return errors
+
+
+def staging_directory_for(
+    target: Path, *, cwd: Path | None = None, around: Path | None = None
+) -> tempfile.TemporaryDirectory[str]:
+    """Create a private staging directory beside a target, on the filesystem it is published to.
+
+    A relative target is joined to ``cwd`` (the working directory when omitted). With ``around``, a target inside that
+    output is staged beside the output instead, so a render writes nothing into it. The directory is made in the
+    deepest existing parent, by row ``legacy-staging-parent-may-be-a-file`` of ``existing_ancestor``.
+    """
+    location = lexical(target, cwd)
+    if around is not None and (outer := resolved(around, cwd)) in resolved(target, cwd).parents:
+        location = outer
+    parent = existing_ancestor(
+        location.parent, test="legacy-staging-parent-may-be-a-file", at_root="legacy-unbounded-ancestor-walk"
+    )
+    return tempfile.TemporaryDirectory(prefix=".datamodel-codegen-", dir=parent)
+
+
+def stage_artifact(  # noqa: PLR0913
+    target: Path,
+    default_name: str,
+    anchor_path: Path,
+    contexts: list[tempfile.TemporaryDirectory[str]],
+    anchors: list[PublicationAnchor],
+    *,
+    make_directory: bool = False,
+) -> tuple[Path, PublicationAnchor]:
+    """Redirect an artifact to private staging on its filesystem and anchor the directory it is published into.
+
+    The staging directory and the anchor join ``contexts`` and ``anchors`` as soon as each exists, so the caller
+    releases them when a later step fails.
+    """
+    context = staging_directory_for(target)
+    contexts.append(context)
+    staged = Path(context.name) / (target.name or default_name)
+    if make_directory:
+        staged.mkdir()
+    anchor = publication_anchor(anchor_path)
+    anchors.append(anchor)
+    return staged, anchor
+
+
+class StagedArtifact(NamedTuple):
+    """A generated artifact redirected to private staging, and the concrete root and parent it publishes into."""
+
+    staged: Path
+    target: Path
+    root: Path
+    parent: Path
+    anchor: PublicationAnchor
+
+    def files(self) -> Iterator[StagedFile]:
+        """Pair the staged file, or each file of the staged directory, with its target and its concrete destination.
+
+        A file publishes to ``parent / target.name``, a directory's files below ``root``; nothing staged pairs nothing.
+        """
+        staged, target, root, parent, anchor = self
+        if staged.is_file():
+            yield StagedFile(staged, target, parent / target.name, anchor)
+            return
+        for staged_file in files_under(staged):
+            relative_path = staged_file.relative_to(staged)
+            yield StagedFile(staged_file, target / relative_path, root / relative_path, anchor)
+
+
+class StagedOutputs(NamedTuple):
+    """The output and the model metadata of one generation, each redirected to private staging or absent."""
+
+    output: StagedArtifact | None
+    metadata: StagedArtifact | None
+
+    @property
+    def updates(self) -> dict[str, Path]:
+        """Return the generation options that write into the staging: ``output`` and ``emit_model_metadata``."""
+        return {
+            option: artifact.staged
+            for option, artifact in (("output", self.output), ("emit_model_metadata", self.metadata))
+            if artifact is not None
+        }
+
+    def files(self, missing_metadata: MissingMetadata) -> Iterator[StagedFile]:
+        """Pair every staged file with its target, the output's before the metadata's.
+
+        The output pairs through ``StagedArtifact.files`` (a missing staged output pairs nothing). The metadata pairs
+        by row: ``fail`` (the command line) pairs the staged file without looking, so a missing one fails the
+        publication; ``legacy-api-skips-missing-metadata`` (``generate()``, fix #5620) pairs it like the output, so a
+        missing one pairs nothing and the other files publish.
+        """
+        if self.output is not None:
+            yield from self.output.files()
+        if (metadata := self.metadata) is None:
+            return
+        if missing_metadata == "fail":
+            yield StagedFile(metadata.staged, metadata.target, metadata.parent / metadata.target.name, metadata.anchor)
+        else:
+            yield from metadata.files()
+
+
+def stage_outputs(  # noqa: PLR0913
+    output: Path | None,
+    metadata: Path | None,
+    roots: tuple[Path | None, Path | None, Path | None],
+    contexts: list[tempfile.TemporaryDirectory[str]],
+    anchors: list[PublicationAnchor],
+    *,
+    make_directory: bool,
+) -> StagedOutputs:
+    """Redirect a generation's output and model metadata to private staging, anchored where each is published.
+
+    ``roots`` are the concrete output root, output parent and metadata parent, resolved when the caller planned the
+    run. An output that is an existing directory is anchored at its root and, with ``make_directory`` (#5617), staged as
+    an empty directory; any other output and the metadata are anchored at their parent. Every staging directory and
+    anchor joins ``contexts`` and ``anchors`` as soon as it exists, for the caller to release.
+    """
+    output_root, output_parent, metadata_parent = roots
+    staged_output = staged_metadata = None
+    if output is not None:
+        root, parent = cast("Path", output_root), cast("Path", output_parent)
+        is_directory = output.is_dir()
+        staged, anchor = stage_artifact(
+            output,
+            "output",
+            root if is_directory else parent,
+            contexts,
+            anchors,
+            make_directory=make_directory and is_directory,
+        )
+        staged_output = StagedArtifact(staged, output, root, parent, anchor)
+    if metadata is not None:
+        parent = cast("Path", metadata_parent)
+        staged, anchor = stage_artifact(metadata, "model-metadata.json", parent, contexts, anchors)
+        staged_metadata = StagedArtifact(staged, metadata, parent, parent, anchor)
+    return StagedOutputs(staged_output, staged_metadata)
 
 
 class StagingDirectory:
@@ -256,19 +409,16 @@ class StagingDirectory:
         """Discard one staged source through the held directory fd."""
         if self.directory_fd is None:  # pragma: no cover - Windows lexical fallback
             self._validate_path_fallback()
-            try:
-                _unlink(self.path / name)
-            except FileNotFoundError:
-                self._files.discard(name)
-            else:
-                self._files.discard(name)
-            return
-        try:
-            _unlink(name, dir_fd=self.directory_fd)
-        except FileNotFoundError:
-            self._files.discard(name)
+        with suppress(FileNotFoundError):
+            self._unlink_file(name)
+        self._files.discard(name)
+
+    def _unlink_file(self, name: str) -> None:
+        """Remove one staged source through the held directory fd, or by path on the Windows fallback."""
+        if self.directory_fd is None:  # pragma: no cover - Windows lexical fallback
+            _unlink(self.path / name)
         else:
-            self._files.discard(name)
+            _unlink(name, dir_fd=self.directory_fd)
 
     def cleanup(self) -> None:
         """Best-effort clean staged sources and remove only our pinned directory entry."""
@@ -295,10 +445,7 @@ class StagingDirectory:
         cleanup_error: OSError | None = None
         for name in tuple(self._files):
             try:
-                if self.directory_fd is None:  # pragma: no cover - Windows lexical fallback
-                    _unlink(self.path / name)
-                else:
-                    _unlink(name, dir_fd=self.directory_fd)
+                self._unlink_file(name)
             except FileNotFoundError:
                 self._files.discard(name)
             except OSError as exc:
@@ -426,7 +573,7 @@ def _planned_staged_file(file: tuple[Path, Path] | StagedFile) -> StagedFile:
     if isinstance(file, StagedFile):
         return file
     staged_file, target = file
-    return StagedFile(staged_file, target, target.expanduser().parent.resolve(strict=False) / target.name)
+    return StagedFile(staged_file, target, concrete(target))
 
 
 def _create_directory(directory: Path) -> bool:
@@ -443,10 +590,9 @@ def _create_directory(directory: Path) -> bool:
 def _create_target_parent(target: Path, created_directories: list[Path]) -> None:
     """Create a target parent while recording only transaction-owned directories."""
     missing_directories: list[Path] = []
-    parent = target.parent
-    while not parent.exists():
-        missing_directories.append(parent)
-        parent = parent.parent
+    existing_ancestor(
+        target.parent, test="exists", at_root="legacy-unbounded-ancestor-walk", missing=missing_directories
+    )
     for directory in reversed(missing_directories):
         if _create_directory(directory):
             created_directories.append(directory)
@@ -461,14 +607,10 @@ def _restore_backup(backup: Path, target: Path) -> None:
     if backup.is_symlink() and target.is_symlink() and backup.readlink() == target.readlink():
         _unlink(backup)
         return
-    try:
-        if backup.samefile(target):
+    with suppress(OSError):
+        if same_file(backup, target):
             _unlink(backup)
             return
-    except OSError:
-        # The target may have disappeared, but replacement still restores the backup safely.
-        _replace(backup, target)
-        return
     _replace(backup, target)
 
 
@@ -497,7 +639,7 @@ def _remove_created_directory(directory: Path) -> list[Path]:
 
 
 def _validate_planned_target(file: StagedFile) -> None:  # pragma: no cover - Windows fallback
-    concrete_target = file.target.expanduser().parent.resolve(strict=False) / file.target.name
+    concrete_target = concrete(file.target)
     if concrete_target != file.resolved_target:
         raise OSError(f"batch output target changed before publication: {file.target}")
 

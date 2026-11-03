@@ -28,36 +28,33 @@ class SynthesizeVoice:
     """Information about the desired voice for synthesis."""
 
     name: Optional[str] = None
-    """Voice name from tts info (overrides language)."""
+    """Voice name from tts info."""
 
     language: Optional[str] = None
-    """Voice language from tts info."""
+    """Language of the text (selects a voice if name is not set)."""
 
     speaker: Optional[str] = None
     """Voice speaker from tts info."""
 
     def to_dict(self) -> Dict[str, str]:
+        voice: Dict[str, str] = {}
         if self.name is not None:
-            voice = {"name": self.name}
-            if self.speaker is not None:
-                voice["speaker"] = self.speaker
-        elif self.language is not None:
-            voice = {"language": self.language}
-        else:
-            voice = {}
+            voice["name"] = self.name
+        if self.language is not None:
+            voice["language"] = self.language
+        if self.speaker is not None:
+            voice["speaker"] = self.speaker
 
         return voice
 
     @staticmethod
     def from_dict(voice: Dict[str, Any]) -> "Optional[SynthesizeVoice]":
-        if "name" in voice:
+        if any(key in voice for key in ("name", "language", "speaker")):
             return SynthesizeVoice(
-                name=voice["name"],
+                name=voice.get("name"),
+                language=voice.get("language"),
                 speaker=voice.get("speaker"),
             )
-
-        if "language" in voice:
-            return SynthesizeVoice(language=voice["language"])
 
         return None
 

@@ -969,6 +969,38 @@ def apply_canvas(*cfgs: DictConfig) -> Path | None:
     return use_canvas(canvas_config(*cfgs))
 
 
+def apply_metrics(*cfgs: DictConfig) -> bool:
+    """Turn the heavy CommonRoad metrics on or off as the first of *cfgs*
+    that sets ``metrics.heavy`` (to ``true`` or ``false``) says; when none
+    does, as ``$AUTOWARE_CARLA_SCENARIO_HEAVY_METRICS`` says (on unless it is
+    ``0``).  Whether they are on.
+
+    The user's variable is left as it is: the decision goes to
+    ``$AUTOWARE_CARLA_SCENARIO_HEAVY_METRICS_DECIDED``
+    (:data:`~autoware_carla_scenario.commonroad.session.HEAVY_METRICS_DECIDED_ENV`),
+    which carries it to the runs' own processes and is never read here.  Each
+    call (a run of a Hydra ``--multirun``) decides afresh from its *cfgs* and
+    the user's variable: one case's ``metrics.heavy`` does not carry over to
+    the next case's."""
+    from ..commonroad.session import (  # noqa: PLC0415
+        HEAVY_METRICS_DECIDED_ENV,
+        _heavy_metrics_from_user,
+        configure_commonroad_metrics,
+    )
+
+    heavy: bool | None = None
+    for cfg in cfgs:
+        value = (cfg.get("metrics") or {}).get("heavy")
+        if value is not None:
+            heavy = bool(value)
+            break
+    if heavy is None:
+        heavy = _heavy_metrics_from_user()
+    os.environ[HEAVY_METRICS_DECIDED_ENV] = "1" if heavy else "0"
+    configure_commonroad_metrics(heavy_metrics=heavy)
+    return heavy
+
+
 def rerun_errors(
     results: list[ScenarioResult], conversions: list[RerunConversion]
 ) -> dict[int, str]:
@@ -1506,6 +1538,7 @@ def run_batch(
         canvas_config(*configs)
     else:
         apply_canvas(*configs)
+    apply_metrics(*configs)
 
     # Log detailed execution plan before building anything.
     _log_batch_plan(
@@ -1865,6 +1898,7 @@ def run_scenario(
     build_t4scene_exporter(cfg)
     try:
         apply_canvas(cfg)
+        apply_metrics(cfg)
         return _run_scenario(cfg, rerun, build_scenario_fn=build_scenario_fn)
     finally:
         _finish_rerun(rerun)

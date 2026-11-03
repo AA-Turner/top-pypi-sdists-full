@@ -5,7 +5,7 @@ import inspect
 import time
 import uuid
 from collections import defaultdict
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 from urllib.parse import parse_qs, quote
@@ -75,8 +75,28 @@ class ClientConnectionTimeout(TimeoutError):
         self.client = client
 
 
+class _PageRoutes(Mapping[Callable, str]):
+    """Maps page builders to their routes, which their pages resolve on access."""
+
+    def __init__(self) -> None:
+        self.pages: dict[Callable, page] = {}
+
+    def __getitem__(self, builder: Callable) -> str:
+        return self.pages[builder].path
+
+    def __iter__(self) -> Iterator[Callable]:
+        return iter(self.pages)
+
+    def __len__(self) -> int:
+        return len(self.pages)
+
+    def clear(self) -> None:
+        """Forget all pages."""
+        self.pages.clear()
+
+
 class Client:
-    page_routes: ClassVar[dict[Callable, str]] = {}
+    page_routes: ClassVar[_PageRoutes] = _PageRoutes()
     '''Maps page builders to their routes.'''
 
     instances: ClassVar[dict[str, Client]] = {}
@@ -449,11 +469,18 @@ class Client:
         """Forward an event to the corresponding element. (For internal use only.)"""
         with self:
             sender = self.elements.get(msg['id'])
-            if sender is not None and not sender.is_ignoring_events:
-                msg['args'] = [None if arg is None else json.loads(arg) for arg in msg.get('args', [])]
-                if len(msg['args']) == 1:
-                    msg['args'] = msg['args'][0]
-                sender._handle_event(msg)  # pylint: disable=protected-access
+            if sender is None:
+                return
+            if sender.is_ignoring_events:
+                # the browser does not send the event type, so take it from the registered listener;
+                # a message is dispatched by its listener id, so this is also the type that will run
+                listener = sender._event_listeners.get(msg['listener_id'])  # pylint: disable=protected-access
+                if listener is None or not sender._handles_event_while_ignoring(listener.type):  # pylint: disable=protected-access
+                    return
+            msg['args'] = [None if arg is None else json.loads(arg) for arg in msg.get('args', [])]
+            if len(msg['args']) == 1:
+                msg['args'] = msg['args'][0]
+            sender._handle_event(msg)  # pylint: disable=protected-access
 
     def handle_log_message(self, msg: dict) -> None:
         """Log a message from the client. (For internal use only.)"""

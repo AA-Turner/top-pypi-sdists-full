@@ -8,49 +8,62 @@ from typing import Literal, TypedDict
 class RunOptionsParam(TypedDict, total=False):
   load_weights_only: bool | None
   """
-  Load parent checkpoint weights with fresh training state; defaults to false, which resumes
-  optimizer, schedule and global step.
+  Load parent checkpoint weights with fresh training state. Defaults to false, which resumes the
+  optimizer, LR schedule, and global step. With validation enabled, evaluate the starting
+  policy, run validation when global_step % val_interval_steps == 0, and evaluate the final
+  policy on normal completion. Resuming preserves the global step and validation cadence.
   """
-  intelligent_density_training: bool | None
+  density_aware_training: bool | None
   """
-  Enable intelligent density training.
+  Train each task at four output-token budgets, with group_size trajectories per budget. Turns
+  on train_on_truncation, which must stay true except when resuming a checkpoint with its
+  training state. batch_size sets the total number of task groups per batch; each budget counts
+  as a separate group. Learn more: https://www.trajectory.ai/field-notes/intelligence-density
   """
-  algorithm: Literal["gspo", "grpo", "reinforce_plus_plus"] | None
+  algorithm: Literal["gspo", "grpo"] | None
   """
   Training algorithm; omit to preserve the model default.
   """
   train_on_truncation: bool | None
   """
-  Include truncated trajectories in training.
+  Include trajectories that hit token or turn limits in training, with reward 0. Defaults to
+  false, or true with density_aware_training; set to true to discourage reward hacking through
+  truncated submissions.
   """
   train_on_error: bool | None
   """
-  Train on error-terminated trajectories, using zero when no reward is recorded.
+  Train on errored trajectories, including execution errors, grading errors, and missing grades,
+  with reward 0.
   """
   train_on_timeout: bool | None
   """
-  Train on execution timeouts, using zero when no reward is recorded.
+  Include timed-out trajectories in training, with reward 0. Defaults to false; set to true to
+  discourage reward hacking through timed-out submissions.
   """
-  evaluation_enabled: bool | None
+  val_enabled: bool | None
   """
-  Enable evaluations during training.
+  Enable validation during training.
   """
-  evaluation_frequency: int | None
+  val_interval_steps: int | None
   """
-  Optimizer steps between evaluations during training: 0 disables evaluation, 1 evaluates after
-  every step, and 2 after every other step. When enabled, the initial policy and final step are
-  always evaluated.
+  Training steps between validations; 0 disables validation.
   """
-  evaluation_max_samples: int | None
+  val_num_tasks: int | None
   """
   Maximum distinct tasks per evaluation. Standalone evals run every task in the selected scope
   when omitted.
   """
-  evaluation_samples_per_task: int | None
-  evaluation_max_active_rollouts: int | None
-  evaluation_collection_timeout_seconds: float | None
+  val_trajectories_per_task: int | None
   """
-  Total wait for outstanding evaluation rollouts; zero stops waiting immediately.
+  Number of trajectories generated for each task in a validation round.
+  """
+  val_max_concurrent_trajectories: int | None
+  """
+  Maximum number of validation trajectories running concurrently.
+  """
+  val_final_wait_timeout_seconds: float | None
+  """
+  Maximum seconds to wait for outstanding validation rounds at training end.
   """
   learning_rate: float | None
   """
@@ -65,18 +78,20 @@ class RunOptionsParam(TypedDict, total=False):
   Training steps to hold the base rate after warmup, including skipped updates, before cosine
   decay.
   """
-  min_lr_ratio: float | None
+  lr_min_ratio: float | None
   """
   Cosine decay floor as a fraction of the base learning rate.
   """
   reasoning_effort: Literal["off", "on", "minimal", "low", "medium", "high", "xhigh", "max"] | None
   """
-  Reasoning effort supported by the model; off disables thinking, on enables models without
-  effort levels, and null preserves the model default.
+  Model reasoning effort. null selects the lowest supported thinking level; off disables
+  thinking where supported. Levels: minimal, low, medium, high, xhigh, max, depending on the
+  model. Qwen3.5-4B, Qwen3.6-35B-A3B, Qwen3.5-397B-A17B, and Nemotron-3.5-Lightning-30B-A3B
+  support only on/off; null selects on.
   """
   temperature: float | None
   """
-  Sampling temperature; null preserves the model default.
+  Sampling temperature; defaults to 1.0.
   """
   top_p: float | None
   """
@@ -86,81 +101,103 @@ class RunOptionsParam(TypedDict, total=False):
   """
   Sample from the top k tokens; -1 disables the limit, and null preserves the model default.
   """
-  evaluation_reasoning_effort: (
+  val_reasoning_effort: (
     Literal["off", "on", "minimal", "low", "medium", "high", "xhigh", "max"] | None
   )
   """
-  Evaluation reasoning effort; null preserves the evaluation default.
+  Validation reasoning effort. null inherits training defaults. Supports the same model-specific
+  levels and on/off options as reasoning_effort.
   """
-  evaluation_temperature: float | None
+  val_temperature: float | None
   """
-  Evaluation sampling temperature; null preserves the evaluation default.
+  Validation sampling temperature. null inherits training defaults.
   """
-  evaluation_top_p: float | None
+  val_top_p: float | None
   """
-  Evaluation nucleus sampling probability; null preserves the evaluation default.
+  Validation nucleus sampling probability. null inherits training defaults.
   """
-  evaluation_top_k: int | None
+  val_top_k: int | None
   """
-  Evaluation top-k token limit; -1 disables the limit, and null preserves the evaluation
-  default.
+  Validation top-k token limit. null inherits training defaults; -1 disables it.
+  """
+  val_max_output_tokens_per_turn: int | None
+  """
+  Maximum output tokens per turn in each validation trajectory. null inherits training defaults.
+  """
+  val_max_output_tokens_per_trajectory: int | None
+  """
+  Maximum output tokens across one validation trajectory. null inherits training defaults.
+  """
+  val_max_turns_per_trajectory: int | None
+  """
+  Maximum agent and environment turns per validation trajectory. null inherits training
+  defaults.
+  """
+  val_trajectory_timeout_seconds: int | None
+  """
+  Maximum execution seconds per validation trajectory, including grading. null inherits training
+  defaults.
   """
   num_steps: int | None
   """
   Number of optimizer steps to run.
   """
-  train_batch_size: int | None
+  batch_size: int | None
   """
   Eligible task-instance groups per optimizer update.
   """
   group_size: int | None
   """
-  Rollout samples generated for each training instance; GSPO and GRPO require at least 2, while
-  Reinforce++ requires 1.
+  Trajectories generated for each training instance; GSPO and GRPO require at least 2.
   """
-  samples_per_instance: int | None
+  min_trajectories_per_group: int | None
   """
-  Deprecated alias for group_size; use group_size for new requests.
+  Minimum eligible trajectories per training group. null uses half of group_size, rounded down.
   """
-  min_samples_per_group: int | None
+  max_concurrent_trajectories: int | None
   """
-  Minimum valid samples required for a training group; must not exceed group_size. Omit to
-  preserve the model default, capped at the group size.
+  Maximum active training trajectories. null uses batch_size × group_size × 2, allowing 2× batch
+  oversampling for throughput and asynchronous RL. Recommended: set above batch_size ×
+  group_size to keep collection ahead of training.
   """
-  max_active_rollouts: int | None
+  max_staleness: int | None
   """
-  Maximum active training rollouts per run.
-  """
-  max_steps_off_policy: int | None
-  """
-  Maximum optimizer steps a training rollout's starting policy may trail the current policy.
+  Maximum optimizer steps a training rollout’s starting policy may trail the current policy.
   Older in-flight rollouts are cancelled and older completed rollouts are discarded; 0 trains
   only on rollouts started from the current policy.
   """
-  execution_timeout_seconds: int | None
+  train_on_all_fail: bool | None
   """
-  Maximum execution time per training or evaluation rollout, including policy and grading. The
-  clock starts when the harness runs, after queueing and sandbox startup. Collection timeouts
-  must cover this budget and are not adjusted automatically.
+  Train on groups whose eligible rewards are all at or below zero; false excludes them.
   """
-  batch_collection_idle_timeout_seconds: int | None
+  train_on_all_pass: bool | None
+  """
+  Train on groups whose eligible rewards are all at or above one; false excludes them.
+  """
+  train_on_zero_advantage: bool | None
+  """
+  Train on groups with identical eligible rewards; false excludes them.
+  """
+  trajectory_timeout_seconds: int | None
+  """
+  Maximum execution seconds per trajectory, including grading. Excludes queueing and sandbox
+  startup. Collection timeouts must cover this budget.
+  """
+  batch_timeout_seconds: int | None
   """
   Maximum wall-clock time to assemble one training batch. The clock starts when collection
-  begins and does not reset as groups or in-flight rollouts arrive. The legacy field name is
-  retained for API compatibility. Must cover rollout execution and is not adjusted
-  automatically.
+  begins and does not reset as groups or in-flight trajectories arrive. Must cover trajectory
+  execution and is not adjusted automatically.
   """
-  max_output_tokens_per_step: int | None
+  max_output_tokens_per_turn: int | None
   """
-  On an endpoint created for the run, maximum assistant output tokens per model step; replaces
-  the harness request's max_tokens.
+  Maximum output tokens per model response. null uses the model’s maximum, bounded by remaining
+  context.
   """
-  max_total_tokens_per_trajectory: int | None
+  max_output_tokens_per_trajectory: int | None
   """
-  On an endpoint created for the run, maximum assistant output tokens across all steps of one
-  trajectory, including steps after context compaction, so it can exceed the model's context
-  window. Reaching this cap during a reply can end the trajectory as TRUNCATION before the
-  harness logs reward.
+  Maximum output tokens across one trajectory, including after context compaction. null uses the
+  model’s maximum supported context length.
   """
   max_turns_per_trajectory: int | None
   """

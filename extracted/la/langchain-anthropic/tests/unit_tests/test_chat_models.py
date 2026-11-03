@@ -38,6 +38,7 @@ from langchain_core.messages import (
 from langchain_core.messages.content import create_text_block
 from langchain_core.runnables import RunnableBinding
 from langchain_core.tools import BaseTool, tool
+from langchain_core.tracers._streaming import _V2StreamingCallbackHandler
 from langchain_core.tracers.base import BaseTracer
 from langchain_core.tracers.schemas import Run
 from langchain_core.utils._gateway import GATEWAY_METADATA_RESPONSE_KEY
@@ -83,6 +84,22 @@ class _GatewayMetadataTracer(BaseTracer):
         gateway_metadata = metadata.get("ls_gateway_info")
         if isinstance(gateway_metadata, dict):
             self.gateway_metadata = gateway_metadata
+
+
+class _TokenEventTracer(BaseTracer, _V2StreamingCallbackHandler):
+    """Records LLM run events with a v2 handler attached, as LangGraph does."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.token_events: list[dict[str, Any]] = []
+
+    def _persist_run(self, run: Run) -> None:
+        """No-op; runs are inspected as they complete."""
+
+    def _on_llm_end(self, run: Run) -> None:
+        self.token_events = [
+            event["kwargs"] for event in run.events if event["name"] == "new_token"
+        ]
 
 
 _GATEWAY_METADATA = {"provider": "anthropic"}
@@ -258,6 +275,37 @@ async def test_anthropic_astream_surfaces_gateway_metadata(
         {GATEWAY_METADATA_RESPONSE_KEY: _GATEWAY_METADATA},
         None,
         None,
+    ]
+
+
+def test_stream_with_tools_reports_tokens_to_v2_handlers(dummy_tool: BaseTool) -> None:
+    """Block-list chunks still fire `on_llm_new_token`, so tracers see TTFT."""
+    llm = ChatAnthropic(model=MODEL_NAME, max_tokens=10)
+    tracer = _TokenEventTracer()
+    with _sync_gateway_client(None) as client, patch.object(llm, "_client", client):
+        llm.bind_tools([dummy_tool]).invoke("bar", config={"callbacks": [tracer]})
+
+    assert [event["token"] for event in tracer.token_events] == ["", "Bar Baz", ""]
+    assert tracer.token_events[1]["chunk"].message.content == [
+        {"type": "text", "text": "Bar Baz", "index": 0}
+    ]
+
+
+async def test_astream_with_tools_reports_tokens_to_v2_handlers(
+    dummy_tool: BaseTool,
+) -> None:
+    """Async block-list chunks still fire `on_llm_new_token`."""
+    llm = ChatAnthropic(model=MODEL_NAME, max_tokens=10)
+    tracer = _TokenEventTracer()
+    async with _async_gateway_client(None) as client:
+        with patch.object(llm, "_async_client", client):
+            await llm.bind_tools([dummy_tool]).ainvoke(
+                "bar", config={"callbacks": [tracer]}
+            )
+
+    assert [event["token"] for event in tracer.token_events] == ["", "Bar Baz", ""]
+    assert tracer.token_events[1]["chunk"].message.content == [
+        {"type": "text", "text": "Bar Baz", "index": 0}
     ]
 
 
@@ -3395,6 +3443,24 @@ def test_usage_metadata_cache_creation_ttl() -> None:
     assert details["cache_read"] == 5
     assert details["cache_creation"] == 10
 
+    # Case 7: cache_creation containing explicit None values (e.g. Bedrock)
+    class UsageWithCacheCreationNulls(BaseModel):
+        input_tokens: int = 200
+        output_tokens: int = 30
+        cache_read_input_tokens: int = 10
+        cache_creation_input_tokens: int = 150
+        cache_creation: dict = {
+            "ephemeral_5m_input_tokens": 100,
+            "ephemeral_1h_input_tokens": None,
+        }
+
+    result = _create_usage_metadata(UsageWithCacheCreationNulls())
+    assert result["input_tokens"] == 200 + 10 + 100
+    details = dict(result.get("input_token_details") or {})
+    assert details["cache_creation"] == 0
+    assert details["ephemeral_5m_input_tokens"] == 100
+    assert "ephemeral_1h_input_tokens" not in details
+
 
 class FakeTracer(BaseTracer):
     """Fake tracer to capture inputs to `chat_model_start`."""
@@ -4224,6 +4290,22 @@ def test_format_messages_preserves_nonempty_thinking_field() -> None:
     block = payload["messages"][1]["content"][0]
     assert block["thinking"] == "Let me think."
     assert block["signature"] == "sig_xyz"
+
+
+def test_format_messages_strips_index_from_compaction_block() -> None:
+    """Streamed compaction blocks carry `index`, which the API rejects on replay."""
+    llm = ChatAnthropic(model=MODEL_NAME)  # type: ignore[call-arg]
+
+    compaction = {"type": "compaction", "content": "Summary.", "index": 0}
+    msg = AIMessage(content=[compaction, {"type": "text", "text": "Hi", "index": 1}])
+    payload = llm._get_request_payload(
+        [HumanMessage("hi"), msg, HumanMessage("continue")]
+    )
+    assert payload["messages"][1]["content"] == [
+        {"type": "compaction", "content": "Summary."},
+        {"type": "text", "text": "Hi"},
+    ]
+    assert compaction["index"] == 0
 
 
 @pytest.mark.parametrize(

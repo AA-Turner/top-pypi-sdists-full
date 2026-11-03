@@ -14,7 +14,42 @@ from dify_plugin.entities.model.message import (
     AssistantPromptMessage,
     PromptMessage,
     PromptMessageTool,
+    TextPromptMessageContent,
 )
+
+
+def merge_llm_result_chunk(result: LLMResult, chunk: LLMResultChunk) -> None:
+    """Append complete tool calls and retain the latest usage and replay snapshots."""
+    call_ids = {call.id for call in result.message.tool_calls}
+    for call in chunk.delta.message.tool_calls:
+        if not call.id:
+            msg = "Complete tool calls must have a nonempty ID."
+            raise ValueError(msg)
+        if call.id in call_ids:
+            msg = f"Duplicate tool call ID: {call.id}"
+            raise ValueError(msg)
+        call_ids.add(call.id)
+
+    content = chunk.delta.message.content
+    if isinstance(content, str):
+        if isinstance(result.message.content, list):
+            if content:
+                result.message.content.append(TextPromptMessageContent(data=content))
+        else:
+            result.message.content = (result.message.content or "") + content
+    elif isinstance(content, list) and content:
+        if not isinstance(result.message.content, list):
+            result.message.content = (
+                [TextPromptMessageContent(data=result.message.content)]
+                if result.message.content
+                else []
+            )
+        result.message.content.extend(content)
+    result.message.tool_calls.extend(chunk.delta.message.tool_calls)
+    if chunk.delta.message.opaque_body is not None:
+        result.message.opaque_body = chunk.delta.message.opaque_body
+    if chunk.delta.usage is not None:
+        result.usage = chunk.delta.usage.model_copy()
 
 
 class LLMInvocation(BackwardsInvocation[LLMResultChunk]):
@@ -84,29 +119,12 @@ class LLMInvocation(BackwardsInvocation[LLMResultChunk]):
             usage=LLMUsage.empty_usage(),
         )
 
-        result.message.content = cast("str", result.message.content)
-
         for llm_result in self._backwards_invoke(
             InvokeType.LLM,
             LLMResultChunk,
             data,
         ):
-            if isinstance(llm_result.delta.message.content, str):
-                result.message.content += llm_result.delta.message.content
-            if len(llm_result.delta.message.tool_calls) > 0:
-                result.message.tool_calls = llm_result.delta.message.tool_calls
-            if llm_result.delta.usage:
-                result.usage.prompt_tokens += llm_result.delta.usage.prompt_tokens
-                result.usage.completion_tokens += (
-                    llm_result.delta.usage.completion_tokens
-                )
-                result.usage.total_tokens += llm_result.delta.usage.total_tokens
-
-                result.usage.completion_price = llm_result.delta.usage.completion_price
-                result.usage.prompt_price = llm_result.delta.usage.prompt_price
-                result.usage.total_price = llm_result.delta.usage.total_price
-                result.usage.currency = llm_result.delta.usage.currency
-                result.usage.latency = llm_result.delta.usage.latency
+            merge_llm_result_chunk(result, llm_result)
 
         return result
 

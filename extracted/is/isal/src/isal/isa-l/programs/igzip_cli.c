@@ -211,15 +211,20 @@ get_filesize(FILE *fp)
         size_t file_size;
         fpos_t pos, pos_curr;
 
-        fgetpos(fp, &pos_curr); /* Save current position */
+        if (fgetpos(fp, &pos_curr) != 0) /* Save current position */
+                return 0;
 #if defined(_WIN32) || defined(_WIN64)
-        _fseeki64(fp, 0, SEEK_END);
+        if (_fseeki64(fp, 0, SEEK_END) != 0)
+                return 0;
 #else
-        fseeko(fp, 0, SEEK_END);
+        if (fseeko(fp, 0, SEEK_END) != 0)
+                return 0;
 #endif
-        fgetpos(fp, &pos);
+        if (fgetpos(fp, &pos) != 0)
+                return 0;
         file_size = *(size_t *) &pos;
-        fsetpos(fp, &pos_curr); /* Restore position */
+        if (fsetpos(fp, &pos_curr) != 0) /* Restore position */
+                return 0;
 
         return file_size;
 }
@@ -759,7 +764,7 @@ compress_file(void)
 
                         ret = isal_deflate(&stream);
 
-                        if (ret != ISAL_DECOMP_OK) {
+                        if (ret != COMP_OK) {
                                 log_print(ERROR,
                                           "igzip: Error encountered while compressing file %s\n",
                                           infile_name);
@@ -888,6 +893,23 @@ decompress_file(void)
 
         if (outfile_type == implicit)
                 file_time = gz_hdr.time;
+
+        /* RFC 1952 §2.3.1: the NAME field stores a bare filename with any
+         * directory components already removed by the compressor. Strip any
+         * path prefix here to prevent path-traversal. */
+        if (outfile_type == implicit && outfile_name != NULL && outfile_name[0] != 0) {
+#ifdef _WIN32
+                /* Windows accepts both '/' and '\' as separators; pick the rightmost. */
+                char *base = strrchr(outfile_name, '/');
+                char *base_win = strrchr(outfile_name, '\\');
+                if (base_win != NULL && (base == NULL || base_win > base))
+                        base = base_win;
+#else
+                char *base = strrchr(outfile_name, '/');
+#endif
+                if (base != NULL)
+                        memmove(outfile_name, base + 1, strlen(base + 1) + 1);
+        }
 
         if (outfile_name != NULL && infile_name != NULL &&
             (outfile_type == stripped || (outfile_type == implicit && outfile_name[0] == 0))) {

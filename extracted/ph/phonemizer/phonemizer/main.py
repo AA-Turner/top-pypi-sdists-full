@@ -16,7 +16,6 @@
 """Command-line phonemizer tool, have a 'phonemizer --help' to get in"""
 
 import argparse
-import os
 import sys
 import re
 
@@ -31,7 +30,7 @@ class CatchExceptions:  # pragma: nocover
     standard output before exiting with error code 1.
 
     The detected exceptions are ValueError, OSError, RuntimeError,
-    AssertionError and KeyboardInterrupt.
+    AssertionError, ImportError and KeyboardInterrupt.
 
     Parameters
     ----------
@@ -48,7 +47,7 @@ class CatchExceptions:  # pragma: nocover
             self.function()
 
         except (IOError, ValueError, OSError,
-                RuntimeError, AssertionError) as err:
+                RuntimeError, AssertionError, ImportError) as err:
             self.exit('fatal error: {}'.format(err))
 
         except KeyboardInterrupt:
@@ -304,12 +303,26 @@ Examples:
 
 
 def list_languages(args_backend):
-    """Returns the available languages for the given `backend` as a str"""
+    """Returns the available languages for the given `backend` as a str
+
+    When listing the languages of all the backends, the ones that are not
+    installed are reported as such.
+
+    """
+    output = []
     for backend in BACKENDS.keys() if not args_backend else [args_backend]:
-        print(
+        try:
+            languages = BACKENDS[backend].supported_languages()
+        except (ImportError, RuntimeError):
+            if args_backend:
+                raise
+            output.append(f'{backend} backend is not installed')
+            continue
+
+        output.append(
             f'supported languages for {backend} are:\n' +
-            '\n'.join(f'\t{k}\t->\t{v}' for k, v in sorted(
-                BACKENDS[backend].supported_languages().items())))
+            '\n'.join(f'\t{k}\t->\t{v}' for k, v in sorted(languages.items())))
+    return '\n'.join(output)
 
 
 def get_logger(verbose, quiet):
@@ -416,12 +429,13 @@ def main():
 
     if out and input_output_separator:
         streamout.write(
-            os.linesep.join(
+            '\n'.join(
                 f'{line[0]} {input_output_separator} {line[1]}'
                 for line in out)
-            + os.linesep)
+            + '\n')
     elif out:
-        streamout.write(os.linesep.join(out) + os.linesep)
+        # the stream is opened in text mode, '\n' is the platform line separator
+        streamout.write('\n'.join(out) + '\n')
 
 
 if __name__ == '__main__':  # pragma: nocover

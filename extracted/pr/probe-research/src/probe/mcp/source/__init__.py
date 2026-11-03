@@ -6,7 +6,7 @@ from __future__ import annotations
 from ...foundation.front_door.front_door import serve_pieces
 
 # Every piece loads here, as the old module ran whole on import (statically, so the deploy
-# gate's import walk in scripts/test_gate.py sees each one; serve_pieces loads the nested ones).
+# gate's import walk in scripts/ci/test_gate.py sees each one; serve_pieces loads the nested ones).
 from . import catalog, documents, entities, lineage, projects, runs, search, sessions, source  # noqa: F401
 
 #: The old module's pieces, in the split's load order: a write through the door reaches these only.

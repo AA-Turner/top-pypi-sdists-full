@@ -24,6 +24,8 @@ from typing import Any, Iterable
 
 from sequence_ai.errors import AuthError, Conflict, SequencesError, Unavailable, from_response
 
+from sequence_ai.errors import MissingPackage
+
 
 class SeqAuthoringError(Exception):
     """Base for anything wrong with how a user wrote their `@seq.*` policy."""
@@ -47,16 +49,6 @@ class AdapterDefinitionError(SeqAuthoringError):
     """A `@seq.adapter` class is malformed: its name or pairs are invalid, it lacks its @seq.observation or @seq.action
     method, or one cannot take the one value it is handed.
     """
-
-
-class MissingPackage(SequencesError):
-    """A command needs a package this machine lacks - an optional extra of sequence-ai: installing it, as its hint
-    says, is the fix. Nothing about the request or the platform is wrong, and the same command fails the same way until
-    it is installed: `seq` says error[missing_package] and exits 1. Before, it said error[invalid_request] - the
-    platform's word for a request that is wrong.
-"""
-
-    default_code = "missing_package"
 
 
 class GpuRenderError(RuntimeError):

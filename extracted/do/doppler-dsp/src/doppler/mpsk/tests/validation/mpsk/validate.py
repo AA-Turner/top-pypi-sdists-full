@@ -11,7 +11,7 @@ which runs this same `build(write=False)`.
 
 The order is the campaign's, not this file's:
 `native/inc/doppler/mpsk/mpsk_core.h` is the SSOT,
-`native/tests/test_mpsk_core.c` certifies it in C, and
+`native/tests/mpsk/test_mpsk_core.c` certifies it in C, and
 `native/validation/mpsk_diff_penalty.c` measures the differential penalty
 by Monte Carlo. This file measures the same properties through
 `doppler.mpsk` to show the binding delivers them.
@@ -182,7 +182,7 @@ def section_object() -> None:
         "`mpsk_gray_decode` are inline in the header with no binding, and "
         "the decision `ahat` — whose `Im(y·conj(ahat))` is the "
         "decision-directed carrier error — is a C-only output. They are "
-        "certified in `native/tests/test_mpsk_core.c`; nothing below "
+        "certified in `native/tests/mpsk/test_mpsk_core.c`; nothing below "
         "measures them, and a report that did not say so would be "
         "claiming coverage it does not have."
     )
@@ -396,7 +396,7 @@ def review(d: Data) -> None:
     # A verdict is a judgement about a PROBLEM; the review phase has no
     # vocabulary for "this works", deliberately.
     R.find(
-        "F1",
+        "diff_penalty_asymptote",
         "FIXED",
         f"The header's `~2x` differential penalty is an ASYMPTOTE, not a "
         f"constant: measured {lo:.2f}x to {hi:.2f}x across this grid, "
@@ -408,7 +408,7 @@ def review(d: Data) -> None:
         "the case furthest from it.",
     )
     R.find(
-        "F2",
+        "decision_ahat_inline_helpers_no",
         "C-ONLY",
         "The decision `ahat` and the inline helpers have no Python face, "
         "so the decision-directed carrier error `Im(y·conj(ahat))` — the "
@@ -418,7 +418,7 @@ def review(d: Data) -> None:
         "in it.",
     )
     R.find(
-        "F3",
+        "mpsk_core_folded_no_library",
         "GAP",
         "`mpsk_core` is folded into no library: `mpsk_map`/`mpsk_demap` "
         "are absent from `libdoppler.a` and `.so`, so a C caller cannot "
@@ -428,7 +428,7 @@ def review(d: Data) -> None:
         "fix wants its own gate and is out of scope here.",
     )
     R.find(
-        "F4",
+        "rotated_diff_symbol_zero",
         "BY DESIGN",
         "A rotated differential stream decodes symbol 0 wrongly. It "
         "references the implicit zero-phase start, so there is nothing "
@@ -437,7 +437,7 @@ def review(d: Data) -> None:
         "label.",
     )
     R.find(
-        "F5",
+        "test_private_correlation_search",
         "FIXED",
         "`test_carrier_mpsk_core.c` carried a private O(M) correlation "
         "search instead of calling `mpsk_slice`, so the carrier-loop test "
@@ -560,21 +560,24 @@ def build(write: bool = True) -> Report:
             "not merely self-consistent.** Coherent SER tracks "
             "closed-form theory across every cell, so the slicer every "
             "M-PSK consumer decides through is anchored rather than "
-            "assumed (§2.4, F1).",
+            f"assumed (§2.4, {R.ref('diff_penalty_asymptote')}).",
             "**`~2x` for differential mode is an asymptote, not a "
             f"constant** — measured {lo:.2f}x to {hi:.2f}x. It is an "
             "upper bound reached where a receiver operates, and the "
-            "caller is charged less at low Es/N0 (§2.4, F1).",
+            "caller is charged less at low Es/N0 (§2.4, "
+            f"{R.ref('diff_penalty_asymptote')}).",
             "**Differential mode survives ANY constant carrier phase**, "
             "not just the M constellation rotations — the stronger claim, "
             "and the one that makes it worth its penalty (§2.5).",
             "**The most important surface has no Python face.** The "
             "decision `ahat` and the inline helpers are C-only; this "
             "report says what it cannot reach rather than reporting a "
-            "clean bill of health for the rest (F2).",
+            "clean bill of health for the rest "
+            f"({R.ref('decision_ahat_inline_helpers_no')}).",
             "**`mpsk_core` is in no library** — the C face of this module "
             "cannot be linked at all, which every Python gate is blind to "
-            "(F3, [#747](https://github.com/doppler-dsp/doppler/issues/747)).",
+            f"({R.ref('mpsk_core_folded_no_library')}, "
+            "[#747](https://github.com/doppler-dsp/doppler/issues/747)).",
         ],
     )
     R.summary("\n- Raw sweep: `data/ser.csv`")

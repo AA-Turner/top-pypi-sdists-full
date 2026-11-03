@@ -12,8 +12,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
-from datamodel_code_generator.parser._facts import Fact, Phase
-from datamodel_code_generator.parser._pass_decls import PassDecl, PassKind, Scope
 from datamodel_code_generator.parser._phases import DecisionPass, DecisionWriter
 
 if TYPE_CHECKING:
@@ -48,7 +46,8 @@ def _omit_held_null(facts: FinalFacts, writer: HeldNullWriter) -> None:
     """Drop the None of every type of a live model that names a live model holding null.
 
     Which models hold null is read for every model before the first write, so a root model whose root names a model
-    holding null keeps holding null after its root loses the restated None.
+    holding null keeps holding null after its root loses the restated None. The holders stay keyed by the identity of
+    their Reference, not by model key, so a deep copy of a type keeps the restated None as before (#5824).
     """
     holders = {id(model.reference) for model in facts.live_models if model.holds_null}
     if not holders:
@@ -65,16 +64,7 @@ def _omit_held_null(facts: FinalFacts, writer: HeldNullWriter) -> None:
 
 OMIT_HELD_NULL = DecisionPass(
     {
-        "decl": PassDecl(
-            "omit_held_null",
-            Phase.DECIDE,
-            Scope.GLOBAL,
-            PassKind.TRANSFORM,
-            reads=frozenset({Fact.FIELD_TYPES, Fact.NULLABLE, Fact.MODEL_KIND}),
-            writes=frozenset({Fact.FIELD_TYPES, Fact.NULLABLE}),
-            summary="Drops the None a type restates of the model it names when that model holds null itself.",
-            condition="--omit-redundant-reference-null",
-        ),
+        "name": "omit_held_null",
         "issue": "#5081",
     },
     HeldNullWriter,

@@ -24,7 +24,6 @@ import anyio.from_thread
 import anyio.to_thread
 import starlette.websockets
 import uvicorn.server
-import websockets.legacy.http
 import websockets.exceptions
 
 from solara.server.utils import path_is_child_of, redact_id
@@ -100,6 +99,10 @@ prefix = ""
 # Since starlette seems to accept really large values for http, lets do the same for websockets
 # An arbitrarily large value we settled on for now is 32kb
 # If we don't do this, users with many cookies will fail to get a websocket connection.
+with warnings.catch_warnings():
+    # websockets 14 deprecates the legacy module (17 warns on import), but uvicorn can still use it
+    warnings.simplefilter("ignore", DeprecationWarning)
+    import websockets.legacy.http
 ws_major_version = int(websockets.__version__.split(".")[0])
 if ws_major_version >= 13:
     websockets.legacy.http.MAX_LINE_LENGTH = int(os.environ.get("WEBSOCKETS_MAX_LINE_LENGTH", str(1024 * 32)))  # type: ignore
@@ -202,7 +205,24 @@ class WebsocketWrapper(websocket.WebsocketWrapper):
         if self.portal is None:
             asyncio.ensure_future(_close_exc())
         else:
-            self.portal.call(_close_exc)
+            self._portal_call(_close_exc)
+
+    def _portal_call(self, func, *args):
+        assert self.portal is not None
+        try:
+            return self.portal.call(func, *args)
+        except RuntimeError as e:
+            # The websocket handler stops the portal when it exits. Another thread (e.g. the
+            # close beacon shutting down the kernel) can still hold this websocket from a copy of
+            # the kernel's websocket set, so treat a stopped portal as a closed websocket.
+            # The second message is for a portal that stops between anyio's running check and
+            # the start of the task.
+            if "portal is not running" in repr(e) or "no new tasks can be started" in repr(e):
+                raise websocket.WebSocketDisconnect() from e
+            raise
+        except concurrent.futures.CancelledError as e:
+            # the portal cancelled the call because the websocket handler is stopping
+            raise websocket.WebSocketDisconnect() from e
 
     def send_text(self, data: str) -> None:
         if self.sync_writer is not None:
@@ -231,7 +251,7 @@ await to_thread.run_sync(my_update)
                     self.tasks.add(task)
                     task.add_done_callback(self.tasks.discard)
                 else:
-                    self.portal.call(self._send_text_exc, data)
+                    self._portal_call(self._send_text_exc, data)
 
     def send_bytes(self, data: bytes) -> None:
         if self.sync_writer is not None:
@@ -259,8 +279,8 @@ await to_thread.run_sync(my_update)
                     task = self.event_loop.create_task(self._send_bytes_exc(data))
                     self.tasks.add(task)
                     task.add_done_callback(self.tasks.discard)
-
-                self.portal.call(self._send_bytes_exc, data)
+                else:
+                    self._portal_call(self._send_bytes_exc, data)
 
     async def receive(self):
         if self.portal is None:
@@ -404,6 +424,8 @@ async def _kernel_connection(ws: starlette.websockets.WebSocket):
         # sometimes throws: RuntimeError: Already running asyncio in this thread
         anyio.run(run_wrapper)  # type: ignore
 
+    # set when the session id does not match the kernel's, so the client stops reconnecting
+    close_code: Optional[int] = None
     # this portal allows us to sync call the websocket calls from this current event loop we are in
     # each websocket however, is handled from a separate thread
     try:
@@ -411,10 +433,18 @@ async def _kernel_connection(ws: starlette.websockets.WebSocket):
             async with anyio.from_thread.BlockingPortal() as portal:
                 ws_wrapper = WebsocketWrapper(ws, portal)
                 thread_return = anyio.to_thread.run_sync(websocket_thread_runner, ws_wrapper, portal, limiter=limiter)  # type: ignore
-                await thread_return
+                # catch it here: at the portal exit anyio wraps it in an ExceptionGroup.
+                # Await nothing else in this block, the thread has cancelled the portal.
+                try:
+                    await thread_return
+                except kernel_context.SessionIdMismatchError:
+                    close_code = kernel_context.SESSION_LOST_CLOSE_CODE
         else:
             ws_wrapper = WebsocketWrapper(ws, None)
-            await run(ws_wrapper)
+            try:
+                await run(ws_wrapper)
+            except kernel_context.SessionIdMismatchError:
+                close_code = kernel_context.SESSION_LOST_CLOSE_CODE
     finally:
         if settings.main.experimental_performance:
             try:
@@ -422,7 +452,11 @@ async def _kernel_connection(ws: starlette.websockets.WebSocket):
             except:  # noqa
                 logger.exception("error cancelling websocket task")
         try:
-            await ws.close()
+            if close_code is not None:
+                await ws.close(code=close_code, reason="session id mismatch")
+                logger.info("closed websocket for kernel=%s with session lost code %d", redact_id(kernel_id), close_code)
+            else:
+                await ws.close()
         except:  # noqa
             pass
 

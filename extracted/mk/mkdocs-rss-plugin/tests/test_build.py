@@ -20,13 +20,19 @@ import tempfile
 import unittest
 from pathlib import Path
 from traceback import format_exception
+from unittest.mock import patch
+from xml.etree import ElementTree
 
 # 3rd party
 import feedparser
 import jsonfeed
 
+# plugin target
+from mkdocs_rss_plugin.util import Util
+
 # test suite
 from tests.base import BaseTest
+
 
 # -- Globals --
 logger = logging.getLogger(__name__)
@@ -118,10 +124,35 @@ class TestBuildRss(BaseTest):
                 # optional - following should not be present in the feed by default
                 self.assertTrue("category" not in feed_item)
                 self.assertTrue("comments" not in feed_item)
-                self.assertTrue("enclosure" not in feed_item)
 
-                if feed_item.title in ("Test page with meta",):
+                if feed_item.title == "Page with complete meta":
                     self.assertTrue("author" in feed_item)
+                    self.assertTrue(feed_item.enclosures)
+
+            # make sure the conditional assertions above actually ran
+            self.assertIn(
+                "Page with complete meta", {e.title for e in feed_parsed.entries}
+            )
+
+    def test_simple_build_enclosure_unknown_length(self):
+        """Enclosures with an unknown length are kept with length 0 (RSS Profile)."""
+        with (
+            tempfile.TemporaryDirectory() as tmpdirname,
+            patch.object(Util, "get_remote_image_length", return_value=None),
+        ):
+            cli_result = self.build_docs_setup(
+                testproject_path="docs",
+                mkdocs_yml_filepath=Path("tests/fixtures/mkdocs_minimal.yml"),
+                output_path=tmpdirname,
+            )
+            self.assertEqual(cli_result.exit_code, 0)
+            self.assertIsNone(cli_result.exception)
+
+            feed_xml = (Path(tmpdirname) / OUTPUT_RSS_FEED_CREATED).read_text(
+                encoding="utf-8"
+            )
+            self.assertNotIn('length="None"', feed_xml)
+            self.assertIn('length="0"', feed_xml)
 
     def test_simple_build_complete(self):
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -152,17 +183,33 @@ class TestBuildRss(BaseTest):
 
                 # optional - following should not be present in the feed by default
                 if (
-                    "without_meta" in feed_item.title
+                    feed_item.title.startswith("Page without meta")
                     or feed_item.title == "Test home page"
                 ):
                     self.assertTrue("category" not in feed_item)
                     self.assertTrue("comments" in feed_item)
-                elif "with_meta" in feed_item.title:
+                elif feed_item.title == "Page with complete meta":
                     self.assertTrue("author" in feed_item)
                     self.assertTrue("category" in feed_item)
-                    self.assertTrue("enclosure" in feed_item)
-                else:
-                    pass
+                    self.assertTrue(feed_item.enclosures)
+
+            # make sure the conditional assertions above actually ran
+            self.assertIn(
+                "Page with complete meta", {e.title for e in feed_parsed.entries}
+            )
+
+            # authors: RSS 2.0 requires <author> to be an email address,
+            # so human-readable names must use <dc:creator> instead
+            tree = ElementTree.parse(Path(tmpdirname) / OUTPUT_RSS_FEED_CREATED)
+            dc_namespace = "http://purl.org/dc/elements/1.1/"
+            for item in tree.getroot().findall(".//item"):
+                self.assertIsNone(item.find("author"))
+                if item.find("title").text == "Page with complete meta":
+                    creators = item.findall(f"{{{dc_namespace}}}creator")
+                    self.assertEqual(
+                        [c.text for c in creators],
+                        ["Guts", "Tim Vink", "liang2kl"],
+                    )
 
     def test_simple_build_disabled(self):
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -326,8 +373,13 @@ class TestBuildRss(BaseTest):
             feed_parsed = feedparser.parse(Path(tmpdirname) / OUTPUT_RSS_FEED_CREATED)
 
             for feed_item in feed_parsed.entries:
-                if feed_item.title in ("Test page with meta",):
+                if feed_item.title == "Page with complete meta":
                     self.assertTrue("category" in feed_item)
+
+            # make sure the conditional assertion above actually ran
+            self.assertIn(
+                "Page with complete meta", {e.title for e in feed_parsed.entries}
+            )
 
     def test_simple_build_item_comments_enabled(self):
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -518,6 +570,32 @@ class TestBuildRss(BaseTest):
                 testproject_path="docs",
                 mkdocs_yml_filepath=Path(
                     "tests/fixtures/mkdocs_language_specific_material.yml"
+                ),
+                output_path=tmpdirname,
+                strict=True,
+            )
+
+            if cli_result.exception is not None:
+                e = cli_result.exception
+                logger.debug(format_exception(type(e), e, e.__traceback__))
+
+            self.assertEqual(cli_result.exit_code, 0)
+            self.assertIsNone(cli_result.exception)
+
+            # created items
+            feed_parsed = feedparser.parse(Path(tmpdirname) / OUTPUT_RSS_FEED_CREATED)
+            self.assertEqual(feed_parsed.feed.get("language"), "fr")
+
+            # updated items
+            feed_parsed = feedparser.parse(Path(tmpdirname) / OUTPUT_RSS_FEED_UPDATED)
+            self.assertEqual(feed_parsed.feed.get("language"), "fr")
+
+    def test_simple_build_language_specific_materialx(self):
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            cli_result = self.build_docs_setup(
+                testproject_path="docs",
+                mkdocs_yml_filepath=Path(
+                    "tests/fixtures/mkdocs_materialx_language_specific.yml"
                 ),
                 output_path=tmpdirname,
                 strict=True,
@@ -852,7 +930,7 @@ class TestBuildRss(BaseTest):
         with tempfile.TemporaryDirectory() as tmpdirname:
             cli_result = self.build_docs_setup(
                 testproject_path="docs",
-                mkdocs_yml_filepath=Path("mkdocs.yml"),
+                mkdocs_yml_filepath=Path("properdocs.yml"),
                 output_path=tmpdirname,
                 strict=True,
             )
@@ -933,6 +1011,10 @@ class TestBuildRss(BaseTest):
             # Verify the author field contains the escaped ampersand
             self.assertIn("OpenSavvy &amp; contributors", feed_xml)
             self.assertNotIn("OpenSavvy & contributors</managingEditor>", feed_xml)
+
+            # H1-derived titles arrive from MkDocs with HTML entities:
+            # they must be unescaped once, then escaped once for the XML
+            self.assertIn("Test: A &amp; B &lt; C &gt; D", feed_xml)
 
 
 # ##############################################################################

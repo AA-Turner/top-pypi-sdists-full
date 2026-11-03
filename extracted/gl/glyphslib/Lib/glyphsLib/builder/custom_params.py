@@ -17,13 +17,15 @@ from collections import defaultdict
 import re
 import logging
 
-from glyphsLib.classes import InstanceType
+from glyphsLib.classes import GSAlignmentZone, InstanceType
 from glyphsLib.util import bin_to_int_list, int_list_to_bin
+from .blue_values import alignment_zones_from_blues, blues_from_alignment_zones
 from .filters import parse_glyphs_filter
 from .common import expand_text_tokens, to_ufo_color
 from .constants import (
     GLYPHS_PREFIX,
     UFO2FT_COLOR_PALETTES_KEY,
+    UFO2FT_FEATURE_WRITERS_KEY,
     UFO2FT_FILTERS_KEY,
     UFO2FT_USE_PROD_NAMES_KEY,
     CODEPAGE_RANGES,
@@ -31,8 +33,14 @@ from .constants import (
     PUBLIC_PREFIX,
     UFO_FILENAME_CUSTOM_PARAM,
     UFO2FT_META_TABLE_KEY,
+    DEFAULT_FEATURE_WRITERS,
 )
-from .features import replace_feature, replace_prefixes
+from .features import (
+    remove_feature,
+    remove_written_features,
+    replace_feature,
+    replace_prefixes,
+)
 
 """Set Glyphs custom parameters in UFO info or lib, where appropriate.
 
@@ -449,18 +457,60 @@ for name in GLYPHS_UFO_CUSTOM_PARAMS_NO_SHORT_NAME:
     register(ParamHandler(name))
 
 
-class EmptyListDefaultParamHandler(ParamHandler):
+class FamilyBluesParamHandler(ParamHandler):
+    """Glyphs ignores these parameters, so they are read but written back to
+    Glyphs as "Family Alignment Zones"."""
+
     def to_glyphs(self, glyphs, ufo):
-        ufo_value = self._read_from_ufo(glyphs, ufo)
-        # Ingore default value == empty list
-        if ufo_value is None or ufo_value == []:
+        pass
+
+
+register(FamilyBluesParamHandler("postscriptFamilyBlues"))
+register(FamilyBluesParamHandler("postscriptFamilyOtherBlues"))
+
+
+class FamilyAlignmentZonesParamHandler(AbstractParamHandler):
+    """The "Family Alignment Zones" parameter of Glyphs: the family blues and
+    family other blues, split as the alignment zones of a master are. The
+    postscriptFamilyBlues and postscriptFamilyOtherBlues parameters take
+    precedence."""
+
+    glyphs_name = "Family Alignment Zones"
+
+    def to_glyphs(self, glyphs, ufo):
+        if not glyphs.is_font():
             return
-        glyphs_value = self.value_to_glyphs(ufo_value)
-        self._write_to_glyphs(glyphs, glyphs_value)
+        zones = alignment_zones_from_blues(
+            ufo.get_info_value("postscriptFamilyBlues"),
+            ufo.get_info_value("postscriptFamilyOtherBlues"),
+        )
+        if zones:
+            glyphs.set_custom_value(
+                self.glyphs_name,
+                [GSAlignmentZone(pos, size) for pos, size in zones],
+            )
+
+    def to_ufo(self, builder, glyphs, ufo):
+        value = glyphs.get_custom_value(self.glyphs_name)
+        if not value:
+            return
+        # Glyphs 2 files store "{pos, size}" strings, Glyphs 3 files dicts,
+        # and fonts converted from UFOs hold zones.
+        zones = []
+        for zone in value:
+            if isinstance(zone, dict):
+                zone = GSAlignmentZone(zone["pos"], zone["size"])
+            elif isinstance(zone, str):
+                zone = GSAlignmentZone().read(zone)
+            zones.append(zone)
+        family_blues, family_other_blues = blues_from_alignment_zones(zones)
+        if family_blues and not ufo.get_info_value("postscriptFamilyBlues"):
+            ufo.set_info_value("postscriptFamilyBlues", family_blues)
+        if family_other_blues and not ufo.get_info_value("postscriptFamilyOtherBlues"):
+            ufo.set_info_value("postscriptFamilyOtherBlues", family_other_blues)
 
 
-register(EmptyListDefaultParamHandler("postscriptFamilyBlues"))
-register(EmptyListDefaultParamHandler("postscriptFamilyOtherBlues"))
+register(FamilyAlignmentZonesParamHandler())
 
 
 # Convert code page numbers to OS/2 ulCodePageRange bits. Empty lists stay empty lists.
@@ -1012,6 +1062,35 @@ class ReplaceFeatureParamHandler(AbstractParamHandler):
 
 
 register(ReplaceFeatureParamHandler())
+
+
+class RemoveFeaturesParamHandler(AbstractParamHandler):
+    """The "Remove Features" parameter of an instance: the features it leaves out."""
+
+    def to_ufo(self, builder, glyphs, ufo):
+        removed = [
+            tag
+            for tags in glyphs.get_custom_values("Remove Features")
+            for tag in ([tags] if isinstance(tags, str) else tags)
+        ]
+        if not removed:
+            return
+        for tag in removed:
+            ufo._owner.features.text = remove_feature(
+                tag, ufo._owner.features.text or ""
+            )
+        writers = ufo.get_lib_value(UFO2FT_FEATURE_WRITERS_KEY)
+        if writers is None:
+            writers = DEFAULT_FEATURE_WRITERS
+        remaining = remove_written_features(removed, writers)
+        if remaining != writers:
+            ufo.set_lib_value(UFO2FT_FEATURE_WRITERS_KEY, remaining)
+
+    def to_glyphs(self, glyphs, ufo):
+        pass
+
+
+register(RemoveFeaturesParamHandler())
 
 
 class ReencodeGlyphsParamHandler(AbstractParamHandler):

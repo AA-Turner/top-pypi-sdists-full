@@ -81,7 +81,7 @@ def _capture_swallowed(
 ) -> None:
     """Report a swallowed exception; lazy so `import probe` does not pull in the CLI.
 
-    `diagnostics` reaches `probe.cli.telemetry` on its no-run leg. `base_url` is the
+    `diagnostics` reaches `probe.analytics` on its no-run leg. `base_url` is the
     backend THIS client talks to (from `probe.init(base_url=...)` or a named context)
     and gates the report against the self-host egress contract; the CLI config can
     name another backend. Omitted means suppressed, never guessed."""

@@ -7,6 +7,7 @@ from trajectory.types._internal import ToolResponseMetadata as ToolResponseMetad
 from trajectory.types.agent_list_response import AgentListItem as AgentListItem
 from trajectory.types.agent_list_response import AgentListResponse as AgentListResponse
 from trajectory.types.agents.agent_response import AgentResponse as AgentResponse
+from trajectory.types.aperture_reward_point import ApertureRewardPoint as ApertureRewardPoint
 from trajectory.types.artifact_upload import ArtifactUpload as ArtifactUpload
 from trajectory.types.artifacts.artifact import Artifact as Artifact
 from trajectory.types.artifacts.artifact_download import ArtifactDownload as ArtifactDownload
@@ -51,17 +52,11 @@ from trajectory.types.benchmark_ingestion_upload_urls import (
 from trajectory.types.benchmark_runtime import BenchmarkRuntime as BenchmarkRuntime
 from trajectory.types.benchmark_runtimes_page import BenchmarkRuntimesPage as BenchmarkRuntimesPage
 from trajectory.types.benchmark_spec_tool import BenchmarkSpecTool as BenchmarkSpecTool
-from trajectory.types.benchmark_task_append_result import (
-  BenchmarkTaskAppendResult as BenchmarkTaskAppendResult,
-)
 from trajectory.types.benchmark_task_count_response import (
   BenchmarkTaskCountResponse as BenchmarkTaskCountResponse,
 )
 from trajectory.types.benchmark_task_diff_response import (
   BenchmarkTaskDiffResponse as BenchmarkTaskDiffResponse,
-)
-from trajectory.types.benchmark_task_write_failure import (
-  BenchmarkTaskWriteFailure as BenchmarkTaskWriteFailure,
 )
 from trajectory.types.benchmark_tools_page import BenchmarkToolsPage as BenchmarkToolsPage
 from trajectory.types.benchmark_upload_url import BenchmarkUploadUrl as BenchmarkUploadUrl
@@ -122,9 +117,6 @@ from trajectory.types.chat_completion_response_function import (
 from trajectory.types.complete_trajectory_response import (
   CompleteTrajectoryResponse as CompleteTrajectoryResponse,
 )
-from trajectory.types.create_benchmark_task_append_response import (
-  CreateBenchmarkTaskAppendResponse as CreateBenchmarkTaskAppendResponse,
-)
 from trajectory.types.create_benchmark_upload_response import (
   CreateBenchmarkUploadResponse as CreateBenchmarkUploadResponse,
 )
@@ -142,9 +134,6 @@ from trajectory.types.datasets.dataset_metadata import DatasetMetadata as Datase
 from trajectory.types.delete_agent_response import DeleteAgentResponse as DeleteAgentResponse
 from trajectory.types.delete_benchmark_response import (
   DeleteBenchmarkResponse as DeleteBenchmarkResponse,
-)
-from trajectory.types.delete_benchmark_task_response import (
-  DeleteBenchmarkTaskResponse as DeleteBenchmarkTaskResponse,
 )
 from trajectory.types.delete_eval_run_response import DeleteEvalRunResponse as DeleteEvalRunResponse
 from trajectory.types.delete_training_run_response import (
@@ -206,6 +195,9 @@ from trajectory.types.inference.operations.inference_operation_response import (
 )
 from trajectory.types.inference.operations.inference_operation_response import (
   InferenceOperationState as InferenceOperationState,
+)
+from trajectory.types.ingest_benchmark_response import (
+  BenchmarkTaskWriteFailure as BenchmarkTaskWriteFailure,
 )
 from trajectory.types.ingest_benchmark_response import (
   IngestBenchmarkResponse as IngestBenchmarkResponse,
@@ -321,10 +313,6 @@ from trajectory.types.telemetry_events_ingest_response import (
 )
 from trajectory.types.tool_call import ToolCall as ToolCall
 from trajectory.types.tool_definition import ToolDefinition as ToolDefinition
-from trajectory.types.trainer_rewards_by_step_page import TrainerReward as TrainerReward
-from trajectory.types.trainer_rewards_by_step_page import (
-  TrainerRewardsByStepPage as TrainerRewardsByStepPage,
-)
 from trajectory.types.training.checkpoints.training_checkpoint_response import (
   TrainingCheckpointResponse as TrainingCheckpointResponse,
 )
@@ -375,6 +363,7 @@ __all__ = [
   "AgentListItem",
   "AgentListResponse",
   "AgentResponse",
+  "ApertureRewardPoint",
   "Artifact",
   "ArtifactDownload",
   "ArtifactUpload",
@@ -405,7 +394,6 @@ __all__ = [
   "BenchmarkSpec",
   "BenchmarkSpecTask",
   "BenchmarkSpecTool",
-  "BenchmarkTaskAppendResult",
   "BenchmarkTaskCategory",
   "BenchmarkTaskCountResponse",
   "BenchmarkTaskDiffResponse",
@@ -433,7 +421,6 @@ __all__ = [
   "CheckpointExportState",
   "CompleteTrajectoryResponse",
   "CompletionTokensDetails",
-  "CreateBenchmarkTaskAppendResponse",
   "CreateBenchmarkUploadResponse",
   "CreateResponseResult",
   "CreateSecretResponse",
@@ -442,7 +429,6 @@ __all__ = [
   "DatasetMetadata",
   "DeleteAgentResponse",
   "DeleteBenchmarkResponse",
-  "DeleteBenchmarkTaskResponse",
   "DeleteEvalRunResponse",
   "DeleteTrainingRunResponse",
   "Deployment",
@@ -538,8 +524,6 @@ __all__ = [
   "ToolResponse",
   "ToolResponseMetadata",
   "TracebackDiagnostic",
-  "TrainerReward",
-  "TrainerRewardsByStepPage",
   "TrainingAlgorithm",
   "TrainingCheckpointResponse",
   "TrainingOptionKey",

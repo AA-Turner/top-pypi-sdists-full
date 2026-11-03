@@ -116,6 +116,7 @@ def action_text(
 
 def action_rephrase(
     deepl_client: deepl.DeepLClient,
+    show_detected_source: bool = False,
     **kwargs,
 ):
     """Action function for the rephrase command."""
@@ -124,6 +125,10 @@ def action_rephrase(
         improvement if isinstance(improvement, List) else [improvement]
     )
     for output in output_list:
+        if show_detected_source:
+            print(
+                f"Detected source language: {output.detected_source_language}"
+            )
         print(output.text)
 
 
@@ -462,9 +467,9 @@ def get_parser(prog_name):
             "--from",
             "--source-lang",
             dest="source_lang",
-            help="language of the text to be translated; unless using a "
-            "glossary, this argument is optional and if it is omitted DeepL "
-            "will auto-detect the source language.",
+            help="language of the text to be translated; this argument is "
+            "optional and if it is omitted DeepL will auto-detect the source "
+            "language. Document translation with a glossary requires it.",
         )
         subparser.add_argument(
             "--formality",
@@ -486,8 +491,8 @@ def get_parser(prog_name):
             type=str,
             metavar="id",
             help="ID of a glossary to use for translation; may be repeated to "
-            "use up to 5 glossaries, applied in order. Requires --from and "
-            "cannot be combined with --glossary-id",
+            "use up to 5 glossaries, applied in order. Cannot be combined "
+            "with --glossary-id; document translation also requires --from",
         )
         subparser.add_argument(
             "--extra-body-parameters",
@@ -517,7 +522,7 @@ def get_parser(prog_name):
         "--split-sentences",
         type=str,
         choices=[enum.value for enum in deepl.SplitSentences],
-        default=deepl.SplitSentences.DEFAULT.value,
+        default=deepl.SplitSentences.ALL.value,
         help="control sentence splitting before translation, see API for "
         "information",
     )
@@ -550,6 +555,12 @@ def get_parser(prog_name):
         dest="style_rule",
         type=str,
         help="ID of style rule to use for translation",
+    )
+    parser_text.add_argument(
+        "--style-profile-id",
+        dest="style_profile",
+        type=str,
+        help="ID of style profile to use for translation",
     )
     parser_text.add_argument(
         "--translation-memory-id",
@@ -674,6 +685,12 @@ def get_parser(prog_name):
         dest="style_rule",
         type=str,
         help="ID of style rule to use for translation",
+    )
+    parser_document.add_argument(
+        "--style-profile-id",
+        dest="style_profile",
+        type=str,
+        help="ID of style profile to use for translation",
     )
     parser_document.add_argument(
         "--translation-memory-id",
@@ -1028,13 +1045,10 @@ def main(args=None, prog_name=None):
                 f"{keyring_key_name} in {keyring_key_folder} in keyring"
             )
 
-        # Note: the get_languages() call to verify language codes is skipped
-        #       because the CLI makes one API call per execution.
         deepl_client = deepl.DeepLClient(
             auth_key=auth_key,
             server_url=server_url,
             proxy=proxy_url,
-            skip_language_check=True,
             send_platform_info=not args.noplatforminfo,
         )
 
@@ -1054,6 +1068,8 @@ def main(args=None, prog_name=None):
         # Call action function corresponding to command with remaining args
         # ("translation-memory" maps to action_translation_memory).
         command = args.pop("command").replace("-", "_")
+        if command == "translate":
+            command = "text"
         globals()[f"action_{command}"](deepl_client, **args)
 
     except Exception as exception:

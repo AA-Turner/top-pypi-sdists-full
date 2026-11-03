@@ -10,6 +10,7 @@ from inngest._internal import (
     client_lib,
     middleware_lib,
     server_lib,
+    sessions,
     transforms,
     types,
 )
@@ -19,6 +20,9 @@ class MemoizedError(types.BaseModel):
     message: str
     name: str
     stack: str | None = None
+
+    # SDK-defined data sent with the error by StepFailureError.
+    data: object = None
 
     @classmethod
     def from_error(cls, err: Exception) -> MemoizedError:
@@ -157,6 +161,15 @@ class StepIDCounter:
             self._counts[hashed_id] += 1
             return self._counts[hashed_id]
 
+    def peek(self, step_id: str) -> str:
+        """
+        The deduplicated ID that the next use of step_id will get.
+        """
+
+        with self._mutex:
+            count = self._counts.get(step_id, 0)
+        return step_id if count == 0 else f"{step_id}:{count}"
+
 
 class ResponseInterrupt(BaseException):
     """
@@ -202,6 +215,16 @@ class InvokeOpts(types.BaseModel):
 class InvokeOptsPayload(types.BaseModel):
     data: object
     v: str | None
+    meta: sessions.EventMeta | None = None
+
+    @pydantic.model_serializer(mode="wrap")
+    def _serialize(
+        self, handler: pydantic.SerializerFunctionWrapHandler
+    ) -> dict[str, object]:
+        data: dict[str, object] = handler(self)
+        if self.meta is None:
+            data.pop("meta", None)
+        return data
 
 
 class WaitForEventOpts(types.BaseModel):
@@ -228,6 +251,16 @@ class StepInfo(types.BaseModel):
     op: server_lib.Opcode
     opts: dict[str, object] | None = None
     userland: StepUserlandInfo | None = None
+    metadata: list[dict[str, object]] = pydantic.Field(default_factory=list)
+
+    @pydantic.model_serializer(mode="wrap")
+    def _serialize(
+        self, handler: pydantic.SerializerFunctionWrapHandler
+    ) -> dict[str, object]:
+        data: dict[str, object] = handler(self)
+        if not self.metadata:
+            data.pop("metadata", None)
+        return data
 
     def set_parallel_mode(self, parallel_mode: server_lib.ParallelMode) -> None:
         if parallel_mode != server_lib.ParallelMode.RACE:

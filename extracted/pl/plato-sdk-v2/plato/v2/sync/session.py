@@ -43,7 +43,6 @@ from plato._generated.api.v2.sessions import snapshot as sessions_snapshot
 from plato._generated.api.v2.sessions import snapshot_store as sessions_snapshot_store
 from plato._generated.api.v2.sessions import state as sessions_state
 from plato._generated.api.v2.sessions import wait_for_ready as sessions_wait_for_ready
-from plato._generated.errors import NotFoundError
 from plato._generated.models import (
     AddJobRequest,
     AppApiV2SchemasSessionCreateSnapshotRequest,
@@ -57,6 +56,7 @@ from plato._generated.models import (
     CreateDiskSnapshotResponse,
     CreateSessionFromEnvs,
     CreateSessionFromTestCase,
+    EnvironmentContext,
     Envs,
     ExecuteCommandRequest,
     ExecuteCommandResponse,
@@ -73,14 +73,11 @@ from plato._generated.models import (
     SetDateResponse,
     WaitForReadyResponse,
 )
-from plato.v2._network import is_production_base_url
 from plato.v2._wait_for_ready import (
     JobTerminalStatusError,
     is_terminal_status,
     poll_until_ready_sync,
 )
-from plato.v2.env_utils import is_proctor_env
-from plato.v2.models import EnvironmentContextWithMesh, context_with_mesh_ips, env_context_mesh_ip
 from plato.v2.sync.environment import Environment
 from plato.v2.sync.flow_executor import FlowExecutor
 from plato.v2.types import EnvFromArtifact, EnvFromResource, EnvFromSimulator
@@ -168,18 +165,11 @@ class Session:
         api_key: str,
         request_body,
         timeout: int,
-        *,
-        ready_timeout: int | None = None,
     ) -> Session:
         """Shared session creation: POST /make, check failures, wait for ready, start heartbeat.
 
         All creation paths (from_envs, from_testcase, from_artifacts) funnel through here.
-
-        Args:
-            timeout: VM lifetime in seconds, sent to the backend in the /make body.
-            ready_timeout: Client-side ``wait_for_ready`` polling budget; defaults to ``timeout``.
         """
-        ready_budget = timeout if ready_timeout is None else ready_timeout
         response = sessions_make.sync(
             client=http_client,
             body=request_body,
@@ -208,9 +198,9 @@ class Session:
                     timeout=per_call,
                     x_api_key=api_key,
                 ),
-                timeout=int(ready_budget),
+                timeout=int(timeout),
             )
-            context = cls._check_ready_response(ready_response, ready_budget)
+            context = cls._check_ready_response(ready_response, timeout)
         except (TimeoutError, RuntimeError):
             try:
                 sessions_close.sync(
@@ -261,7 +251,6 @@ class Session:
         envs: list[EnvFromSimulator | EnvFromArtifact | EnvFromResource],
         *,
         timeout: int = 1800,
-        ready_timeout: int | None = None,
     ) -> Session:
         """Create a new session from environment configurations.
 
@@ -273,10 +262,6 @@ class Session:
             api_key: API key for authentication.
             envs: List of environment configurations (from Env.simulator() or Env.artifact()).
             timeout: VM timeout in seconds (default: 1800).
-            ready_timeout: Maximum seconds the client polls ``wait_for_ready`` before raising
-                ``TimeoutError``. Defaults to ``timeout``. Independent of the VM lifetime, so
-                a boot that takes longer than the VM needs to live (e.g. a cold rootfs ingest)
-                can be waited for without asking the backend for a long-lived VM.
 
         Returns:
             A new Session instance with all environments ready.
@@ -306,7 +291,7 @@ class Session:
             timeout=timeout,
             source=RunSessionSource.SDK,
         )
-        return cls._make_session(http_client, api_key, request_body, timeout, ready_timeout=ready_timeout)
+        return cls._make_session(http_client, api_key, request_body, timeout)
 
     @classmethod
     def from_testcase(
@@ -316,7 +301,6 @@ class Session:
         testcase_id: str,
         *,
         timeout: int = 1800,
-        ready_timeout: int | None = None,
     ) -> Session:
         """Create a new session from a test case.
 
@@ -329,10 +313,6 @@ class Session:
             api_key: API key for authentication.
             testcase_id: Test case public ID.
             timeout: VM timeout in seconds (default: 1800).
-            ready_timeout: Maximum seconds the client polls ``wait_for_ready`` before raising
-                ``TimeoutError``. Defaults to ``timeout``. Independent of the VM lifetime, so
-                a boot that takes longer than the VM needs to live (e.g. a cold rootfs ingest)
-                can be waited for without asking the backend for a long-lived VM.
 
         Returns:
             A new Session with all environments ready and reset.
@@ -346,7 +326,7 @@ class Session:
             timeout=timeout,
             source=RunSessionSource.SDK,
         )
-        session = cls._make_session(http_client, api_key, request_body, timeout, ready_timeout=ready_timeout)
+        session = cls._make_session(http_client, api_key, request_body, timeout)
 
         sessions_reset.sync(
             client=http_client,
@@ -365,7 +345,6 @@ class Session:
         artifact_ids: list[str],
         *,
         timeout: int = 1800,
-        ready_timeout: int | None = None,
     ) -> Session:
         """Create a new session from artifact IDs.
 
@@ -378,10 +357,6 @@ class Session:
             api_key: API key for authentication.
             artifact_ids: List of simulator artifact public IDs.
             timeout: VM timeout in seconds (default: 1800).
-            ready_timeout: Maximum seconds the client polls ``wait_for_ready`` before raising
-                ``TimeoutError``. Defaults to ``timeout``. Independent of the VM lifetime, so
-                a boot that takes longer than the VM needs to live (e.g. a cold rootfs ingest)
-                can be waited for without asking the backend for a long-lived VM.
 
         Returns:
             A new Session with all environments ready (not reset).
@@ -391,7 +366,7 @@ class Session:
             TimeoutError: If environments don't become ready within timeout.
         """
         envs = [EnvFromArtifact(artifact_id=aid) for aid in artifact_ids]
-        return cls.from_envs(http_client, api_key, envs, timeout=timeout, ready_timeout=ready_timeout)
+        return cls.from_envs(http_client, api_key, envs, timeout=timeout)
 
     @staticmethod
     def _check_ready_response(response: WaitForReadyResponse, timeout: float) -> SessionContext:
@@ -435,7 +410,7 @@ class Session:
         if not response.context:
             raise RuntimeError("Backend did not return session context")
 
-        return context_with_mesh_ips(response.context, response.results)
+        return response.context
 
     def wait_until_ready(
         self,
@@ -480,7 +455,7 @@ class Session:
                         raise RuntimeError(f"Environment {job_id} failed: {result.error}")
 
             if response.ready and response.context:
-                self._context = context_with_mesh_ips(response.context, response.results)
+                self._context = response.context
                 self._envs = None  # Reset cached envs
                 logger.debug(f"All environments in session {self.session_id} are ready")
                 self._connect_network_if_requested()
@@ -510,7 +485,7 @@ class Session:
                     artifact_id=ctx.artifact_id,
                     simulator=ctx.simulator,
                     status="running",
-                    mesh_ip=env_context_mesh_ip(ctx),
+                    mesh_ip=ctx.mesh_ip,
                     is_desktop=bool(ctx.is_desktop),
                     provider=ctx.provider,
                 )
@@ -551,15 +526,6 @@ class Session:
             "subnet": None,
             "results": {},
             "deferred": True,
-        }
-
-    def _skipped_network_result(self) -> dict[str, object]:
-        return {
-            "success": True,
-            "session_id": self.session_id,
-            "subnet": None,
-            "results": {},
-            "skipped": True,
         }
 
     def _connect_network_if_requested(self) -> None:
@@ -689,14 +655,11 @@ class Session:
         pass the agent's output as ``value``.
 
         Args:
-            value: Optional agent output data. Used for both OUTPUT scoring and
-                   PEX output-dimension scoring. Not needed for mutation-only
-                   test cases.
+            value: Optional output data for OUTPUT scoring. Not needed for
+                   mutation-only test cases.
 
         Returns:
-            Evaluation results including score and per-SIM results. For PEX
-            (proctor) test cases, the proctor scoring package is surfaced on
-            ``pex_result``.
+            Evaluation results including score and per-SIM results.
         """
         self._check_closed()
 
@@ -865,13 +828,6 @@ class Session:
             RuntimeError: If session is closed or network connection fails.
         """
         self._check_closed()
-        if not is_production_base_url(str(self._http.base_url)):
-            logger.debug(
-                "Skipping network connection for non-production API base URL %s",
-                self._http.base_url,
-            )
-            return self._skipped_network_result()
-
         self._network_requested = True
         if self._network_connected:
             return self._network_result or self._deferred_network_result()
@@ -994,7 +950,7 @@ class Session:
             provider = provider or getattr(ready_response, "provider", None)
 
         # provider drives desktop/qemu detection (it gates the SDK client's
-        # _is_qemu, which picks the Windows PowerShell vs ubuntu bash chrome
+        # _is_qemu, which picks the Windows /browser/start vs ubuntu chrome
         # launch path). When the ready response didn't carry it, fall back to
         # the job-info round trip — but only for artifact-backed VMs
         # (resource/runtime envs have no provider).
@@ -1018,7 +974,7 @@ class Session:
                 )
 
         # Update internal context with the new environment
-        new_env_context = EnvironmentContextWithMesh(
+        new_env_context = EnvironmentContext(
             job_id=job_id,
             alias=env.alias,
             artifact_id=response.env.artifact_id,
@@ -1110,8 +1066,6 @@ class Session:
         dataset: str = "base",
         screenshots_dir: Path | None = None,
         port: int | None = None,
-        *,
-        fast_mode: bool = False,
     ) -> LoginResult:
         """Login to all environments and return browser context with pages.
 
@@ -1127,11 +1081,6 @@ class Session:
             dataset: Dataset name for login flow (default: "base" uses "login" flow).
             screenshots_dir: Optional directory to save screenshots during login.
             port: Optional port for public URL (default uses standard port).
-            fast_mode: Execute the login flow without its dead time — authored
-                ``wait`` sleeps and the trailing confirmation tail are skipped,
-                navigation stops at ``domcontentloaded``, and actions rely on
-                Playwright auto-wait. Returns as soon as the final action
-                lands; there is no post-login confirmation step.
 
         Returns:
             LoginResult containing the browser context and a dict mapping
@@ -1159,10 +1108,6 @@ class Session:
         pages: dict[str, Page] = {}
 
         for env in self.envs:
-            if is_proctor_env(env):
-                logger.info("Skipping login for %s (proctor service)", env.alias)
-                continue
-
             page = context.new_page()
             pages[env.alias] = page
 
@@ -1182,37 +1127,22 @@ class Session:
                 context.close()
                 raise RuntimeError(f"No public URL returned for {env.alias}")
 
-            if fast_mode:
-                page.goto(public_url_result.url, wait_until="domcontentloaded")
-            else:
-                page.goto(public_url_result.url)
+            page.goto(public_url_result.url)
 
-            # Get flows for this environment using v2 endpoint.
-            #
-            # A sim with NO flows at all is a legitimate configuration, not an
-            # error: pre-authenticated sims (the cloned-SaaS family — hubspot,
-            # salesforce, amazon, ...) ship baked-in auth cookies, have no
-            # login page to drive, and define no flows.yaml, so the server
-            # 404s this fetch. The page is already on the sim URL, which is
-            # all such a sim needs — skip login and keep the page open (the
-            # same end state as a successful login, so do NOT close the
-            # context). Genuine failures (network errors, 5xx) still raise.
+            # Get flows for this environment using v2 endpoint
             try:
                 flows_response = jobs_get_flows.sync(
                     client=self._http,
                     job_id=env.job_id,
                     x_api_key=self._api_key,
                 )
-            except NotFoundError:
-                logger.info("Skipping login for %s (artifact has no flows; pre-authenticated sim)", env.alias)
-                continue
             except Exception as e:
                 context.close()
                 raise RuntimeError(f"Failed to get flows for env {env.alias}: {e}") from e
 
             if not flows_response:
-                logger.info("Skipping login for %s (empty flows list)", env.alias)
-                continue
+                context.close()
+                raise RuntimeError(f"No flows found for env {env.alias}")
 
             flows_list = [Flow.model_validate(f) for f in flows_response]
 
@@ -1221,14 +1151,6 @@ class Session:
 
             login_flow = next((flow for flow in flows_list if flow.name == flow_name), None)
             if not login_flow:
-                if flow_name == "login":
-                    # Sims that define flows but no 'login' flow exist; the CDP
-                    # world path has always warned and continued for this case.
-                    logger.info("Skipping login for %s (no 'login' flow defined)", env.alias)
-                    continue
-                # A missing DATASET flow on a sim that does define flows is a
-                # config mismatch: skipping silently would run the episode
-                # against the wrong dataset state, so fail loudly.
                 error_msg = f"No flow named '{flow_name}' found for env {env.alias}"
                 context.close()
                 raise RuntimeError(error_msg)
@@ -1239,7 +1161,6 @@ class Session:
                 login_flow,
                 log=logger,
                 screenshots_dir=screenshots_dir,
-                fast_mode=fast_mode,
             )
             try:
                 flow_executor.execute()

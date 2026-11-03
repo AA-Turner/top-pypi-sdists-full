@@ -38,5 +38,5 @@ class StartBenchmarkDiagnosticsParams(TypedDict, total=False):
   options: RunOptionsParam | None
   """
   Evaluation settings, as for createEvalRun, such as reasoning_effort and
-  max_output_tokens_per_step; the diagnostic sets its own sample counts.
+  max_output_tokens_per_turn; the diagnostic sets its own sample counts.
   """

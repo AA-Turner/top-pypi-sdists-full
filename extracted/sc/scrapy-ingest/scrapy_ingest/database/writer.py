@@ -4,6 +4,7 @@ from ..exceptions import DatabaseError
 from ..utils.metrics import compute_errors_count, sql_standalone_log_errors_clause
 from ..utils.serialization import serialize_item_data
 from ..utils.time import get_current_datetime
+from .job_meta import collect_crawl_settings, collect_spider_args, spider_args_empty
 
 
 class DbWriter:
@@ -69,11 +70,11 @@ class DbWriter:
         if self._is_mysql():
             return f"""
             INSERT INTO {table}
-            (job_id, spider_name, status, started_at, items_count, requests_count,
+            (job_id, spider_id, status, started_at, items_count, requests_count,
              success_requests, failed_requests, errors_count, logs_count)
             VALUES (%s, %s, %s, %s, 0, 0, 0, 0, 0, 0)
             ON DUPLICATE KEY UPDATE
-                spider_name = VALUES(spider_name),
+                spider_id = VALUES(spider_id),
                 status = VALUES(status),
                 started_at = VALUES(started_at),
                 finished_at = NULL,
@@ -85,17 +86,16 @@ class DbWriter:
                 errors_count = 0,
                 logs_count = 0,
                 elapsed_seconds = 0,
-                items_per_min = 0,
-                stats = NULL
+                items_per_min = 0
             """
         ref = "excluded" if self._is_sqlite() else "EXCLUDED"
         return f"""
         INSERT INTO {table}
-        (job_id, spider_name, status, started_at, items_count, requests_count,
+        (job_id, spider_id, status, started_at, items_count, requests_count,
          success_requests, failed_requests, errors_count, logs_count)
         VALUES (%s, %s, %s, %s, 0, 0, 0, 0, 0, 0)
         ON CONFLICT (job_id) DO UPDATE SET
-            spider_name = {ref}.spider_name,
+            spider_id = {ref}.spider_id,
             status = {ref}.status,
             started_at = {ref}.started_at,
             finished_at = NULL,
@@ -107,23 +107,91 @@ class DbWriter:
             errors_count = 0,
             logs_count = 0,
             elapsed_seconds = 0,
-            items_per_min = 0,
-            stats = NULL
+            items_per_min = 0
         RETURNING id
         """
 
     def start_job(self, job_key, spider):
-        """Insert or reset the jobs row. Returns the integer id."""
-        started_at = get_current_datetime(self.settings)
-        table = self.settings.db_jobs_table
-        params = (job_key, getattr(spider, "name", None), "running", started_at)
-        row = self.db.execute(self._upsert_job_sql(table), params)
+        """Insert or reset the jobs row. Returns the integer id (jobs.pk)."""
+        from .job_sequence import job_id_lock, resolve_job_key
+        from .spiders import ensure_spider
+
+        with job_id_lock(self.db, self.settings):
+            job_key = resolve_job_key(self.db, self.settings, spider, job_key)
+            spider_id = ensure_spider(self.db, self.settings, spider)
+            spider._ingest_spider_id = spider_id
+            started_at = get_current_datetime(self.settings)
+            table = self.settings.db_jobs_table
+            params = (job_key, spider_id, "running", started_at)
+            row = self.db.execute(self._upsert_job_sql(table), params)
+            if self._is_mysql():
+                row = self.db.execute(
+                    f"SELECT id FROM {table} WHERE job_id = %s", (job_key,)
+                )
+            job_pk = int(row[0]) if row else None
+            if job_pk is not None:
+                self._save_job_meta_start(job_pk, spider)
+            self.db.commit()
+        return job_pk
+
+    def _save_job_meta_start(self, job_pk, spider):
+        table = self.settings.db_job_meta_table
+        now = get_current_datetime(self.settings)
+        args = serialize_item_data(collect_spider_args(spider))
+        crawl = collect_crawl_settings(spider)
+        crawl_json = serialize_item_data(crawl) if crawl else None
         if self._is_mysql():
-            row = self.db.execute(
-                f"SELECT id FROM {table} WHERE job_id = %s", (job_key,)
+            self.db.execute(
+                f"""
+                INSERT INTO {table} (job_id, spider_args, crawl_settings, stats, updated_at)
+                VALUES (%s, %s, %s, NULL, %s)
+                ON DUPLICATE KEY UPDATE
+                    spider_args = VALUES(spider_args),
+                    crawl_settings = VALUES(crawl_settings),
+                    stats = NULL,
+                    updated_at = VALUES(updated_at)
+                """,
+                (job_pk, args, crawl_json, now),
             )
-        self.db.commit()
-        return int(row[0]) if row else None
+            return
+        ref = "excluded" if self._is_sqlite() else "EXCLUDED"
+        self.db.execute(
+            f"""
+            INSERT INTO {table} (job_id, spider_args, crawl_settings, stats, updated_at)
+            VALUES (%s, %s, %s, NULL, %s)
+            ON CONFLICT (job_id) DO UPDATE SET
+                spider_args = {ref}.spider_args,
+                crawl_settings = {ref}.crawl_settings,
+                stats = NULL,
+                updated_at = {ref}.updated_at
+            """,
+            (job_pk, args, crawl_json, now),
+        )
+
+    def _maybe_backfill_spider_args(self, job_pk, url):
+        text = str(url or "").strip()
+        if not text.startswith(("http://", "https://")):
+            return
+        table = self.settings.db_job_meta_table
+        row = self.db.execute(
+            f"SELECT spider_args FROM {table} WHERE job_id = %s",
+            (job_pk,),
+        )
+        if not row or not spider_args_empty(row[0]):
+            return
+        self.db.execute(
+            f"UPDATE {table} SET spider_args = %s WHERE job_id = %s",
+            (serialize_item_data({"url": text}), job_pk),
+        )
+
+    def _save_job_meta_finish(self, job_pk, stats):
+        table = self.settings.db_job_meta_table
+        now = get_current_datetime(self.settings)
+        stats_json = serialize_item_data(stats) if stats else None
+        self.db.execute(
+            f"UPDATE {table} SET stats = %s, updated_at = %s WHERE job_id = %s",
+            (stats_json, now, job_pk),
+        )
 
     def _count(self, table, job_id, extra=""):
         sql = f"SELECT COUNT(*) FROM {table} WHERE job_id = %s {extra}"
@@ -232,15 +300,11 @@ class DbWriter:
             reason = stats.get("finish_reason")
         metrics = self._update_job_metrics(
             job_id,
-            extra_set="status = %s, finished_at = %s, finish_reason = %s, stats = %s,",
-            extra_params=(
-                "finished",
-                finished_at,
-                reason,
-                serialize_item_data(stats) if stats else None,
-            ),
+            extra_set="status = %s, finished_at = %s, finish_reason = %s,",
+            extra_params=("finished", finished_at, reason),
             end_time=finished_at,
         )
+        self._save_job_meta_finish(job_id, stats)
         self.db.commit()
         metrics["reason"] = reason
         return metrics
@@ -258,6 +322,9 @@ class DbWriter:
     def _write_requests(self, requests, job_id, created_at):
         if not requests:
             return
+        first_url = requests[0].get("url")
+        if first_url:
+            self._maybe_backfill_spider_args(job_id, first_url)
         sql = f"""
         INSERT INTO {self.settings.db_requests_table}
         (job_id, url, method, status_code, response_time_secs, response_size_bytes, fingerprint,

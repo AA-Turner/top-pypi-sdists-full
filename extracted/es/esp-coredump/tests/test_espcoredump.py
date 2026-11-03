@@ -4,6 +4,7 @@ import base64
 import contextlib
 import io
 import os
+import struct
 import subprocess
 import sys
 import time
@@ -13,12 +14,13 @@ import pytest
 try:
     from esp_coredump import CoreDump
     from esp_coredump.corefile import ESPCoreDumpLoaderError
-    from esp_coredump.corefile.elf import ESPCoreDumpElfFile
-    from esp_coredump.corefile.loader import ESPCoreDumpFileLoader, parse_parttool_offset_size
+    from esp_coredump.corefile.elf import ElfSegment, ESPCoreDumpElfFile
+    from esp_coredump.corefile.loader import ESPCoreDumpFileLoader, get_core_file_format, parse_parttool_offset_size
+    from esp_coredump.corefile.riscv import get_exc_frame_csrs
 except ImportError:
     raise ModuleNotFoundError('No module named "esp_coredump" please install esp_coredump by running "python -m pip install esp-coredump"')
 
-SUPPORTED_TARGET = ['esp32', 'esp32c3', 'esp32p4', 'esp32c6']
+SUPPORTED_TARGET = ['esp32', 'esp32s2', 'esp32s3', 'esp32c3', 'esp32p4', 'esp32c6', 'esp32s31']
 COREDUMP_FILE_NAME = 'coredump'
 COREDUMP_BIN_FILE_NAME = 'coredump_bin'
 
@@ -60,7 +62,7 @@ def get_coredump_kwargs(
 
 def get_expected_output(target: str, bin_fmt: bool = False):
     expected_output_file = os.path.join(TEST_DIR_ABS_PATH, target, 'expected_output' + ('_bin' if bin_fmt else ''))
-    with open(expected_output_file) as file:
+    with open(expected_output_file, encoding='utf-8') as file:
         output = file.read()
     return output
 
@@ -89,7 +91,7 @@ def get_output(
         coredump.info_corefile()
         output = buffer.getvalue()
 
-    with open(output_file, 'w') as f:
+    with open(output_file, 'w', encoding='utf-8') as f:
         f.write(output)
     return output
 
@@ -126,7 +128,42 @@ class TestESPCoreDumpDecode:
         out = proc.stdout.decode().split('\n', 1)[1]  # remove first line with version
         assert expected_output == out
 
-    @pytest.mark.parametrize('target', ['esp32', 'esp32c3', 'esp32s3'])
+    def test_coredump_print_vars(self, coverage_run):
+        """Same command as for expected_output_print_vars in README.md"""
+        target = 'esp32s31'
+        proc = subprocess.run(
+            coverage_run
+            + [
+                '-m',
+                'esp_coredump',
+                '--chip',
+                target,
+                'info_corefile',
+                '-c',
+                os.path.join(TEST_DIR_ABS_PATH, target, f'{COREDUMP_FILE_NAME}_print_vars.b64'),
+                '-t',
+                'b64',
+                '--print-all-vars',
+                '--print-var',
+                '/x $pc',
+                '--print-var',
+                "'tasks.c'::xTickCount",
+                '--print-var',
+                'no_such_symbol',
+                '--print-var',
+                'esp_isr_names[2]',
+                '--print-var',
+                'g_batt.mv',
+                os.path.join(ESP_PROG_DIR, f'{target}_print_vars.elf'),
+            ],
+            capture_output=True,
+        )
+        out = proc.stdout.decode().split('\n', 1)[1]  # remove first line with version
+        with open(os.path.join(TEST_DIR_ABS_PATH, target, 'expected_output_print_vars'), encoding='utf-8') as f:
+            assert f.read() == out
+        assert 'Some values are not in the core dump' in proc.stderr.decode()
+
+    @pytest.mark.parametrize('target', ['esp32', 'esp32c3'])
     def test_bin_coredump_decode(self, target):
         """Built with CONFIG_ESP_COREDUMP_DATA_FORMAT_BIN=y (instead of default ELF)"""
         output = get_output(core_ext='b64', target=target, bin_fmt=True)
@@ -195,6 +232,26 @@ class TestParseParttoolOffsetSize:
         assert size == 0x10000
 
 
+class TestGetCoreFileFormat:
+    @pytest.mark.parametrize('target', SUPPORTED_TARGET)
+    def test_b64_file(self, target):
+        core_file = os.path.join(TEST_DIR_ABS_PATH, target, f'{COREDUMP_FILE_NAME}.b64')
+        assert get_core_file_format(core_file) == 'b64'
+
+    def test_b64_padding_on_each_line(self, tmp_path):
+        # Every line is encoded separately, so padding is not only at the end of the file
+        core_file = tmp_path / 'coredump.b64'
+        core_file.write_bytes(b'QUI=\r\n\r\nQ0Q=\r\n')
+        assert get_core_file_format(str(core_file)) == 'b64'
+
+    def test_unknown_binary(self, tmp_path):
+        core_file = tmp_path / 'coredump.bin'
+        core_file.write_bytes(b'\xde\xad\xbe\xef' * 4 + b'not base64')
+        with pytest.raises(SystemExit) as exc_info:
+            get_core_file_format(str(core_file))
+        assert exc_info.value.code == 1
+
+
 class TestESPCoreDumpElfFile:
     @pytest.mark.parametrize('target', SUPPORTED_TARGET)
     def test_read_elf(self, target):
@@ -220,6 +277,34 @@ class TestESPCoreDumpFileLoader:
         )
         loader.create_corefile()
         assert os.path.exists(loader.core_elf_file)
+
+
+class TestRiscvExcFrameCsrs:
+    REGS = [0x2F080040] + list(range(1, 32))
+    CSRS = [0x11881, 0x2F000003, 0x1, 0x2F080040, 0x0]
+    FRAME = struct.pack('<37I', *(REGS + CSRS))
+
+    def segment(self, addr, data):
+        return ElfSegment(addr, data, ElfSegment.PF_R | ElfSegment.PF_W)
+
+    def test_frame_at_segment_start(self):
+        csrs = get_exc_frame_csrs([self.segment(0x1000, self.FRAME + bytes(16))], self.REGS)
+        assert csrs == {'mstatus': 0x11881, 'mtvec': 0x2F000003, 'mcause': 0x1, 'mtval': 0x2F080040, 'mhartid': 0x0}
+
+    def test_frame_inside_dram_segment(self):
+        # With CONFIG_ESP_COREDUMP_CAPTURE_DRAM the task stack is not a segment of its own
+        csrs = get_exc_frame_csrs([self.segment(0x1000, bytes(0x100) + self.FRAME + bytes(0x100))], self.REGS)
+        assert csrs is not None and csrs['mcause'] == 0x1
+
+    def test_same_address_in_two_segments(self):
+        segs = [self.segment(0x1100, self.FRAME), self.segment(0x1000, bytes(0x100) + self.FRAME)]
+        assert get_exc_frame_csrs(segs, self.REGS) is not None
+
+    def test_frame_at_two_addresses(self):
+        assert get_exc_frame_csrs([self.segment(0x1000, self.FRAME + self.FRAME)], self.REGS) is None
+
+    def test_frame_without_csrs(self):
+        assert get_exc_frame_csrs([self.segment(0x1000, self.FRAME[:-4])], self.REGS) is None
 
 
 class TestDebugCoredump:

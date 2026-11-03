@@ -13,14 +13,18 @@ from cc_transcript.literals import LITERALS
 from captain_hook.bindings import (
     Known,
     Literal,
+    Ref,
     Resolved,
     Scope,
     Unknown,
     Unresolved,
     dequote,
+    droppable,
+    filled,
     segments,
     skip_group,
     skip_quoted,
+    tokens,
 )
 from captain_hook.util.globbing import GLOB_LIMIT, glob_matches
 from captain_hook.util.paths import resolve_target
@@ -40,6 +44,29 @@ if TYPE_CHECKING:
 WRAPPER_COMMANDS: frozenset[str] = frozenset(LITERALS["command.WRAPPER_COMMANDS"])
 COMMAND_VALUE_FLAGS: dict[str, tuple[str, ...]] = {
     "git": ("-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env"),
+    "yarn": ("--cwd", "--mode"),
+    "npm": ("-C", "--prefix", "-w", "--workspace", "--registry", "--userconfig", "--cache", "--loglevel"),
+    "pnpm": ("-C", "--dir", "-F", "--filter", "--registry", "--loglevel"),
+    "bun": ("--cwd", "--filter"),
+    "aws": (
+        "--profile",
+        "--region",
+        "--output",
+        "--endpoint-url",
+        "--query",
+        "--color",
+        "--ca-bundle",
+        "--cli-read-timeout",
+        "--cli-connect-timeout",
+        "--cli-binary-format",
+    ),
+    "op": ("--account", "--config", "--encoding", "--format", "--session"),
+}
+PACKAGE_DIRECTORY_FLAGS: dict[str, frozenset[str]] = {
+    "yarn": frozenset({"--cwd"}),
+    "npm": frozenset({"-C", "--prefix"}),
+    "pnpm": frozenset({"-C", "--dir"}),
+    "bun": frozenset({"--cwd"}),
 }
 INFO_OPTIONS = frozenset({"-h", "--help", "--version"})
 
@@ -343,6 +370,41 @@ class Call:
         scope, offset = self.cmd.scope_for(self, word)
         return Unresolved(None) if offset is None else scope.resolve(word.raw, offset)
 
+    def vanishes(self, word: Word) -> bool:
+        """Whether the shell can drop ``word`` as empty, leaving the program to run on its default operand.
+
+        The word must be :func:`~captain_hook.bindings.droppable`. A word with a ``for`` variable
+        or a parameter every assignment set non-blank never vanishes, and a word the call can
+        :meth:`resolve` vanishes only when a candidate is blank.
+        """
+        if word.value is not None or not droppable(word.raw):
+            return False
+        scope, offset = self.cmd.scope_for(self, word)
+        if offset is not None and any(
+            isinstance(part, Ref) and (scope.looped(part.name, offset) or filled(scope.lookup(part.name, offset)))
+            for part in segments(word.raw) or ()
+        ):
+            return False
+        match self.resolve(word):
+            case Resolved(candidates, _):
+                return any(not candidate.split() for candidate in candidates)
+            case _:
+                return True
+
+    def lifted_after(self, word: Word) -> bool:
+        """Whether a bare command substitution the parser lifted out of this call's words is written after ``word``."""
+        if not self.substituted or self.nested or self.source.span is None or word.span is None:
+            return False
+        start, end = (self.cmd.char_offset(offset) for offset in self.source.span)
+        after = self.cmd.char_offset(word.span[1])
+        return any(
+            not token.operator
+            and token.raw.startswith(("$(", "`"))
+            and droppable(token.raw)
+            and start + token.start >= after
+            for token in tokens(self.cmd.raw[start:end])
+        )
+
     def resolved_targets(self, words: tuple[Word, ...]) -> Targets:
         """``words`` as targets, each same-line expansion the call can :meth:`resolve` expanded to its candidates."""
         return Targets(
@@ -455,6 +517,28 @@ def git_location(call: Call, session_cwd: Path | None) -> tuple[Path | None, Pat
         return cwd, None
     path = Path(os.path.expanduser(git_dir))
     return cwd, path if path.is_absolute() else (cwd / path if cwd else None)
+
+
+def package_directory(call: Call) -> tuple[Target, ...]:
+    flags = PACKAGE_DIRECTORY_FLAGS.get(call.name, frozenset())
+    options, _ = call.command.split_options(COMMAND_VALUE_FLAGS.get(call.name, ()))
+    directory = (Target(None, "", None) if call.cwd is None else Target(str(call.cwd), str(call.cwd), None),)
+    for flag, value in zip(options, (*options[1:], None), strict=False):
+        name, attached, _ = (flag.raw if flag.value is None else flag.value).partition("=")
+        if name not in flags:
+            continue
+        if attached:
+            directory = tuple(
+                Target(
+                    None if target.value is None else target.value.partition("=")[2],
+                    target.raw.partition("=")[2],
+                    call.cwd,
+                )
+                for target in call.word_targets(flag)
+            )
+        elif value is not None:
+            directory = call.word_targets(value)
+    return directory
 
 
 def cd_operand(call: Call) -> tuple[str, ...]:

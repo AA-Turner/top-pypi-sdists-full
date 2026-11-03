@@ -166,6 +166,23 @@ def files(tmp_path_factory):
     )
     paths["hexes"] = str(d / "hexes.vtu")
     mio.write(paths["hexes"], mio.Mesh(hpts, [("hexahedron", hexes)]))
+    # the two tetrahedra of `parts` stored as polyhedra, for poly-to-tet
+    paths["polys"] = str(d / "polys.vtu")
+    mio.write(
+        paths["polys"],
+        mio.Mesh(
+            parts.points,
+            [
+                (
+                    "polyhedron4",
+                    [
+                        [[0, 2, 1], [0, 1, 3], [1, 2, 3], [0, 3, 2]],
+                        [[0, 1, 2], [0, 4, 1], [1, 4, 2], [0, 2, 4]],
+                    ],
+                )
+            ],
+        ),
+    )
     # a two-step sequence (times 0 and 1 by index), for resample
     for k in range(2):
         mio.write(
@@ -188,6 +205,11 @@ def files(tmp_path_factory):
     meshes = os.path.join(ROOT, "tests", "python", "meshes")
     paths["nurbs"] = os.path.join(meshes, "mfem", "nurbs", "pipe-nurbs.mesh")
     paths["plate"] = os.path.join(meshes, "cad_json", "plate_with_hole.cad.json")
+    # two overlapping spheres, for find-intersections and thickness
+    paths["sphere_a"] = str(d / "sphere_a.vtu")
+    paths["sphere_b"] = str(d / "sphere_b.vtu")
+    mio.write(paths["sphere_a"], mio.icosa_sphere(1.0, 2))
+    mio.write(paths["sphere_b"], mio.icosa_sphere(1.0, 2, center=(1.0, 0.0, 0.0)))
     paths["dir"] = str(d)
     return paths
 
@@ -205,6 +227,7 @@ CASES = [
         "check_fail",
         lambda f: ["check", f["grid"], "-r", "aspect_ratio <= 0.5 @ 10%", "--json"],
     ),
+    ("check_conformity", lambda f: ["check-conformity", f["hexes"], "--json"]),
     ("stats", lambda f: ["stats", f["grid"], "--json"]),
     (
         "iga_evaluate_nurbs",
@@ -243,6 +266,37 @@ CASES = [
         lambda f: ["hausdorff", f["grid"], f["moved"], "--max", "0.1", "--json"],
     ),
     (
+        "find_intersections_clean",
+        lambda f: ["find-intersections", f["sphere_a"], "--json"],
+    ),
+    (
+        "find_intersections_two",
+        lambda f: [
+            "find-intersections",
+            f["sphere_a"],
+            "--other",
+            f["sphere_b"],
+            "--max-pairs",
+            "5",
+            "--json",
+        ],
+    ),
+    ("thickness", lambda f: ["thickness", f["sphere_a"], "--json"]),
+    (
+        "thickness_clearance",
+        lambda f: [
+            "thickness",
+            f["sphere_a"],
+            "--other",
+            f["sphere_b"],
+            "--direction",
+            "inward",
+            "--min",
+            "0.5",
+            "--json",
+        ],
+    ),
+    (
         "periodic",
         lambda f: [
             "periodic",
@@ -275,6 +329,44 @@ CASES = [
 
 # Verbs that write a file: each CLI gets its own output path.
 WRITING = [
+    (
+        "extrude",
+        lambda f, out: [
+            "extrude",
+            f["grid"],
+            out + ".vtu",
+            "--direction=0,0,-2",
+            "--num-layers",
+            "3",
+            "--ratio",
+            "1.5",
+            "--json",
+        ],
+    ),
+    (
+        "revolve",
+        lambda f, out: [
+            "revolve",
+            f["grid"],
+            out + ".vtu",
+            "--angle",
+            "90",
+            "--num-layers",
+            "4",
+            "--json",
+        ],
+    ),
+    (
+        "mirror",
+        lambda f, out: [
+            "mirror",
+            f["hexes"],
+            out + ".vtu",
+            "--normal=1,0,0",
+            "--keep-original",
+            "--json",
+        ],
+    ),
     (
         "feature_edges",
         lambda f, out: ["feature-edges", f["grid"], out + ".vtu", "--json"],
@@ -351,6 +443,49 @@ WRITING = [
         ],
     ),
     (
+        "mesh_cad_surface_face",
+        lambda f, out: [
+            "mesh-cad-surface",
+            f["plate"],
+            out + ".vtu",
+            "--size",
+            "0.5",
+            "--deflection",
+            "0.01",
+            "--json",
+        ],
+    ),
+    (
+        "mesh_cad_surface_refined",
+        lambda f, out: [
+            "mesh-cad-surface",
+            f["plate"],
+            out + ".vtu",
+            "--size",
+            "0.5",
+            "--min-angle",
+            "25",
+            "--smooth",
+            "1",
+            "--smooth-method",
+            "odt",
+            "--json",
+        ],
+    ),
+    (
+        "mesh_cad_surface_curved",
+        lambda f, out: [
+            "mesh-cad-surface",
+            f["plate"],
+            out + ".msh",
+            "--size",
+            "0.5",
+            "--order",
+            "3",
+            "--json",
+        ],
+    ),
+    (
         "region_adjacency",
         lambda f, out: ["region-adjacency", f["tagged"], out + ".vtu", "--json"],
     ),
@@ -391,6 +526,20 @@ WRITING = [
             "0.3",
             "--json",
         ],
+    ),
+    (
+        "tet_to_poly",
+        lambda f, out: [
+            "tet-to-poly",
+            f["parts"],
+            out + ".vtu",
+            "--record-vertex-ids",
+            "--json",
+        ],
+    ),
+    (
+        "poly_to_tet",
+        lambda f, out: ["poly-to-tet", f["polys"], out + ".vtu", "--json"],
     ),
     (
         "resample",
@@ -441,6 +590,23 @@ WRITING = [
             out + ".inp",
             "--union",
             "ab=a,b",
+            "--json",
+        ],
+    ),
+    (
+        "octree_mesh_castellated",
+        lambda f, out: [
+            "octree-mesh",
+            f["hexes"],
+            out + ".vtu",
+            "--output",
+            "castellated",
+            "--max-size",
+            "1",
+            "--min-size",
+            "0.25",
+            "--fill",
+            "cover",
             "--json",
         ],
     ),
@@ -504,8 +670,47 @@ def test_check_exit_codes(files, tmp_path):
         assert _native(["check", files["grid"], "--gate", str(gate)])[0] == 0
 
 
+def test_check_conformity_exit_codes(files, tmp_path):
+    # A coarse quad beside two fine ones: one T-junction, exit 1.
+    pts = np.array(
+        [[0, 0], [1, 0], [1, 1], [0, 1], [2, 0], [2, 0.5], [2, 1], [1, 0.5]],
+        dtype=float,
+    )
+    quads = np.array([[0, 1, 2, 3], [1, 4, 5, 7], [7, 5, 6, 2]])
+    t = str(tmp_path / "t.vtu")
+    mio.write(t, mio.Mesh(pts, [("quad", quads)]))
+    assert _python(["check-conformity", files["hexes"]])[0] == 0
+    assert _python(["check-conformity", t])[0] == 1
+    flagged = str(tmp_path / "flags.vtu")
+    assert _python(["check-conformity", t, flagged])[0] == 1
+    assert list(np.nonzero(mio.read(flagged).point_data["conformity:hanging"])[0]) == [
+        7
+    ]
+    assert _python(["check-conformity", str(tmp_path / "missing.vtu")])[0] == 2
+    if NATIVE is not None:
+        assert _native(["check-conformity", files["hexes"]])[0] == 0
+        assert _native(["check-conformity", t])[0] == 1
+        assert _native(["check-conformity", str(tmp_path / "missing.vtu")])[0] == 2
+
+
 @pytest.mark.parametrize(
-    "flags", [[], ["--no-freeform-split", "--no-fillets", "--no-threads"]]
+    "flags",
+    [
+        [],
+        ["--no-freeform-split", "--no-fillets", "--no-threads"],
+        [
+            "--freeform-general",
+            "--max-freeform-poles",
+            "20",
+            "--sew-tolerance",
+            "0",
+            "--extend-surfaces",
+            "--snap-junctions",
+            "--face-deviation",
+            "--refine",
+        ],
+        ["--constrain-primitives"],
+    ],
 )
 def test_to_cad_json_agrees(tmp_path, flags):
     from meshioplusplus._fit_cad import has_occt
@@ -558,3 +763,24 @@ def test_to_cad_json_agrees(tmp_path, flags):
         pytest.skip("the native CLI was built without OpenCASCADE")
     assert r.returncode == code_py
     _same(doc_py, _strict(r.stdout))
+
+
+def test_find_intersections_and_thickness_exit_codes(files, tmp_path):
+    a, b = files["sphere_a"], files["sphere_b"]
+    assert _python(["find-intersections", a])[0] == 0
+    flags = str(tmp_path / "flags.vtu")
+    segs = str(tmp_path / "segs.vtu")
+    assert (
+        _python(["find-intersections", a, flags, "--other", b, "--segments", segs])[0]
+        == 1
+    )
+    assert np.concatenate(mio.read(flags).cell_data["intersections:count"]).sum() > 0
+    assert len(mio.read(segs).cells[0].data) > 0
+    assert _python(["find-intersections", str(tmp_path / "missing.vtu")])[0] == 2
+    assert _python(["thickness", a, "--min", "1.0"])[0] == 0
+    assert _python(["thickness", a, "--min", "3.0"])[0] == 1
+    if NATIVE is not None:
+        assert _native(["find-intersections", a])[0] == 0
+        assert _native(["find-intersections", a, "--other", b])[0] == 1
+        assert _native(["find-intersections", str(tmp_path / "missing.vtu")])[0] == 2
+        assert _native(["thickness", a, "--min", "3.0"])[0] == 1

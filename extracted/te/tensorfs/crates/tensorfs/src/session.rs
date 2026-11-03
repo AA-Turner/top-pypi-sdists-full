@@ -8,6 +8,7 @@ mod convert;
 mod endpoint;
 mod file;
 mod provider;
+#[cfg(feature = "quantize")]
 mod quantize;
 mod remote;
 mod selection;
@@ -16,6 +17,7 @@ mod writer;
 pub use crate::fetch::Landed as Fetched;
 pub use checkpoint::{Checkpoint, Component, Read, ReadInto};
 pub use convert::{ConversionControl, Convert, ConvertProgress};
+#[cfg(feature = "quantize")]
 pub use quantize::{FitDetails, Normalization, NormalizationResult, NormalizeBf16Tensor, Quantization, QuantizationResult, QuantizedTensor, QuantizeFit, QuantizeTensor, quantization_implementation};
 pub use endpoint::Endpoint;
 pub use file::CheckpointFile;
@@ -227,8 +229,7 @@ impl Client {
             let gpus = match &options.gpus {
                 Some(gpus) => gpus.clone(),
                 None => platform::gpu::probe(std::env::var("CUDA_VISIBLE_DEVICES").ok().as_deref())
-                    .map_err(|e| Failure { kind: Kind::Invalid, detail: format!("query GPUs: {e}") })?
-                    .into_iter().map(|g| g.capability).collect(),
+                    .0.into_iter().map(|g| g.capability).collect(),
             };
             let source = self.source(&reference, options.local_files_only)?;
             source.open(reference, &crate::fetch::Hardware { gpus, ..Default::default() }).await?

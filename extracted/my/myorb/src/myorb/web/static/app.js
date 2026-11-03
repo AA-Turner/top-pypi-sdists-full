@@ -27,6 +27,16 @@ document.addEventListener("htmx:beforeSwap", (event) => {
   note.classList.add("demo-flash");
 });
 
+// Taking the tour again starts it from its first step (tour.js).
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches?.("[data-tour-start]")) return;
+  try {
+    localStorage.removeItem("myorb-tour-step");
+  } catch {
+    // Nothing kept, nothing to clear.
+  }
+});
+
 document.addEventListener("htmx:beforeSwap", (event) => {
   if (!event.detail.boosted) return;
   // A page without #app (e.g. sign-in, after the session ended): opened as a whole.

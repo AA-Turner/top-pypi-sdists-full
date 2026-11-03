@@ -48,8 +48,7 @@ DllObj_init (DllObject *self, PyObject *args, PyObject *kwds)
   static char       *kwlist[]     = { "code", "sps",     "init_chip", "bn",
                                       "zeta", "spacing", "segments",  NULL };
   PyObject          *code_obj     = NULL;
-  PyObject          *sps_obj      = NULL;
-  unsigned long long sps_raw      = 2;
+  double             sps          = 2.0;
   double             init_chip    = 0.0;
   double             bn           = 0.01;
   double             zeta         = 0.707;
@@ -57,30 +56,10 @@ DllObj_init (DllObject *self, PyObject *args, PyObject *kwds)
   PyObject          *segments_obj = NULL;
   unsigned long long segments_raw = 1;
 
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|OddddO", kwlist, &code_obj,
-                                    &sps_obj, &init_chip, &bn, &zeta, &spacing,
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|dddddO", kwlist, &code_obj,
+                                    &sps, &init_chip, &bn, &zeta, &spacing,
                                     &segments_obj))
     return -1;
-  if (sps_obj != NULL)
-    {
-      PyObject *_ix = PyNumber_Index (sps_obj);
-      if (_ix == NULL)
-        {
-          return -1;
-        }
-      sps_raw = PyLong_AsUnsignedLongLong (_ix);
-      if ((sps_raw == (unsigned long long)-1 && PyErr_Occurred ())
-          || sps_raw > (unsigned long long)SIZE_MAX)
-        {
-          PyErr_Format (PyExc_OverflowError,
-                        "sps: %S is out of range for size_t [0, %llu]", _ix,
-                        (unsigned long long)SIZE_MAX);
-          Py_DECREF (_ix);
-          return -1;
-        }
-      Py_DECREF (_ix);
-    }
-  size_t sps = (size_t)sps_raw;
   if (segments_obj != NULL)
     {
       PyObject *_ix = PyNumber_Index (segments_obj);
@@ -115,10 +94,10 @@ DllObj_init (DllObject *self, PyObject *args, PyObject *kwds)
   if (!self->handle)
     {
       PyErr_SetString (PyExc_ValueError,
-                       "Dll: invalid parameter (need a non-empty code, "
-                       "segments >= 1, a finite init_chip, bn >= 0 and zeta "
-                       "> 0 both finite, whose loop gains come out finite, "
-                       "and 0 < spacing < len(code)/2)");
+                       "Dll: invalid parameter (need a non-empty code, a "
+                       "finite sps >= 1, segments >= 1, a finite init_chip, "
+                       "bn >= 0 and zeta > 0 both finite, whose loop gains "
+                       "come out finite, and 0 < spacing < len(code)/2)");
       return -1;
     }
   return 0;
@@ -755,6 +734,11 @@ Dll_setprop_bn (DllObject *self, PyObject *value, void *Py_UNUSED (closure))
   double v = 0.0;
   if (!PyArg_Parse (value, "d", &v))
     return -1;
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return -1;
+    }
   int _rc = dp_dll_set_bn (self->handle, v);
   if (_rc != 0)
     {
@@ -1667,8 +1651,12 @@ static PyTypeObject DllObjType = {
     "----------\n"
     "code : NDArray[np.uint8]\n"
     "    Spreading code (0/1 chips), one period; copied internally.\n"
-    "sps : int, default 2\n"
-    "    Samples per chip (default 2).\n"
+    "sps : float, default 2.0\n"
+    "    Samples per chip (default 2), finite and >= 1: the partials close "
+    "on\n"
+    "    the code NCO's phase, so a code period need not be a whole number "
+    "of\n"
+    "    samples (11 MSa/s over 5 Mcps is 2.2).\n"
     "init_chip : float, default 0.0\n"
     "    Seed code phase, chips (default 0.0).\n"
     "bn : float, default 0.01\n"
@@ -1695,11 +1683,11 @@ static PyTypeObject DllObjType = {
     "------\n"
     "ValueError\n"
     "    If construction fails. The exception message is ``Dll: invalid\n"
-    "    parameter (need a non-empty code, segments >= 1, a finite init_chip, "
-    "bn\n"
-    "    >= 0 and zeta > 0 both finite, whose loop gains come out finite, and "
-    "0\n"
-    "    < spacing < len(code)/2)``.\n"
+    "    parameter (need a non-empty code, a finite sps >= 1, segments >= 1, "
+    "a\n"
+    "    finite init_chip, bn >= 0 and zeta > 0 both finite, whose loop "
+    "gains\n"
+    "    come out finite, and 0 < spacing < len(code)/2)``.\n"
     "\n"
     "Examples\n"
     "--------\n"
